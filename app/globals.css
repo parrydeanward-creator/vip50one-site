@@ -1,0 +1,340 @@
+/* The agency look (research/DESIGN-BRIEF.md §2), calmer for the dashboard:
+   black and charcoal, gold for status and actions, red only for alerts. */
+
+:root {
+  --bg: #050505;
+  --bg-2: #0f0f0f;
+  --card: #141414;
+  --card-2: #1c1c1c;
+  --line: #262626;
+  --text: #ffffff;
+  --text-2: #b0b0b0;
+  --text-3: #7d8a90;
+  --gold: #d4af37;
+  --gold-2: #d4b958;
+  --gold-3: #c8a84b;
+  --red: #c90d10;
+  --radius: 14px;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body), "Inter", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+
+.muted { color: var(--text-3); }
+
+/* ---------- top bar ---------- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: rgba(5, 5, 5, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  font-family: var(--font-display), "Bebas Neue", sans-serif;
+  font-size: 28px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.brand-vip { color: var(--text); }
+.brand-one { color: var(--gold); margin-left: 6px; }
+
+.search { flex: 1; display: none; }
+.search input {
+  width: 100%;
+  max-width: 460px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 9px 16px;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+.search input:focus { outline: none; border-color: var(--gold-3); }
+
+.who { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+.pill {
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+/* ---------- layout ---------- */
+
+.main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 20px 16px 48px;
+  display: grid;
+  gap: 32px;
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+/* ---------- morning note ---------- */
+
+.today { display: grid; gap: 0; }
+
+.note { margin-bottom: 24px; }
+
+.note-open {
+  margin: 0 0 8px;
+  font-family: var(--font-display), "Bebas Neue", sans-serif;
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.note-body {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 17px;
+  color: var(--text-2);
+}
+
+.note-src {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ---------- today list ---------- */
+
+.items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 14px 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--gold);
+  border-radius: 10px;
+}
+.item.alert { border-left-color: var(--red); }
+
+.item-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+
+.item-product {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.item-title { font-weight: 600; }
+.item-detail { font-size: 14px; color: var(--text-2); }
+.item-flag {
+  justify-self: start;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-2);
+}
+
+/* ---------- buttons ---------- */
+
+.btn {
+  display: inline-block;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  background: linear-gradient(135deg, var(--gold-2), var(--gold) 55%, var(--gold-3));
+  color: #0b0b0b;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 11px 18px;
+  border-radius: 8px;
+}
+.btn:hover { filter: brightness(1.07); }
+.btn:focus-visible, .search input:focus-visible { outline: 2px solid var(--gold-2); outline-offset: 2px; }
+.btn-small { padding: 9px 12px; font-size: 12px; }
+.btn-ghost {
+  background: transparent;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+}
+
+/* ---------- scoreboard ---------- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tile {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px 16px;
+}
+.tile:first-child { grid-column: 1 / -1; }
+
+.tile-num {
+  font-family: var(--font-display), "Bebas Neue", sans-serif;
+  font-size: 44px;
+  line-height: 1;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+}
+.tile-goal { color: var(--text-3); font-size: 0.6em; }
+.tile-label { margin-top: 4px; font-size: 13px; color: var(--text-2); }
+
+.bar {
+  margin-top: 10px;
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.bar span { display: block; height: 100%; background: var(--gold); border-radius: 2px; }
+
+/* ---------- product cards ---------- */
+
+.cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+.card .btn, .card .card-phone { margin-top: auto; }
+
+.card-name {
+  margin: 0;
+  font-family: var(--font-display), "Bebas Neue", sans-serif;
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: 0.03em;
+}
+
+.stats { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stats dt { font-size: 12px; color: var(--text-3); }
+.stats dd { margin: 2px 0 0; font-size: 20px; font-weight: 700; }
+
+.card-status { margin: 0; color: var(--gold-2); font-size: 14px; }
+
+.card-phone {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--text-2);
+  font-size: 14px;
+  text-align: center;
+}
+
+.card.locked { background: var(--bg-2); }
+.card.locked .card-name { color: var(--text-2); }
+.card.locked .card-status { color: var(--text-3); }
+.lock {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 6px;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* ---------- coaching ---------- */
+
+.coach-day {
+  margin: 0;
+  font-family: var(--font-display), "Bebas Neue", sans-serif;
+  font-size: 36px;
+  line-height: 1;
+  color: var(--gold);
+}
+.sessions { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.sessions li { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+
+.foot { text-align: center; font-size: 12px; color: var(--text-3); }
+
+/* ---------- wider screens ---------- */
+
+@media (min-width: 720px) {
+  .search { display: block; }
+  .note-open { font-size: 52px; }
+  .tiles { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .tile:first-child { grid-column: auto; }
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1040px) {
+  .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.card.locked .btn-ghost { color: var(--text-2); border-color: var(--line); }
+.card.locked .btn-ghost:hover { color: var(--gold); border-color: var(--gold-3); }
