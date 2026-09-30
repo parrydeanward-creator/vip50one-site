@@ -21,6 +21,8 @@ export interface WatchStep {
   title: string;
   line: string;
   coming?: boolean;
+  clear?: boolean; // take away everything but ONE and the five products first
+  n?: [number, number]; // "2 of 6" in the caption
   ms: number;
 }
 
@@ -59,19 +61,19 @@ const P = ["go", "move", "marquee", "showly", "open"];
 
 export const WATCH_STEPS: WatchStep[] = [
   { id: "intro", show: ["one", ...P], focus: ["one", ...P], product: "one", kicker: "Watch ONE Work", title: "One relationship. Five products.", line: "Follow one person through your business.", ms: 3000 },
-  { id: "open", show: ["w-oh", "w-mark-open"], focus: ["open", "w-oh", "w-mark-open", "one"], flight: ["w-oh", "w-mark-open"], product: "open", kicker: "ONE Open", title: "Mark Davis signs in at your open house.", line: "1482 Maple Ridge Dr, Saturday. You mark him Hot.", ms: 3600 },
-  { id: "move", show: ["w-mark-move"], focus: ["w-mark-open", "one", "w-mark-move"], flight: ["w-mark-open", "w-mark-move"], product: "move", kicker: "ONE MOVE", title: "Mark lands in ONE MOVE, tagged open house.", line: "Not in your VIP-50. You decide who goes there.", coming: true, ms: 3600 },
-  { id: "go", show: ["w-mark-go"], focus: ["w-mark-move", "move", "go", "w-mark-go"], flight: ["w-mark-move", "w-mark-go"], product: "go", kicker: "ONE GO", title: "ONE suggests a follow-up call. You accept it.", line: "Nothing is created until you say yes.", coming: true, ms: 3600 },
-  { id: "showly", show: ["w-mark-showly"], focus: ["w-mark-move", "one", "w-mark-showly"], flight: ["w-mark-move", "w-mark-showly"], product: "showly", kicker: "Showly", title: "Mark tours homes with you and answers on each.", line: "Yes, Maybe or No on three homes from Tuesday's tour.", ms: 3400 },
-  { id: "willow", show: ["w-willow"], focus: ["w-mark-showly", "showly", "w-willow"], flight: ["w-mark-showly", "w-willow"], product: "showly", kicker: "Showly", title: "He says Yes to 742 Willow Lane.", line: "And leaves you a note: \"Can we see it again Saturday?\"", ms: 3200 },
-  { id: "one", show: [], focus: ["w-willow", "one", "w-mark-go"], flight: ["w-willow", "one"], product: "one", kicker: "ONE recommends", title: "Call Mark today about 742 Willow Lane.", line: "Why: he said Yes to it on Tuesday, you met him Saturday, and you have not called yet.", coming: true, ms: 4200 },
+  { id: "open", n: [1, 6], show: ["w-oh", "w-mark-open"], focus: ["open", "w-oh", "w-mark-open", "one"], flight: ["w-oh", "w-mark-open"], product: "open", kicker: "ONE Open", title: "Mark Davis signs in at your open house.", line: "1482 Maple Ridge Dr, Saturday. You mark him Hot.", ms: 3600 },
+  { id: "move", n: [2, 6], show: ["w-mark-move"], focus: ["w-mark-open", "one", "w-mark-move"], flight: ["w-mark-open", "w-mark-move"], product: "move", kicker: "ONE MOVE", title: "Mark lands in ONE MOVE, tagged open house.", line: "Not in your VIP-50. You decide who goes there.", coming: true, ms: 3600 },
+  { id: "go", n: [3, 6], show: ["w-mark-go"], focus: ["w-mark-move", "move", "go", "w-mark-go"], flight: ["w-mark-move", "w-mark-go"], product: "go", kicker: "ONE GO", title: "ONE suggests a follow-up call. You accept it.", line: "Nothing is created until you say yes.", coming: true, ms: 3600 },
+  { id: "showly", n: [4, 6], show: ["w-mark-showly"], focus: ["w-mark-move", "one", "w-mark-showly"], flight: ["w-mark-move", "w-mark-showly"], product: "showly", kicker: "Showly", title: "Mark tours homes with you and answers on each.", line: "Yes, Maybe or No on three homes from Tuesday's tour.", ms: 3400 },
+  { id: "willow", n: [5, 6], show: ["w-willow"], focus: ["w-mark-showly", "showly", "w-willow"], flight: ["w-mark-showly", "w-willow"], product: "showly", kicker: "Showly", title: "He says Yes to 742 Willow Lane.", line: "And leaves you a note: \"Can we see it again Saturday?\"", ms: 3200 },
+  { id: "one", n: [6, 6], show: [], focus: ["w-willow", "one", "w-mark-go"], flight: ["w-willow", "one"], product: "one", kicker: "ONE recommends", title: "Call Mark today about 742 Willow Lane.", line: "Why: he said Yes to it on Tuesday, you met him Saturday, and you have not called yet.", coming: true, ms: 4200 },
   { id: "outro", show: [], focus: ["one", ...P, "w-oh", "w-mark-move", "w-mark-go", "w-willow"], product: "one", kicker: "", title: "One relationship. Five products. One connected system.", line: "", ms: 3600 },
 ];
 
 // Hand-placed positions (world units, ONE at 0,0): the five products on a
 // ring as on the dashboard, each person or place just outside its product.
 const polar = (deg: number, d: number) => ({ x: Math.cos((deg * Math.PI) / 180) * d, y: Math.sin((deg * Math.PI) / 180) * d });
-const SPOTS: Record<string, [number, number]> = {
+export const SPOTS: Record<string, [number, number]> = {
   go: [-90, 290],
   move: [-18, 290],
   marquee: [54, 290],
@@ -85,7 +87,7 @@ const SPOTS: Record<string, [number, number]> = {
   "w-willow": [140, 520],
 };
 
-export function watchPlaced(ids: Iterable<string>, g: BusinessGraph = watchGraph()): Placed[] {
+export function watchPlaced(ids: Iterable<string>, g: BusinessGraph = watchGraph(), spots: Record<string, [number, number]> = SPOTS): Placed[] {
   const byId = new Map(g.nodes.map((n) => [n.id, n]));
   const out: Placed[] = [];
   for (const id of ids) {
@@ -95,17 +97,23 @@ export function watchPlaced(ids: Iterable<string>, g: BusinessGraph = watchGraph
       out.push({ id, role: "focus", x: 0, y: 0, r: radiusFor("core", "focus") });
       continue;
     }
-    const [deg, d] = SPOTS[id];
+    const [deg, d] = spots[id];
     out.push({ id, role: "child", ...polar(deg, d), r: radiusFor(n.type, "child") });
   }
   return out;
 }
 
-// Everything shown up to and including step i.
-export function shownAt(i: number): string[] {
-  const out: string[] = [];
-  for (const s of WATCH_STEPS.slice(0, i + 1)) for (const id of s.show) if (!out.includes(id)) out.push(id);
+// Everything on screen at step i: what earlier steps showed, since the last
+// step that cleared the stage (ONE and the products always stay once shown).
+export function shownAt(i: number, steps: WatchStep[] = WATCH_STEPS): string[] {
+  let out: string[] = [];
+  for (const s of steps.slice(0, i + 1)) {
+    if (s.clear) out = out.filter((id) => id === "one" || PRODUCT_IDS.includes(id));
+    for (const id of s.show) if (!out.includes(id)) out.push(id);
+  }
   return out;
 }
 
-export const WATCH_MS = WATCH_STEPS.reduce((t, s) => t + s.ms, 0);
+export const PRODUCT_IDS = ["go", "move", "marquee", "showly", "open"];
+export const totalMs = (steps: WatchStep[]) => steps.reduce((t, s) => t + s.ms, 0);
+export const WATCH_MS = totalMs(WATCH_STEPS);

@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { bounds } from "@/lib/brain/layout.ts";
 import { fit } from "@/lib/brain/camera.ts";
 import { PRODUCT_COLOR, hex } from "@/lib/brain/theme.ts";
-import { WATCH_STEPS, shownAt, watchGraph, watchPlaced } from "@/lib/watch.ts";
+import { SPOTS, WATCH_STEPS, shownAt, watchGraph, watchPlaced } from "@/lib/watch.ts";
+import { FILM_SPOTS, FILM_STEPS, filmGraph } from "@/lib/film.ts";
 import type { BrainScene, SceneEdge } from "./scene.ts";
 
 // Watch ONE Work: the scripted story, drawn by the same scene as the
@@ -13,10 +14,11 @@ import type { BrainScene, SceneEdge } from "./scene.ts";
 
 const PHONE_QUERY = "(max-width: 719px)";
 const NOTE = "Example agent; people and addresses are invented. Coming: being connected now.";
-const STORY = WATCH_STEPS.filter((s) => s.id !== "intro" && s.id !== "outro").length;
 
-export default function Watch({ record = false, slow = 1 }: { record?: boolean; slow?: number }) {
-  const graph = useMemo(() => watchGraph(), []);
+export default function Watch({ record = false, slow = 1, film = false }: { record?: boolean; slow?: number; film?: boolean }) {
+  const STEPS = film ? FILM_STEPS : WATCH_STEPS;
+  const spots = film ? FILM_SPOTS : SPOTS;
+  const graph = useMemo(() => (film ? filmGraph() : watchGraph()), [film]);
   const byId = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph]);
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<BrainScene | null>(null);
@@ -24,8 +26,8 @@ export default function Watch({ record = false, slow = 1 }: { record?: boolean; 
   const [phone, setPhone] = useState(false);
   const [i, setI] = useState(0);
   const [playing, setPlaying] = useState(true);
-  const step = WATCH_STEPS[i];
-  const last = i === WATCH_STEPS.length - 1;
+  const step = STEPS[i];
+  const last = i === STEPS.length - 1;
 
   useEffect(() => {
     const mq = window.matchMedia(PHONE_QUERY);
@@ -56,8 +58,8 @@ export default function Watch({ record = false, slow = 1 }: { record?: boolean; 
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
-    const shown = new Set(shownAt(i));
-    const placed = watchPlaced(shown, graph);
+    const shown = new Set(shownAt(i, STEPS));
+    const placed = watchPlaced(shown, graph, spots);
     const edges: SceneEdge[] = graph.edges
       .filter((e) => shown.has(e.source) && shown.has(e.target))
       .map((e) => ({ source: e.source, target: e.target, kind: e.relationshipType === "belongs_to" ? "tree" : "link" }));
@@ -76,7 +78,7 @@ export default function Watch({ record = false, slow = 1 }: { record?: boolean; 
       const t = setTimeout(() => scene.signal(from, to), 650 * slow);
       return () => clearTimeout(t);
     }
-  }, [ready, i, phone, graph, byId, step, last, slow]);
+  }, [ready, i, phone, graph, byId, step, last, slow, STEPS, spots]);
 
   // Advance.
   useEffect(() => {
@@ -89,7 +91,6 @@ export default function Watch({ record = false, slow = 1 }: { record?: boolean; 
     setI(0);
     setPlaying(true);
   };
-  const storyN = WATCH_STEPS.slice(0, i + 1).filter((s) => s.id !== "intro" && s.id !== "outro").length;
   const color = hex(PRODUCT_COLOR[step.product]);
 
   return (
@@ -114,7 +115,7 @@ export default function Watch({ record = false, slow = 1 }: { record?: boolean; 
             <div className="watch-card pop" key={step.id} style={slow > 1 ? { animationDuration: `${420 * slow}ms` } : undefined}>
               <p className="watch-kicker" style={{ color }}>
                 {step.kicker}
-                {step.id !== "intro" && <span className="watch-n"> · {storyN} of {STORY}</span>}
+                {step.n && <span className="watch-n"> · {step.n[0]} of {step.n[1]}</span>}
                 {step.coming && <span className="watch-coming">Coming</span>}
               </p>
               <p className="watch-title">{step.title}</p>
@@ -149,7 +150,7 @@ export default function Watch({ record = false, slow = 1 }: { record?: boolean; 
             <button onClick={replay} aria-label="Start again">
               ↺
             </button>
-            <button onClick={() => setI(WATCH_STEPS.length - 1)} aria-label="Skip to the end">
+            <button onClick={() => setI(STEPS.length - 1)} aria-label="Skip to the end">
               ⏭
             </button>
           </div>
