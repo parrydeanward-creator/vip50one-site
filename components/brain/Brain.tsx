@@ -11,6 +11,7 @@ import { UPGRADE_URL } from "@/lib/products.ts";
 import type { BrainScene } from "./scene.ts";
 import Icon from "./Icon.tsx";
 import { iconFor, iconForText } from "@/lib/brain/icons.ts";
+import { SUGGESTED, answerSet, type AskAnswer } from "@/lib/ask.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -55,11 +56,28 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
   stateRef.current = state.focusId;
   const drag = useRef({ down: false, moved: false, x: 0, y: 0, pointers: new Map<number, { x: number; y: number }>(), pinch: 0 });
 
+  // Ask ONE: while an answer is showing, the map is laid out around it.
+  const [ask, setAsk] = useState<AskAnswer | null>(null);
+  const [askText, setAskText] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [askErr, setAskErr] = useState<string | null>(null);
+  const [askOpen, setAskOpen] = useState(false);
+  const [askWhy, setAskWhy] = useState<string | null>(null);
+  const askInputRef = useRef<HTMLInputElement>(null);
+  const askIds = useMemo(() => ask?.results.map((r) => r.id) ?? [], [ask]);
+  const sceneFocus = ask ? graph.rootId : state.focusId;
+
   const focus = ix.byId.get(state.focusId)!;
-  const vs = useMemo(() => visibleSet(ix, state.focusId, phone ? PHONE_BUDGET : DESKTOP_BUDGET), [ix, state.focusId, phone]);
+  const vs = useMemo(
+    () => (ask ? answerSet(ix, askIds) : visibleSet(ix, state.focusId, phone ? PHONE_BUDGET : DESKTOP_BUDGET)),
+    [ix, state.focusId, phone, ask, askIds],
+  );
   const placed = useMemo(() => layout(vs), [vs]);
   // The rail: the focused node's children as floating buttons on the left.
-  const railNodes = useMemo(() => childrenOf(ix, state.focusId).slice(0, 9), [ix, state.focusId]);
+  const railNodes = useMemo(
+    () => (ask ? askIds.map((id) => ix.byId.get(id)!).filter(Boolean) : childrenOf(ix, state.focusId).slice(0, 9)),
+    [ix, state.focusId, ask, askIds],
+  );
   const railCount = railNodes.length;
   const railRefs = useRef(new Map<string, HTMLButtonElement>());
   const railLineRefs = useRef(new Map<string, SVGLineElement>());
@@ -99,6 +117,7 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
       if (!s) return;
       const b = bounds(placed, 20);
       b.maxY += phone ? 70 : 40; // keep clear of the controls
+      b.minY -= phone ? 84 : 70; // and of the Ask ONE bar across the top
       const vp = s.viewport;
       if (phone) return s.setCamera(fit(b, vp, 12), animate);
       // Desktop: the detail card floats on the right; fit the graph to the rest.
@@ -113,9 +132,9 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
   useEffect(() => {
     const s = sceneRef.current;
     if (!s) return;
-    s.setScene(placed, ix.byId, vs.edges, state.focusId);
+    s.setScene(placed, ix.byId, vs.edges, sceneFocus);
     fitNow(true);
-  }, [ready, placed, vs, ix, state.focusId, fitNow]);
+  }, [ready, placed, vs, ix, sceneFocus, fitNow]);
 
   useEffect(() => {
     drawerRef.current?.scrollTo({ top: 0 });
@@ -211,18 +230,55 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
   const goTo = useCallback((id: string) => {
     setHighlight(null);
     setOpenWhy(null);
+    setAsk(null);
     setState((s) => nav.go(s, id));
+  }, []);
+  const clearAsk = useCallback(() => {
+    setAsk(null);
+    setAskWhy(null);
+    setAskErr(null);
   }, []);
   const goBack = useCallback(() => {
     setHighlight(null);
     setOpenWhy(null);
+    if (ask) return clearAsk(); // back from an answer is the map you were on
     setState((s) => nav.back(s));
-  }, []);
+  }, [ask, clearAsk]);
   const goHome = useCallback(() => {
     setHighlight(null);
+    setAsk(null);
     setState((s) => (s.focusId === graph.rootId ? s : nav.reset(s, graph.rootId)));
     fitNow(true);
   }, [graph.rootId, fitNow]);
+
+  const askOne = useCallback(
+    async (q: string) => {
+      const question = q.trim();
+      if (!question || asking) return;
+      setAskText(question);
+      setAskOpen(false);
+      setAsking(true);
+      setAskErr(null);
+      try {
+        const r = await fetch("/api/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question, package: pkg }),
+        });
+        const a = (await r.json()) as AskAnswer & { error?: string };
+        if (!r.ok || a.error) throw new Error(a.error ?? "no answer");
+        setHighlight(null);
+        setOpenWhy(null);
+        setAskWhy(null);
+        setAsk(a);
+      } catch {
+        setAskErr("ONE couldn't answer that just now. Try again.");
+      } finally {
+        setAsking(false);
+      }
+    },
+    [asking, pkg],
+  );
   const zoom = (f: number) => {
     const s = sceneRef.current;
     if (s) s.setCamera(zoomAt(s.camera, s.viewport, f), true);
@@ -232,7 +288,10 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (t.tagName === "INPUT" || t.tagName === "TEXTAREA") return;
-      if (e.key === "Escape" || e.key === "Backspace") {
+      if (e.key === "/") {
+        e.preventDefault();
+        askInputRef.current?.focus();
+      } else if (e.key === "Escape" || e.key === "Backspace") {
         e.preventDefault();
         goBack();
       } else if (e.key === "+" || e.key === "=") zoom(1.25);
@@ -293,6 +352,7 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
   };
   const clickNode = (id: string) => {
     if (drag.current.moved) return; // that was a drag, not a tap
+    if (ask) return id === graph.rootId ? goHome() : goTo(id);
     if (id !== state.focusId) goTo(id);
   };
 
@@ -319,10 +379,12 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
   const productHref = PRODUCT_HREF[focus.product];
   // Actions that live on the focused orb itself (and in the card as well).
   const orbActions: { label: string; run?: () => void; href?: string; primary?: boolean; pressed?: boolean }[] = [];
-  if (firstRec) orbActions.push({ label: "Why?", run: () => setOrbWhy((w) => !w), primary: true, pressed: orbWhy });
-  if (showMeTargets.length) orbActions.push({ label: highlight ? "Show everything" : "Show me", run: showMe, pressed: !!highlight });
-  if (productHref && focus.type !== "core" && !focus.locked) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
-  if (focus.locked) orbActions.push({ label: "Add with Complete", href: UPGRADE_URL });
+  if (ask) {
+    // The answer panel carries the actions while ONE is answering.
+  } else if (firstRec) orbActions.push({ label: "Why?", run: () => setOrbWhy((w) => !w), primary: true, pressed: orbWhy });
+  if (!ask && showMeTargets.length) orbActions.push({ label: highlight ? "Show everything" : "Show me", run: showMe, pressed: !!highlight });
+  if (!ask && productHref && focus.type !== "core" && !focus.locked) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
+  if (!ask && focus.locked) orbActions.push({ label: "Add with Complete", href: UPGRADE_URL });
 
   const orderedForTab = [...vs.nodes].sort((a, b) => roleRank(a.role) - roleRank(b.role) || a.order - b.order);
 
@@ -422,7 +484,11 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
                 ) : (
                   peek.secondaryLabel && <p className="peek-sub">{peek.secondaryLabel}</p>
                 )}
-                {peek.summary && !peek.locked && <p className="peek-sum">{clip(peek.summary, 110)}</p>}
+                {ask && ask.results.find((r) => r.id === peek.id) ? (
+                  <p className="peek-sum">{clip(ask.results.find((r) => r.id === peek.id)!.reasons[0] ?? "", 110)}</p>
+                ) : (
+                  peek.summary && !peek.locked && <p className="peek-sum">{clip(peek.summary, 110)}</p>
+                )}
                 <p className="peek-hint">{childrenOf(ix, peek.id).length ? "Click to open" : "Click for details"}</p>
               </div>
             )}
@@ -443,7 +509,7 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
               </div>
             )}
 
-            {orbWhy && firstRec && (
+            {!ask && orbWhy && firstRec && (
               <div ref={whyRef} className="orb-why pop" role="dialog" aria-label="Why ONE surfaced this" style={{ visibility: "hidden" }}>
                 <p className="orb-why-state">Why ONE surfaced this</p>
                 <p className="orb-why-title">{firstRec.title}</p>
@@ -463,9 +529,9 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
             {!ready && <div className="loading">Waking ONE…</div>}
           </div>
           {railCount > 0 && (
-            <nav className="rail pop" key={`rail-${state.focusId}`} aria-label={`Inside ${focus.label}`}>
-              <p className="rail-head">{focus.type === "core" ? "Your business" : focus.label}</p>
-              {focus.type !== "core" && focus.secondaryLabel && <p className="rail-sub">{focus.secondaryLabel}</p>}
+            <nav className="rail pop" key={`rail-${ask ? `ask-${ask.question}` : state.focusId}`} aria-label={ask ? "ONE's answer" : `Inside ${focus.label}`}>
+              <p className="rail-head">{ask ? "ONE's answer" : focus.type === "core" ? "Your business" : focus.label}</p>
+              {!ask && focus.type !== "core" && focus.secondaryLabel && <p className="rail-sub">{focus.secondaryLabel}</p>}
               <ul>
                 {railNodes.map((k) => (
                   <li key={k.id}>
@@ -505,11 +571,64 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
                   </li>
                 ))}
               </ul>
-              {vs.hiddenChildren > 0 || childrenOf(ix, state.focusId).length > railCount ? (
+              {!ask && (vs.hiddenChildren > 0 || childrenOf(ix, state.focusId).length > railCount) ? (
                 <p className="rail-more">+{childrenOf(ix, state.focusId).length - railCount} more in the panel</p>
               ) : null}
             </nav>
           )}
+
+          <form
+            className={`ask ${askOpen ? "open" : ""}`}
+            role="search"
+            aria-label="Ask ONE"
+            onSubmit={(e) => {
+              e.preventDefault();
+              askOne(askText);
+            }}
+          >
+            <div className="ask-field">
+              <span className="ask-mark" aria-hidden="true">ONE</span>
+              <input
+                ref={askInputRef}
+                value={askText}
+                onChange={(e) => setAskText(e.target.value)}
+                onFocus={() => setAskOpen(true)}
+                onBlur={() => setTimeout(() => setAskOpen(false), 150)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setAskOpen(false);
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                placeholder="Ask ONE anything about your business…"
+                aria-label="Ask ONE a question about your business"
+                maxLength={300}
+                enterKeyHint="search"
+              />
+              {ask && !asking ? (
+                <button type="button" className="ask-go ghost" onClick={clearAsk} aria-label="Clear the answer">
+                  ✕
+                </button>
+              ) : (
+                <button type="submit" className="ask-go" disabled={asking || !askText.trim()} aria-busy={asking}>
+                  {asking ? "…" : "Ask"}
+                </button>
+              )}
+            </div>
+            {askOpen && (
+              <ul className="ask-sugs pop" aria-label="Suggested questions">
+                {SUGGESTED.map((q) => (
+                  <li key={q}>
+                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => askOne(q)}>
+                      {q}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {asking && <p className="ask-status" role="status">ONE is thinking…</p>}
+            {askErr && <p className="ask-status err" role="alert">{askErr}</p>}
+          </form>
 
           <div className="controls" role="toolbar" aria-label="Map controls">
             <button onClick={goBack} disabled={!state.history.length} aria-label="Back">
@@ -527,6 +646,61 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
           </div>
         </section>
 
+        {ask ? (
+          <aside ref={drawerRef} key={`ask-${ask.question}`} className="drawer pop" aria-label="ONE's answer" aria-live="polite">
+            <div className="d-head">
+              <span className="chip" style={{ color: hex(PRODUCT_COLOR.one), borderColor: hex(PRODUCT_COLOR.one) }}>
+                Ask ONE
+              </span>
+            </div>
+            <p className="ask-q">{ask.question}</p>
+            <p className="ask-a">{ask.answer}</p>
+            {ask.source === "ai" && <p className="d-src">Answered from your business, just now</p>}
+            {ask.results.length > 0 && (
+              <div className="d-recs">
+                <h2>ONE's answer</h2>
+                <ul>
+                  {ask.results.map((r) => {
+                    const n = ix.byId.get(r.id);
+                    if (!n) return null;
+                    return (
+                      <li key={r.id} className="rec">
+                        <p className="rec-state" style={{ color: hex(PRODUCT_COLOR[n.product]) }}>
+                          <i style={{ borderColor: hex(PRODUCT_COLOR[n.product]) }} />
+                          {productName(n.product)}
+                          {n.status && <span style={{ color: hex(STATUS[n.status].color) }}> · {STATUS[n.status].label}</span>}
+                        </p>
+                        <p className="rec-title">{n.label}</p>
+                        {n.secondaryLabel && <p className="ask-sub">{n.secondaryLabel}</p>}
+                        <div className="rec-actions">
+                          <button className="why" aria-expanded={askWhy === r.id} onClick={() => setAskWhy(askWhy === r.id ? null : r.id)}>
+                            Why?
+                          </button>
+                          <button className="link" onClick={() => goTo(n.id)}>
+                            Go to {cleanName(n.label)} →
+                          </button>
+                        </div>
+                        {askWhy === r.id && (
+                          <div className="why-box pop">
+                            <p>Why ONE surfaced this</p>
+                            <ul>
+                              {r.reasons.map((f) => (
+                                <li key={f}>{f}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+            <button className="btn btn-wide ghost-btn" onClick={clearAsk}>
+              ← Back to the map
+            </button>
+          </aside>
+        ) : (
         <aside ref={drawerRef} key={state.focusId} className="drawer pop" aria-label={`${focus.label} details`} aria-live="polite">
           <div className="d-head">
             <span className="chip" style={{ color: hex(PRODUCT_COLOR[focus.product]), borderColor: hex(PRODUCT_COLOR[focus.product]) }}>
@@ -659,6 +833,7 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
             </div>
           )}
         </aside>
+        )}
       </div>
     </div>
   );
