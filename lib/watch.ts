@@ -88,14 +88,14 @@ export const SPOTS: Record<string, [number, number]> = {
   "w-willow": [140, 520],
 };
 
-export function watchPlaced(ids: Iterable<string>, g: BusinessGraph = watchGraph(), spots: Record<string, [number, number]> = SPOTS): Placed[] {
+export function watchPlaced(ids: Iterable<string>, g: BusinessGraph = watchGraph(), spots: Record<string, [number, number]> = SPOTS, center = "one"): Placed[] {
   const byId = new Map(g.nodes.map((n) => [n.id, n]));
   const out: Placed[] = [];
   for (const id of ids) {
     const n = byId.get(id);
     if (!n) continue;
-    if (id === "one") {
-      out.push({ id, role: "focus", x: 0, y: 0, r: radiusFor("core", "focus") });
+    if (id === center) {
+      out.push({ id, role: "focus", x: 0, y: 0, r: radiusFor(n.type, "focus") });
       continue;
     }
     const [deg, d] = spots[id];
@@ -106,10 +106,10 @@ export function watchPlaced(ids: Iterable<string>, g: BusinessGraph = watchGraph
 
 // Everything on screen at step i: what earlier steps showed, since the last
 // step that cleared the stage (ONE and the products always stay once shown).
-export function shownAt(i: number, steps: WatchStep[] = WATCH_STEPS): string[] {
+export function shownAt(i: number, steps: WatchStep[] = WATCH_STEPS, keep: string[] = ["one", ...PRODUCT_IDS]): string[] {
   let out: string[] = [];
   for (const s of steps.slice(0, i + 1)) {
-    if (s.clear) out = out.filter((id) => id === "one" || PRODUCT_IDS.includes(id));
+    if (s.clear) out = out.filter((id) => keep.includes(id));
     for (const id of s.show) if (!out.includes(id)) out.push(id);
   }
   return out;
