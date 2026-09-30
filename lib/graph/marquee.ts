@@ -82,12 +82,11 @@ export function addMarquee(add: Add, link: Link) {
       {
         id: "marquee-5",
         label: "Posting",
-        sub: "Instagram and Facebook connected",
-        status: "healthy",
+        sub: "Instagram and Facebook: waiting on Meta",
         summary: "Scheduled posting is off for every campaign until you switch it on. You post approved pieces yourself; a piece that misses its day is never posted late.",
         kids: [
-          { id: "mq-p-ig", label: "Instagram", sub: "Connected", status: "healthy" },
-          { id: "mq-p-fb", label: "Facebook Page", sub: "Connected", status: "healthy" },
+          { id: "mq-p-ig", label: "Instagram", sub: "Waiting on Meta's review" },
+          { id: "mq-p-fb", label: "Facebook Page", sub: "Waiting on Meta's review" },
         ],
       },
     ],

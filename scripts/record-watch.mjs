@@ -2,6 +2,8 @@
 //
 //   npm run build && npx next start -p 3102 &
 //   node scripts/record-watch.mjs [1920x1080] [slow] [ffmpeg path]
+//   FILM=1 node scripts/record-watch.mjs ...   (the long film, /watch?film=1)
+//   PRODUCT=go node scripts/record-watch.mjs ... (one product's film)
 //
 // The story plays `slow` times slower (default 4) so a machine without a GPU
 // still draws every frame; the video is then sped back up to real time at
@@ -15,7 +17,10 @@ import { join } from "node:path";
 const [w, h] = (process.argv[2] || "1920x1080").split("x").map(Number);
 const slow = Number(process.argv[3] || 4);
 const ffmpeg = process.argv[4] || "ffmpeg";
-const out = `docs/watch-one-work-${w}x${h}.mp4`;
+const film = process.env.FILM === "1";
+const product = process.env.PRODUCT;
+const page = process.env.PAGE; // e.g. /film/go
+const out = page ? `docs/${page.replace(/\W+/g, "-").replace(/^-|-$/g, "")}-phone-${w}x${h}.mp4` : product ? `docs/film-${product}-${w}x${h}.mp4` : `docs/watch-one-work${film ? "-film" : ""}-${w}x${h}.mp4`;
 const dir = mkdtempSync(join(tmpdir(), "watch-"));
 
 const b = await chromium.launch({
@@ -25,10 +30,10 @@ const b = await chromium.launch({
 const ctx = await b.newContext({ viewport: { width: w, height: h }, recordVideo: { dir, size: { width: w, height: h } } });
 const t0 = Date.now();
 const p = await ctx.newPage();
-await p.goto(`http://localhost:3102/watch?record=1&slow=${slow}`, { waitUntil: "networkidle" });
-await p.waitForSelector(".watch-card", { timeout: 30000 });
+await p.goto(page ? `http://localhost:3102${page}?record=1&slow=${slow}` : `http://localhost:3102/watch?record=1&slow=${slow}${film ? "&film=1" : ""}${product ? `&product=${product}` : ""}`, { waitUntil: "networkidle" });
+await p.waitForSelector(".watch-card, .ga-cap", { timeout: 30000 });
 const start = (Date.now() - t0) / 1000 - 0.3;
-await p.waitForSelector(".watch-end", { timeout: 300000 });
+await p.waitForSelector(".watch-end, .ga-end", { timeout: 1200000 });
 await new Promise((r) => setTimeout(r, 3500 * slow));
 const webm = await p.video().path();
 await ctx.close();
