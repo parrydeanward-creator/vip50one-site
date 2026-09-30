@@ -17,7 +17,19 @@ import type { BrainScene } from "./scene.ts";
 const PHONE_QUERY = "(max-width: 719px)";
 const CARD_ROOM = 420; // desktop width kept free for the floating card
 
-export default function Brain({ graph }: { graph: BusinessGraph }) {
+export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGraph; pkg?: string }) {
+  // ONE's morning note, written by the AI when it is available (rules otherwise).
+  const [note, setNote] = useState<{ note: string; source: "ai" | "rules" } | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/note?package=${encodeURIComponent(pkg)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((n) => live && n && setNote(n))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [pkg]);
   const ix = useMemo(() => indexGraph(graph), [graph]);
   const [state, setState] = useState(() => nav.start(graph.rootId));
   const [phone, setPhone] = useState(false);
@@ -332,7 +344,14 @@ export default function Brain({ graph }: { graph: BusinessGraph }) {
           </div>
           <h1 className="d-title">{focus.type === "core" ? "Good morning, Sarah." : focus.label}</h1>
           {focus.secondaryLabel && focus.type !== "core" && <p className="d-sub">{focus.secondaryLabel}</p>}
-          {focus.summary && <p className="d-sum">{focus.summary}</p>}
+          {focus.type === "core" && note ? (
+            <>
+              <p className="d-sum">{note.note}</p>
+              {note.source === "ai" && <p className="d-src">Written for you this morning</p>}
+            </>
+          ) : (
+            focus.summary && <p className="d-sum">{focus.summary}</p>
+          )}
 
           {focus.locked && (
             <a className="btn" href={UPGRADE_URL}>

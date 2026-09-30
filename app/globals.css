@@ -66,6 +66,7 @@ button { font: inherit; color: inherit; }
 .d-title { font-family: var(--font-display), "Bebas Neue", sans-serif; font-weight: 400; font-size: 40px; line-height: 1; letter-spacing: 0.02em; margin: 14px 0 4px; }
 .d-sub { margin: 0; color: var(--gold); font-weight: 600; font-size: 14px; }
 .d-sum { color: var(--text-2); margin: 10px 0 0; }
+.d-src { margin: 6px 0 0; font-size: 12px; color: var(--text-3); }
 .d-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 18px 0 0; }
 .d-stats div { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
 .d-stats dt { font-size: 12px; color: var(--text-3); }
