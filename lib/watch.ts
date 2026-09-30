@@ -1,4 +1,4 @@
-import type { BusinessGraph, GraphEdge, GraphNode, ProductKey } from "./graph/types.ts";
+import type { BusinessGraph, GraphEdge, GraphNode, NodeStatus, ProductKey } from "./graph/types.ts";
 import { radiusFor } from "./brain/layout.ts";
 import type { Placed } from "./brain/layout.ts";
 
@@ -23,6 +23,7 @@ export interface WatchStep {
   coming?: boolean;
   clear?: boolean; // take away everything but ONE and the five products first
   n?: [number, number]; // "2 of 6" in the caption
+  patch?: Record<string, { status?: NodeStatus; sub?: string }>; // nodes that change here (a task done)
   ms: number;
 }
 
@@ -112,6 +113,21 @@ export function shownAt(i: number, steps: WatchStep[] = WATCH_STEPS): string[] {
     for (const id of s.show) if (!out.includes(id)) out.push(id);
   }
   return out;
+}
+
+// The graph as it stands at step i: every change earlier steps made (a task
+// turning done) applied, never mutating the base graph.
+export function graphAt(g: BusinessGraph, i: number, steps: WatchStep[] = WATCH_STEPS): BusinessGraph {
+  const patch = new Map<string, { status?: NodeStatus; sub?: string }>();
+  for (const s of steps.slice(0, i + 1)) for (const [id, p] of Object.entries(s.patch ?? {})) patch.set(id, { ...patch.get(id), ...p });
+  if (!patch.size) return g;
+  return {
+    ...g,
+    nodes: g.nodes.map((n) => {
+      const p = patch.get(n.id);
+      return p ? { ...n, status: p.status ?? n.status, secondaryLabel: p.sub ?? n.secondaryLabel } : n;
+    }),
+  };
 }
 
 export const PRODUCT_IDS = ["go", "move", "marquee", "showly", "open"];

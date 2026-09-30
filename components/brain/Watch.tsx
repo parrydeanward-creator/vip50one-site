@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { bounds } from "@/lib/brain/layout.ts";
 import { fit } from "@/lib/brain/camera.ts";
 import { PRODUCT_COLOR, hex } from "@/lib/brain/theme.ts";
-import { SPOTS, WATCH_STEPS, shownAt, watchGraph, watchPlaced } from "@/lib/watch.ts";
+import { SPOTS, WATCH_STEPS, graphAt, shownAt, watchGraph, watchPlaced } from "@/lib/watch.ts";
 import { FILM_SPOTS, FILM_STEPS, filmGraph } from "@/lib/film.ts";
 import type { BrainScene, SceneEdge } from "./scene.ts";
 
@@ -18,8 +18,7 @@ const NOTE = "Example agent; people and addresses are invented. Coming: being co
 export default function Watch({ record = false, slow = 1, film = false }: { record?: boolean; slow?: number; film?: boolean }) {
   const STEPS = film ? FILM_STEPS : WATCH_STEPS;
   const spots = film ? FILM_SPOTS : SPOTS;
-  const graph = useMemo(() => (film ? filmGraph() : watchGraph()), [film]);
-  const byId = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph]);
+  const base = useMemo(() => (film ? filmGraph() : watchGraph()), [film]);
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<BrainScene | null>(null);
   const [ready, setReady] = useState(false);
@@ -28,6 +27,8 @@ export default function Watch({ record = false, slow = 1, film = false }: { reco
   const [playing, setPlaying] = useState(true);
   const step = STEPS[i];
   const last = i === STEPS.length - 1;
+  const graph = useMemo(() => graphAt(base, i, STEPS), [base, i, STEPS]);
+  const byId = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph]);
 
   useEffect(() => {
     const mq = window.matchMedia(PHONE_QUERY);

@@ -1,8 +1,9 @@
 import type { BusinessGraph, GraphNode } from "./graph/types.ts";
 import { SPOTS, WATCH_STEPS, totalMs, watchGraph, type WatchStep } from "./watch.ts";
 
-// The long film (about 80 seconds) for the sales page: the five products,
-// the features that already work on the dashboard (morning, Ask ONE, live
+// The long film (about 100 seconds) for the sales page: the five products,
+// your day (what to do and when, done one by one, compiled at the end), the
+// features that already work on the dashboard (Ask ONE, live
 // signals, Marquee's listing path, ONE Open's four phases, the timeline), then
 // the Mark Davis story, then goals. Same engine, same honesty rule: anything
 // not built yet carries "Coming". Example agent; invented people.
@@ -19,6 +20,12 @@ const extra: GraphNode[] = [
   { id: "f-sunday", type: "event", label: "Open house", secondaryLabel: "Sunday 1-3pm", parentId: "open", product: "open", importance: 0.7 },
   { id: "f-report", type: "task", label: "Seller report", secondaryLabel: "Friday", parentId: "marquee", product: "marquee", importance: 0.7 },
   { id: "f-mixer", type: "event", label: "Fall Client Mixer", secondaryLabel: "Oct 16 · 12 yes", parentId: "move", product: "move", importance: 0.7 },
+  { id: "d1", type: "person", label: "Call Jen Alvarez", secondaryLabel: "8:00 · 10 min · birthday", parentId: "one", product: "move", importance: 0.8, status: "opportunity" },
+  { id: "d2", type: "task", label: "Approve 5 posts", secondaryLabel: "9:00 · 15 min", parentId: "one", product: "marquee", importance: 0.8, status: "attention" },
+  { id: "d3", type: "task", label: "2 video texts", secondaryLabel: "10:30 · 10 min", parentId: "one", product: "go", importance: 0.8, status: "attention" },
+  { id: "d4", type: "person", label: "Lunch with Marcus", secondaryLabel: "12:30 · face-to-face", parentId: "one", product: "move", importance: 0.8, status: "action" },
+  { id: "d5", type: "task", label: "Rate 2 visitors", secondaryLabel: "3:00 · 5 min", parentId: "one", product: "open", importance: 0.8, status: "attention" },
+  { id: "d6", type: "task", label: "4 follow-ups", secondaryLabel: "4:30 · 20 min", parentId: "one", product: "move", importance: 0.8, status: "action" },
   { id: "f-goals", type: "goal", label: "Closings 9 of 20", secondaryLabel: "On pace · GCI $142k", parentId: "go", product: "go", importance: 0.8, status: "healthy" },
 ];
 
@@ -42,6 +49,13 @@ export const FILM_SPOTS: Record<string, [number, number]> = {
   "f-report": [62, 470],
   "f-mixer": [-24, 480],
   "f-goals": [-148, 470],
+  // today, laid out like a clock face around ONE: 8:00 at the top
+  d1: [-90, 470],
+  d2: [-30, 480],
+  d3: [30, 480],
+  d4: [90, 470],
+  d5: [150, 480],
+  d6: [210, 480],
 };
 
 const P = ["go", "move", "marquee", "showly", "open"];
@@ -55,7 +69,13 @@ export const FILM_STEPS: WatchStep[] = [
   { id: "f-showly", show: ["showly"], focus: ["one", "go", "move", "marquee", "showly"], product: "showly", kicker: "Showly", title: "Every buyer tour.", line: "Your buyers answer Yes, Maybe or No on every home.", ms: 3400 },
   { id: "f-open", show: ["open"], focus: ["one", ...P], product: "open", kicker: "ONE Open", title: "Every open house.", line: "Plan, Prepare, Host, Follow Up. Every visitor, every task.", ms: 3400 },
   { id: "f-one", show: [], focus: ["one", ...P], product: "one", kicker: "ONE", title: "One brain in the middle.", line: "It sees all five, and tells you what matters.", ms: 3600 },
-  { id: "f-morning", clear: true, show: ["f-jen", "f-follow", "f-approve"], focus: ["one", "f-jen", "f-follow", "f-approve"], flight: ["one", "f-jen"], product: "one", kicker: "Your morning", title: "Three things matter today.", line: "Every morning ONE walks you through them: Jen's birthday, four follow-ups, five posts to approve.", ms: 5200 },
+  { id: "f-day", clear: true, show: ["d1", "d2", "d3", "d4", "d5", "d6"], focus: ["one", "d1", "d2", "d3", "d4", "d5", "d6"], product: "one", kicker: "Your day", title: "ONE tells you exactly what to do today, and when.", line: "In order, with the time each one takes.", coming: true, ms: 5600 },
+  { id: "f-do1", show: [], focus: ["one", "d1", "d2", "d6"], flight: ["one", "d1"], patch: { d1: { status: "healthy", sub: "Done" } }, product: "move", kicker: "8:00", title: "Open ONE. Do the first thing.", line: "Call Jen. ONE sees it the moment it's logged.", ms: 4400 },
+  { id: "f-do2", show: [], focus: ["one", "d1", "d2", "d3"], flight: ["one", "d2"], patch: { d2: { status: "healthy", sub: "Done" } }, product: "marquee", kicker: "9:00", title: "Then the next.", line: "Approve the posts. Nothing posts until you do.", ms: 4000 },
+  { id: "f-do3", show: [], focus: ["one", "d1", "d2", "d3", "d4", "d5", "d6"], flight: ["one", "d4"], patch: { d3: { status: "healthy", sub: "Done" }, d4: { status: "healthy", sub: "Done" } }, product: "one", kicker: "All day", title: "ONE is watching, all day.", line: "Every call, text, lunch and post, across all five products. Your score updates as you go.", ms: 4400 },
+  { id: "f-do4", show: [], focus: ["one", "d1", "d2", "d3", "d4", "d5", "d6"], flight: ["one", "d6"], patch: { d5: { status: "healthy", sub: "Done" }, d6: { status: "healthy", sub: "Done" } }, product: "one", kicker: "4:30", title: "Everything done.", line: "Visitors rated, follow-ups cleared.", ms: 3800 },
+  { id: "f-recap", show: [], focus: ["one", "d1", "d2", "d3", "d4", "d5", "d6"], product: "one", kicker: "End of day", title: "6 of 6 done. 4 VIP touches. Nothing missed.", line: "ONE compiles your day, so you don't have to.", coming: true, ms: 4800 },
+  { id: "f-simple", show: [], focus: ["one", "d1", "d2", "d3", "d4", "d5", "d6"], product: "one", kicker: "", title: "Open ONE. Do the work. It's that simple.", line: "", ms: 3800 },
   { id: "f-ask", clear: true, show: ["f-jen", "f-amy", "f-marcus"], focus: ["one", "f-jen", "f-amy", "f-marcus"], flight: ["one", "f-amy"], product: "one", kicker: "Ask ONE", title: "“Who should I call today?”", line: "Jen first, her birthday is tomorrow. Then Amy and Marcus. Each with the reason why.", ms: 5600 },
   { id: "f-live", clear: true, show: [], focus: ["one", ...P], flight: ["showly", "one"], product: "showly", kicker: "Live", title: "A buyer just answered your tour.", line: "The moment it happens in any product, it lights up in ONE.", ms: 4200 },
   { id: "f-listing", show: ["f-listing"], focus: ["one", "marquee", "f-listing"], flight: ["marquee", "f-listing"], product: "marquee", kicker: "Marquee", title: "Every listing, step by step.", line: "Nine steps from the photos to closed. You always know the next one.", ms: 4400 },
