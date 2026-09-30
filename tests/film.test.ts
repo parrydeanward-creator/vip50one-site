@@ -31,9 +31,10 @@ test("nothing on screen together overlaps", () => {
   });
 });
 
-test("honesty: no caption claims ONE acted for the agent; goals and the hand-offs are marked Coming", () => {
+test("honesty: no caption claims ONE acted for the agent; goals and the hand-offs are marked Coming; Your day is built", () => {
+  for (const id of ["f-day", "f-recap"]) assert.ok(!FILM_STEPS.find((s) => s.id === id)!.coming, id);
   for (const s of FILM_STEPS) assert.ok(!claimsAction(`${s.title} ${s.line}`), s.id);
-  for (const id of ["move", "go", "one", "f-goals", "f-day", "f-recap"]) assert.ok(FILM_STEPS.find((s) => s.id === id)!.coming, id);
+  for (const id of ["move", "go", "one", "f-goals"]) assert.ok(FILM_STEPS.find((s) => s.id === id)!.coming, id);
   assert.match(FILM_STEPS.find((s) => s.id === "f-marquee")!.line, /Nothing posts until you approve it/);
 });
 
