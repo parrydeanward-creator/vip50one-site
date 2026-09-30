@@ -93,5 +93,15 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
   }
   link("marquee-3", "open", "related_to");
 
-  return { nodes, edges, rootId: "one" };
+  // Since you were last here (demo): what changed overnight, newest first.
+  const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000).toISOString();
+  const has = (p: string) => !nodes.find((n) => n.id === p)?.locked;
+  const changes = [
+    { id: "p-millers", product: "showly" as const, what: "The Millers reacted to 4 homes from yesterday's tour: two loves.", at: hoursAgo(2) },
+    { id: "marquee-3", product: "marquee" as const, what: "5 posts for 1482 Maple Ridge Dr are ready for your approval.", at: hoursAgo(5) },
+    { id: "task-followups", product: "move" as const, what: "2 more follow-ups became overdue overnight.", at: hoursAgo(9) },
+    { id: "open-3", product: "open" as const, what: "2 visitors from Saturday's open house still need a rating.", at: hoursAgo(14) },
+  ].filter((c) => has(c.product) && nodes.some((n) => n.id === c.id));
+
+  return { nodes, edges, rootId: "one", changes };
 }

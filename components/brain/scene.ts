@@ -27,6 +27,14 @@ interface Sprite {
   role: string;
 }
 
+// A one-off ring that spreads out from a node: "this changed" (Since you were
+// last here). Plays once; skipped under reduced motion.
+interface Ping {
+  id: string;
+  t: number;
+  color: number;
+}
+
 interface Pulse {
   from: string;
   to: string;
@@ -60,6 +68,8 @@ export class BrainScene {
   private sprites = new Map<string, Sprite>();
   private edges: SceneEdge[] = [];
   private pulses: Pulse[] = [];
+  private pings: Ping[] = [];
+  private pingG = new Graphics();
   private focusId = "";
   private hoverId: string | null = null;
   private dimOthers: Set<string> | null = null;
@@ -89,7 +99,7 @@ export class BrainScene {
     });
     host.appendChild(this.app.canvas);
     this.app.canvas.setAttribute("aria-hidden", "true");
-    this.world.addChild(this.orbits, this.edgeG, this.nodes, this.halo, this.pulseG);
+    this.world.addChild(this.orbits, this.edgeG, this.pingG, this.nodes, this.halo, this.pulseG);
     this.app.stage.addChild(this.bg, this.world);
     this.buildHalo();
     this.buildOrbits();
@@ -172,6 +182,16 @@ export class BrainScene {
   // Highlight a set (e.g. SHOW ME); everything else fades, nothing disappears.
   setHighlight(ids: string[] | null) {
     this.dimOthers = ids ? new Set(ids) : null;
+    this.idleFor = 0;
+  }
+
+  // Ring out once from each node (it changed since the agent was last here).
+  ping(ids: string[]) {
+    if (this.reducedMotion) return;
+    ids.forEach((id, i) => {
+      const s = this.sprites.get(id);
+      this.pings.push({ id, t: -i * 0.35, color: s ? PRODUCT_COLOR[s.node.product as ProductKey] : GOLD });
+    });
     this.idleFor = 0;
   }
 
@@ -405,6 +425,7 @@ export class BrainScene {
     this.drawEdges();
     this.heartbeat(dt);
     this.drawPulses(dt);
+    this.drawPings(dt);
     this.app.ticker.maxFPS = this.idleFor > 8 ? 30 : 0; // idle: 30fps
     this.onFrame?.();
   }
@@ -454,6 +475,24 @@ export class BrainScene {
       const s = 1 / this.cam.scale;
       g.circle(x, y, 10 * s).fill({ color: p.color, alpha: 0.14 * fade });
       g.circle(x, y, 3 * s).fill({ color: 0xffffff, alpha: 0.9 * fade });
+    }
+  }
+
+  private drawPings(dt: number) {
+    const g = this.pingG.clear();
+    this.pings = this.pings.filter((p) => p.t < 1);
+    const s = 1 / this.cam.scale;
+    for (const p of this.pings) {
+      p.t += dt / 1.8;
+      if (p.t < 0) continue;
+      const sp = this.sprites.get(p.id);
+      if (!sp || sp.cur.a < 0.05) continue;
+      const e = 1 - (1 - p.t) ** 3; // ease out
+      for (const lag of [0, 0.18]) {
+        const q = Math.max(0, e - lag);
+        const fade = (1 - p.t) * sp.cur.a * (lag ? 0.5 : 1);
+        g.circle(sp.cur.x, sp.cur.y, sp.cur.r * (1 + 0.9 * q)).stroke({ width: 2.2 * s, color: p.color, alpha: 0.85 * fade });
+      }
     }
   }
 }
