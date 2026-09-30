@@ -191,6 +191,34 @@ button { font: inherit; color: inherit; }
   .chip-btn { min-height: 44px; }
 }
 
+
+/* Ask ONE: the question bar over the map, and the answer panel */
+.ask { position: absolute; top: 16px; left: 50%; width: min(540px, calc(100% - 480px)); transform: translateX(calc(-50% - 200px)); z-index: 5; }
+.ask-field { display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 14px; border-radius: 16px; border: 1px solid rgba(212, 175, 55, 0.4); background: linear-gradient(180deg, rgba(16, 22, 44, 0.9), rgba(8, 12, 26, 0.92)); backdrop-filter: blur(12px); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(212, 175, 55, 0.08); transition: border-color 160ms, box-shadow 160ms; }
+.ask.open .ask-field, .ask-field:focus-within { border-color: rgba(245, 197, 66, 0.85); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(245, 197, 66, 0.25), 0 0 36px rgba(212, 175, 55, 0.16); }
+.ask-mark { font-family: var(--font-display), "Bebas Neue", sans-serif; font-size: 20px; letter-spacing: 0.06em; color: var(--gold-2); flex: none; }
+.ask-field input { flex: 1; min-width: 0; min-height: 44px; background: none; border: 0; outline: none; color: var(--text); font: inherit; font-size: 15px; }
+.ask-field input::placeholder { color: var(--text-3); }
+.ask-go { flex: none; min-width: 64px; min-height: 44px; border-radius: 12px; border: 0; background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #0b0b0b; font-weight: 800; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; }
+.ask-go:disabled { opacity: 0.45; cursor: default; }
+.ask-go.ghost { background: rgba(255, 255, 255, 0.05); color: var(--text-2); border: 1px solid var(--line); min-width: 44px; font-size: 16px; }
+.ask-sugs { list-style: none; margin: 8px 0 0; padding: 6px; display: grid; gap: 4px; border-radius: 14px; border: 1px solid var(--line); background: rgba(10, 14, 30, 0.94); backdrop-filter: blur(12px); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5); }
+.ask-sugs button { width: 100%; min-height: 44px; text-align: left; padding: 8px 12px; border-radius: 10px; border: 0; background: none; color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+.ask-sugs button:hover, .ask-sugs button:focus-visible { background: rgba(212, 175, 55, 0.12); color: var(--gold-2); outline: none; }
+.ask-status { margin: 8px 4px 0; font-size: 13px; color: var(--gold-2); letter-spacing: 0.04em; }
+.ask-status.err { color: #f0a097; }
+.ask-q { margin: 14px 0 0; font-family: var(--font-display), "Bebas Neue", sans-serif; font-size: 30px; line-height: 1.05; letter-spacing: 0.02em; }
+.ask-a { margin: 10px 0 0; color: var(--text); font-size: 15px; }
+.ask-sub { margin: 2px 0 0; color: var(--text-3); font-size: 13px; }
+.ghost-btn { background: rgba(255, 255, 255, 0.04); color: var(--text); border: 1px solid var(--line); margin-top: 20px; }
+@media (min-width: 720px) and (max-width: 1100px) { .ask { width: min(520px, calc(100% - 440px)); transform: translateX(calc(-50% - 196px)); } }
+@media (max-width: 719px) {
+  .ask { top: 8px; left: 8px; right: 8px; width: auto; transform: none; }
+  .ask-field { padding-left: 10px; }
+  .ask-mark { font-size: 17px; }
+  .ask-q { font-size: 26px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; }
   .pop { animation: none; }
