@@ -99,4 +99,5 @@ export interface BusinessGraph {
   rootId: string;
   changes?: ChangeNote[];
   dated?: DatedNote[];
+  today?: import("../day.ts").DayItem[];
 }
