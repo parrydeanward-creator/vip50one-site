@@ -1,0 +1,91 @@
+import { includes } from "../products.ts";
+import type { PackageId } from "../types.ts";
+import type { BusinessGraph, GraphEdge, GraphNode, ProductKey } from "./types.ts";
+import { addGo } from "./go.ts";
+
+// A made-up agent's business (every name and address invented), deep on ONE GO
+// and one level deep on the other four products (research/ONE-BRAIN.md §10).
+
+type N = Omit<GraphNode, "importance"> & { importance?: number };
+
+const PRODUCT_FOR_PACKAGE: Record<Exclude<ProductKey, "one">, "go" | "move" | "marquee" | "open" | "showly"> = {
+  go: "go",
+  move: "move",
+  marquee: "marquee",
+  showly: "showly",
+  open: "open",
+};
+
+export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
+  const nodes: GraphNode[] = [];
+  const edges: GraphEdge[] = [];
+  const add = (n: N) => {
+    nodes.push({ importance: 0.5, ...n });
+    if (n.parentId) {
+      edges.push({ id: `${n.parentId}>${n.id}`, source: n.parentId, target: n.id, relationshipType: "belongs_to", strength: 1 });
+    }
+  };
+  const link = (source: string, target: string, relationshipType: GraphEdge["relationshipType"], strength = 0.6) =>
+    edges.push({ id: `${source}~${target}`, source, target, relationshipType, strength });
+
+  // ---- core and products -------------------------------------------------
+  add({
+    id: "one",
+    type: "core",
+    label: "ONE",
+    secondaryLabel: "Your business, connected",
+    parentId: null,
+    product: "one",
+    importance: 1,
+    summary: "Good morning, Sarah. Three things matter most today: call Jen before her birthday, clear the four overdue follow-ups in ONE MOVE, and approve the Maple Ridge posts so they are ready for Thursday.",
+    stats: [
+      { label: "Touches this month", value: "286 / 400" },
+      { label: "VIP list", value: "47 / 50" },
+      { label: "Day streak", value: "12" },
+      { label: "Closings this year", value: "14 / 25" },
+    ],
+  });
+
+  const products: N[] = [
+    { id: "go", type: "product", label: "ONE GO", secondaryLabel: "Daily execution", parentId: "one", product: "go", importance: 0.95, status: "attention",
+      summary: "What needs to happen today, and whether you are on pace: points, VIP-50 tasks, the weekly bonus, the leaderboard and the 90-Day Challenge.",
+      stats: [{ label: "Daily score", value: "14 / 25" }, { label: "Weekly", value: "95 / 150" }, { label: "Streak", value: "12 days" }, { label: "Leaderboard", value: "#2" }] },
+    { id: "move", type: "product", label: "ONE MOVE", secondaryLabel: "Relationship intelligence", parentId: "one", product: "move", importance: 0.9, status: "action",
+      summary: "Everyone you know, and what you promised them.",
+      stats: [{ label: "Follow-ups overdue", value: "4" }, { label: "New to sort", value: "3" }] },
+    { id: "marquee", type: "product", label: "MARQUEE", secondaryLabel: "Listing intelligence", parentId: "one", product: "marquee", importance: 0.85, status: "attention",
+      summary: "Every listing's marketing, from the first presentation to the weekly seller report.",
+      stats: [{ label: "Waiting for approval", value: "5" }, { label: "Active listings", value: "2" }] },
+    { id: "showly", type: "product", label: "SHOWLY", secondaryLabel: "Buyer experience", parentId: "one", product: "showly", importance: 0.8, status: "opportunity",
+      summary: "Buyer tours your clients react to, house by house.",
+      stats: [{ label: "New reactions", value: "4" }, { label: "Tours this week", value: "2" }] },
+    { id: "open", type: "product", label: "ONE OPEN", secondaryLabel: "Open house intelligence", parentId: "one", product: "open", importance: 0.8, status: "healthy",
+      summary: "The open house, from plan to the last follow-up.",
+      stats: [{ label: "Next open house", value: "Sun 1-3pm" }, { label: "Prep tasks left", value: "3" }] },
+  ];
+  for (const p of products) {
+    const locked = !includes(pkg, PRODUCT_FOR_PACKAGE[p.product as Exclude<ProductKey, "one">]);
+    add(locked ? { ...p, locked, status: undefined, stats: undefined, summary: `${p.summary} Included in ONE Complete.` } : p);
+  }
+
+  // ---- ONE GO, in depth (modelled on the live app) ----------------------
+  addGo(add, link);
+
+  // ---- the other four, one level (content comes in the next build) --------
+  const level2: [string, ProductKey, [string, string][]][] = [
+    ["move", "move", [["People", "1,284 contacts"], ["Follow-ups", "4 overdue"], ["Important dates", "3 this week"], ["Referrals", "9 this year"], ["New to sort", "3 from Saturday"]]],
+    ["marquee", "marquee", [["Win", "Listing presentations"], ["Launch", "2 active campaigns"], ["ReLaunch", "Refresh a listing"], ["1482 Maple Ridge Dr", "5 to approve"], ["Seller reports", "Due Friday"]]],
+    ["showly", "showly", [["Buyers", "3 active"], ["Tours", "2 this week"], ["Feedback", "4 new reactions"], ["Next steps", "The Millers"]]],
+    ["open", "open", [["Plan", "Done"], ["Prepare", "3 tasks left"], ["Host", "Sun 1-3pm"], ["Follow Up", "2 to rate"]]],
+  ];
+  for (const [parent, product, kids] of level2) {
+    if (nodes.find((n) => n.id === parent)?.locked) continue;
+    kids.forEach(([label, sec], i) =>
+      add({ id: `${parent}-${i}`, type: "category", label, secondaryLabel: sec, parentId: parent, product, importance: 0.9 - i * 0.05,
+        summary: "More detail arrives in the next build." }),
+    );
+  }
+  link("marquee-3", "open", "related_to");
+
+  return { nodes, edges, rootId: "one" };
+}
