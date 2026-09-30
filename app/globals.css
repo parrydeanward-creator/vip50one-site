@@ -246,3 +246,19 @@ button { font: inherit; color: inherit; }
   * { scroll-behavior: auto !important; }
   .pop { animation: none; }
 }
+
+/* Live signals: the latest arrival, and a number that just ticked */
+.signal-live { position: absolute; left: 50%; bottom: 20px; transform: translateX(calc(-50% - 200px)); width: min(440px, calc(100% - 480px)); z-index: 5; pointer-events: none; }
+.signal-card { pointer-events: auto; display: flex; align-items: center; gap: 12px; padding: 12px 10px 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: linear-gradient(180deg, rgba(16, 22, 44, 0.94), rgba(8, 12, 26, 0.95)); backdrop-filter: blur(12px); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45); }
+.signal-card > i { width: 9px; height: 9px; border-radius: 50%; flex: none; box-shadow: 0 0 10px currentColor; }
+.signal-card > div { flex: 1; min-width: 0; }
+.signal-kicker { margin: 0 0 2px; font-size: 10.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.signal-what { margin: 0; font-size: 13.5px; line-height: 1.35; color: var(--text); }
+.signal-card button { flex: none; min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(212, 175, 55, 0.5); background: transparent; color: var(--gold-2); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.signal-card button.signal-x { border: 0; padding: 0 6px; min-width: 32px; color: var(--text-3); font-size: 20px; font-weight: 400; }
+.tick { animation: tick 1.6s ease-out; }
+@keyframes tick { 0% { color: var(--gold-2); text-shadow: 0 0 14px rgba(212, 175, 55, 0.9); transform: scale(1.12); } 100% { text-shadow: none; transform: scale(1); } }
+.hero-value.tick, b.tick { display: inline-block; transform-origin: left center; }
+@media (min-width: 720px) and (max-width: 1100px) { .signal-live { width: min(420px, calc(100% - 440px)); transform: translateX(calc(-50% - 196px)); } }
+@media (max-width: 719px) { .signal-live { left: 8px; right: 8px; bottom: 8px; width: auto; transform: none; } .signal-card { padding: 8px 6px 8px 12px; } .signal-what { font-size: 13px; } }
+@media (prefers-reduced-motion: reduce) { .tick { animation: none; color: var(--gold-2); } }

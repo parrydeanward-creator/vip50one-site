@@ -49,3 +49,20 @@ it. The last visit is kept in the browser (`one.lastVisit`).
 ONE's card lists what changed since the last visit (`graph.changes`; demo data
 now, the products' unseen VIP-SUMMARY items later), and each product with a
 change rings once on the map (`scene.ping`).
+
+## Live signals
+
+When something new arrives in a product, a light travels from that product's
+orb into ONE, ONE rings, a small card says what arrived (with Go to), the
+numbers on the card tick, and the item joins Since you were last here.
+
+- Logic: `lib/signals.ts` (what changed, the new numbers, where the light
+  starts). Drawing: `BrainScene.signal` in `components/brain/scene.ts`.
+- Demo: a timer plays one example per product the agent has, the first about
+  9 s after load, then every 40 s. Paused during the morning fly-through, while
+  an answer is up and while the tab is hidden. `?signals=fast` for a quick
+  look (every 7 s), `?signals=off` to stop them.
+- Real data: poll each product's `vip_summary` every few minutes and pass the
+  two answers to `diffSummaries`; new items become signals. Waits on the
+  `one-brain` secret (VIP-SUMMARY.md §8).
+- Reduced motion: no light; the card and the numbers still update.

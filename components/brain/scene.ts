@@ -42,6 +42,15 @@ interface Pulse {
   color: number;
 }
 
+// A live signal: a brighter light with a short trail that travels from the
+// product it came from into ONE, which rings when it lands.
+interface Flight {
+  from: string;
+  to: string;
+  t: number;
+  color: number;
+}
+
 export interface SceneEdge {
   source: string;
   target: string;
@@ -69,6 +78,7 @@ export class BrainScene {
   private edges: SceneEdge[] = [];
   private pulses: Pulse[] = [];
   private pings: Ping[] = [];
+  private flights: Flight[] = [];
   private pingG = new Graphics();
   private focusId = "";
   private hoverId: string | null = null;
@@ -193,6 +203,23 @@ export class BrainScene {
       this.pings.push({ id, t: -i * 0.35, color: s ? PRODUCT_COLOR[s.node.product as ProductKey] : GOLD });
     });
     this.idleFor = 0;
+  }
+
+  // Something new arrived in a product (live signals). Returns false when it
+  // cannot be drawn (reduced motion, or either end off screen).
+  signal(from: string, to: string): boolean {
+    const a = this.sprites.get(from), b = this.sprites.get(to);
+    if (this.reducedMotion || !a || !b || a.leaving || b.leaving || from === to) return false;
+    const color = PRODUCT_COLOR[a.node.product as ProductKey] ?? GOLD;
+    this.pings.push({ id: from, t: 0, color });
+    this.flights.push({ from, to, t: -0.25, color });
+    this.idleFor = 0;
+    return true;
+  }
+
+  isVisible(id: string): boolean {
+    const s = this.sprites.get(id);
+    return !!s && !s.leaving && s.tgt.a > 0.05;
   }
 
   screenOf(id: string): { x: number; y: number; r: number; a: number } | null {
@@ -425,6 +452,7 @@ export class BrainScene {
     this.drawEdges();
     this.heartbeat(dt);
     this.drawPulses(dt);
+    this.drawFlights(dt);
     this.drawPings(dt);
     this.app.ticker.maxFPS = this.idleFor > 8 ? 30 : 0; // idle: 30fps
     this.onFrame?.();
@@ -475,6 +503,38 @@ export class BrainScene {
       const s = 1 / this.cam.scale;
       g.circle(x, y, 10 * s).fill({ color: p.color, alpha: 0.14 * fade });
       g.circle(x, y, 3 * s).fill({ color: 0xffffff, alpha: 0.9 * fade });
+    }
+  }
+
+  private drawFlights(dt: number) {
+    this.flights = this.flights.filter((f) => {
+      if (f.t < 1) return true;
+      const to = this.sprites.get(f.to);
+      this.pings.push({ id: f.to, t: 0, color: to?.node.type === "core" ? GOLD : f.color });
+      return false;
+    });
+    const g = this.pulseG; // drawn after the heartbeat pulses, same layer
+    const s = 1 / this.cam.scale;
+    for (const f of this.flights) {
+      f.t += dt / 1.4;
+      if (f.t < 0) continue;
+      const a = this.sprites.get(f.from), b = this.sprites.get(f.to);
+      if (!a || !b) continue;
+      const alpha = Math.min(a.cur.a, b.cur.a);
+      const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+      const at = (t: number) => {
+        const e = ease(Math.max(0, Math.min(1, t)));
+        return { x: a.cur.x + (b.cur.x - a.cur.x) * e, y: a.cur.y + (b.cur.y - a.cur.y) * e };
+      };
+      // the path lights up behind the signal
+      const tail = at(f.t - 0.22), head = at(f.t);
+      g.moveTo(tail.x, tail.y).lineTo(head.x, head.y).stroke({ width: 3 * s, color: f.color, alpha: 0.5 * alpha });
+      for (let i = 4; i >= 1; i--) {
+        const p = at(f.t - i * 0.035);
+        g.circle(p.x, p.y, (5 - i) * 1.4 * s).fill({ color: f.color, alpha: (0.35 - i * 0.06) * alpha });
+      }
+      g.circle(head.x, head.y, 16 * s).fill({ color: f.color, alpha: 0.18 * alpha });
+      g.circle(head.x, head.y, 5 * s).fill({ color: 0xffffff, alpha: 0.95 * alpha });
     }
   }
 
