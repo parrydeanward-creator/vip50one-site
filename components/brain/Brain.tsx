@@ -14,6 +14,7 @@ import { iconFor, iconForText } from "@/lib/brain/icons.ts";
 import { SUGGESTED, answerSet, factsFor, type AskAnswer } from "@/lib/ask.ts";
 import { changesSince, firstVisitToday, morningTop, orbsToPing, sinceLabel } from "@/lib/morning.ts";
 import type { ChangeNote } from "@/lib/graph/types.ts";
+import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib/signals.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -23,7 +24,9 @@ const PHONE_QUERY = "(max-width: 719px)";
 const CARD_ROOM = 420; // desktop width kept free for the floating card
 const RAIL_ROOM = 250; // and for the rail of floating buttons on the left
 
-export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGraph; pkg?: string }) {
+export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph: BusinessGraph; pkg?: string }) {
+  // The graph changes while the page is open (live signals tick its numbers).
+  const [graph, setGraph] = useState(initialGraph);
   // ONE's morning note, written by the AI when it is available (rules otherwise).
   const [note, setNote] = useState<{ note: string; source: "ai" | "rules" } | null>(null);
   useEffect(() => {
@@ -73,6 +76,11 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
   tourRef.current = tour;
   const [since, setSince] = useState<{ label: string; changes: ChangeNote[] } | null>(null);
   const sceneFocus = ask || tour ? graph.rootId : state.focusId;
+  // Live signals: the latest arrival (a small card) and the numbers that just ticked.
+  const [toast, setToast] = useState<Signal | null>(null);
+  const [ticked, setTicked] = useState<Set<string>>(() => new Set());
+  const askRef = useRef(ask);
+  askRef.current = ask;
 
   const focus = ix.byId.get(state.focusId)!;
   const vs = useMemo(
@@ -153,12 +161,18 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
     [placed, phone, frameOn],
   );
 
+  // Refit only when what is on screen changes, not when a number ticks (the
+  // agent may have panned).
+  const framedKey = useRef("");
   useEffect(() => {
     const s = sceneRef.current;
     if (!s) return;
     s.setScene(placed, ix.byId, vs.edges, sceneFocus);
+    const key = `${sceneFocus}|${phone}|${placed.map((p) => `${p.id}:${p.role}`).join(",")}`;
+    if (key === framedKey.current) return;
+    framedKey.current = key;
     if (!tourRef.current) fitNow(true);
-  }, [ready, placed, vs, ix, sceneFocus, fitNow]);
+  }, [ready, placed, vs, ix, sceneFocus, fitNow, phone]);
 
   useEffect(() => {
     drawerRef.current?.scrollTo({ top: 0 });
@@ -242,6 +256,60 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tour, placed]);
+
+  // ---- live signals: something new arrives in a product --------------------
+  // Demo: a timer plays the examples (?signals=fast for a quick look,
+  // ?signals=off to stop them). Real: poll vip_summary and diff (lib/signals.ts).
+  const sceneFocusRef = useRef(sceneFocus);
+  sceneFocusRef.current = sceneFocus;
+  const receive = useCallback(
+    (sig: Signal) => {
+      const scene = sceneRef.current;
+      const path = pathTo(ix, sig.nodeId).map((n) => n.id);
+      const visible = (id: string) => !!scene?.isVisible(id);
+      const from = lightFrom(sig, path, visible);
+      const to = visible("one") ? "one" : sceneFocusRef.current;
+      const flying = !!(scene && from && scene.signal(from, to));
+      setTimeout(() => {
+        const at = new Date().toISOString();
+        setGraph((g) => applySignal(g, sig, at));
+        setSince((s) => (s ? { ...s, changes: [{ id: sig.nodeId, product: sig.product, what: sig.what, at }, ...s.changes] } : s));
+        setToast(sig);
+        const keys = new Set(sig.bumps.map((b) => `${b.nodeId}|${b.label ?? "sub"}`));
+        setTicked(keys);
+        setTimeout(() => setTicked((cur) => (cur === keys ? new Set() : cur)), 1800);
+      }, flying ? 1500 : 0);
+    },
+    [ix],
+  );
+  useEffect(() => {
+    if (!ready) return;
+    const mode = new URLSearchParams(window.location.search).get("signals");
+    if (mode === "off") return;
+    const fast = mode === "fast";
+    const queue = usable(DEMO_SIGNALS, indexGraph(initialGraph));
+    let i = 0;
+    let t: ReturnType<typeof setTimeout>;
+    const next = (ms: number) => {
+      t = setTimeout(() => {
+        if (i >= queue.length) return;
+        // not while the morning plays, an answer is up, or the tab is hidden
+        if (tourRef.current || askRef.current || document.hidden) return next(3000);
+        receiveRef.current(queue[i++]);
+        next(fast ? 7000 : 40000);
+      }, ms);
+    };
+    next(fast ? 2500 : 9000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+  const receiveRef = useRef(receive);
+  receiveRef.current = receive;
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 9000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   useEffect(() => {
     const onResize = () => fitNow(false);
@@ -759,6 +827,31 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
             );
           })()}
 
+          <div className="signal-live" role="status" aria-live="polite">
+            {toast && !tour && (
+              <div className="signal-card pop" key={toast.id}>
+                <i style={{ background: hex(PRODUCT_COLOR[toast.product]) }} aria-hidden="true" />
+                <div>
+                  <p className="signal-kicker" style={{ color: hex(PRODUCT_COLOR[toast.product]) }}>
+                    {productName(toast.product)} · just now
+                  </p>
+                  <p className="signal-what">{toast.what}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setToast(null);
+                    goTo(toast.nodeId);
+                  }}
+                >
+                  Go to
+                </button>
+                <button className="signal-x" onClick={() => setToast(null)} aria-label="Dismiss">
+                  ×
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="controls" role="toolbar" aria-label="Map controls">
             <button onClick={goBack} disabled={!state.history.length} aria-label="Back">
               ←
@@ -892,7 +985,7 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
             </a>
           )}
 
-          {focus.stats && <Stats stats={focus.stats} color={hex(PRODUCT_COLOR[focus.product])} />}
+          {focus.stats && <Stats stats={focus.stats} color={hex(PRODUCT_COLOR[focus.product])} ticked={(l) => ticked.has(`${focus.id}|${l}`)} />}
 
           {focus.pace && !focus.locked && (
             <div className="pace">
@@ -1020,7 +1113,7 @@ function nodeLabel(n: GraphNode, role: string, hasChildren: boolean) {
   return parts.join(", ");
 }
 
-function Stats({ stats, color }: { stats: { label: string; value: string }[]; color: string }) {
+function Stats({ stats, color, ticked = () => false }: { stats: { label: string; value: string }[]; color: string; ticked?: (label: string) => boolean }) {
   const [hero, ...rest] = stats;
   const m = /^\s*(\d+)\s*\/\s*(\d+)/.exec(hero.value);
   return (
@@ -1030,13 +1123,13 @@ function Stats({ stats, color }: { stats: { label: string; value: string }[]; co
           <Ring value={Number(m[1])} max={Number(m[2])} color={color} />
           <div>
             <p className="hero-label">{hero.label}</p>
-            <p className="hero-value">{hero.value}</p>
+            <p className={`hero-value${ticked(hero.label) ? " tick" : ""}`}>{hero.value}</p>
           </div>
         </div>
       ) : (
         <div className="row">
           <span>{hero.label}</span>
-          <b>{hero.value}</b>
+          <b className={ticked(hero.label) ? "tick" : undefined}>{hero.value}</b>
         </div>
       )}
       {rest.map((s) => (
@@ -1045,7 +1138,7 @@ function Stats({ stats, color }: { stats: { label: string; value: string }[]; co
             <Icon kind={iconForText(s.label)} size={16} color="var(--text-2)" />
             {s.label}
           </span>
-          <b>{s.value}</b>
+          <b className={ticked(s.label) ? "tick" : undefined}>{s.value}</b>
         </div>
       ))}
     </div>

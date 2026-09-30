@@ -50,16 +50,16 @@ export function addGo(add: Add, link: Link) {
     {
       id: "go-today",
       label: "Today",
-      sub: "14 of 25 points",
+      sub: "14 of 26 points",
       status: "attention",
-      summary: "You have 14 of today's 25 points and Today's Execution is at 52%: Building Momentum. Six VIP-50 tasks are left, and two people matter most this week.",
+      summary: "You have 14 of today's 26 points and Today's Execution is at 52%: Building Momentum. Six VIP-50 tasks are left, and two people matter most this week.",
       stats: [
-        { label: "Daily score", value: "14 / 25" },
+        { label: "Daily score", value: "14 / 26" },
         { label: "Execution", value: "52%" },
         { label: "VIP-50 tasks left", value: "6 of 11" },
         { label: "Streak", value: "12 days" },
       ],
-      pace: { headline: "Current pace: 21 / 25", detail: "4 high-value actions could close the gap: Jen, Marcus, the Millers and Amy." },
+      pace: { headline: "Current pace: 22 / 26", detail: "4 high-value actions could close the gap: Jen, Marcus, the Millers and Amy." },
       recs: [
         { title: "Call Jen Alvarez before her birthday tomorrow", targetId: "p-jen",
           why: ["Jen is on your VIP-50.", "Her birthday is tomorrow (Special Dates).", "Your last call was 34 days ago; the call cooldown is 30 days, so she is due.", "A call earns a daily point and credits Call #3."] },
@@ -111,11 +111,11 @@ export function addGo(add: Add, link: Link) {
     {
       id: "go-daily",
       label: "Daily Tracker",
-      sub: "14 / 25 points",
+      sub: "14 / 26 points",
       status: "attention",
       summary: "One point per box, two for Lunch / Face to Face, plus your custom activities.",
-      pace: { headline: "Current pace: 21 / 25", detail: "Call #3 (Jen is due), two video texts and a note close the gap." },
-      stats: [{ label: "Points today", value: "14 / 25" }, { label: "30-day active", value: "87%" }],
+      pace: { headline: "Current pace: 22 / 26", detail: "Call #3 (Jen is due), two video texts and a note close the gap." },
+      stats: [{ label: "Points today", value: "14 / 26" }, { label: "30-day active", value: "87%" }],
       kids: [
         { id: "dt-habits", label: "Daily Habits", sub: "4 of 6", kids: [
           done("dt-bed", "Made Bed"), done("dt-affirm", "Affirmations"), done("dt-grat", "Gratitudes"),
@@ -137,11 +137,11 @@ export function addGo(add: Add, link: Link) {
     {
       id: "go-weekly",
       label: "Weekly Bonus",
-      sub: "95 of 150 minimum",
+      sub: "95 of 100 minimum",
       status: "attention",
-      summary: "Bonus points for the bigger plays. 150 meets the minimum standard. Weeks run Monday to Sunday.",
-      pace: { headline: "Pacing to 140 of 150", detail: "Two more drop-bys (+10) earn the 4-drop-by bonus (+25) and clear the minimum." },
-      stats: [{ label: "Weekly total", value: "95" }, { label: "Minimum standard", value: "150" }],
+      summary: "This week's Daily Tracker points plus the bonus points below. 100 meets the minimum standard. Weeks run Monday to Sunday.",
+      pace: { headline: "5 points to the minimum", detail: "Finishing today's tracker clears it. Two more drop-bys (+10) earn the 4-drop-by bonus." },
+      stats: [{ label: "Weekly score", value: "95 / 100" }, { label: "Daily Tracker points", value: "40" }, { label: "Bonus points", value: "55" }],
       kids: [
         { id: "wk-plays", label: "Bonus activities", sub: "45 points so far", kids: [
           done("wk-lead", "Lead Gen / CRM / Drip", "+5"), todo("wk-mixer", "Mixer Participation", "+5"), done("wk-listing", "Listing - Buyer Activity", "+5"),
