@@ -976,6 +976,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
                   ▶ Replay my morning
                 </button>
               )}
+              <a className="link" href="/watch">
+                ▶ Watch ONE Work
+              </a>
             </div>
           )}
 

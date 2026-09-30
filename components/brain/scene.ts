@@ -95,6 +95,9 @@ export class BrainScene {
   private haloIndex = 0;
   private bgSize = "";
   reducedMotion = false;
+  // Below 1 slows every motion (used only to record Watch ONE Work smoothly
+  // on a slow machine; the video is sped back up).
+  timeScale = 1;
   onFrame: (() => void) | null = null;
 
   async init(host: HTMLElement, reducedMotion: boolean) {
@@ -384,7 +387,7 @@ export class BrainScene {
   // ---- motion -------------------------------------------------------------
 
   private frame(dt: number) {
-    dt = Math.min(dt, 0.1);
+    dt = Math.min(dt, 0.1) * this.timeScale;
     this.time += dt;
     this.idleFor += dt;
     const k = this.reducedMotion ? 1 : 1 - Math.exp(-dt * 5.5);

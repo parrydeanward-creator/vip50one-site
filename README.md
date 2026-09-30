@@ -66,3 +66,23 @@ numbers on the card tick, and the item joins Since you were last here.
   two answers to `diffSummaries`; new items become signals. Waits on the
   `one-brain` secret (VIP-SUMMARY.md §8).
 - Reduced motion: no light; the card and the numbers still update.
+
+## Watch ONE Work
+
+`/watch`: a 27-second story over the same engine. One person, Mark Davis,
+moves through all five products (open house sign-in in ONE Open, into ONE
+MOVE tagged by source, a follow-up ONE suggests in ONE GO, a Showly tour,
+742 Willow Lane) and ONE ends with the next thing to do, with its WHY. Opened
+from ONE's card ("Watch ONE Work"); ends with Watch again / Explore my
+business. Pause, start again and skip are on screen; every caption is read
+out (the canvas is decoration).
+
+- Story: `lib/watch.ts` (steps, hand-placed positions). Page:
+  `components/brain/Watch.tsx`.
+- Honesty (ONE-BRAIN.md §7): example agent and invented people, said on
+  screen. The hand-offs between products are marked **Coming** until the
+  event contract is built.
+- Video for the sales page: `?record=1` hides the controls;
+  `node scripts/record-watch.mjs 1920x1080 4 <ffmpeg>` records it in slow
+  motion (so a machine without a GPU draws every frame) and speeds it back up
+  to a 30 fps MP4 in `docs/`.
