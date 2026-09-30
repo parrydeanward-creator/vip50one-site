@@ -11,13 +11,16 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
+    "d3-force": "^3.0.0",
     "next": "^15.5.26",
+    "pixi.js": "^8.21.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "server-only": "^0.0.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/d3-force": "^3.0.10",
     "@types/node": "^26.6.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
