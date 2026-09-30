@@ -87,6 +87,46 @@ button { font: inherit; color: inherit; }
 .d-list small { color: var(--text-3); font-size: 12px; }
 .d-list em { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 
+/* desktop: the graph fills the stage; the detail card floats over it on the right,
+   popping up as the agent goes deeper (Parry's reference board) */
+@media (min-width: 720px) {
+  .stage { position: relative; display: block; }
+  .canvas-wrap { position: absolute; inset: 0; }
+  .drawer {
+    position: absolute; top: 24px; right: 24px; width: 372px; max-height: calc(100% - 48px);
+    border: 1px solid rgba(212, 175, 55, 0.32); border-radius: 18px;
+    background: linear-gradient(180deg, rgba(14, 20, 42, 0.86), rgba(8, 12, 26, 0.9));
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03) inset, 0 20px 60px rgba(0, 0, 0, 0.55), 0 0 40px rgba(212, 175, 55, 0.08);
+    z-index: 4;
+  }
+}
+.pop { animation: pop 420ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes pop { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+.leader { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.leader line { stroke: rgba(245, 197, 66, 0.55); stroke-width: 1; stroke-dasharray: 3 4; transition: opacity 300ms; opacity: 0; }
+
+/* card content (reference board: tracking ring, action box, why box) */
+.stats { margin-top: 16px; display: grid; gap: 6px; }
+.hero { display: flex; align-items: center; gap: 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, 0.025); }
+.hero-label { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-2); }
+.hero-value { margin: 2px 0 0; font-family: var(--font-display), "Bebas Neue", sans-serif; font-size: 44px; line-height: 1; color: #fff; letter-spacing: 0.02em; }
+.row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 14px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, 0.02); font-size: 14px; color: var(--text-2); }
+.row b { color: var(--gold-2); font-weight: 700; white-space: nowrap; }
+.btn-wide { width: 100%; }
+.rec { background: linear-gradient(180deg, rgba(212, 175, 55, 0.07), rgba(255, 255, 255, 0.02)) !important; border: 1px solid rgba(212, 175, 55, 0.3) !important; border-radius: 14px !important; padding: 14px 16px !important; }
+.rec-state { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.rec-state i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid; }
+.rec-kicker { margin: 0; font-size: 12px; color: var(--gold); }
+.rec-title { margin: 2px 0 0; font-weight: 700; font-size: 16px; }
+.rec-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+.rec-actions .why { background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #0b0b0b; border: 0; }
+.rec-actions .link { padding: 0; }
+.why-box { margin-top: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: rgba(7, 11, 24, 0.7); }
+.why-box p { margin: 0 0 6px; font-weight: 700; font-size: 13px; }
+.why-box ul { list-style: none !important; margin: 0; padding: 0; display: grid; gap: 6px !important; }
+.why-box li { position: relative; padding-left: 16px; font-size: 13px; color: var(--text-2); }
+.why-box li::before { content: ""; position: absolute; left: 0; top: 6px; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--gold); }
+
 /* phone: graph on top, drawer below (ONE-BRAIN.md §3) */
 @media (max-width: 719px) {
   .bar { padding: 8px 12px; gap: 10px; }
@@ -99,4 +139,5 @@ button { font: inherit; color: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; }
+  .pop { animation: none; }
 }

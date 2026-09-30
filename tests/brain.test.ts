@@ -44,13 +44,13 @@ test("never the whole graph: visible set stays within budget", () => {
 });
 
 test("phone shows the focus, its children and one step back, nothing else", () => {
-  const vs = visibleSet(ix, "go-today", PHONE_BUDGET);
+  const vs = visibleSet(ix, "go-tasks-today", PHONE_BUDGET);
   assert.ok(vs.nodes.every((v) => ["focus", "child", "ancestor", "related"].includes(v.role)));
   assert.equal(vs.nodes.filter((v) => v.role === "ancestor").length, 1);
 });
 
 test("layout: deterministic, focus at centre, no two nodes overlap", () => {
-  for (const id of ["one", "go", "go-today", "p-jen", "go-tracking"]) {
+  for (const id of ["one", "go", "go-today", "go-tasks-today", "p-jen", "go-daily", "go-score", "dt-habits"]) {
     const vs = visibleSet(ix, id, DESKTOP_BUDGET);
     const a = layout(vs), b = layout(vs);
     assert.deepEqual(a, b);
@@ -102,4 +102,21 @@ test("locked products for Relationship: shown, marked, no children opened", () =
     assert.equal(childrenOf(rel, id).length, 0);
   }
   assert.ok(!rel.byId.get("go")!.locked && !rel.byId.get("move")!.locked);
+});
+
+test("ONE GO carries the live app's areas", () => {
+  const labels = childrenOf(ix, "go").map((n) => n.label);
+  for (const l of ["Today", "Daily Tracker", "Weekly Bonus", "Scoreboard", "VIP Contacts", "Drop-By Map", "Tasks", "Calendar", "90-Day Challenge", "Hot / Warm / Cold", "The Lounge", "Business Rolodex"]) {
+    assert.ok(labels.includes(l), l);
+  }
+  // Four levels deep: ONE > ONE GO > Today > VIP-50 Daily Tasks > Jen > Family
+  assert.deepEqual(pathTo(ix, "jen-family").map((n) => n.id), ["one", "go", "go-today", "go-tasks-today", "p-jen", "jen-family"]);
+});
+
+test("every recommendation has facts behind it and points at a real node", () => {
+  for (const n of ix.graph.nodes)
+    for (const r of n.recommendations ?? []) {
+      assert.ok(r.why.length > 0, `${n.id}: ${r.title}`);
+      if (r.targetId) assert.ok(ix.byId.has(r.targetId), r.targetId);
+    }
 });

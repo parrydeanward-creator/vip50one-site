@@ -15,6 +15,7 @@ import type { BrainScene } from "./scene.ts";
 // comes in as a graph; nothing here knows about any product's internals.
 
 const PHONE_QUERY = "(max-width: 719px)";
+const CARD_ROOM = 420; // desktop width kept free for the floating card
 
 export default function Brain({ graph }: { graph: BusinessGraph }) {
   const ix = useMemo(() => indexGraph(graph), [graph]);
@@ -27,6 +28,9 @@ export default function Brain({ graph }: { graph: BusinessGraph }) {
   const sceneRef = useRef<BrainScene | null>(null);
   const btnRefs = useRef(new Map<string, HTMLButtonElement>());
   const drawerRef = useRef<HTMLElement>(null);
+  const leaderRef = useRef<SVGLineElement>(null);
+  const stateRef = useRef(state.focusId);
+  stateRef.current = state.focusId;
   const drag = useRef({ down: false, moved: false, x: 0, y: 0, pointers: new Map<number, { x: number; y: number }>(), pinch: 0 });
 
   const focus = ix.byId.get(state.focusId)!;
@@ -67,7 +71,12 @@ export default function Brain({ graph }: { graph: BusinessGraph }) {
       if (!s) return;
       const b = bounds(placed, 20);
       b.maxY += phone ? 70 : 40; // keep clear of the controls
-      s.setCamera(fit(b, s.viewport, phone ? 12 : 40), animate);
+      const vp = s.viewport;
+      if (phone) return s.setCamera(fit(b, vp, 12), animate);
+      // Desktop: the detail card floats on the right; fit the graph to the rest.
+      const room = Math.min(CARD_ROOM, vp.width * 0.45);
+      const c = fit(b, { width: vp.width - room, height: vp.height }, 40);
+      s.setCamera({ ...c, x: c.x + room / 2 / c.scale }, animate);
     },
     [placed, phone],
   );
@@ -107,6 +116,23 @@ export default function Brain({ graph }: { graph: BusinessGraph }) {
       el.style.visibility = "visible";
       el.style.width = el.style.height = `${size}px`;
       el.style.transform = `translate(${p.x - size / 2}px, ${p.y - size / 2}px)`;
+    }
+    // Leader line from the selected node to the floating card (desktop).
+    const line = leaderRef.current, card = drawerRef.current, host = hostRef.current;
+    if (line && card && host) {
+      const p = s.screenOf(stateRef.current);
+      const hr = host.getBoundingClientRect(), cr = card.getBoundingClientRect();
+      const floating = getComputedStyle(card).position === "absolute";
+      if (!p || !floating || p.a < 0.3) {
+        line.style.opacity = "0";
+      } else {
+        const x2 = cr.left - hr.left, y2 = Math.min(Math.max(p.y, cr.top - hr.top + 40), cr.bottom - hr.top - 40);
+        line.setAttribute("x1", String(p.x + p.r + 6));
+        line.setAttribute("y1", String(p.y));
+        line.setAttribute("x2", String(x2));
+        line.setAttribute("y2", String(y2));
+        line.style.opacity = "1";
+      }
     }
   }
 
@@ -206,6 +232,17 @@ export default function Brain({ graph }: { graph: BusinessGraph }) {
     .map((e) => ix.byId.get(e.source === state.focusId ? e.target : e.source))
     .filter((n): n is GraphNode => !!n);
   const people = kids.filter((k) => k.type === "person").map((k) => k.id);
+  const recTargets = (focus.recommendations ?? []).map((r) => r.targetId).filter((id): id is string => !!id && ix.byId.has(id));
+  const showMeTargets = people.length ? people : recTargets;
+  // SHOW ME: light up the people ONE means. If they live one level down, go
+  // there first; nothing is hidden, everything else just fades.
+  const showMe = () => {
+    if (highlight) return setHighlight(null);
+    if (people.length) return setHighlight(people);
+    const parent = ix.byId.get(recTargets[0])?.parentId;
+    if (parent && parent !== state.focusId) goTo(parent);
+    setHighlight(recTargets);
+  };
   const orderedForTab = [...vs.nodes].sort((a, b) => roleRank(a.role) - roleRank(b.role) || a.order - b.order);
 
   return (
@@ -240,6 +277,9 @@ export default function Brain({ graph }: { graph: BusinessGraph }) {
             onPointerCancel={onPointerUp}
             onWheel={onWheel}
           >
+            <svg className="leader" aria-hidden="true">
+              <line ref={leaderRef} />
+            </svg>
             <div className="overlay">
               {orderedForTab.map((v) => (
                 <button
@@ -278,7 +318,7 @@ export default function Brain({ graph }: { graph: BusinessGraph }) {
           </div>
         </section>
 
-        <aside ref={drawerRef} className="drawer" aria-label={`${focus.label} details`} aria-live="polite">
+        <aside ref={drawerRef} key={state.focusId} className="drawer pop" aria-label={`${focus.label} details`} aria-live="polite">
           <div className="d-head">
             <span className="chip" style={{ color: hex(PRODUCT_COLOR[focus.product]), borderColor: hex(PRODUCT_COLOR[focus.product]) }}>
               {productName(focus.product)}
@@ -300,48 +340,54 @@ export default function Brain({ graph }: { graph: BusinessGraph }) {
             </a>
           )}
 
-          {focus.stats && (
-            <dl className="d-stats">
-              {focus.stats.map((s) => (
-                <div key={s.label}>
-                  <dt>{s.label}</dt>
-                  <dd>{s.value}</dd>
-                </div>
-              ))}
-            </dl>
+          {focus.stats && <Stats stats={focus.stats} color={hex(PRODUCT_COLOR[focus.product])} />}
+
+          {showMeTargets.length > 0 && (
+            <button className="btn btn-wide" aria-pressed={!!highlight} onClick={showMe}>
+              {highlight ? "Show everything" : "Show me →"}
+            </button>
           )}
 
           {focus.recommendations && (
             <div className="d-recs">
               <h2>ONE recommends</h2>
-              {people.length > 0 && (
-                <button className="btn" aria-pressed={!!highlight} onClick={() => setHighlight(highlight ? null : people)}>
-                  {highlight ? "Show everything" : "Show me the people"}
-                </button>
-              )}
               <ul>
-                {focus.recommendations.map((r, i) => (
-                  <li key={r.title}>
-                    <div className="rec-row">
-                      <span>{r.title}</span>
-                      <button className="why" aria-expanded={openWhy === i} onClick={() => setOpenWhy(openWhy === i ? null : i)}>
-                        Why?
-                      </button>
-                    </div>
-                    {openWhy === i && (
-                      <ul className="facts">
-                        {r.why.map((f) => (
-                          <li key={f}>{f}</li>
-                        ))}
-                      </ul>
-                    )}
-                    {r.targetId && ix.byId.get(r.targetId) && (
-                      <button className="link" onClick={() => goTo(r.targetId!)}>
-                        Open {ix.byId.get(r.targetId)!.label} →
-                      </button>
-                    )}
-                  </li>
-                ))}
+                {focus.recommendations.map((r, i) => {
+                  const target = r.targetId ? ix.byId.get(r.targetId) : undefined;
+                  const st = target?.status ?? focus.status;
+                  return (
+                    <li key={r.title} className="rec">
+                      {st && (
+                        <p className="rec-state" style={{ color: hex(STATUS[st].color) }}>
+                          <i style={{ borderColor: hex(STATUS[st].color) }} />
+                          {STATUS[st].label}
+                        </p>
+                      )}
+                      <p className="rec-kicker">Recommended action</p>
+                      <p className="rec-title">{r.title}</p>
+                      <div className="rec-actions">
+                        <button className="why" aria-expanded={openWhy === i} onClick={() => setOpenWhy(openWhy === i ? null : i)}>
+                          Why?
+                        </button>
+                        {target && (
+                          <button className="link" onClick={() => goTo(target.id)}>
+                            Go to {target.label.replace(/^(Call|Text|Face-to-face:|Send note to)\s*/i, "")} →
+                          </button>
+                        )}
+                      </div>
+                      {openWhy === i && (
+                        <div className="why-box pop">
+                          <p>Why ONE surfaced this</p>
+                          <ul>
+                            {r.why.map((f) => (
+                              <li key={f}>{f}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
@@ -407,4 +453,43 @@ function nodeLabel(n: GraphNode, role: string, hasChildren: boolean) {
   else if (role === "ancestor") parts.push("go back up");
   else if (hasChildren) parts.push("open");
   return parts.join(", ");
+}
+
+function Stats({ stats, color }: { stats: { label: string; value: string }[]; color: string }) {
+  const [hero, ...rest] = stats;
+  const m = /^\s*(\d+)\s*\/\s*(\d+)/.exec(hero.value);
+  return (
+    <div className="stats">
+      {m ? (
+        <div className="hero">
+          <Ring value={Number(m[1])} max={Number(m[2])} color={color} />
+          <div>
+            <p className="hero-label">{hero.label}</p>
+            <p className="hero-value">{hero.value}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="row">
+          <span>{hero.label}</span>
+          <b>{hero.value}</b>
+        </div>
+      )}
+      {rest.map((s) => (
+        <div className="row" key={s.label}>
+          <span>{s.label}</span>
+          <b>{s.value}</b>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Ring({ value, max, color }: { value: number; max: number; color: string }) {
+  const r = 30, c = 2 * Math.PI * r, p = Math.max(0, Math.min(1, value / max));
+  return (
+    <svg width="76" height="76" viewBox="0 0 76 76" aria-hidden="true">
+      <circle cx="38" cy="38" r={r} fill="none" stroke="rgba(79,127,224,0.45)" strokeWidth="7" />
+      <circle cx="38" cy="38" r={r} fill="none" stroke={color} strokeWidth="7" strokeLinecap="round" strokeDasharray={`${c * p} ${c}`} transform="rotate(-90 38 38)" />
+    </svg>
+  );
 }

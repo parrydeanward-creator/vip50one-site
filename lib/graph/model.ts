@@ -81,7 +81,7 @@ export interface Budget {
   ancestors: number;
 }
 
-export const DESKTOP_BUDGET: Budget = { children: 12, siblings: 8, related: 4, ancestors: 4 };
+export const DESKTOP_BUDGET: Budget = { children: 14, siblings: 8, related: 4, ancestors: 4 };
 export const PHONE_BUDGET: Budget = { children: 6, siblings: 0, related: 2, ancestors: 1 };
 
 // Presentation's question: what should be on screen when `focusId` is
@@ -118,9 +118,16 @@ export function visibleSet(ix: GraphIndex, focusId: string, budget: Budget): Vis
 
   const ids = new Set(out.map((v) => v.node.id));
   const edges: VisibleSet["edges"] = [];
+  // Only the lines that matter: focus to its children, and the way back up.
+  // Siblings get none, so the picture never turns into a web.
+  const roleOf = new Map(out.map((v) => [v.node.id, v.role]));
   for (const v of out) {
     const p = v.node.parentId;
-    if (p && ids.has(p)) edges.push({ source: p, target: v.node.id, kind: "tree" });
+    if (!p || !ids.has(p)) continue;
+    const pr = roleOf.get(p), cr = v.role;
+    if ((pr === "focus" && cr === "child") || ((pr === "ancestor" || pr === "focus") && (cr === "ancestor" || cr === "focus"))) {
+      edges.push({ source: p, target: v.node.id, kind: "tree" });
+    }
   }
   for (const e of ix.graph.edges) {
     if (e.relationshipType === "belongs_to") continue;
