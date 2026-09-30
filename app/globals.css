@@ -45,8 +45,8 @@ button { font: inherit; color: inherit; }
 .canvas-wrap { position: relative; min-height: 0; }
 .canvas { position: absolute; inset: 0; touch-action: none; cursor: grab; overflow: hidden; }
 .canvas:active { cursor: grabbing; }
-.canvas canvas { position: absolute; inset: 0; display: block; }
-.overlay { position: absolute; inset: 0; pointer-events: none; }
+.canvas canvas { position: absolute; inset: 0; display: block; z-index: 0; }
+.overlay { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
 .node-btn { position: absolute; left: 0; top: 0; border-radius: 50%; border: 0; background: transparent; cursor: pointer; pointer-events: auto; padding: 0; }
 .node-btn.is-focus { cursor: default; }
 .node-btn:focus-visible { outline: 2px solid var(--gold-2); outline-offset: 4px; }
@@ -103,7 +103,7 @@ button { font: inherit; color: inherit; }
 }
 .pop { animation: pop 420ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 @keyframes pop { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
-.leader { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.leader { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .leader line { stroke: rgba(245, 197, 66, 0.55); stroke-width: 1; stroke-dasharray: 3 4; transition: opacity 300ms; opacity: 0; }
 
 /* card content (reference board: tracking ring, action box, why box) */
@@ -128,6 +128,57 @@ button { font: inherit; color: inherit; }
 .why-box li { position: relative; padding-left: 16px; font-size: 13px; color: var(--text-2); }
 .why-box li::before { content: ""; position: absolute; left: 0; top: 6px; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--gold); }
 
+/* on-orb interaction: hover preview, action chips, WHY box */
+.peek, .chips, .orb-why { position: absolute; left: 0; top: 0; z-index: 3; }
+.peek { width: 240px; pointer-events: none; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(212, 175, 55, 0.35); background: rgba(9, 13, 30, 0.92); backdrop-filter: blur(10px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); }
+.peek p { margin: 0; }
+.peek-kicker { font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; }
+.peek-title { margin-top: 4px !important; font-weight: 700; font-size: 15px; }
+.peek-stat { margin-top: 6px !important; color: var(--text-2); font-size: 13px; }
+.peek-stat b { font-family: var(--font-display), "Bebas Neue", sans-serif; font-size: 22px; font-weight: 400; color: var(--gold-2); margin-right: 4px; letter-spacing: 0.02em; }
+.peek-sub { margin-top: 4px !important; color: var(--gold); font-size: 13px; }
+.peek-sum { margin-top: 6px !important; color: var(--text-2); font-size: 12.5px; line-height: 1.45; }
+.peek-hint { margin-top: 8px !important; font-size: 11px; color: var(--text-3); letter-spacing: 0.04em; }
+.chips { display: flex; gap: 8px; flex-wrap: nowrap; }
+.chip-btn { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(212, 175, 55, 0.45); background: rgba(9, 13, 30, 0.88); backdrop-filter: blur(8px); color: var(--gold-2); font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; white-space: nowrap; cursor: pointer; }
+.chip-btn:hover { border-color: var(--gold-2); }
+.chip-btn.primary, .chip-btn[aria-pressed="true"] { background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #0b0b0b; border: 0; }
+.orb-why { width: 280px; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(212, 175, 55, 0.4); background: rgba(9, 13, 30, 0.94); backdrop-filter: blur(10px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(212, 175, 55, 0.08); }
+.orb-why p { margin: 0; }
+.orb-why-state { font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); }
+.orb-why-title { margin-top: 6px !important; font-weight: 700; }
+.orb-why ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.orb-why li { position: relative; padding-left: 16px; font-size: 13px; color: var(--text-2); }
+.orb-why li::before { content: ""; position: absolute; left: 0; top: 6px; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--gold); }
+.orb-why .link { padding-top: 10px; }
+
+/* left rail: the focused node's children as floating glass buttons (reference board) */
+.rail { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); width: 224px; max-height: calc(100% - 120px); overflow-y: auto; z-index: 3; padding: 4px; scrollbar-width: none; }
+.rail-head { margin: 0 0 2px 6px; font-family: var(--font-display), "Bebas Neue", sans-serif; font-size: 22px; letter-spacing: 0.04em; }
+.rail-sub { margin: 0 0 10px 6px; font-size: 12px; color: var(--gold); }
+.rail ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rail-btn { width: 100%; min-height: 50px; display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; border: 1px solid rgba(212, 175, 55, 0.22); background: linear-gradient(180deg, rgba(20, 24, 44, 0.85), rgba(10, 13, 28, 0.85)); backdrop-filter: blur(8px); text-align: left; cursor: pointer; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); transition: border-color 160ms, box-shadow 160ms, transform 160ms; }
+.rail-btn:hover, .rail-btn.on { border-color: rgba(245, 197, 66, 0.8); box-shadow: 0 0 0 1px rgba(245, 197, 66, 0.25), 0 0 24px rgba(212, 175, 55, 0.18); transform: translateX(3px); }
+.rail-btn.locked { opacity: 0.6; }
+.rail-icon { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 9px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); }
+.rail-icon b { font-size: 11px; color: #fff; }
+.rail-text { flex: 1; min-width: 0; display: grid; }
+.rail-text span { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail-text small { font-size: 11.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.rail-more { margin: 8px 0 0 6px; font-size: 12px; color: var(--text-3); }
+.rail-line { stroke-width: 1; opacity: 0; transition: opacity 250ms, stroke-width 160ms; stroke-opacity: 0.35; }
+.rail-line.lit { stroke-width: 2; stroke-opacity: 0.9; }
+@media (max-width: 1100px) { .rail { display: none; } }
+
+/* right panel: icon rows and the pace block */
+.row-label { display: inline-flex; align-items: center; gap: 10px; }
+.pace { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pace-head { margin: 0; font-weight: 800; font-size: 16px; }
+.pace-detail { margin: 6px 0 0; display: flex; gap: 8px; align-items: flex-start; color: var(--text-2); font-size: 13.5px; }
+.pace-mark { width: 12px; height: 12px; margin-top: 3px; flex: none; border-radius: 3px; background: #4f7fe0; box-shadow: 0 0 8px rgba(79, 127, 224, 0.6); }
+@media (min-width: 1101px) { .d-list.inside:not(.keep) { display: none; } }
+
 /* phone: graph on top, drawer below (ONE-BRAIN.md §3) */
 @media (max-width: 719px) {
   .bar { padding: 8px 12px; gap: 10px; }
@@ -136,6 +187,8 @@ button { font: inherit; color: inherit; }
   .drawer { border-left: 0; border-top: 1px solid var(--line); padding: 16px 16px 32px; border-radius: 18px 18px 0 0; }
   .d-title { font-size: 32px; }
   .controls { left: 12px; bottom: 10px; }
+  .peek { display: none; }
+  .chip-btn { min-height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

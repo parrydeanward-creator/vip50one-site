@@ -3,7 +3,8 @@ import type { GraphNode, ProductKey } from "@/lib/graph/types.ts";
 import type { Placed } from "@/lib/brain/layout.ts";
 import { type Camera, type Viewport, lerpCamera, toScreen } from "@/lib/brain/camera.ts";
 import { GOLD, GOLD_LIGHT, GREY, PRODUCT_COLOR, STATUS, WHITE } from "@/lib/brain/theme.ts";
-import { type IconKind, constellation, coreBody, glowTexture, icon, orbBody, orbit } from "./draw.ts";
+import { constellation, coreBody, glowTexture, icon, orbBody, orbit } from "./draw.ts";
+import { iconFor } from "@/lib/brain/icons.ts";
 
 // Layers 3 and 4 on the GPU: draws what presentation placed, and eases every
 // change (motion). It never decides what is shown or what anything means.
@@ -41,22 +42,6 @@ export interface SceneEdge {
 
 const HALO_WORDS = ["UNDERSTANDS", "REMEMBERS", "CONNECTS", "PRIORITIZES", "RECOMMENDS", "ACTS"];
 const FONT = "Inter Tight, Inter, system-ui, sans-serif";
-
-function iconFor(n: GraphNode): IconKind {
-  if (n.type === "product") return n.product as IconKind;
-  const l = n.label.toLowerCase();
-  if (n.type === "appointment" || n.type === "event" || l.includes("calendar") || l.includes("dates")) return "calendar";
-  if (l.includes("today") || l.includes("execution") || l.includes("momentum")) return "bolt";
-  if (l.includes("task") || l.includes("tracker") || l.includes("mission")) return "check";
-  if (l.includes("score") || l.includes("leader") || l.includes("badge") || l.includes("xp") || l.includes("crown")) return "trophy";
-  if (l.includes("map") || l.includes("route") || l.includes("miles") || l.includes("sign")) return "map";
-  if (l.includes("lounge") || l.includes("message") || l.includes("feed") || l.includes("call")) return "chat";
-  if (l.includes("contact") || l.includes("vip") || l.includes("family") || l.includes("people") || l.includes("buyer")) return "people";
-  if (l.includes("challenge") || l.includes("bonus") || l.includes("goal") || l.includes("hot")) return "star";
-  if (n.type === "property" || l.includes("listing") || l.includes("home") || l.includes("dr")) return "house";
-  if (n.type === "goal") return "star";
-  return "list";
-}
 
 function initials(label: string) {
   const name = label.replace(/^(Call|Text|Send note to|Social touch:|Face-to-face:)\s*/i, "").replace(/^the\s+/i, "");
@@ -250,9 +235,23 @@ export class BrainScene {
     s.glow.alpha = (n.type === "product" || role === "focus" ? 0.75 : 0.45) * lit;
     orbBody(b, r, color, lit);
 
+    // Progress arc for nodes whose headline number is "x / y" (e.g. 14 / 25).
+    const ratio = /^\s*(\d+)\s*\/\s*(\d+)/.exec(n.stats?.[0]?.value ?? "");
+    if (ratio && !n.locked && (role === "focus" || role === "child")) {
+      const frac = Math.max(0, Math.min(1, Number(ratio[1]) / Number(ratio[2])));
+      const ar = r + 11;
+      const arc = new Graphics();
+      arc.circle(0, 0, ar).stroke({ width: 3, color: 0xffffff, alpha: 0.08 });
+      if (frac > 0) {
+        arc.moveTo(0, -ar).arc(0, 0, ar, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2).stroke({ width: 3, color: lighten(color), alpha: 0.95, cap: "round" });
+      }
+      s.deco.addChild(arc);
+    }
+
     // Status as a small badge on the rim (its label is in the card and the
     // button's name), not a second ring fighting the product colour.
     const d = new Graphics();
+    d.label = "status";
     if (n.status && !n.locked && role !== "sibling" && role !== "ancestor") {
       const st = STATUS[n.status];
       const bx = Math.cos(-Math.PI / 4) * r, by = Math.sin(-Math.PI / 4) * r;
@@ -376,8 +375,9 @@ export class BrainScene {
       s.root.scale.set((s.cur.r / (s.drawnR || 1)) * breathe * hover);
       s.root.alpha = s.cur.a;
       if (this.hoverId === s.id) s.glow.alpha = Math.min(1, s.glow.alpha + 0.02);
-      if (s.node.status === "opportunity" && !this.reducedMotion && s.deco.children[0]) {
-        s.deco.children[0].alpha = 0.6 + 0.4 * Math.sin(this.time * 1.6 + s.phase);
+      if (s.node.status === "opportunity" && !this.reducedMotion) {
+        const st = s.deco.getChildByLabel("status");
+        if (st) st.alpha = 0.6 + 0.4 * Math.sin(this.time * 1.6 + s.phase);
       }
     }
 

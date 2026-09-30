@@ -59,6 +59,9 @@ export interface GraphNode {
   summary?: string;
   stats?: Stat[];
   recommendations?: Recommendation[];
+  // A short "where this is heading" line under the numbers (e.g. current
+  // pace), and what would close the gap.
+  pace?: { headline: string; detail?: string };
   timestamps?: { created?: string; due?: string; last?: string };
   locked?: boolean; // product outside the agent's package
 }

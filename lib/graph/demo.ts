@@ -38,18 +38,24 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
     product: "one",
     importance: 1,
     summary: "Good morning, Sarah. Three things matter most today: call Jen before her birthday, clear the four overdue follow-ups in ONE MOVE, and approve the Maple Ridge posts so they are ready for Thursday.",
+    // Headline numbers are what the products really track (Parry, 30 Sep):
+    // ONE GO's points, streak and leaderboard; ONE MOVE's Touch Audit.
     stats: [
-      { label: "Touches this month", value: "286 / 400" },
-      { label: "VIP list", value: "47 / 50" },
-      { label: "Day streak", value: "12" },
-      { label: "Closings this year", value: "14 / 25" },
+      { label: "Daily score", value: "14 / 25" },
+      { label: "Weekly points", value: "95 / 150" },
+      { label: "VIP-50 touch coverage", value: "68%" },
+      { label: "Streak", value: "12 days" },
+      { label: "Leaderboard", value: "#2" },
+      { label: "Referrals this year", value: "9" },
     ],
+    pace: { headline: "Current pace: 21 / 25 today", detail: "Jen, Marcus, the Millers and Amy are the four actions that close the gap." },
   });
 
   const products: N[] = [
     { id: "go", type: "product", label: "ONE GO", secondaryLabel: "Daily execution", parentId: "one", product: "go", importance: 0.95, status: "attention",
       summary: "What needs to happen today, and whether you are on pace: points, VIP-50 tasks, the weekly bonus, the leaderboard and the 90-Day Challenge.",
-      stats: [{ label: "Daily score", value: "14 / 25" }, { label: "Weekly", value: "95 / 150" }, { label: "Streak", value: "12 days" }, { label: "Leaderboard", value: "#2" }] },
+      stats: [{ label: "Daily score", value: "14 / 25" }, { label: "Weekly", value: "95 / 150" }, { label: "Streak", value: "12 days" }, { label: "Leaderboard", value: "#2" }],
+      pace: { headline: "Current pace: 21 / 25", detail: "4 high-value actions could close the gap." } },
     { id: "move", type: "product", label: "ONE MOVE", secondaryLabel: "Relationship intelligence", parentId: "one", product: "move", importance: 0.9, status: "action",
       summary: "Everyone you know, and what you promised them.",
       stats: [{ label: "Follow-ups overdue", value: "4" }, { label: "New to sort", value: "3" }] },

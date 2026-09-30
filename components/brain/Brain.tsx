@@ -9,6 +9,8 @@ import * as nav from "@/lib/brain/nav.ts";
 import { PRODUCT_COLOR, STATUS, hex } from "@/lib/brain/theme.ts";
 import { UPGRADE_URL } from "@/lib/products.ts";
 import type { BrainScene } from "./scene.ts";
+import Icon from "./Icon.tsx";
+import { iconFor, iconForText } from "@/lib/brain/icons.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -16,6 +18,7 @@ import type { BrainScene } from "./scene.ts";
 
 const PHONE_QUERY = "(max-width: 719px)";
 const CARD_ROOM = 420; // desktop width kept free for the floating card
+const RAIL_ROOM = 250; // and for the rail of floating buttons on the left
 
 export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGraph; pkg?: string }) {
   // ONE's morning note, written by the AI when it is available (rules otherwise).
@@ -41,6 +44,13 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
   const btnRefs = useRef(new Map<string, HTMLButtonElement>());
   const drawerRef = useRef<HTMLElement>(null);
   const leaderRef = useRef<SVGLineElement>(null);
+  const peekRef = useRef<HTMLDivElement>(null);
+  const chipsRef = useRef<HTMLDivElement>(null);
+  const whyRef = useRef<HTMLDivElement>(null);
+  const [peekId, setPeekId] = useState<string | null>(null);
+  const peekIdRef = useRef<string | null>(null);
+  peekIdRef.current = peekId;
+  const [orbWhy, setOrbWhy] = useState(false);
   const stateRef = useRef(state.focusId);
   stateRef.current = state.focusId;
   const drag = useRef({ down: false, moved: false, x: 0, y: 0, pointers: new Map<number, { x: number; y: number }>(), pinch: 0 });
@@ -48,6 +58,12 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
   const focus = ix.byId.get(state.focusId)!;
   const vs = useMemo(() => visibleSet(ix, state.focusId, phone ? PHONE_BUDGET : DESKTOP_BUDGET), [ix, state.focusId, phone]);
   const placed = useMemo(() => layout(vs), [vs]);
+  // The rail: the focused node's children as floating buttons on the left.
+  const railNodes = useMemo(() => childrenOf(ix, state.focusId).slice(0, 9), [ix, state.focusId]);
+  const railCount = railNodes.length;
+  const railRefs = useRef(new Map<string, HTMLButtonElement>());
+  const railLineRefs = useRef(new Map<string, SVGLineElement>());
+  const [railHover, setRailHover] = useState<string | null>(null);
 
   // ---- scene lifecycle ----------------------------------------------------
   useEffect(() => {
@@ -86,11 +102,12 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
       const vp = s.viewport;
       if (phone) return s.setCamera(fit(b, vp, 12), animate);
       // Desktop: the detail card floats on the right; fit the graph to the rest.
-      const room = Math.min(CARD_ROOM, vp.width * 0.45);
-      const c = fit(b, { width: vp.width - room, height: vp.height }, 40);
-      s.setCamera({ ...c, x: c.x + room / 2 / c.scale }, animate);
+      const room = Math.min(CARD_ROOM, vp.width * 0.4);
+      const rail = railCount > 0 && vp.width > 1100 ? RAIL_ROOM : 0;
+      const c = fit(b, { width: vp.width - room - rail, height: vp.height }, 40);
+      s.setCamera({ ...c, x: c.x + (room - rail) / 2 / c.scale }, animate);
     },
-    [placed, phone],
+    [placed, phone, railCount],
   );
 
   useEffect(() => {
@@ -102,6 +119,8 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
 
   useEffect(() => {
     drawerRef.current?.scrollTo({ top: 0 });
+    setOrbWhy(false);
+    setPeekId(null);
   }, [state.focusId]);
 
   useEffect(() => {
@@ -128,6 +147,46 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
       el.style.visibility = "visible";
       el.style.width = el.style.height = `${size}px`;
       el.style.transform = `translate(${p.x - size / 2}px, ${p.y - size / 2}px)`;
+    }
+    // Things anchored to orbs: the hover preview, the focused orb's action
+    // chips, and its WHY box. Placed in screen space every frame.
+    const vp = s.viewport;
+    const place = (el: HTMLElement | null, id: string | null, fn: (p: { x: number; y: number; r: number }, w: number, h: number) => [number, number]) => {
+      if (!el) return;
+      const p = id ? s.screenOf(id) : null;
+      if (!p || p.a < 0.3) {
+        el.style.visibility = "hidden";
+        return;
+      }
+      const [x, y] = fn(p, el.offsetWidth, el.offsetHeight);
+      el.style.visibility = "visible";
+      el.style.transform = `translate(${Math.round(Math.min(Math.max(8, x), vp.width - el.offsetWidth - 8))}px, ${Math.round(Math.min(Math.max(8, y), vp.height - el.offsetHeight - 8))}px)`;
+    };
+    const pid = peekIdRef.current;
+    place(peekRef.current, pid && pid !== stateRef.current ? pid : null, (p, w, h) => (p.x + p.r + 14 + w > vp.width ? [p.x - p.r - 14 - w, p.y - h / 2] : [p.x + p.r + 14, p.y - h / 2]));
+    place(chipsRef.current, stateRef.current, (p, w) => [p.x - w / 2, p.y + p.r + 14]);
+    place(whyRef.current, stateRef.current, (p, w, h) => {
+      const chipsW = chipsRef.current?.offsetWidth ?? 0;
+      const left = Math.min(p.x - p.r - 18, p.x - chipsW / 2 - 12) - w; // clear of the orb and its chips
+      return left > 8 ? [left, Math.min(p.y - h / 2, p.y + p.r + 6 - h)] : [p.x - w / 2, p.y + p.r + 64];
+    });
+    // Rail lines: from each floating button to its orb.
+    const hostRect = hostRef.current?.getBoundingClientRect();
+    for (const [id, line] of railLineRefs.current) {
+      const btn = railRefs.current.get(id);
+      const p = s.screenOf(id);
+      if (!btn || !p || !hostRect || p.a < 0.2 || btn.offsetParent === null) {
+        line.style.opacity = "0";
+        continue;
+      }
+      const br = btn.getBoundingClientRect();
+      const x1 = br.right - hostRect.left, y1 = br.top + br.height / 2 - hostRect.top;
+      const dx = p.x - x1, dy = p.y - y1, len = Math.hypot(dx, dy) || 1;
+      line.setAttribute("x1", String(x1));
+      line.setAttribute("y1", String(y1));
+      line.setAttribute("x2", String(p.x - (dx / len) * (p.r + 4)));
+      line.setAttribute("y2", String(p.y - (dy / len) * (p.r + 4)));
+      line.style.opacity = "1";
     }
     // Leader line from the selected node to the floating card (desktop).
     const line = leaderRef.current, card = drawerRef.current, host = hostRef.current;
@@ -255,6 +314,16 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
     if (parent && parent !== state.focusId) goTo(parent);
     setHighlight(recTargets);
   };
+  const peek = peekId ? ix.byId.get(peekId) ?? null : null;
+  const firstRec = focus.recommendations?.[0];
+  const productHref = PRODUCT_HREF[focus.product];
+  // Actions that live on the focused orb itself (and in the card as well).
+  const orbActions: { label: string; run?: () => void; href?: string; primary?: boolean; pressed?: boolean }[] = [];
+  if (firstRec) orbActions.push({ label: "Why?", run: () => setOrbWhy((w) => !w), primary: true, pressed: orbWhy });
+  if (showMeTargets.length) orbActions.push({ label: highlight ? "Show everything" : "Show me", run: showMe, pressed: !!highlight });
+  if (productHref && focus.type !== "core" && !focus.locked) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
+  if (focus.locked) orbActions.push({ label: "Add with Complete", href: UPGRADE_URL });
+
   const orderedForTab = [...vs.nodes].sort((a, b) => roleRank(a.role) - roleRank(b.role) || a.order - b.order);
 
   return (
@@ -291,6 +360,17 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
           >
             <svg className="leader" aria-hidden="true">
               <line ref={leaderRef} />
+              {railNodes.map((k) => (
+                <line
+                  key={k.id}
+                  className={`rail-line ${railHover === k.id ? "lit" : ""}`}
+                  style={{ stroke: hex(PRODUCT_COLOR[k.product]) }}
+                  ref={(el) => {
+                    if (el) railLineRefs.current.set(k.id, el);
+                    else railLineRefs.current.delete(k.id);
+                  }}
+                />
+              ))}
             </svg>
             <div className="overlay">
               {orderedForTab.map((v) => (
@@ -305,15 +385,132 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
                   aria-label={nodeLabel(v.node, v.role, v.hasChildren)}
                   aria-current={v.role === "focus" ? "true" : undefined}
                   onClick={() => clickNode(v.node.id)}
-                  onPointerEnter={() => sceneRef.current?.setHover(v.node.id)}
-                  onPointerLeave={() => sceneRef.current?.setHover(null)}
-                  onFocus={() => sceneRef.current?.setHover(v.node.id)}
-                  onBlur={() => sceneRef.current?.setHover(null)}
+                  onPointerEnter={(e) => {
+                    sceneRef.current?.setHover(v.node.id);
+                    if (e.pointerType === "mouse") setPeekId(v.node.id);
+                  }}
+                  onPointerLeave={() => {
+                    sceneRef.current?.setHover(null);
+                    setPeekId(null);
+                  }}
+                  onFocus={() => {
+                    sceneRef.current?.setHover(v.node.id);
+                    setPeekId(v.node.id);
+                  }}
+                  onBlur={() => {
+                    sceneRef.current?.setHover(null);
+                    setPeekId(null);
+                  }}
                 />
               ))}
             </div>
+            {peek && (
+              <div ref={peekRef} className="peek" style={{ visibility: "hidden" }} aria-hidden="true">
+                <p className="peek-kicker" style={{ color: hex(PRODUCT_COLOR[peek.product]) }}>
+                  {productName(peek.product)}
+                  {peek.status && !peek.locked && (
+                    <span style={{ color: hex(STATUS[peek.status].color) }}> · {STATUS[peek.status].label}</span>
+                  )}
+                </p>
+                <p className="peek-title">{peek.label}</p>
+                {peek.locked ? (
+                  <p className="peek-sub">Included in ONE Complete</p>
+                ) : peek.stats?.[0] ? (
+                  <p className="peek-stat">
+                    <b>{peek.stats[0].value}</b> {peek.stats[0].label}
+                  </p>
+                ) : (
+                  peek.secondaryLabel && <p className="peek-sub">{peek.secondaryLabel}</p>
+                )}
+                {peek.summary && !peek.locked && <p className="peek-sum">{clip(peek.summary, 110)}</p>}
+                <p className="peek-hint">{childrenOf(ix, peek.id).length ? "Click to open" : "Click for details"}</p>
+              </div>
+            )}
+
+            {ready && (orbActions.length > 0) && (
+              <div ref={chipsRef} key={`chips-${state.focusId}`} className="chips pop" role="group" aria-label={`${focus.label} actions`} style={{ visibility: "hidden" }}>
+                {orbActions.map((a) =>
+                  a.href ? (
+                    <a key={a.label} className="chip-btn" href={a.href} target="_blank" rel="noreferrer">
+                      {a.label}
+                    </a>
+                  ) : (
+                    <button key={a.label} className={`chip-btn ${a.primary ? "primary" : ""}`} aria-pressed={a.pressed} onClick={a.run}>
+                      {a.label}
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+
+            {orbWhy && firstRec && (
+              <div ref={whyRef} className="orb-why pop" role="dialog" aria-label="Why ONE surfaced this" style={{ visibility: "hidden" }}>
+                <p className="orb-why-state">Why ONE surfaced this</p>
+                <p className="orb-why-title">{firstRec.title}</p>
+                <ul>
+                  {firstRec.why.map((f) => (
+                    <li key={f}>{f}</li>
+                  ))}
+                </ul>
+                {firstRec.targetId && ix.byId.get(firstRec.targetId) && firstRec.targetId !== state.focusId && (
+                  <button className="link" onClick={() => goTo(firstRec.targetId!)}>
+                    Go to {cleanName(ix.byId.get(firstRec.targetId)!.label)} →
+                  </button>
+                )}
+              </div>
+            )}
+
             {!ready && <div className="loading">Waking ONE…</div>}
           </div>
+          {railCount > 0 && (
+            <nav className="rail pop" key={`rail-${state.focusId}`} aria-label={`Inside ${focus.label}`}>
+              <p className="rail-head">{focus.type === "core" ? "Your business" : focus.label}</p>
+              {focus.type !== "core" && focus.secondaryLabel && <p className="rail-sub">{focus.secondaryLabel}</p>}
+              <ul>
+                {railNodes.map((k) => (
+                  <li key={k.id}>
+                    <button
+                      ref={(el) => {
+                        if (el) railRefs.current.set(k.id, el);
+                        else railRefs.current.delete(k.id);
+                      }}
+                      className={`rail-btn ${railHover === k.id || highlight?.includes(k.id) ? "on" : ""} ${k.locked ? "locked" : ""}`}
+                      onClick={() => goTo(k.id)}
+                      onPointerEnter={() => {
+                        setRailHover(k.id);
+                        sceneRef.current?.setHover(k.id);
+                      }}
+                      onPointerLeave={() => {
+                        setRailHover(null);
+                        sceneRef.current?.setHover(null);
+                      }}
+                      onFocus={() => {
+                        setRailHover(k.id);
+                        sceneRef.current?.setHover(k.id);
+                      }}
+                      onBlur={() => {
+                        setRailHover(null);
+                        sceneRef.current?.setHover(null);
+                      }}
+                    >
+                      <span className="rail-icon" style={{ color: hex(PRODUCT_COLOR[k.product]) }}>
+                        {k.type === "person" ? <b>{initialsOf(k.label)}</b> : <Icon kind={iconFor(k)} size={18} />}
+                      </span>
+                      <span className="rail-text">
+                        <span>{k.label}</span>
+                        {k.locked ? <small>Included in Complete</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
+                      </span>
+                      {k.status && !k.locked && <i className="rail-dot" style={{ background: hex(STATUS[k.status].color) }} aria-label={STATUS[k.status].label} />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {vs.hiddenChildren > 0 || childrenOf(ix, state.focusId).length > railCount ? (
+                <p className="rail-more">+{childrenOf(ix, state.focusId).length - railCount} more in the panel</p>
+              ) : null}
+            </nav>
+          )}
+
           <div className="controls" role="toolbar" aria-label="Map controls">
             <button onClick={goBack} disabled={!state.history.length} aria-label="Back">
               ←
@@ -360,6 +557,18 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
           )}
 
           {focus.stats && <Stats stats={focus.stats} color={hex(PRODUCT_COLOR[focus.product])} />}
+
+          {focus.pace && !focus.locked && (
+            <div className="pace">
+              <p className="pace-head">{focus.pace.headline}</p>
+              {focus.pace.detail && (
+                <p className="pace-detail">
+                  <span className="pace-mark" aria-hidden="true" />
+                  {focus.pace.detail}
+                </p>
+              )}
+            </div>
+          )}
 
           {showMeTargets.length > 0 && (
             <button className="btn btn-wide" aria-pressed={!!highlight} onClick={showMe}>
@@ -412,7 +621,7 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
           )}
 
           {kids.length > 0 && (
-            <div className="d-list">
+            <div className={`d-list inside ${railCount > childrenOf(ix, state.focusId).length - 1 ? "" : "keep"}`}>
               <h2>{focus.type === "core" ? "Your products" : "Inside"}</h2>
               <ul>
                 {kids.map((k) => (
@@ -495,7 +704,10 @@ function Stats({ stats, color }: { stats: { label: string; value: string }[]; co
       )}
       {rest.map((s) => (
         <div className="row" key={s.label}>
-          <span>{s.label}</span>
+          <span className="row-label">
+            <Icon kind={iconForText(s.label)} size={16} color="var(--text-2)" />
+            {s.label}
+          </span>
           <b>{s.value}</b>
         </div>
       ))}
@@ -511,4 +723,23 @@ function Ring({ value, max, color }: { value: number; max: number; color: string
       <circle cx="38" cy="38" r={r} fill="none" stroke={color} strokeWidth="7" strokeLinecap="round" strokeDasharray={`${c * p} ${c}`} transform="rotate(-90 38 38)" />
     </svg>
   );
+}
+
+const PRODUCT_HREF: Partial<Record<GraphNode["product"], string>> = {
+  move: "https://move.vip50one.com",
+  marquee: "https://marquee.vip-50.com",
+  open: "https://open.vip-50.com",
+  showly: "https://showly.net",
+};
+
+function clip(t: string, n: number) {
+  return t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t;
+}
+
+function cleanName(label: string) {
+  return label.replace(/^(Call|Text|Face-to-face:|Send note to|Social touch:)\s*/i, "");
+}
+
+function initialsOf(label: string) {
+  return cleanName(label).replace(/^the\s+/i, "").split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
 }
