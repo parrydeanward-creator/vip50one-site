@@ -93,7 +93,8 @@ export function constellation(g: Graphics, w: number, h: number) {
   for (const p of pts) g.circle(p.x, p.y, 0.6 + p.s * 1.4).fill({ color: p.s > 0.85 ? 0xf5c542 : 0x9fb3e6, alpha: 0.15 + p.s * 0.35 });
 }
 
-export type IconKind = "go" | "move" | "marquee" | "showly" | "open" | "check" | "people" | "house" | "calendar" | "star" | "map" | "chat" | "trophy" | "list" | "bolt" | "none";
+import type { IconKind } from "@/lib/brain/icons.ts";
+export type { IconKind };
 
 // Simple line icons centred on (0, 0) within a `s`-sized box.
 export function icon(g: Graphics, kind: IconKind, s: number, color: number) {

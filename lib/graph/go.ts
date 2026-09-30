@@ -18,6 +18,7 @@ interface Spec {
   summary?: string;
   stats?: Stat[];
   recs?: Recommendation[];
+  pace?: GraphNode["pace"];
   kids?: Spec[];
 }
 
@@ -35,6 +36,7 @@ function tree(add: Add, parentId: string, specs: Spec[]) {
       summary: s.summary,
       stats: s.stats,
       recommendations: s.recs,
+      pace: s.pace,
     });
     if (s.kids) tree(add, s.id, s.kids);
   });
@@ -57,6 +59,7 @@ export function addGo(add: Add, link: Link) {
         { label: "VIP-50 tasks left", value: "6 of 11" },
         { label: "Streak", value: "12 days" },
       ],
+      pace: { headline: "Current pace: 21 / 25", detail: "4 high-value actions could close the gap: Jen, Marcus, the Millers and Amy." },
       recs: [
         { title: "Call Jen Alvarez before her birthday tomorrow", targetId: "p-jen",
           why: ["Jen is on your VIP-50.", "Her birthday is tomorrow (Special Dates).", "Your last call was 34 days ago; the call cooldown is 30 days, so she is due.", "A call earns a daily point and credits Call #3."] },
@@ -111,6 +114,7 @@ export function addGo(add: Add, link: Link) {
       sub: "14 / 25 points",
       status: "attention",
       summary: "One point per box, two for Lunch / Face to Face, plus your custom activities.",
+      pace: { headline: "Current pace: 21 / 25", detail: "Call #3 (Jen is due), two video texts and a note close the gap." },
       stats: [{ label: "Points today", value: "14 / 25" }, { label: "30-day active", value: "87%" }],
       kids: [
         { id: "dt-habits", label: "Daily Habits", sub: "4 of 6", kids: [
@@ -136,6 +140,7 @@ export function addGo(add: Add, link: Link) {
       sub: "95 of 150 minimum",
       status: "attention",
       summary: "Bonus points for the bigger plays. 150 meets the minimum standard. Weeks run Monday to Sunday.",
+      pace: { headline: "Pacing to 140 of 150", detail: "Two more drop-bys (+10) earn the 4-drop-by bonus (+25) and clear the minimum." },
       stats: [{ label: "Weekly total", value: "95" }, { label: "Minimum standard", value: "150" }],
       kids: [
         { id: "wk-plays", label: "Bonus activities", sub: "45 points so far", kids: [
@@ -155,6 +160,7 @@ export function addGo(add: Add, link: Link) {
       sub: "#2 this week",
       status: "opportunity",
       summary: "Your points, XP, streak and where you stand on this week's leaderboard. It resets Monday.",
+      pace: { headline: "35 XP behind the Crown", detail: "Finish today's VIP-50 tasks (+50 XP) to take #1." },
       stats: [
         { label: "Daily", value: "14" },
         { label: "Weekly", value: "95" },
@@ -249,6 +255,7 @@ export function addGo(add: Add, link: Link) {
       sub: "Day 23 · Gold",
       status: "healthy",
       summary: "Five arenas, 20 points each, 100 a day. Average 70+ is Gold, 90+ Platinum.",
+      pace: { headline: "At this pace: Gold", detail: "Relationships is your lowest arena: one introduction and one gratitude message today." },
       stats: [{ label: "Today", value: "65 / 100" }, { label: "Average", value: "74 · Gold" }, { label: "Days logged", value: "21 of 23" }],
       kids: [
         { id: "ch-body", label: "Body", sub: "15 / 20", summary: "Workout 45+ min, nutrition on plan, 100 oz water, 7+ hours sleep." },

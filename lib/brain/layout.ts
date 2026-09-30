@@ -48,6 +48,7 @@ export function radiusFor(type: NodeType, role: Role): number {
 }
 
 const GAP = 26;
+const LABEL_W = 150; // widest label a child carries, in world units
 
 export function layout(vs: VisibleSet, opts: { relax?: boolean } = {}): Placed[] {
   const byRole = (role: Role) => vs.nodes.filter((v) => v.role === role).sort((a, b) => a.order - b.order);
@@ -60,7 +61,9 @@ export function layout(vs: VisibleSet, opts: { relax?: boolean } = {}): Placed[]
   // Children on a ring big enough that they do not touch.
   const kids = byRole("child");
   const rk = kids.length ? Math.max(...kids.map((k) => radiusFor(k.node.type, "child"))) : 0;
-  const ring1 = Math.max(rf + rk + 90, (kids.length * (2 * rk + GAP)) / (2 * Math.PI));
+  // Room for each child's label as well as its orb, so labels never collide.
+  const slot = Math.max(2 * rk + GAP, LABEL_W);
+  const ring1 = Math.max(rf + rk + 90, (kids.length * slot) / (2 * Math.PI));
   kids.forEach((k, i) => {
     const a = -Math.PI / 2 + (i / Math.max(1, kids.length)) * Math.PI * 2;
     placed.push({ id: k.node.id, role: "child", x: Math.cos(a) * ring1, y: Math.sin(a) * ring1, r: radiusFor(k.node.type, "child") });
