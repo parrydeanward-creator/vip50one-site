@@ -16,6 +16,8 @@ import { changesSince, firstVisitToday, morningTop, orbsToPing, sinceLabel } fro
 import type { ChangeNote } from "@/lib/graph/types.ts";
 import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib/signals.ts";
 import { RANGE, dayLabel, inWindow, offsetLabel, windowTitle } from "@/lib/timeline.ts";
+import { clock, completedBy, duration, isEvening, planDay, recap } from "@/lib/day.ts";
+import { localDay } from "@/lib/morning.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -84,7 +86,16 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
   const dated = useMemo(() => (tour || ask ? [] : inWindow(graph.dated, when, now, ix)), [graph.dated, when, now, ix, tour, ask]);
   const datedIds = useMemo(() => [...new Set(dated.map((d) => d.id))], [dated]);
   const timeline = when !== 0 && !tour && !ask;
-  const sceneFocus = ask || tour || timeline ? graph.rootId : state.focusId;
+  // Your day: today's work in order, with times; done as the products report
+  // it (or the agent ticks it), compiled in the evening.
+  const [dayDone, setDayDone] = useState<Set<string>>(() => new Set());
+  const [dayMap, setDayMap] = useState(false);
+  const [evening, setEvening] = useState(false);
+  const slots = useMemo(() => planDay(graph.today ?? [], dayDone), [graph.today, dayDone]);
+  const day = useMemo(() => recap(slots), [slots]);
+  const dayIds = useMemo(() => [...new Set(slots.map((x) => x.nodeId))], [slots]);
+  const dayView = dayMap && !tour && !ask && !timeline;
+  const sceneFocus = ask || tour || timeline || dayView ? graph.rootId : state.focusId;
   // Live signals: the latest arrival (a small card) and the numbers that just ticked.
   const [toast, setToast] = useState<Signal | null>(null);
   const [ticked, setTicked] = useState<Set<string>>(() => new Set());
@@ -100,8 +111,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
           ? answerSet(ix, askIds)
           : timeline
             ? answerSet(ix, datedIds)
-            : visibleSet(ix, state.focusId, phone ? PHONE_BUDGET : DESKTOP_BUDGET),
-    [ix, state.focusId, phone, ask, askIds, tour, timeline, datedIds],
+            : dayView
+              ? answerSet(ix, dayIds)
+              : visibleSet(ix, state.focusId, phone ? PHONE_BUDGET : DESKTOP_BUDGET),
+    [ix, state.focusId, phone, ask, askIds, tour, timeline, datedIds, dayView, dayIds],
   );
   const placed = useMemo(() => layout(vs), [vs]);
   // The rail: the focused node's children as floating buttons on the left.
@@ -113,8 +126,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
           ? askIds.map((id) => ix.byId.get(id)!).filter(Boolean)
           : timeline
             ? datedIds.map((id) => ix.byId.get(id)!).filter(Boolean)
-            : childrenOf(ix, state.focusId).slice(0, 9),
-    [ix, state.focusId, ask, askIds, tour, timeline, datedIds],
+            : dayView
+              ? dayIds.map((id) => ix.byId.get(id)!).filter(Boolean)
+              : childrenOf(ix, state.focusId).slice(0, 9),
+    [ix, state.focusId, ask, askIds, tour, timeline, datedIds, dayView, dayIds],
   );
   const railCount = railNodes.length;
   const railRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -276,6 +291,32 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tour, placed]);
 
+  // Your day: remember what is done today (this browser), and whether it is evening.
+  const dayKey = `one.day.${localDay(now)}`;
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(dayKey) ?? "[]");
+      if (Array.isArray(saved)) setDayDone(new Set(saved.filter((x) => typeof x === "string")));
+    } catch {}
+    const q = new URLSearchParams(window.location.search).get("day");
+    setEvening(q === "evening" || (q !== "morning" && isEvening(new Date())));
+  }, [dayKey]);
+  const setDone = useCallback(
+    (ids: string[], on: boolean) =>
+      setDayDone((cur) => {
+        const next = new Set(cur);
+        for (const id of ids) {
+          if (on) next.add(id);
+          else next.delete(id);
+        }
+        try {
+          localStorage.setItem(dayKey, JSON.stringify([...next]));
+        } catch {}
+        return next;
+      }),
+    [dayKey],
+  );
+
   // Timeline: ring each item as it comes into view while dragging.
   const shownOnTimeline = useRef(new Set<string>());
   useEffect(() => {
@@ -305,9 +346,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
         const keys = new Set(sig.bumps.map((b) => `${b.nodeId}|${b.label ?? "sub"}`));
         setTicked(keys);
         setTimeout(() => setTicked((cur) => (cur === keys ? new Set() : cur)), 1800);
+        const finished = completedBy(graph.today ?? [], sig.id);
+        if (finished.length) setDone(finished, true);
       }, flying ? 1500 : 0);
     },
-    [ix],
+    [ix, graph.today, setDone],
   );
   useEffect(() => {
     if (!ready) return;
@@ -425,6 +468,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
     setAsk(null);
     setTour(null);
     setWhen(0);
+    setDayMap(false);
     setState((s) => nav.go(s, id));
   }, []);
   const clearAsk = useCallback(() => {
@@ -442,6 +486,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
     setHighlight(null);
     setAsk(null);
     setWhen(0);
+    setDayMap(false);
     setState((s) => (s.focusId === graph.rootId ? s : nav.reset(s, graph.rootId)));
     fitNow(true);
   }, [graph.rootId, fitNow]);
@@ -1044,6 +1089,52 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
             </>
           ) : (
             focus.summary && <p className="d-sum">{focus.summary}</p>
+          )}
+
+          {focus.type === "core" && slots.length > 0 && (
+            <div className="day">
+              <h2>Your day</h2>
+              {evening || day.done === day.total ? (
+                <div className="day-recap pop">
+                  <p className="day-recap-k">Your day, compiled</p>
+                  <p className="day-recap-t">
+                    {day.done} of {day.total} done. {day.vipTouches} VIP {day.vipTouches === 1 ? "touch" : "touches"}.{" "}
+                    {day.carry.length ? `${day.carry.length} ${day.carry.length === 1 ? "moves" : "move"} to tomorrow.` : "Nothing missed."}
+                  </p>
+                </div>
+              ) : (
+                <p className="day-when">
+                  {day.done} of {day.total} done · about {duration(day.minutesLeft)} left
+                </p>
+              )}
+              <ol>
+                {slots.map((x) => (
+                  <li key={x.id} className={x.done ? "is-done" : undefined}>
+                    <button
+                      className="day-tick"
+                      aria-pressed={x.done}
+                      aria-label={x.done ? `Done: ${x.what} Tap to undo.` : `Mark done: ${x.what}`}
+                      onClick={() => setDone([x.id], !x.done)}
+                    >
+                      {x.done ? "✓" : ""}
+                    </button>
+                    <button className="day-item" onClick={() => goTo(x.nodeId)}>
+                      <span className="day-time">{clock(x.start)}</span>
+                      <span className="day-body">
+                        <small style={{ color: hex(PRODUCT_COLOR[x.product]) }}>
+                          {productName(x.product)} · {duration(x.minutes)}
+                        </small>
+                        {x.what}
+                      </span>
+                      <em aria-hidden="true">→</em>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+              <button className="link" onClick={() => setDayMap((v) => !v)}>
+                {dayView ? "← Back to the map" : "▶ Show my day on the map"}
+              </button>
+            </div>
           )}
 
           {focus.type === "core" && since && (

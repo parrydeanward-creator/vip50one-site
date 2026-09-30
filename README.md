@@ -118,3 +118,20 @@ feeds real ones.
   own tasks, Needs you, Scorecard).
 - Showly: `lib/graph/showly.ts` (tours, Since you sent, what came back as
   Yes / Maybe / No, the buyer, pre-approval letters, the lender).
+
+## Your day
+
+ONE's card opens with **Your day**: today's work from all five products, in
+order, each with a time and how long it takes (people first while they pick
+up; approvals before posting time; lunch at lunch; admin in the afternoon;
+follow-ups to close the day). Tick an item, or let ONE tick it: when a product
+reports the work (a live signal, e.g. the call with Jen logged in ONE GO), the
+item turns done by itself. From 5 pm (Mountain), or once everything is done,
+ONE compiles the day: done, VIP touches, what moves to tomorrow. "Show my day
+on the map" lays today around ONE.
+
+- Logic: `lib/day.ts` (plan, recap, which signal completes which item).
+  Demo items: `today` in `lib/graph/demo.ts`. Real data: VIP-SUMMARY items due
+  today, completed by their product's own record.
+- Done items are remembered for the day in this browser. `?day=evening` shows
+  the recap at any hour.

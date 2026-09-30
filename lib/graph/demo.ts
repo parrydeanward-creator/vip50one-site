@@ -124,5 +124,19 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
     .filter(([id, product]) => has(product) && nodes.some((n) => n.id === id))
     .map(([id, product, d, what]) => ({ id, product, at: daysFromNow(d), what }));
 
-  return { nodes, edges, rootId: "one", changes, dated };
+  // Your day (demo): what today holds, from all five products.
+  const today = (
+    [
+      { id: "day-jen", nodeId: "p-jen", product: "move", kind: "call", what: "Call Jen Alvarez. Her birthday is tomorrow.", minutes: 10, vip: true, watch: ["sig-go"] },
+      { id: "day-amy", nodeId: "p-amy", product: "move", kind: "call", what: "Call Amy Chen. Thank her for the referral.", minutes: 10, vip: true },
+      { id: "day-video", nodeId: "dt-video", product: "go", kind: "text", what: "Send 2 video texts to your VIP-50.", minutes: 10, vip: true },
+      { id: "day-approve", nodeId: "task-approve", product: "marquee", kind: "approval", what: "Approve 5 posts for 1482 Maple Ridge Dr.", minutes: 15 },
+      { id: "day-note", nodeId: "p-dave", product: "move", kind: "note", what: "Write Dave Kim a handwritten note.", minutes: 5, vip: true },
+      { id: "day-marcus", nodeId: "p-marcus", product: "move", kind: "meeting", what: "Lunch with Marcus Lee.", minutes: 60, vip: true, at: "12:30" },
+      { id: "day-rate", nodeId: "open-3", product: "open", kind: "rating", what: "Rate the 2 visitors from Saturday.", minutes: 5 },
+      { id: "day-follow", nodeId: "task-followups", product: "move", kind: "follow_up", what: "Clear the 4 overdue follow-ups.", minutes: 20 },
+    ] as import("../day.ts").DayItem[]
+  ).filter((d) => has(d.product) && nodes.some((n) => n.id === d.nodeId));
+
+  return { nodes, edges, rootId: "one", changes, dated, today };
 }

@@ -327,3 +327,23 @@ a.link { display: block; text-decoration: none; }
   .tl-now { min-width: 80px; min-height: 40px; font-size: 12px; padding: 0 8px; }
   .signal-live { bottom: 8px; }
 }
+
+/* Your day: today's work in order, with times; done as the products report it */
+.day { margin-top: 6px; margin-bottom: 18px; }
+.day-when { margin: -4px 0 10px; font-size: 12px; color: var(--text-3); }
+.day ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.day li { display: flex; align-items: stretch; gap: 8px; }
+.day-tick { flex: none; width: 44px; min-height: 52px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.025); color: #0b0f1e; font-size: 18px; font-weight: 800; cursor: pointer; }
+.day-tick:hover { border-color: rgba(212, 175, 55, 0.55); }
+.is-done .day-tick { background: #3ecf8e; border-color: #3ecf8e; }
+.day-item { flex: 1; min-height: 52px; display: flex; align-items: center; gap: 10px; text-align: left; background: rgba(255, 255, 255, 0.025); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; cursor: pointer; font: inherit; color: var(--text); font-size: 13.5px; }
+.day-item:hover { border-color: rgba(212, 175, 55, 0.45); }
+.day-time { flex: none; width: 58px; font-size: 12px; font-weight: 800; color: var(--gold-2); }
+.day-body { flex: 1; display: grid; gap: 2px; }
+.day-body small { font-size: 10.5px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.day-item em { font-style: normal; color: var(--gold-2); }
+.is-done .day-item { opacity: 0.55; }
+.is-done .day-body { text-decoration: line-through; text-decoration-color: rgba(255, 255, 255, 0.35); }
+.day-recap { margin: -2px 0 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(62, 207, 142, 0.45); background: rgba(62, 207, 142, 0.07); }
+.day-recap-k { margin: 0 0 4px; font-size: 10.5px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #3ecf8e; }
+.day-recap-t { margin: 0; font-size: 14.5px; line-height: 1.4; color: var(--text); }
