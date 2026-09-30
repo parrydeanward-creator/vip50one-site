@@ -2,6 +2,10 @@ import { includes } from "../products.ts";
 import type { PackageId } from "../types.ts";
 import type { BusinessGraph, GraphEdge, GraphNode, ProductKey } from "./types.ts";
 import { addGo } from "./go.ts";
+import { addMove } from "./move.ts";
+import { addMarquee } from "./marquee.ts";
+import { addOpen } from "./open.ts";
+import { addShowly } from "./showly.ts";
 
 // A made-up agent's business (every name and address invented), deep on ONE GO
 // and one level deep on the other four products (research/ONE-BRAIN.md §10).
@@ -63,9 +67,9 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
       summary: "Every listing's marketing, from the first presentation to the weekly seller report.",
       stats: [{ label: "Waiting for approval", value: "5" }, { label: "Active listings", value: "2" }] },
     { id: "showly", type: "product", label: "SHOWLY", secondaryLabel: "Buyer experience", parentId: "one", product: "showly", importance: 0.8, status: "opportunity",
-      summary: "Buyer tours your clients react to, house by house.",
-      stats: [{ label: "New reactions", value: "4" }, { label: "Tours this week", value: "2" }] },
-    { id: "open", type: "product", label: "ONE OPEN", secondaryLabel: "Open house intelligence", parentId: "one", product: "open", importance: 0.8, status: "healthy",
+      summary: "Buyer tours: your clients answer Yes, Maybe or No on each home.",
+      stats: [{ label: "New answers", value: "4" }, { label: "Tours this week", value: "2" }] },
+    { id: "open", type: "product", label: "ONE OPEN", secondaryLabel: "Open house intelligence", parentId: "one", product: "open", importance: 0.8, status: "attention",
       summary: "The open house, from plan to the last follow-up.",
       stats: [{ label: "Next open house", value: "Sun 1-3pm" }, { label: "Prep tasks left", value: "3" }] },
   ];
@@ -77,27 +81,18 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
   // ---- ONE GO, in depth (modelled on the live app) ----------------------
   addGo(add, link);
 
-  // ---- the other four, one level (content comes in the next build) --------
-  const level2: [string, ProductKey, [string, string][]][] = [
-    ["move", "move", [["People", "1,284 contacts"], ["Follow-ups", "4 overdue"], ["Important dates", "3 this week"], ["Referrals", "9 this year"], ["New to sort", "3 from Saturday"]]],
-    ["marquee", "marquee", [["Win", "Listing presentations"], ["Launch", "2 active campaigns"], ["ReLaunch", "Refresh a listing"], ["1482 Maple Ridge Dr", "5 to approve"], ["Seller reports", "Due Friday"]]],
-    ["showly", "showly", [["Buyers", "3 active"], ["Tours", "2 this week"], ["Feedback", "4 new reactions"], ["Next steps", "The Millers"]]],
-    ["open", "open", [["Plan", "Done"], ["Prepare", "3 tasks left"], ["Host", "Sun 1-3pm"], ["Follow Up", "2 to rate"]]],
-  ];
-  for (const [parent, product, kids] of level2) {
-    if (nodes.find((n) => n.id === parent)?.locked) continue;
-    kids.forEach(([label, sec], i) =>
-      add({ id: `${parent}-${i}`, type: "category", label, secondaryLabel: sec, parentId: parent, product, importance: 0.9 - i * 0.05,
-        summary: "More detail arrives in the next build." }),
-    );
-  }
-  link("marquee-3", "open", "related_to");
+  // ---- the other four, in depth (each modelled on its live app) ------------
+  const on = (p: string) => !nodes.find((n) => n.id === p)?.locked;
+  if (on("move")) addMove(add);
+  if (on("marquee")) addMarquee(add, link);
+  if (on("open")) addOpen(add);
+  if (on("showly")) addShowly(add);
 
   // Since you were last here (demo): what changed overnight, newest first.
   const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000).toISOString();
   const has = (p: string) => !nodes.find((n) => n.id === p)?.locked;
   const changes = [
-    { id: "p-millers", product: "showly" as const, what: "The Millers reacted to 4 homes from yesterday's tour: two loves.", at: hoursAgo(2) },
+    { id: "p-millers", product: "showly" as const, what: "The Millers answered on 4 homes from yesterday's tour: two Yes.", at: hoursAgo(2) },
     { id: "marquee-3", product: "marquee" as const, what: "5 posts for 1482 Maple Ridge Dr are ready for your approval.", at: hoursAgo(5) },
     { id: "task-followups", product: "move" as const, what: "2 more follow-ups became overdue overnight.", at: hoursAgo(9) },
     { id: "open-3", product: "open" as const, what: "2 visitors from Saturday's open house still need a rating.", at: hoursAgo(14) },
@@ -115,7 +110,7 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
       ["marquee-3", "marquee", -9, "1482 Maple Ridge Dr campaign launched."],
       ["p-parkers", "move", -6, "The Parkers posted their new kitchen. You commented."],
       ["open-3", "open", -4, "Open house at 1482 Maple Ridge Dr: 14 visitors signed in."],
-      ["p-millers", "showly", -1, "The Millers toured 4 homes and loved two."],
+      ["p-millers", "showly", -1, "The Millers toured 4 homes and said Yes to two."],
       ["p-jen", "move", 1, "Jen Alvarez's birthday."],
       ["task-approve", "marquee", 1, "Maple Ridge posts start going out."],
       ["task-report", "marquee", 2, "Weekly seller report for Maple Ridge is due."],

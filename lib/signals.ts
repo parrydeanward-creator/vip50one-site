@@ -81,8 +81,8 @@ export const DEMO_SIGNALS: Signal[] = [
     id: "sig-showly",
     product: "showly",
     nodeId: "showly-2",
-    what: "The Parkers loved 742 Willow Lane on today's tour.",
-    bumps: [{ nodeId: "showly", label: "New reactions", by: 1 }, { nodeId: "showly-2", sub: true, by: 1 }],
+    what: "The Parkers said Yes to 742 Willow Lane on today's tour.",
+    bumps: [{ nodeId: "showly", label: "New answers", by: 1 }, { nodeId: "showly-2", sub: true, by: 1 }],
   },
   {
     id: "sig-move",

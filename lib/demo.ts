@@ -177,7 +177,7 @@ export function demoData(opts: DemoOptions = {}): DashboardData {
           product: "showly",
           kind: "reaction",
           title: "The Millers reacted to 4 homes from yesterday's tour",
-          detail: "Two loves, one maybe, one no",
+          detail: "Two Yes, one Maybe, one No",
           due: d(0),
           urgency: "today",
           action: { label: "See reactions", href: "https://showly.net" },

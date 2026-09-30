@@ -5,10 +5,10 @@ import type { GraphEdge, GraphNode, NodeStatus, NodeType, ProductKey, Recommenda
 // a made-up agent's. Where the app has nothing (no closings goal, no reports),
 // the Brain shows nothing.
 
-type Add = (n: Omit<GraphNode, "importance"> & { importance?: number }) => void;
-type Link = (source: string, target: string, rel: GraphEdge["relationshipType"], strength?: number) => void;
+export type Add = (n: Omit<GraphNode, "importance"> & { importance?: number }) => void;
+export type Link = (source: string, target: string, rel: GraphEdge["relationshipType"], strength?: number) => void;
 
-interface Spec {
+export interface Spec {
   id: string;
   label: string;
   sub?: string;
@@ -22,7 +22,7 @@ interface Spec {
   kids?: Spec[];
 }
 
-function tree(add: Add, parentId: string, specs: Spec[]) {
+export function tree(add: Add, parentId: string, specs: Spec[], product: ProductKey = "go") {
   specs.forEach((s, i) => {
     add({
       id: s.id,
@@ -30,7 +30,7 @@ function tree(add: Add, parentId: string, specs: Spec[]) {
       label: s.label,
       secondaryLabel: s.sub,
       parentId,
-      product: s.product ?? "go",
+      product: s.product ?? product,
       importance: 1 - i * 0.03,
       status: s.status,
       summary: s.summary,
@@ -38,12 +38,12 @@ function tree(add: Add, parentId: string, specs: Spec[]) {
       recommendations: s.recs,
       pace: s.pace,
     });
-    if (s.kids) tree(add, s.id, s.kids);
+    if (s.kids) tree(add, s.id, s.kids, s.product ?? product);
   });
 }
 
-const done = (id: string, label: string, sub = "Done"): Spec => ({ id, label, sub, status: "healthy" });
-const todo = (id: string, label: string, sub = "Not yet"): Spec => ({ id, label, sub });
+export const done = (id: string, label: string, sub = "Done"): Spec => ({ id, label, sub, status: "healthy" });
+export const todo = (id: string, label: string, sub = "Not yet"): Spec => ({ id, label, sub });
 
 export function addGo(add: Add, link: Link) {
   tree(add, "go", [
@@ -89,8 +89,8 @@ export function addGo(add: Add, link: Link) {
             { id: "p-marcus", type: "person", product: "move", label: "Face-to-face: Marcus Lee", sub: "Most overdue visit", status: "action",
               summary: "Open house visitor, Saturday at 1482 Maple Ridge Dr. Buying in 3 to 6 months.",
               recs: [{ title: "Set up a coffee with Marcus", why: ["No face-to-face in 90+ days.", "Visited Saturday's open house.", "Said 3 to 6 months."] }] },
-            { id: "p-millers", type: "person", product: "move", label: "Text the Millers", sub: "Loved 2 homes", status: "opportunity",
-              summary: "Active buyers. Reacted to 4 homes from yesterday's Showly tour: two loves, one maybe, one no." },
+            { id: "p-millers", type: "person", product: "move", label: "Text the Millers", sub: "Said Yes to 2 homes", status: "opportunity",
+              summary: "Active buyers. Answered on 4 homes from yesterday's Showly tour: two Yes, one Maybe, one No." },
             { id: "p-dave", type: "person", product: "move", label: "Send note to Dave Kim", sub: "Personal note", summary: "VIP-50. Last handwritten note 94 days ago (note cooldown 90 days)." },
             { id: "p-parkers", type: "person", product: "move", label: "Social touch: the Parkers", sub: "Comment on their post", status: "healthy", summary: "Past clients. Social touches have no cooldown." },
             { id: "p-amy", type: "person", product: "move", label: "Call Amy Chen", sub: "Rolled over from Monday", status: "attention", summary: "VIP-100. Rolled over once; drops off after 2 days." },
