@@ -37,11 +37,11 @@ export function watchGraph(): BusinessGraph {
     { id: "one", type: "core", label: "ONE", parentId: null, product: "one", importance: 1 },
     ...PRODUCTS.map(([id, label, sub]): GraphNode => ({ id, type: "product", label, secondaryLabel: sub, parentId: "one", product: id, importance: 0.9 })),
     { id: "w-oh", type: "event", label: "Open house", secondaryLabel: "1482 Maple Ridge Dr", parentId: "open", product: "open", importance: 0.8 },
-    { id: "w-mark-open", type: "person", label: "Mark Davis", secondaryLabel: "Signed in · rated Hot", parentId: "open", product: "open", importance: 0.8, status: "opportunity" },
+    { id: "w-mark-open", type: "person", label: "Mark Davis", secondaryLabel: "Signed in · marked Hot", parentId: "open", product: "open", importance: 0.8, status: "opportunity" },
     { id: "w-mark-move", type: "person", label: "Mark Davis", secondaryLabel: "Tagged: open house", parentId: "move", product: "move", importance: 0.8 },
     { id: "w-mark-go", type: "task", label: "Call Mark", secondaryLabel: "Suggested · you accept", parentId: "go", product: "go", importance: 0.8, status: "action" },
-    { id: "w-mark-showly", type: "opportunity", label: "Mark's tour", secondaryLabel: "Reacted to 3 homes", parentId: "showly", product: "showly", importance: 0.8, status: "opportunity" },
-    { id: "w-willow", type: "property", label: "742 Willow Lane", secondaryLabel: "Mark loved it", parentId: "showly", product: "showly", importance: 0.8, status: "opportunity" },
+    { id: "w-mark-showly", type: "opportunity", label: "Mark's tour", secondaryLabel: "Answered on 3 homes", parentId: "showly", product: "showly", importance: 0.8, status: "opportunity" },
+    { id: "w-willow", type: "property", label: "742 Willow Lane", secondaryLabel: "Mark said Yes", parentId: "showly", product: "showly", importance: 0.8, status: "opportunity" },
   ];
   const edges: GraphEdge[] = nodes
     .filter((n) => n.parentId)
@@ -59,12 +59,12 @@ const P = ["go", "move", "marquee", "showly", "open"];
 
 export const WATCH_STEPS: WatchStep[] = [
   { id: "intro", show: ["one", ...P], focus: ["one", ...P], product: "one", kicker: "Watch ONE Work", title: "One relationship. Five products.", line: "Follow one person through your business.", ms: 3000 },
-  { id: "open", show: ["w-oh", "w-mark-open"], focus: ["open", "w-oh", "w-mark-open", "one"], flight: ["w-oh", "w-mark-open"], product: "open", kicker: "ONE Open", title: "Mark Davis signs in at your open house.", line: "1482 Maple Ridge Dr, Saturday. You rate him Hot.", ms: 3600 },
+  { id: "open", show: ["w-oh", "w-mark-open"], focus: ["open", "w-oh", "w-mark-open", "one"], flight: ["w-oh", "w-mark-open"], product: "open", kicker: "ONE Open", title: "Mark Davis signs in at your open house.", line: "1482 Maple Ridge Dr, Saturday. You mark him Hot.", ms: 3600 },
   { id: "move", show: ["w-mark-move"], focus: ["w-mark-open", "one", "w-mark-move"], flight: ["w-mark-open", "w-mark-move"], product: "move", kicker: "ONE MOVE", title: "Mark lands in ONE MOVE, tagged open house.", line: "Not in your VIP-50. You decide who goes there.", coming: true, ms: 3600 },
   { id: "go", show: ["w-mark-go"], focus: ["w-mark-move", "move", "go", "w-mark-go"], flight: ["w-mark-move", "w-mark-go"], product: "go", kicker: "ONE GO", title: "ONE suggests a follow-up call. You accept it.", line: "Nothing is created until you say yes.", coming: true, ms: 3600 },
-  { id: "showly", show: ["w-mark-showly"], focus: ["w-mark-move", "one", "w-mark-showly"], flight: ["w-mark-move", "w-mark-showly"], product: "showly", kicker: "Showly", title: "Mark tours homes with you and reacts to each.", line: "Three homes on Tuesday's tour.", ms: 3400 },
-  { id: "willow", show: ["w-willow"], focus: ["w-mark-showly", "showly", "w-willow"], flight: ["w-mark-showly", "w-willow"], product: "showly", kicker: "Showly", title: "He loves 742 Willow Lane.", line: "Saved it and asked about the school.", ms: 3200 },
-  { id: "one", show: [], focus: ["w-willow", "one", "w-mark-go"], flight: ["w-willow", "one"], product: "one", kicker: "ONE recommends", title: "Call Mark today about 742 Willow Lane.", line: "Why: he loved it on Tuesday, you met him Saturday, and you have not called yet.", coming: true, ms: 4200 },
+  { id: "showly", show: ["w-mark-showly"], focus: ["w-mark-move", "one", "w-mark-showly"], flight: ["w-mark-move", "w-mark-showly"], product: "showly", kicker: "Showly", title: "Mark tours homes with you and answers on each.", line: "Yes, Maybe or No on three homes from Tuesday's tour.", ms: 3400 },
+  { id: "willow", show: ["w-willow"], focus: ["w-mark-showly", "showly", "w-willow"], flight: ["w-mark-showly", "w-willow"], product: "showly", kicker: "Showly", title: "He says Yes to 742 Willow Lane.", line: "And leaves you a note: \"Can we see it again Saturday?\"", ms: 3200 },
+  { id: "one", show: [], focus: ["w-willow", "one", "w-mark-go"], flight: ["w-willow", "one"], product: "one", kicker: "ONE recommends", title: "Call Mark today about 742 Willow Lane.", line: "Why: he said Yes to it on Tuesday, you met him Saturday, and you have not called yet.", coming: true, ms: 4200 },
   { id: "outro", show: [], focus: ["one", ...P, "w-oh", "w-mark-move", "w-mark-go", "w-willow"], product: "one", kicker: "", title: "One relationship. Five products. One connected system.", line: "", ms: 3600 },
 ];
 

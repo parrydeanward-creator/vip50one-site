@@ -100,3 +100,21 @@ with Go to. Live signals pause while you look.
   dates: `dated` in `lib/graph/demo.ts`. Real data: VIP-SUMMARY items' `due`
   and each product's dated history.
 - On a phone the zoom buttons give way to the timeline (pinch zooms).
+
+## The five products, in depth
+
+Each product's part of the map is modelled on its live app (read 30 Sep), in
+the app's own words; the numbers are a made-up agent's until `vip_summary`
+feeds real ones.
+
+- ONE GO: `lib/graph/go.ts` (Today, Daily Tracker, Weekly Bonus, Score, VIP contacts).
+- ONE MOVE: `lib/graph/move.ts` (Follow-ups, New to sort, Touch Audit on Parry's
+  five monthly touches, Contacts, VIP Management, Mixer RSVPs, Newsletter,
+  Action Plans, referrals, Hot/Warm/Cold).
+- Marquee: `lib/graph/marquee.ts` (This week, each listing's nine-step path,
+  the listing-appointment path, the four campaign kinds, seller reports,
+  posting, which stays off until the agent switches it on).
+- ONE Open: `lib/graph/open.ts` (Plan, Prepare, Host, Follow Up with the app's
+  own tasks, Needs you, Scorecard).
+- Showly: `lib/graph/showly.ts` (tours, Since you sent, what came back as
+  Yes / Maybe / No, the buyer, pre-approval letters, the lender).
