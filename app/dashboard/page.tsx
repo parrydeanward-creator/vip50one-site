@@ -13,5 +13,5 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const p = typeof sp.package === "string" ? sp.package : "";
   const pkg: PackageId = p in PACKAGE_LABEL ? (p as PackageId) : "complete";
-  return <Brain graph={demoGraph(pkg)} />;
+  return <Brain graph={demoGraph(pkg)} pkg={pkg} />;
 }
