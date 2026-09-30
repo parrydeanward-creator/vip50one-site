@@ -86,3 +86,17 @@ out (the canvas is decoration).
   `node scripts/record-watch.mjs 1920x1080 4 <ffmpeg>` records it in slow
   motion (so a machine without a GPU draws every frame) and speeds it back up
   to a 30 fps MP4 in `docs/`.
+
+## Timeline
+
+A slider under the map: PAST <- TODAY -> FUTURE, 30 days each way, one day a
+step (arrow keys work; Escape or the date button returns to today). Drag back
+and ONE is surrounded by what happened between then and today; drag forward
+and by what is coming (birthdays, open houses, posts, reports, lunches,
+events). Each item rings as it comes into view; the card lists them by day
+with Go to. Live signals pause while you look.
+
+- Logic: `lib/timeline.ts` (Mountain-time days, the window, labels). Demo
+  dates: `dated` in `lib/graph/demo.ts`. Real data: VIP-SUMMARY items' `due`
+  and each product's dated history.
+- On a phone the zoom buttons give way to the timeline (pinch zooms).

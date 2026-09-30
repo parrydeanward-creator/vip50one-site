@@ -15,6 +15,7 @@ import { SUGGESTED, answerSet, factsFor, type AskAnswer } from "@/lib/ask.ts";
 import { changesSince, firstVisitToday, morningTop, orbsToPing, sinceLabel } from "@/lib/morning.ts";
 import type { ChangeNote } from "@/lib/graph/types.ts";
 import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib/signals.ts";
+import { RANGE, dayLabel, inWindow, offsetLabel, windowTitle } from "@/lib/timeline.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -75,7 +76,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
   const tourRef = useRef(tour);
   tourRef.current = tour;
   const [since, setSince] = useState<{ label: string; changes: ChangeNote[] } | null>(null);
-  const sceneFocus = ask || tour ? graph.rootId : state.focusId;
+  // Timeline: days from today the slider is at (0 = today, the normal map).
+  const [when, setWhen] = useState(0);
+  const whenRef = useRef(when);
+  whenRef.current = when;
+  const [now] = useState(() => new Date());
+  const dated = useMemo(() => (tour || ask ? [] : inWindow(graph.dated, when, now, ix)), [graph.dated, when, now, ix, tour, ask]);
+  const datedIds = useMemo(() => [...new Set(dated.map((d) => d.id))], [dated]);
+  const timeline = when !== 0 && !tour && !ask;
+  const sceneFocus = ask || tour || timeline ? graph.rootId : state.focusId;
   // Live signals: the latest arrival (a small card) and the numbers that just ticked.
   const [toast, setToast] = useState<Signal | null>(null);
   const [ticked, setTicked] = useState<Set<string>>(() => new Set());
@@ -89,8 +98,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
         ? answerSet(ix, tour.ids)
         : ask
           ? answerSet(ix, askIds)
-          : visibleSet(ix, state.focusId, phone ? PHONE_BUDGET : DESKTOP_BUDGET),
-    [ix, state.focusId, phone, ask, askIds, tour],
+          : timeline
+            ? answerSet(ix, datedIds)
+            : visibleSet(ix, state.focusId, phone ? PHONE_BUDGET : DESKTOP_BUDGET),
+    [ix, state.focusId, phone, ask, askIds, tour, timeline, datedIds],
   );
   const placed = useMemo(() => layout(vs), [vs]);
   // The rail: the focused node's children as floating buttons on the left.
@@ -100,8 +111,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
         ? tour.ids.map((id) => ix.byId.get(id)!).filter(Boolean)
         : ask
           ? askIds.map((id) => ix.byId.get(id)!).filter(Boolean)
-          : childrenOf(ix, state.focusId).slice(0, 9),
-    [ix, state.focusId, ask, askIds, tour],
+          : timeline
+            ? datedIds.map((id) => ix.byId.get(id)!).filter(Boolean)
+            : childrenOf(ix, state.focusId).slice(0, 9),
+    [ix, state.focusId, ask, askIds, tour, timeline, datedIds],
   );
   const railCount = railNodes.length;
   const railRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -138,11 +151,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
 
   // Point the camera at a world rectangle, leaving room for the card and rail.
   const frameOn = useCallback(
-    (b: { minX: number; minY: number; maxX: number; maxY: number }, animate: boolean) => {
+    (b: { minX: number; minY: number; maxX: number; maxY: number }, animate: boolean, keep = { top: 0, bottom: 0 }) => {
       const s = sceneRef.current;
       if (!s) return;
       const vp = s.viewport;
-      if (phone) return s.setCamera(fit(b, vp, 12), animate);
+      if (phone) {
+        // screen pixels kept clear above and below (the bar, the timeline)
+        const c = fit(b, { width: vp.width, height: vp.height - keep.top - keep.bottom }, 12);
+        return s.setCamera({ ...c, y: c.y - (keep.top - keep.bottom) / 2 / c.scale }, animate);
+      }
       // Desktop: the detail card floats on the right; fit the graph to the rest.
       const room = Math.min(CARD_ROOM, vp.width * 0.4);
       const rail = railCount > 0 && vp.width > 1100 ? RAIL_ROOM : 0;
@@ -154,8 +171,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
   const fitNow = useCallback(
     (animate: boolean) => {
       const b = bounds(placed, 20);
-      b.maxY += phone ? 70 : 40; // keep clear of the controls
-      b.minY -= phone ? 84 : 70; // and of the Ask ONE bar across the top
+      if (phone) return frameOn(b, animate, { top: 76, bottom: 70 }); // the Ask ONE bar; the controls and timeline row
+      b.maxY += 90; // keep clear of the controls and the timeline
+      b.minY -= 70; // and of the Ask ONE bar across the top
       frameOn(b, animate);
     },
     [placed, phone, frameOn],
@@ -201,6 +219,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
   }, [since, pingChanges]);
   const startTour = useCallback(() => {
     if (!topIds.length) return;
+    setWhen(0);
     setAsk(null);
     setHighlight(null);
     setState((st) => (st.focusId === graph.rootId ? st : nav.reset(st, graph.rootId)));
@@ -257,6 +276,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tour, placed]);
 
+  // Timeline: ring each item as it comes into view while dragging.
+  const shownOnTimeline = useRef(new Set<string>());
+  useEffect(() => {
+    const fresh = datedIds.filter((id) => !shownOnTimeline.current.has(id));
+    shownOnTimeline.current = new Set(datedIds);
+    if (fresh.length && timeline) setTimeout(() => sceneRef.current?.ping(fresh), 350);
+  }, [datedIds, timeline]);
+
   // ---- live signals: something new arrives in a product --------------------
   // Demo: a timer plays the examples (?signals=fast for a quick look,
   // ?signals=off to stop them). Real: poll vip_summary and diff (lib/signals.ts).
@@ -294,7 +321,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
       t = setTimeout(() => {
         if (i >= queue.length) return;
         // not while the morning plays, an answer is up, or the tab is hidden
-        if (tourRef.current || askRef.current || document.hidden) return next(3000);
+        if (tourRef.current || askRef.current || whenRef.current || document.hidden) return next(3000);
         receiveRef.current(queue[i++]);
         next(fast ? 7000 : 40000);
       }, ms);
@@ -397,6 +424,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
     setOpenWhy(null);
     setAsk(null);
     setTour(null);
+    setWhen(0);
     setState((s) => nav.go(s, id));
   }, []);
   const clearAsk = useCallback(() => {
@@ -413,6 +441,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
   const goHome = useCallback(() => {
     setHighlight(null);
     setAsk(null);
+    setWhen(0);
     setState((s) => (s.focusId === graph.rootId ? s : nav.reset(s, graph.rootId)));
     fitNow(true);
   }, [graph.rootId, fitNow]);
@@ -422,6 +451,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
       const question = q.trim();
       if (!question || asking) return;
       setTour(null);
+      setWhen(0);
       setAskText(question);
       setAskOpen(false);
       setAsking(true);
@@ -827,6 +857,36 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
             );
           })()}
 
+          {!tour && (
+            <div className={`timeline${when ? " on" : ""}`}>
+              <span className="tl-end">Past</span>
+              <div className="tl-track">
+                <input
+                  type="range"
+                  min={-RANGE}
+                  max={RANGE}
+                  step={1}
+                  value={when}
+                  aria-label="Timeline"
+                  aria-valuetext={offsetLabel(when)}
+                  onChange={(e) => {
+                    setAsk(null);
+                    setWhen(Number(e.target.value));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setWhen(0);
+                  }}
+                  style={{ ["--pos" as string]: `${((when + RANGE) / (2 * RANGE)) * 100}%` }}
+                />
+                <span className="tl-today" aria-hidden="true" />
+              </div>
+              <span className="tl-end">Future</span>
+              <button className={`tl-now${when ? "" : " is-now"}`} onClick={() => setWhen(0)} aria-label="Back to today">
+                {offsetLabel(when)}
+              </button>
+            </div>
+          )}
+
           <div className="signal-live" role="status" aria-live="polite">
             {toast && !tour && (
               <div className="signal-card pop" key={toast.id}>
@@ -856,10 +916,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
             <button onClick={goBack} disabled={!state.history.length} aria-label="Back">
               ←
             </button>
-            <button onClick={() => zoom(1.25)} aria-label="Zoom in">
+            <button className="zoom-btn" onClick={() => zoom(1.25)} aria-label="Zoom in">
               +
             </button>
-            <button onClick={() => zoom(0.8)} aria-label="Zoom out">
+            <button className="zoom-btn" onClick={() => zoom(0.8)} aria-label="Zoom out">
               −
             </button>
             <button onClick={goHome} aria-label="Centre on ONE">
@@ -920,6 +980,46 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
             )}
             <button className="btn btn-wide ghost-btn" onClick={clearAsk}>
               ← Back to the map
+            </button>
+          </aside>
+        ) : timeline ? (
+          <aside ref={drawerRef} className="drawer" aria-label="Timeline" aria-live="polite">
+            <div className="d-head">
+              <span className="chip" style={{ color: hex(PRODUCT_COLOR.one), borderColor: hex(PRODUCT_COLOR.one) }}>
+                {when < 0 ? "Looking back" : "Looking ahead"}
+              </span>
+            </div>
+            <h1 className="d-title">{windowTitle(when)}</h1>
+            <p className="d-sum">
+              {dated.length
+                ? when < 0
+                  ? `${dated.length} ${dated.length === 1 ? "thing" : "things"} happened across your business.`
+                  : `${dated.length} ${dated.length === 1 ? "thing is" : "things are"} coming up.`
+                : when < 0
+                  ? "Nothing recorded in this stretch."
+                  : "Nothing on the calendar yet."}
+            </p>
+            {dated.length > 0 && (
+              <ul className="tl-list">
+                {dated.map((d) => {
+                  const n = ix.byId.get(d.id)!;
+                  return (
+                    <li key={`${d.id}-${d.at}`}>
+                      <button onClick={() => goTo(d.id)}>
+                        <span className="tl-day">{dayLabel(d.day, d.at)}</span>
+                        <span className="tl-body">
+                          <small style={{ color: hex(PRODUCT_COLOR[d.product]) }}>{productName(d.product)}</small>
+                          {d.what}
+                        </span>
+                        <em aria-label={`Go to ${n.label}`}>→</em>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <button className="btn btn-wide ghost-btn" onClick={() => setWhen(0)}>
+              ← Back to today
             </button>
           </aside>
         ) : (

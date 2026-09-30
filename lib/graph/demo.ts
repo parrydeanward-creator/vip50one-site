@@ -103,5 +103,31 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
     { id: "open-3", product: "open" as const, what: "2 visitors from Saturday's open house still need a rating.", at: hoursAgo(14) },
   ].filter((c) => has(c.product) && nodes.some((n) => n.id === c.id));
 
-  return { nodes, edges, rootId: "one", changes };
+  // The timeline (demo): what happened in the last month and what is coming.
+  const daysFromNow = (d: number) => {
+    const ymd = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(Date.now() + d * 86400_000));
+    return `${ymd}T18:00:00.000Z`; // about midday in Mountain time, on that Mountain day
+  };
+  const dated = (
+    [
+      ["p-dave", "move", -20, "Closed: the Nguyens, referred by Dave Kim."],
+      ["p-amy", "move", -12, "Amy Chen sent you a referral."],
+      ["marquee-3", "marquee", -9, "1482 Maple Ridge Dr campaign launched."],
+      ["p-parkers", "move", -6, "The Parkers posted their new kitchen. You commented."],
+      ["open-3", "open", -4, "Open house at 1482 Maple Ridge Dr: 14 visitors signed in."],
+      ["p-millers", "showly", -1, "The Millers toured 4 homes and loved two."],
+      ["p-jen", "move", 1, "Jen Alvarez's birthday."],
+      ["task-approve", "marquee", 1, "Maple Ridge posts start going out."],
+      ["task-report", "marquee", 2, "Weekly seller report for Maple Ridge is due."],
+      ["open-2", "open", 4, "Open house, Sunday 1-3pm, 1482 Maple Ridge Dr."],
+      ["p-marcus", "move", 5, "Lunch with Marcus Lee (face-to-face)."],
+      ["showly-3", "showly", 9, "The Millers' second tour."],
+      ["go-dates", "move", 12, "Tom and Lisa Reyes' anniversary."],
+      ["go-event", "go", 16, "Fall Client Mixer."],
+    ] as const
+  )
+    .filter(([id, product]) => has(product) && nodes.some((n) => n.id === id))
+    .map(([id, product, d, what]) => ({ id, product, at: daysFromNow(d), what }));
+
+  return { nodes, edges, rootId: "one", changes, dated };
 }

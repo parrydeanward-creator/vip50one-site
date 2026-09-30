@@ -84,9 +84,19 @@ export interface ChangeNote {
   at: string; // ISO time
 }
 
+// Something with a date, past or coming (the timeline slider). Real data:
+// VIP-SUMMARY items' `due` and the products' dated history.
+export interface DatedNote {
+  id: string; // the node it is about
+  product: ProductKey;
+  at: string; // ISO time
+  what: string;
+}
+
 export interface BusinessGraph {
   nodes: GraphNode[];
   edges: GraphEdge[];
   rootId: string;
   changes?: ChangeNote[];
+  dated?: DatedNote[];
 }
