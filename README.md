@@ -36,3 +36,16 @@ Claude (`lib/askAI.ts`) when `ANTHROPIC_API_KEY` is set, plain rules otherwise
 WHY, and an answer that claims anything was sent, published or scheduled for the
 agent is thrown away. The map re-lays itself around the answer
 (`answerSet` in `lib/ask.ts`); tapping ONE, ✕ or Back returns to the map.
+
+## Morning fly-through and Since you were last here
+
+On the first visit of the agent's day (America/Denver), the camera shows ONE
+and today's top three (`morningTop` in `lib/morning.ts`: ONE's own
+recommendations first, then what needs the agent most), then visits each with
+a caption, then settles. Any tap, scroll or key skips it; it never runs under
+reduced motion. `?tour=1` forces it; "Replay my morning" on ONE's card replays
+it. The last visit is kept in the browser (`one.lastVisit`).
+
+ONE's card lists what changed since the last visit (`graph.changes`; demo data
+now, the products' unseen VIP-SUMMARY items later), and each product with a
+change rings once on the map (`scene.ping`).

@@ -11,7 +11,9 @@ import { UPGRADE_URL } from "@/lib/products.ts";
 import type { BrainScene } from "./scene.ts";
 import Icon from "./Icon.tsx";
 import { iconFor, iconForText } from "@/lib/brain/icons.ts";
-import { SUGGESTED, answerSet, type AskAnswer } from "@/lib/ask.ts";
+import { SUGGESTED, answerSet, factsFor, type AskAnswer } from "@/lib/ask.ts";
+import { changesSince, firstVisitToday, morningTop, orbsToPing, sinceLabel } from "@/lib/morning.ts";
+import type { ChangeNote } from "@/lib/graph/types.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -65,18 +67,33 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
   const [askWhy, setAskWhy] = useState<string | null>(null);
   const askInputRef = useRef<HTMLInputElement>(null);
   const askIds = useMemo(() => ask?.results.map((r) => r.id) ?? [], [ask]);
-  const sceneFocus = ask ? graph.rootId : state.focusId;
+  // Morning fly-through: step 0 is ONE, then each of today's top three.
+  const [tour, setTour] = useState<{ ids: string[]; step: number } | null>(null);
+  const tourRef = useRef(tour);
+  tourRef.current = tour;
+  const [since, setSince] = useState<{ label: string; changes: ChangeNote[] } | null>(null);
+  const sceneFocus = ask || tour ? graph.rootId : state.focusId;
 
   const focus = ix.byId.get(state.focusId)!;
   const vs = useMemo(
-    () => (ask ? answerSet(ix, askIds) : visibleSet(ix, state.focusId, phone ? PHONE_BUDGET : DESKTOP_BUDGET)),
-    [ix, state.focusId, phone, ask, askIds],
+    () =>
+      tour
+        ? answerSet(ix, tour.ids)
+        : ask
+          ? answerSet(ix, askIds)
+          : visibleSet(ix, state.focusId, phone ? PHONE_BUDGET : DESKTOP_BUDGET),
+    [ix, state.focusId, phone, ask, askIds, tour],
   );
   const placed = useMemo(() => layout(vs), [vs]);
   // The rail: the focused node's children as floating buttons on the left.
   const railNodes = useMemo(
-    () => (ask ? askIds.map((id) => ix.byId.get(id)!).filter(Boolean) : childrenOf(ix, state.focusId).slice(0, 9)),
-    [ix, state.focusId, ask, askIds],
+    () =>
+      tour
+        ? tour.ids.map((id) => ix.byId.get(id)!).filter(Boolean)
+        : ask
+          ? askIds.map((id) => ix.byId.get(id)!).filter(Boolean)
+          : childrenOf(ix, state.focusId).slice(0, 9),
+    [ix, state.focusId, ask, askIds, tour],
   );
   const railCount = railNodes.length;
   const railRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -111,13 +128,11 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fitNow = useCallback(
-    (animate: boolean) => {
+  // Point the camera at a world rectangle, leaving room for the card and rail.
+  const frameOn = useCallback(
+    (b: { minX: number; minY: number; maxX: number; maxY: number }, animate: boolean) => {
       const s = sceneRef.current;
       if (!s) return;
-      const b = bounds(placed, 20);
-      b.maxY += phone ? 70 : 40; // keep clear of the controls
-      b.minY -= phone ? 84 : 70; // and of the Ask ONE bar across the top
       const vp = s.viewport;
       if (phone) return s.setCamera(fit(b, vp, 12), animate);
       // Desktop: the detail card floats on the right; fit the graph to the rest.
@@ -126,14 +141,23 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
       const c = fit(b, { width: vp.width - room - rail, height: vp.height }, 40);
       s.setCamera({ ...c, x: c.x + (room - rail) / 2 / c.scale }, animate);
     },
-    [placed, phone, railCount],
+    [phone, railCount],
+  );
+  const fitNow = useCallback(
+    (animate: boolean) => {
+      const b = bounds(placed, 20);
+      b.maxY += phone ? 70 : 40; // keep clear of the controls
+      b.minY -= phone ? 84 : 70; // and of the Ask ONE bar across the top
+      frameOn(b, animate);
+    },
+    [placed, phone, frameOn],
   );
 
   useEffect(() => {
     const s = sceneRef.current;
     if (!s) return;
     s.setScene(placed, ix.byId, vs.edges, sceneFocus);
-    fitNow(true);
+    if (!tourRef.current) fitNow(true);
   }, [ready, placed, vs, ix, sceneFocus, fitNow]);
 
   useEffect(() => {
@@ -145,6 +169,79 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
   useEffect(() => {
     sceneRef.current?.setHighlight(highlight);
   }, [highlight, ready]);
+
+  // ---- morning: fly-through on the first visit of the day, then ring the
+  // products that changed since the last visit -----------------------------
+  const topIds = useMemo(() => morningTop(ix), [ix]);
+  const pingChanges = useCallback(
+    (changes: ChangeNote[]) => {
+      const ids = orbsToPing(changes, ix);
+      setTimeout(() => sceneRef.current?.ping(ids), 900);
+    },
+    [ix],
+  );
+  const endTour = useCallback(() => {
+    if (!tourRef.current) return;
+    setTour(null);
+    if (since) pingChanges(since.changes);
+  }, [since, pingChanges]);
+  const startTour = useCallback(() => {
+    if (!topIds.length) return;
+    setAsk(null);
+    setHighlight(null);
+    setState((st) => (st.focusId === graph.rootId ? st : nav.reset(st, graph.rootId)));
+    setTour({ ids: topIds, step: 0 });
+  }, [topIds, graph.rootId]);
+
+  useEffect(() => {
+    if (!ready) return;
+    let prev: string | null = null;
+    try {
+      prev = localStorage.getItem("one.lastVisit");
+      localStorage.setItem("one.lastVisit", new Date().toISOString());
+    } catch {}
+    const now = new Date();
+    const changes = changesSince(graph.changes, prev, ix);
+    setSince({ label: sinceLabel(prev, now), changes });
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const forced = new URLSearchParams(window.location.search).get("tour") === "1";
+    if (!reduced && (forced || firstVisitToday(prev, now)) && topIds.length) {
+      setTimeout(() => setTour({ ids: topIds, step: 0 }), 700);
+    } else {
+      pingChanges(changes);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
+  // Each step: point the camera, hold, move on. Any input ends it (below).
+  useEffect(() => {
+    if (!tour || !sceneRef.current) return;
+    const at = (id: string) => placed.find((p) => p.id === id);
+    const hold = tour.step === 0 ? 1700 : 2800;
+    if (tour.step === 0) {
+      // ONE and today's three, all in view
+      const b = bounds(placed, 20);
+      b.minY -= phone ? 150 : 70; // the question bar, or the caption on a phone
+      b.maxY += phone ? 70 : 170; // the controls, or the caption on desktop
+      frameOn(b, true);
+    } else {
+      // In close on one item, with room for the caption (bottom on desktop, top on a phone)
+      const p = at(tour.ids[tour.step - 1]);
+      if (p)
+        frameOn(
+          phone
+            ? { minX: p.x - p.r - 120, maxX: p.x + p.r + 120, minY: p.y - p.r - 230, maxY: p.y + p.r + 110 }
+            : { minX: p.x - p.r - 170, maxX: p.x + p.r + 170, minY: p.y - p.r - 110, maxY: p.y + p.r + 300 },
+          true,
+        );
+    }
+    const t = setTimeout(() => {
+      if (tour.step >= tour.ids.length) endTour();
+      else setTour({ ...tour, step: tour.step + 1 });
+    }, hold);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tour, placed]);
 
   useEffect(() => {
     const onResize = () => fitNow(false);
@@ -231,6 +328,7 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
     setHighlight(null);
     setOpenWhy(null);
     setAsk(null);
+    setTour(null);
     setState((s) => nav.go(s, id));
   }, []);
   const clearAsk = useCallback(() => {
@@ -255,6 +353,7 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
     async (q: string) => {
       const question = q.trim();
       if (!question || asking) return;
+      setTour(null);
       setAskText(question);
       setAskOpen(false);
       setAsking(true);
@@ -287,6 +386,10 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
+      if (tourRef.current) {
+        endTour();
+        if (e.key === "Escape") return;
+      }
       if (t.tagName === "INPUT" || t.tagName === "TEXTAREA") return;
       if (e.key === "/") {
         e.preventDefault();
@@ -304,6 +407,7 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
 
   // ---- gestures: drag to pan, wheel and pinch to zoom -------------------
   const onPointerDown = (e: React.PointerEvent) => {
+    if (tourRef.current) endTour();
     const d = drag.current;
     d.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     d.down = true;
@@ -345,6 +449,7 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
     d.pinch = 0;
   };
   const onWheel = (e: React.WheelEvent) => {
+    if (tourRef.current) endTour();
     const s = sceneRef.current;
     if (!s) return;
     const rect = hostRef.current!.getBoundingClientRect();
@@ -389,7 +494,7 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
   const orderedForTab = [...vs.nodes].sort((a, b) => roleRank(a.role) - roleRank(b.role) || a.order - b.order);
 
   return (
-    <div className="brain">
+    <div className={`brain ${tour ? "touring" : ""}`}>
       <header className="bar">
         <button className="brand" onClick={goHome} aria-label="ONE, home">
           VIP-50 <b>ONE</b>
@@ -530,8 +635,8 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
           </div>
           {railCount > 0 && (
             <nav className="rail pop" key={`rail-${ask ? `ask-${ask.question}` : state.focusId}`} aria-label={ask ? "ONE's answer" : `Inside ${focus.label}`}>
-              <p className="rail-head">{ask ? "ONE's answer" : focus.type === "core" ? "Your business" : focus.label}</p>
-              {!ask && focus.type !== "core" && focus.secondaryLabel && <p className="rail-sub">{focus.secondaryLabel}</p>}
+              <p className="rail-head">{tour ? "Your morning" : ask ? "ONE's answer" : focus.type === "core" ? "Your business" : focus.label}</p>
+              {!ask && !tour && focus.type !== "core" && focus.secondaryLabel && <p className="rail-sub">{focus.secondaryLabel}</p>}
               <ul>
                 {railNodes.map((k) => (
                   <li key={k.id}>
@@ -540,7 +645,7 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
                         if (el) railRefs.current.set(k.id, el);
                         else railRefs.current.delete(k.id);
                       }}
-                      className={`rail-btn ${railHover === k.id || highlight?.includes(k.id) ? "on" : ""} ${k.locked ? "locked" : ""}`}
+                      className={`rail-btn ${railHover === k.id || highlight?.includes(k.id) || (tour && tour.ids[tour.step - 1] === k.id) ? "on" : ""} ${k.locked ? "locked" : ""}`}
                       onClick={() => goTo(k.id)}
                       onPointerEnter={() => {
                         setRailHover(k.id);
@@ -571,7 +676,7 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
                   </li>
                 ))}
               </ul>
-              {!ask && (vs.hiddenChildren > 0 || childrenOf(ix, state.focusId).length > railCount) ? (
+              {!ask && !tour && (vs.hiddenChildren > 0 || childrenOf(ix, state.focusId).length > railCount) ? (
                 <p className="rail-more">+{childrenOf(ix, state.focusId).length - railCount} more in the panel</p>
               ) : null}
             </nav>
@@ -629,6 +734,30 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
             {asking && <p className="ask-status" role="status">ONE is thinking…</p>}
             {askErr && <p className="ask-status err" role="alert">{askErr}</p>}
           </form>
+
+          {tour && (() => {
+            const id = tour.step > 0 ? tour.ids[tour.step - 1] : null;
+            const n = id ? ix.byId.get(id) : null;
+            return (
+              <div className="tour-card pop" key={`tour-${tour.step}`} role="status" aria-live="polite">
+                <p className="tour-kicker">
+                  Your morning{n ? ` · ${tour.step} of ${tour.ids.length}` : ""}
+                </p>
+                {n ? (
+                  <>
+                    <p className="tour-title" style={{ color: hex(PRODUCT_COLOR[n.product]) }}>{n.label}</p>
+                    {n.secondaryLabel && <p className="tour-sub">{n.secondaryLabel}</p>}
+                    {factsFor(ix, n.id)[0] && <p className="tour-why">{factsFor(ix, n.id)[0]}</p>}
+                  </>
+                ) : (
+                  <p className="tour-title">Good morning, Sarah. Here are your three for today.</p>
+                )}
+                <button className="tour-skip" onClick={endTour}>
+                  {tour.step >= tour.ids.length ? "Done" : "Skip"}
+                </button>
+              </div>
+            );
+          })()}
 
           <div className="controls" role="toolbar" aria-label="Map controls">
             <button onClick={goBack} disabled={!state.history.length} aria-label="Back">
@@ -722,6 +851,39 @@ export default function Brain({ graph, pkg = "complete" }: { graph: BusinessGrap
             </>
           ) : (
             focus.summary && <p className="d-sum">{focus.summary}</p>
+          )}
+
+          {focus.type === "core" && since && (
+            <div className="since">
+              <h2>Since you were last here</h2>
+              <p className="since-when">{since.label}</p>
+              {since.changes.length ? (
+                <ul>
+                  {since.changes.map((c) => {
+                    const n = ix.byId.get(c.id)!;
+                    return (
+                      <li key={`${c.id}-${c.at}`}>
+                        <button onClick={() => goTo(c.id)}>
+                          <i style={{ background: hex(PRODUCT_COLOR[c.product]) }} aria-hidden="true" />
+                          <span>
+                            <small style={{ color: hex(PRODUCT_COLOR[c.product]) }}>{productName(c.product)}</small>
+                            {c.what}
+                          </span>
+                          <em aria-label={`Go to ${n.label}`}>→</em>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="since-none">Nothing new. You're up to date.</p>
+              )}
+              {topIds.length > 0 && (
+                <button className="link" onClick={startTour}>
+                  ▶ Replay my morning
+                </button>
+              )}
+            </div>
           )}
 
           {focus.locked && (

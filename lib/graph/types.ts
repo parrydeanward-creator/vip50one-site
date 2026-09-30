@@ -74,8 +74,19 @@ export interface GraphEdge {
   strength: number; // 0..1
 }
 
+// Something that changed in a product since the agent last looked
+// (Since you were last here). Real data: VIP-SUMMARY items the product has not
+// seen (`seen` false), newest first.
+export interface ChangeNote {
+  id: string; // the node it is about
+  product: ProductKey; // where it came from (may differ from the node's own product)
+  what: string;
+  at: string; // ISO time
+}
+
 export interface BusinessGraph {
   nodes: GraphNode[];
   edges: GraphEdge[];
   rootId: string;
+  changes?: ChangeNote[];
 }
