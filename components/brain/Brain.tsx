@@ -27,21 +27,31 @@ const PHONE_QUERY = "(max-width: 719px)";
 const CARD_ROOM = 420; // desktop width kept free for the floating card
 const RAIL_ROOM = 250; // and for the rail of floating buttons on the left
 
-export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph: BusinessGraph; pkg?: string }) {
+export interface BrainAgent {
+  firstName: string;
+  initials: string;
+  label: string; // spoken name for the account button
+}
+
+// The made-up agent the demo, films and screenshots use.
+const DEMO_AGENT: BrainAgent = { firstName: "Sarah", initials: "SB", label: "Sarah Bennett, ONE Complete, founding member" };
+
+export default function Brain({ graph: initialGraph, pkg = "complete", agent = DEMO_AGENT, live = false }: { graph: BusinessGraph; pkg?: string; agent?: BrainAgent; live?: boolean }) {
+  const hello = `${greeting()}, ${agent.firstName}.`;
   // The graph changes while the page is open (live signals tick its numbers).
   const [graph, setGraph] = useState(initialGraph);
   // ONE's morning note, written by the AI when it is available (rules otherwise).
   const [note, setNote] = useState<{ note: string; source: "ai" | "rules" } | null>(null);
   useEffect(() => {
     let live = true;
-    fetch(`/api/note?package=${encodeURIComponent(pkg)}`)
+    fetch(`/api/note?package=${encodeURIComponent(pkg)}${live ? "" : "&demo=1"}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((n) => live && n && setNote(n))
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, [pkg]);
+  }, [pkg, live]);
   const ix = useMemo(() => indexGraph(graph), [graph]);
   const [state, setState] = useState(() => nav.start(graph.rootId));
   const [phone, setPhone] = useState(false);
@@ -355,7 +365,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
   useEffect(() => {
     if (!ready) return;
     const mode = new URLSearchParams(window.location.search).get("signals");
-    if (mode === "off") return;
+    // Real accounts: no example signals (polling vip_summary comes later).
+    if (mode === "off" || live) return;
     const fast = mode === "fast";
     const queue = usable(DEMO_SIGNALS, indexGraph(initialGraph));
     let i = 0;
@@ -505,7 +516,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
         const r = await fetch("/api/ask", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question, package: pkg }),
+          body: JSON.stringify({ question, package: pkg, demo: !live }),
         });
         const a = (await r.json()) as AskAnswer & { error?: string };
         if (!r.ok || a.error) throw new Error(a.error ?? "no answer");
@@ -631,7 +642,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
     // The answer panel carries the actions while ONE is answering.
   } else if (firstRec) orbActions.push({ label: "Why?", run: () => setOrbWhy((w) => !w), primary: true, pressed: orbWhy });
   if (!ask && showMeTargets.length) orbActions.push({ label: highlight ? "Show everything" : "Show me", run: showMe, pressed: !!highlight });
-  if (!ask && productHref && focus.type !== "core" && !focus.locked) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
+  if (!ask && focus.href && !focus.locked) orbActions.push({ label: `Open in ${productName(focus.product)} ↗`, href: focus.href });
+  else if (!ask && productHref && focus.type !== "core" && !focus.locked) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
   if (!ask && focus.locked) orbActions.push({ label: "Add with Complete", href: UPGRADE_URL });
 
   const orderedForTab = [...vs.nodes].sort((a, b) => roleRank(a.role) - roleRank(b.role) || a.order - b.order);
@@ -654,7 +666,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
             </span>
           ))}
         </nav>
-        <span className="me" aria-label="Sarah Bennett, ONE Complete, founding member">SB</span>
+        {live ? (
+          <form className="me-form" method="post" action="/auth/signout">
+            <span className="me" aria-label={agent.label}>{agent.initials}</span>
+            <button className="signout" type="submit">Sign out</button>
+          </form>
+        ) : (
+          <span className="me" aria-label={agent.label}>{agent.initials}</span>
+        )}
       </header>
 
       <div className="stage">
@@ -893,7 +912,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
                     {factsFor(ix, n.id)[0] && <p className="tour-why">{factsFor(ix, n.id)[0]}</p>}
                   </>
                 ) : (
-                  <p className="tour-title">Good morning, Sarah. Here are your three for today.</p>
+                  <p className="tour-title">{hello} Here are your three for today.</p>
                 )}
                 <button className="tour-skip" onClick={endTour}>
                   {tour.step >= tour.ids.length ? "Done" : "Skip"}
@@ -1080,7 +1099,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete" }: { graph
               </span>
             )}
           </div>
-          <h1 className="d-title">{focus.type === "core" ? "Good morning, Sarah." : focus.label}</h1>
+          <h1 className="d-title">{focus.type === "core" ? hello : focus.label}</h1>
           {focus.secondaryLabel && focus.type !== "core" && <p className="d-sub">{focus.secondaryLabel}</p>}
           {focus.type === "core" && note ? (
             <>
@@ -1366,4 +1385,10 @@ function cleanName(label: string) {
 
 function initialsOf(label: string) {
   return cleanName(label).replace(/^the\s+/i, "").split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
+}
+
+// Good morning / afternoon / evening, by the agent's day (Mountain time for now).
+function greeting(now = new Date()): string {
+  const h = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", hour: "numeric", hourCycle: "h23" }).format(now));
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }

@@ -34,9 +34,10 @@ export function describeDay(data: DashboardData, ranked: Item[]): string {
   const lines: string[] = [];
   lines.push(`Agent first name: ${data.agent.firstName}`);
   lines.push(`Today: ${data.today}`);
-  lines.push(
-    `Scoreboard: ${sb.touchesThisMonth} of ${sb.touchGoal} touches this month; VIP list ${sb.vipCount} of ${sb.vipGoal}; streak ${sb.streakDays} days; ${sb.referralsThisYear} referrals and ${sb.closingsThisYear} of ${sb.closingsGoal} closings this year.`,
-  );
+  if (sb)
+    lines.push(
+      `Scoreboard: ${sb.touchesThisMonth} of ${sb.touchGoal} touches this month; VIP list ${sb.vipCount} of ${sb.vipGoal}; streak ${sb.streakDays} days; ${sb.referralsThisYear} referrals and ${sb.closingsThisYear} of ${sb.closingsGoal} closings this year.`,
+    );
   lines.push("");
   lines.push("Today's items, most important first:");
   ranked.forEach((item, i) => {

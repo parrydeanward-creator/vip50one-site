@@ -41,7 +41,7 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
     parentId: null,
     product: "one",
     importance: 1,
-    summary: "Good morning, Sarah. Three things matter most today: call Jen before her birthday, clear the four overdue follow-ups in ONE MOVE, and approve the Maple Ridge posts so they are ready for Thursday.",
+    summary: "Three things matter most today: call Jen before her birthday, clear the four overdue follow-ups in ONE MOVE, and approve the Maple Ridge posts so they are ready for Thursday.",
     // Headline numbers are what the products really track (Parry, 30 Sep):
     // ONE GO's points, streak and leaderboard; ONE MOVE's Touch Audit.
     stats: [

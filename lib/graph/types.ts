@@ -64,6 +64,7 @@ export interface GraphNode {
   pace?: { headline: string; detail?: string };
   timestamps?: { created?: string; due?: string; last?: string };
   locked?: boolean; // product outside the agent's package
+  href?: string; // opens this exact thing in its product (real data: the item's link)
 }
 
 export interface GraphEdge {
