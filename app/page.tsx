@@ -183,7 +183,6 @@ export default async function Home() {
               </article>
             ))}
           </div>
-          <p className="sp-fine center">New to VIP-50? Code VIP50V50 takes 50% off your first month (not with founding pricing).</p>
         </section>
 
         <section className="sp-founders">

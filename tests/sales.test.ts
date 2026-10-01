@@ -72,3 +72,9 @@ test("all nine testimonials show, word for word, with Parry's edits", () => {
   assert.equal(t("Annette Judd").video!.src, "/home/stories/annette-judd.mp4");
   for (const x of TESTIMONIALS) assert.ok(!/\bDean\b/.test(x.quote ?? ""), x.name);
 });
+
+test("the VIP50V50 code is never advertised on the public page (Parry, 1 Oct)", async () => {
+  const { readFileSync } = await import("node:fs");
+  assert.ok(!/VIP50V50/i.test(readFileSync("app/page.tsx", "utf8")));
+  assert.ok(!/VIP50V50/i.test(JSON.stringify({ PRODUCTS, PACKAGES, FAQ, TESTIMONIALS })));
+});

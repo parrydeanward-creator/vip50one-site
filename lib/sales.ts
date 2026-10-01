@@ -234,7 +234,6 @@ export const FAQ: { q: string; a: string }[] = [
   { q: "Is there a free trial?", a: "Yes. ONE Relationship and ONE Complete start with 7 days free, one trial per person. You add a card at checkout and can cancel before the trial ends. Elite is paid up front." },
   { q: "What is founding pricing?", a: "The first 50 members pay $199 a month for ONE Relationship or $399 for ONE Complete, instead of $299 and $499, for as long as they stay a member. When the 50 spots are gone, the page shows list prices." },
   { q: "Is there an annual plan?", a: "Yes. Paying for a year gets you two months free." },
-  { q: "I have a VIP50V50 code.", a: "VIP50V50 takes 50% off your first month as a new agent. It can't be combined with founding pricing; checkout uses whichever you choose." },
   { q: "Can I buy one product on its own?", a: "No. ONE comes as packages, because the products work together: what happens in one shows up in the others and in ONE Brain." },
   { q: "Does anything post or send without me?", a: "No. Nothing publishes on your behalf unless you approved that exact piece and either pressed publish or switched on scheduled posting for that listing yourself. It is off until you do." },
   { q: "Do open house visitors go into my VIP-50?", a: "Never on their own. Visitors and tour buyers are kept with their source; ONE suggests the follow-up and you decide." },
