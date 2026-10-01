@@ -15,7 +15,9 @@ export interface SalesProduct {
   points: string[];
   image: string;
   device: "phone" | "laptop";
-  film: string;
+  // The voiced showcase film, played right on the page. Left out until the
+  // voiced file is in public/home/films/ (the silent /film pages are not used).
+  film?: { src: string; poster?: string; captions?: string };
   in: ("relationship" | "complete")[];
 }
 
@@ -34,7 +36,6 @@ export const PRODUCTS: SalesProduct[] = [
     ],
     image: "/home/go.jpg",
     device: "phone",
-    film: "/film/go",
     in: ["relationship", "complete"],
   },
   {
@@ -51,7 +52,6 @@ export const PRODUCTS: SalesProduct[] = [
     ],
     image: "/home/move.jpg",
     device: "laptop",
-    film: "/film/move",
     in: ["relationship", "complete"],
   },
   {
@@ -68,7 +68,6 @@ export const PRODUCTS: SalesProduct[] = [
     ],
     image: "/home/marquee.jpg",
     device: "laptop",
-    film: "/film/marquee",
     in: ["complete"],
   },
   {
@@ -85,7 +84,6 @@ export const PRODUCTS: SalesProduct[] = [
     ],
     image: "/home/open.jpg",
     device: "phone",
-    film: "/film/open",
     in: ["complete"],
   },
   {
@@ -102,7 +100,6 @@ export const PRODUCTS: SalesProduct[] = [
     ],
     image: "/home/showly.jpg",
     device: "phone",
-    film: "/film/showly",
     in: ["complete"],
   },
 ];
@@ -155,26 +152,78 @@ export const PACKAGES: Package[] = [
 
 export interface Testimonial {
   name: string;
-  role: string; // title, brokerage, city
+  role?: string; // title, brokerage, city, as the person's page shows it
   quote?: string; // written: the full quote, word for word
   video?: { src: string; poster?: string; captions?: string }; // web copy, hosted with the site
+  photo?: string;
   tie?: string; // disclosure line for anyone with a business tie to Parry
 }
 
-// Filled from research/TESTIMONIALS.md as the full wording and web video
-// copies arrive. Only entries with a quote or a video are shown.
+// From research/TESTIMONIALS.md (ops chat, 1 Oct): word for word from the live
+// pages with Parry's edits ("Dean" -> "Parry", one typo). Parry approved all,
+// in full. Photos are the ones GHL already shows beside each quote.
+const GHL = "https://assets.cdn.filesafe.space/vnA7c9gF2AV3o5qbBaNf/media/";
+
 export const TESTIMONIALS: Testimonial[] = [
   {
     name: "Annette Judd",
-    role: "Broker, West Point, Utah",
+    role: "Real Estate Broker, West Point, Utah",
+    video: { src: "/home/stories/annette-judd.mp4", poster: "/home/stories/annette-judd-poster.jpg" },
+    quote: "I added 11 transactions from my sphere after implementing VIP-50. This completely changed how I run my business.",
+    photo: "/home/stories/annette-judd.jpg",
     tie: "Annette leads a team with Parry at The Luxury Agency.",
-    // video: web copy of "Annette's Testimonial (Short)" from Zach, pending
   },
-  { name: "Travis Evenden", role: "Team lead, Idaho", tie: "Travis leads a team with Parry at The Luxury Agency." },
-  { name: "Brian Irby", role: "Loan Officer, Phoenix, Arizona" },
-  { name: "Holly Lane, M.S.", role: "Realtor" },
-  { name: "Greg James", role: "Real Estate Advisor" },
-  { name: "Femi Collaku", role: "Exit Realty" },
+  {
+    name: "Travis Evenden",
+    role: "Real Estate Agent / Luxury Agency Team Lead, Idaho",
+    quote:
+      "I was on the verge of quitting the business entirely and returning to a regular 9-to-5 job. But after joining VIP-50, everything changed. I'm now the team lead for Idaho with multiple transactions actively flowing through my pipeline—and this transformation happened in just a few short months.",
+    tie: "Travis leads a team with Parry at The Luxury Agency.",
+  },
+  {
+    name: "Holly Lane",
+    role: "M.S. Realtor",
+    quote:
+      "What I have enjoyed about the VIP50 program is the emphasis that's placed on something we're all starved for — genuine connection with others. The fact that I can prioritize my relationships with the people I care about as a facet of my business is a no brainer. It's also a great community of agents and likeminded people to come together and get support, advice, or just camaraderie; something that is incredibly valuable in this oftentimes isolating business.",
+    photo: GHL + "69d15e874cde4bbc2aae69d6.jpeg",
+  },
+  {
+    name: "Greg James",
+    role: "Real Estate Advisor",
+    quote:
+      "After more than 30 years in the real estate business, I've seen just about every coaching program out there—and very few truly move the needle. The VIP-50 program is different. It's not just theory; it's a clear, proven system that creates real momentum and measurable results. If you're serious about growth and operating at a higher level, VIP-50 is the real deal.",
+    photo: GHL + "69bd69b48bbec1272b74b537.jpg",
+  },
+  {
+    name: "Femi Collaku",
+    role: "Real Estate Agent, Exit Realty",
+    quote:
+      "VIP-50 is a great tool and training to scale your business to the next level. I have been working hard to differentiate myself using the VIP-50 to take my business much higher. My people are willing to help me achieve my goals especially with how much value I have been giving them using the VIP-50 system.",
+    photo: GHL + "69c0836f5596d1aa7903be00.jpg",
+  },
+  {
+    name: "Shellie C.",
+    quote:
+      "The VIP-50 training was the professional intervention I didn't know I needed. The trainers politely (but firmly) pointed out that I've mostly been getting in my own way, and this program finally gave me the roadmap to step aside and let my business actually grow. I've traded my \"winging it\" strategy for a predictable, referral-heavy model that doesn't involve me spinning my wheels. If you're ready to stop being your own biggest bottleneck and start scaling with some actual clarity, this is it.",
+    photo: GHL + "69d19cfd3d829c73b22a365d.jpg",
+  },
+  {
+    name: "Mark H.",
+    quote:
+      "VIP 50 has completely rewritten how I interact with my people. As an agent your people are your highest priority and this has made every conversation, text, and event have so much more meaning. These people are people I have chosen not only to pour into, but to accept help, feedback, and support from. The program doesn't just benefit me as an agent. It makes me a better person. I bend over backwards to help and protect my sphere and this has helped me take back my time and dive deeper into building up the people I'm closest with. Highly recommend it. If you jump all in with an open mind and fully effort you will never look back!",
+    photo: GHL + "69d43b4b6b3a18d986153963.png",
+  },
+  {
+    name: "Jara H.",
+    quote:
+      "Parry and Aaron have completely changed my business model, The VIP 50 is brilliantly designed retraining the way your business SOI is built, and in turn has helped me truly connect with people and serve my clients better! I will be forever grateful for their mentorship and dedication to serve their people.",
+    photo: GHL + "69d7ea2ad5a667daf64dd20d.jpeg",
+  },
+  {
+    name: "T. Taylor",
+    quote:
+      "I am a huge fan of the VIP 50 system that Parry & Aaron have taught me. This is the key to getting your SOI to actually go out of their way to use you as an agent, rather than hoping they do by your social media presence. Parry & Aaron are both very committed to showing up for you, so that you can show up better for your friends.",
+  },
 ];
 
 export const shownTestimonials = (list = TESTIMONIALS) => list.filter((t) => (t.quote && t.quote.trim()) || t.video?.src);

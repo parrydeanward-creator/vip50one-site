@@ -967,3 +967,14 @@ a.link { display: block; text-decoration: none; }
 .sp-film { margin: 40px auto 0; max-width: 1080px; scroll-margin-top: 90px; }
 .sp-film video { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 18px; background: #000; border: 1px solid var(--line); box-shadow: 0 40px 120px rgba(0, 0, 0, 0.6), 0 0 80px rgba(212, 175, 55, 0.1); }
 .sp-film figcaption { margin-top: 12px; color: var(--text-3); font-size: 14px; }
+.sp-play { margin-top: 18px; padding: 12px 18px; border-radius: 12px; border: 1px solid var(--acc); background: transparent; color: var(--acc); font-weight: 800; cursor: pointer; }
+.sp-play:hover { background: rgba(255, 255, 255, 0.04); }
+.sp-inline-film { margin: 18px 0 0; }
+.sp-inline-film video { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; background: #000; border: 1px solid var(--line); }
+.sp-close-film { margin-top: 8px; background: none; border: 0; color: var(--text-3); cursor: pointer; font-size: 13px; }
+.sp-story figcaption { flex-direction: row !important; align-items: center; gap: 12px !important; margin-top: auto; }
+.sp-who { display: flex; flex-direction: column; gap: 2px; }
+.sp-who span { color: var(--text-2); font-size: 14px; }
+.sp-who small { color: var(--text-3); font-size: 12.5px; margin-top: 2px; }
+.sp-face { flex: none; width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(212, 175, 55, 0.5); }
+.sp-initials { display: grid; place-items: center; font-weight: 800; color: var(--gold); background: rgba(212, 175, 55, 0.08); }

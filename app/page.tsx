@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { masterClient } from "@/lib/server/auth.ts";
+import InlineFilm from "@/components/sales/InlineFilm.tsx";
 import { FAQ, JOIN, PACKAGES, PRODUCTS, shownTestimonials } from "@/lib/sales.ts";
 
 // vip50one.com (Parry, 29 Sep): visitors see the sales page; signed-in
@@ -118,9 +119,9 @@ export default async function Home() {
                   ))}
                 </ul>
                 <p className="sp-pmeta">
-                  <a href={p.film}>▶ Watch the tour</a>
                   <span>{p.in.length === 2 ? "In ONE Relationship and ONE Complete" : "In ONE Complete"}</span>
                 </p>
+                {p.film && <InlineFilm film={p.film} name={p.name} />}
               </div>
             </article>
           ))}
@@ -139,11 +140,14 @@ export default async function Home() {
                       {t.video.captions && <track kind="captions" src={t.video.captions} srcLang="en" label="English" default />}
                     </video>
                   )}
-                  {t.quote && <blockquote>{t.quote}</blockquote>}
+                  {t.quote && <blockquote>“{t.quote}”</blockquote>}
                   <figcaption>
-                    <b>{t.name}</b>
-                    <span>{t.role}</span>
-                    {t.tie && <small>{t.tie}</small>}
+                    {t.photo ? <img className="sp-face" src={t.photo} alt="" loading="lazy" /> : <span className="sp-face sp-initials">{t.name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2)}</span>}
+                    <span className="sp-who">
+                      <b>{t.name}</b>
+                      {t.role && <span>{t.role}</span>}
+                      {t.tie && <small>{t.tie}</small>}
+                    </span>
                   </figcaption>
                 </figure>
               ))}

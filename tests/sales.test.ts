@@ -48,3 +48,24 @@ test("the ONE film on the page has its file, captions and poster", async () => {
   assert.equal((vtt.match(/-->/g) ?? []).length, 28); // the voiced film's 28 lines
   assert.match(readFileSync("app/page.tsx", "utf8"), /src="\/home\/one-film\.mp4"/);
 });
+
+test("product tours are voiced files played on the page, never the silent /film pages", async () => {
+  const { readFileSync, existsSync } = await import("node:fs");
+  const page = readFileSync("app/page.tsx", "utf8");
+  assert.ok(!/href=\{?["'`]?\/film\//.test(page) && !/p\.film\}/.test(page.replace("film={p.film}", "")), "no links to /film pages");
+  for (const p of PRODUCTS) if (p.film) {
+    assert.match(p.film.src, /^\/home\/films\/.+\.mp4$/, p.id);
+    assert.ok(existsSync(`public${p.film.src}`), `${p.id}: voiced file missing`);
+  }
+});
+
+test("all nine testimonials show, word for word, with Parry's edits", () => {
+  const shown = shownTestimonials();
+  assert.equal(shown.length, 9);
+  const t = (n: string) => TESTIMONIALS.find((x) => x.name === n)!;
+  assert.match(t("Travis Evenden").quote!, /^I was on the verge of quitting the business entirely/);
+  assert.match(t("Mark H.").quote!, /It makes me a better person\./); // typo fixed
+  assert.match(t("Jara H.").quote!, /^Parry and Aaron/); // "Dean" -> "Parry"
+  assert.equal(t("Annette Judd").video!.src, "/home/stories/annette-judd.mp4");
+  for (const x of TESTIMONIALS) assert.ok(!/\bDean\b/.test(x.quote ?? ""), x.name);
+});
