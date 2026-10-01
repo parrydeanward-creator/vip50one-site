@@ -78,7 +78,7 @@ export interface Agent {
 export interface DashboardData {
   agent: Agent;
   today: string; // YYYY-MM-DD in the agent's time zone
-  scoreboard: Scoreboard;
+  scoreboard: Scoreboard | null; // demo only; MASTER sends its numbers as product stats
   products: ProductSummary[];
   coaching: Coaching | null;
 }
