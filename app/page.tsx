@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { masterClient } from "@/lib/server/auth.ts";
 import InlineFilm from "@/components/sales/InlineFilm.tsx";
-import { FAQ, JOIN, PACKAGES, PRODUCTS, shownTestimonials } from "@/lib/sales.ts";
+import { FAQ, JOIN, PACKAGES, PRODUCTS, joinFor, shownTestimonials } from "@/lib/sales.ts";
 
 // vip50one.com (Parry, 29 Sep): visitors see the sales page; signed-in
 // clients go straight to their dashboard, ONE Brain.
@@ -176,7 +176,7 @@ export default async function Home() {
                     <li key={x}>{x}</li>
                   ))}
                 </ul>
-                <a className={p.featured ? "sp-cta" : "sp-ghost"} href={JOIN}>
+                <a className={p.featured ? "sp-cta" : "sp-ghost"} href={joinFor(p.id)}>
                   {p.trial ? "Start 7 days free" : "Start Elite"}
                 </a>
                 {p.trial && <small className="sp-fine">7 days free, then {p.founding}/month founding. One trial per person.</small>}

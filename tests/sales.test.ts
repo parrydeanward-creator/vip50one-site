@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { FAQ, JOIN, PACKAGES, PRODUCTS, TESTIMONIALS, shownTestimonials } from "../lib/sales.ts";
+import { FAQ, JOIN, PACKAGES, PRODUCTS, TESTIMONIALS, joinFor, shownTestimonials } from "../lib/sales.ts";
 
 test("prices are the settled ones (ECOSYSTEM.md §7)", () => {
   const p = Object.fromEntries(PACKAGES.map((x) => [x.id, x]));
@@ -98,4 +98,14 @@ test("founder photos: Parry is the portrait in glasses, Aaron the plaid shirt (P
   assert.ok(page.indexOf('src="/home/founders/parry-ward.jpg"') < page.indexOf("<h3>Parry Ward</h3>"));
   assert.ok(page.indexOf('src="/home/founders/aaron-pehrson.jpg"') < page.indexOf("<h3>Aaron Pehrson</h3>"));
   assert.ok(page.indexOf('src="/home/founders/aaron-pehrson.jpg"') > page.indexOf("<h3>Parry Ward</h3>"));
+});
+
+test("each package button opens checkout with that package selected (CHECKOUT.md §4 1a)", async () => {
+  const { readFileSync } = await import("node:fs");
+  assert.equal(joinFor("relationship"), "https://vip50one.com/join?package=relationship&interval=month");
+  assert.equal(joinFor("complete"), "https://vip50one.com/join?package=complete&interval=month");
+  assert.equal(joinFor("complete", "year"), "https://vip50one.com/join?package=complete&interval=year");
+  assert.equal(joinFor("elite"), "https://vip50one.com/join?package=elite");
+  assert.match(readFileSync("app/page.tsx", "utf8"), /href=\{joinFor\(p\.id\)\}/);
+  for (const p of PACKAGES) assert.ok(!/code=/i.test(joinFor(p.id)), "never a code in the link");
 });

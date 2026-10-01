@@ -7,6 +7,12 @@
 
 export const JOIN = "https://vip50one.com/join";
 
+// CHECKOUT.md §4 1a: a hint so the checkout opens with this package selected.
+// Never carries a code.
+export function joinFor(pkg: "relationship" | "complete" | "elite", interval: "month" | "year" = "month"): string {
+  return pkg === "elite" ? `${JOIN}?package=elite` : `${JOIN}?package=${pkg}&interval=${interval}`;
+}
+
 export interface SalesProduct {
   id: "go" | "move" | "marquee" | "open" | "showly";
   name: string;
