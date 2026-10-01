@@ -212,6 +212,7 @@ export const TESTIMONIALS: Testimonial[] = [
     quote:
       "VIP 50 has completely rewritten how I interact with my people. As an agent your people are your highest priority and this has made every conversation, text, and event have so much more meaning. These people are people I have chosen not only to pour into, but to accept help, feedback, and support from. The program doesn't just benefit me as an agent. It makes me a better person. I bend over backwards to help and protect my sphere and this has helped me take back my time and dive deeper into building up the people I'm closest with. Highly recommend it. If you jump all in with an open mind and fully effort you will never look back!",
     photo: GHL + "69d43b4b6b3a18d986153963.png",
+    tie: "Mark is an agent on Parry's team at The Luxury Agency.",
   },
   {
     name: "Jara H.",

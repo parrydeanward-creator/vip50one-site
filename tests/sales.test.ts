@@ -36,7 +36,10 @@ test("honest copy: nothing posts without the agent, no loves, visitors never int
 test("testimonials: only shown with real content; ties disclosed", () => {
   assert.deepEqual(shownTestimonials([{ name: "A", role: "r" }]), []);
   assert.equal(shownTestimonials([{ name: "A", role: "r", quote: "Real words." }]).length, 1);
+  // Parry, 1 Oct: Annette, Travis and Mark H. work with him; Shellie C., Jara H. and T. Taylor do not.
   for (const n of ["Annette Judd", "Travis Evenden"]) assert.match(TESTIMONIALS.find((t) => t.name === n)!.tie ?? "", /with Parry/);
+  assert.match(TESTIMONIALS.find((t) => t.name === "Mark H.")!.tie ?? "", /Parry's team/);
+  for (const n of ["Shellie C.", "Jara H.", "T. Taylor"]) assert.equal(TESTIMONIALS.find((t) => t.name === n)!.tie, undefined, n);
   for (const t of TESTIMONIALS) assert.ok(!/\bDean\b/.test(t.quote ?? ""), t.name);
 });
 
