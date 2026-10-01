@@ -39,3 +39,12 @@ test("testimonials: only shown with real content; ties disclosed", () => {
   for (const n of ["Annette Judd", "Travis Evenden"]) assert.match(TESTIMONIALS.find((t) => t.name === n)!.tie ?? "", /with Parry/);
   for (const t of TESTIMONIALS) assert.ok(!/\bDean\b/.test(t.quote ?? ""), t.name);
 });
+
+test("the ONE film on the page has its file, captions and poster", async () => {
+  const { existsSync, readFileSync } = await import("node:fs");
+  for (const f of ["public/home/one-film.mp4", "public/home/one-film.vtt", "public/home/one-film.jpg"]) assert.ok(existsSync(f), f);
+  const vtt = readFileSync("public/home/one-film.vtt", "utf8");
+  assert.match(vtt, /^WEBVTT/);
+  assert.equal((vtt.match(/-->/g) ?? []).length, 28); // the voiced film's 28 lines
+  assert.match(readFileSync("app/page.tsx", "utf8"), /src="\/home\/one-film\.mp4"/);
+});

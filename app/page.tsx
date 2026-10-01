@@ -51,8 +51,8 @@ export default async function Home() {
               <a className="sp-cta" href={JOIN}>
                 Start your 7-day free trial
               </a>
-              <a className="sp-ghost" href="/watch?film=1">
-                ▶ Watch ONE work
+              <a className="sp-ghost" href="#film">
+                ▶ Watch ONE work (2 min)
               </a>
             </div>
             <p className="sp-micro">Founding pricing for the first 50 members · Cancel any time in the trial</p>
@@ -91,6 +91,13 @@ export default async function Home() {
             matter most to the approvals due before posting time. It ticks things off as you do them, and at day's end it tells you what got done and what moves to
             tomorrow. Ask it anything about your business.
           </p>
+          <figure id="film" className="sp-film">
+            <video controls preload="none" playsInline poster="/home/one-film.jpg">
+              <source src="/home/one-film.mp4" type="video/mp4" />
+              <track kind="captions" src="/home/one-film.vtt" srcLang="en" label="English" />
+            </video>
+            <figcaption>Watch ONE work: ONE Brain and all five products, in under two minutes.</figcaption>
+          </figure>
         </section>
 
         <section id="products" className="sp-products">

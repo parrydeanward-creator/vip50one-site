@@ -964,3 +964,6 @@ a.link { display: block; text-decoration: none; }
   .sp-nav { display: none; }
   .sp-bar { justify-content: space-between; }
 }
+.sp-film { margin: 40px auto 0; max-width: 1080px; scroll-margin-top: 90px; }
+.sp-film video { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 18px; background: #000; border: 1px solid var(--line); box-shadow: 0 40px 120px rgba(0, 0, 0, 0.6), 0 0 80px rgba(212, 175, 55, 0.1); }
+.sp-film figcaption { margin-top: 12px; color: var(--text-3); font-size: 14px; }
