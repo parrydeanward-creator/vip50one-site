@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { cookieDomainFor } from "./lib/host.ts";
 import { MASTER_PUBLISHABLE_KEY, MASTER_URL } from "./lib/master.ts";
 
 // Keeps the MASTER session fresh and sends signed-out visitors from the
@@ -17,7 +18,9 @@ export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
   if (path === "/" && !hasSession(req)) return NextResponse.next();
   let res = NextResponse.next({ request: req });
+  const domain = cookieDomainFor(req.headers.get("host"));
   const sb = createServerClient(MASTER_URL, MASTER_PUBLISHABLE_KEY, {
+    cookieOptions: domain ? { domain, path: "/", sameSite: "lax" } : undefined,
     cookies: {
       getAll: () => req.cookies.getAll(),
       setAll: (list) => {

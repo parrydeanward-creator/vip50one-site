@@ -1,6 +1,7 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { cookieDomainFor } from "../host.ts";
 import { MASTER_PUBLISHABLE_KEY, MASTER_URL } from "../master.ts";
 import { firstNameOf, initials, isMember, packageOf, safeImage } from "../live.ts";
 import type { PackageId } from "../types.ts";
@@ -14,7 +15,10 @@ import type { PackageId } from "../types.ts";
 
 export async function masterClient() {
   const store = await cookies();
+  const domain = cookieDomainFor((await headers()).get("host"));
   return createServerClient(MASTER_URL, MASTER_PUBLISHABLE_KEY, {
+    // Shared with move.vip50one.com on the real domain (lib/host.ts).
+    cookieOptions: domain ? { domain, path: "/", sameSite: "lax" } : undefined,
     cookies: {
       getAll: () => store.getAll(),
       setAll: (list) => {
