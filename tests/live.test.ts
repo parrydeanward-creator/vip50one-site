@@ -117,3 +117,24 @@ test("name, package and membership follow MASTER's rules", () => {
   assert.equal(isMember({ vip_access: false, subscription_status: "trialing" }), true);
   assert.equal(isMember({ vip_access: false, subscription_status: "canceled" }), false);
 });
+
+test("faces and homes: only an https photo is ever drawn", async () => {
+  const { safeImage } = await import("../lib/live.ts");
+  assert.equal(safeImage("https://cdn.example.com/a.jpg"), "https://cdn.example.com/a.jpg");
+  for (const bad of ["http://x.com/a.jpg", "javascript:alert(1)", "data:image/png;base64,AAAA", "//x.com/a.jpg", "", null, undefined])
+    assert.equal(safeImage(bad as string), undefined, String(bad));
+  const env = { ...ENV, items: [{ ...ENV.items![2], image: "https://cdn.example.com/lena.jpg" }, { ...ENV.items![0], image: "http://insecure.example.com/ray.jpg" }] };
+  const ix = indexGraph(liveGraph(env, OPTS));
+  assert.equal(ix.byId.get("live:go:birthday:15:2026-10-02")!.image, "https://cdn.example.com/lena.jpg");
+  assert.equal(ix.byId.get("live:go:task:91")!.image, undefined);
+  // no image sent: nothing invented
+  for (const n of liveGraph(ENV, OPTS).nodes) assert.equal(n.image, undefined, n.id);
+});
+
+test("a person's orb is named by the person, not by the occasion", async () => {
+  const { personLabel } = await import("../lib/live.ts");
+  assert.deepEqual(personLabel({ ...ENV.items![2] }), { label: "Lena Brooks", sub: "Birthday · Fri Oct 02" });
+  const ix = indexGraph(liveGraph(ENV, OPTS));
+  assert.equal(ix.byId.get("live:go:birthday:15:2026-10-02")!.label, "Lena Brooks");
+  assert.equal(ix.byId.get("live:go:task:91")!.label, "Call back Ray Ortiz"); // tasks keep their wording
+});
