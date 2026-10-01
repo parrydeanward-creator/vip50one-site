@@ -26,8 +26,17 @@ export async function otherSummary(p: OtherKey, email: string): Promise<SummaryR
   return askSummary(OTHER_SOURCES[p].url, OTHER_SOURCES[p].key, email);
 }
 
+/**
+ * The shared secret, without stray spaces or line breaks at either end: a
+ * pasted value often carries one, and the fingerprint on the other side is
+ * of the secret itself (1 Oct: MASTER refused every call over exactly this).
+ */
+export function ecosystemSecret(): string | undefined {
+  return process.env.VIP_ECOSYSTEM_SECRET?.trim() || undefined;
+}
+
 async function askSummary(base: string, apikey: string, email: string): Promise<SummaryResult> {
-  const secret = process.env.VIP_ECOSYSTEM_SECRET;
+  const secret = ecosystemSecret();
   if (!secret) return { ok: false, reason: "no-secret" };
   try {
     const r = await fetch(`${base}/rest/v1/rpc/vip_summary`, {
