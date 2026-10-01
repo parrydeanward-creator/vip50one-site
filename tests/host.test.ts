@@ -39,3 +39,9 @@ test("the sign-in cookie is shared only on vip50one.com", () => {
   assert.equal(cookieDomainFor("evilvip50one.com"), undefined);
   assert.equal(cookieDomainFor(null), undefined);
 });
+
+test("checkout's return page /welcome is ONE MOVE's, never this site's", () => {
+  // Stripe success_url is https://vip50one.com/welcome (CHECKOUT.md §4.3); the catch-all forwards it.
+  assert.equal(existsSync(new URL("../app/welcome", import.meta.url)), false);
+  assert.equal(moveUrlFor("/welcome", "?session_id=cs_1"), "https://move.vip50one.com/welcome?session_id=cs_1");
+});
