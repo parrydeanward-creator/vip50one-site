@@ -65,6 +65,7 @@ export interface GraphNode {
   timestamps?: { created?: string; due?: string; last?: string };
   locked?: boolean; // product outside the agent's package
   href?: string; // opens this exact thing in its product (real data: the item's link)
+  image?: string; // a photo for the orb: the person's face or the home (https only; initials or the icon until then)
 }
 
 export interface GraphEdge {

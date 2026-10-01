@@ -30,6 +30,7 @@ export interface SummaryItem {
   why: string[];
   link: string;
   seen?: boolean | null;
+  image?: string; // VIP-SUMMARY §3 v1.1, optional
 }
 
 export interface SummaryEnvelope {
@@ -309,12 +310,21 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions): Business
   return { nodes, edges, rootId: "one", changes: [], dated, today };
 }
 
+// "Birthday: Lena Brooks" -> the person "Lena Brooks", "Birthday · Tomorrow",
+// so a person's orb is named (and initialled) by the person.
+export function personLabel(it: SummaryItem): { label: string; sub?: string } {
+  const m = /^([^:]{2,20}):\s*(.+)$/.exec(it.title);
+  if (!m) return { label: it.title, sub: it.detail };
+  return { label: m[2].trim(), sub: [m[1].trim(), it.detail].filter(Boolean).join(" · ") };
+}
+
 function itemNode(add: (n: Omit<GraphNode, "importance"> & { importance?: number }) => void, it: SummaryItem, parentId: string, product: "go" | "move", importance: number, type: GraphNode["type"] = "task") {
+  const named = type === "person" ? personLabel(it) : { label: it.title, sub: it.detail };
   add({
     id: nodeId(it),
     type,
-    label: it.title,
-    secondaryLabel: it.detail,
+    label: named.label,
+    secondaryLabel: named.sub,
     parentId,
     product,
     importance,
@@ -323,6 +333,7 @@ function itemNode(add: (n: Omit<GraphNode, "importance"> & { importance?: number
     recommendations: [{ title: it.title, why: it.why, targetId: nodeId(it) }],
     timestamps: it.due ? { due: it.due } : undefined,
     href: it.link,
+    image: safeImage(it.image),
   });
 }
 
@@ -369,6 +380,17 @@ export function liveData(env: SummaryEnvelope | null, agent: LiveAgent, today: s
     products: [go, move, ...others],
     coaching: null,
   };
+}
+
+// Only an https picture is ever drawn (VIP-SUMMARY §3: no other scheme, no data:).
+export function safeImage(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" ? u.toString() : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // "Sarah Bennett" -> "SB"; an email falls back to its first letter.
