@@ -40,3 +40,13 @@ test("the demo dashboard asks for the demo morning note", () => {
   assert.match(read("components/brain/Brain.tsx"), /\$\{live \? "" : "&demo=1"\}/);
   assert.doesNotMatch(read("components/brain/Brain.tsx"), /let live = true/);
 });
+
+test("the shared secret is trimmed before use, and its fingerprint page is owner-only", () => {
+  const s = read("lib/server/summary.ts");
+  assert.match(s, /VIP_ECOSYSTEM_SECRET\?\.trim\(\)/);
+  assert.match(s, /const secret = ecosystemSecret\(\);/);
+  const r = read("app/api/fingerprint/route.ts");
+  assert.match(r, /OWNERS = \["parrydeanward@gmail\.com"\]/);
+  assert.match(r, /status: 404/);
+  assert.doesNotMatch(r, /secret:/); // the secret itself is never returned
+});
