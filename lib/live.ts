@@ -3,11 +3,11 @@ import type { DayItem, DayKind } from "./day.ts";
 import type { BusinessGraph, GraphEdge, GraphNode, NodeStatus, ProductKey } from "./graph/types.ts";
 import type { DashboardData, Item, ItemKind, PackageId, ProductSummary } from "./types.ts";
 
-// Real data: the MASTER answer to the vip_summary contract (vip50-ecosystem
+// Real data: each product's answer to the vip_summary contract (vip50-ecosystem
 // VIP-SUMMARY.md) turned into the Brain's graph and the morning note's day.
-// Pure: no fetching, no secrets. MASTER answers for ONE GO and ONE MOVE; the
-// other three products have no vip_summary yet, so they show "not connected
-// yet" and never demo numbers.
+// Pure: no fetching, no secrets. MASTER answers for ONE GO and ONE MOVE;
+// Marquee, ONE Open and Showly answer for themselves (all live 1 Oct). A
+// product that did not answer says so plainly and never shows demo numbers.
 
 export interface SummaryStat {
   key: string;
@@ -59,6 +59,37 @@ const OTHER_LABEL: Record<(typeof OTHERS)[number], [string, string]> = {
   showly: ["SHOWLY", "Buyer experience"],
 };
 const OTHER_NAME: Record<(typeof OTHERS)[number], string> = { marquee: "Marquee", open: "ONE Open", showly: "Showly" };
+export type OtherKey = (typeof OTHERS)[number];
+export const OTHER_KEYS: readonly OtherKey[] = OTHERS;
+
+/** One of the other three products' answers. `reachable` false: it did not answer in time. */
+export interface OtherAnswer {
+  env: SummaryEnvelope | null;
+  reachable: boolean;
+}
+export type OtherAnswers = Partial<Record<OtherKey, OtherAnswer>>;
+
+// How each product's items group on its branch of the map (VIP-SUMMARY §3 kinds,
+// plus the ones the products added as built; anything else is "Other").
+const KIND_GROUP: Record<string, string> = {
+  approval: "Approvals",
+  report: "Seller reports",
+  failed: "Needs fixing",
+  reaction: "Buyer answers",
+  visitor_rating: "Rate your visitors",
+  billing: "Billing",
+  safety: "Safety",
+  follow_up: "Follow-ups",
+  prep: "Open house prep",
+};
+
+/** An answered product's items, with ids made unique across products. */
+function otherItems(p: OtherKey, a: OtherAnswer | undefined): SummaryItem[] {
+  if (!a?.reachable || !a.env?.found) return [];
+  return (a.env.items ?? []).map((i) => ({ ...i, id: i.id.startsWith(`${p}:`) ? i.id : `${p}:${i.id}` }));
+}
+
+const productOf = (it: SummaryItem, p?: OtherKey): ProductKey => p ?? itemProduct(it);
 
 // Which product an item belongs to on the map. MASTER sends everything as
 // "go"; the tasks, dates and the Touch Audit live in ONE MOVE.
@@ -97,6 +128,11 @@ function worst(items: SummaryItem[]): NodeStatus | undefined {
 const nodeId = (it: SummaryItem) => `live:${it.id}`;
 
 export function dayKind(it: SummaryItem): DayKind {
+  if (it.kind === "approval") return "approval";
+  if (it.kind === "report") return "report";
+  if (it.kind === "visitor_rating") return "rating";
+  if (it.kind === "reaction") return "follow_up";
+  if (["failed", "billing", "safety", "prep"].includes(it.kind)) return "other";
   const t = it.title.toLowerCase();
   if (it.kind === "follow_up" || it.kind === "other") return "follow_up";
   if (/video|text/.test(t)) return "text";
@@ -114,7 +150,7 @@ export interface LiveOptions {
   today: string; // YYYY-MM-DD, America/Denver
 }
 
-export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions): BusinessGraph {
+export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: OtherAnswers = {}): BusinessGraph {
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
   const add = (n: Omit<GraphNode, "importance"> & { importance?: number }) => {
@@ -131,7 +167,11 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions): Business
 
   // What needs the agent today: the same items Your day lists.
   const isToday = (i: SummaryItem) => i.urgency !== "soon" && (!i.due || i.due <= o.today);
-  const due = items.filter(isToday);
+  // The other three, only for products in the agent's package.
+  const open = OTHERS.filter((p) => includes(o.pkg, p));
+  const extra = open.map((p) => ({ p, items: otherItems(p, others[p]) }));
+  const tagged: { it: SummaryItem; p?: OtherKey }[] = [...items.map((it) => ({ it })), ...extra.flatMap(({ p, items: xs }) => xs.map((it) => ({ it, p })))];
+  const due = tagged.filter(({ it }) => isToday(it)).map(({ it }) => it);
   add({
     id: "one",
     type: "core",
@@ -268,44 +308,57 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions): Business
     });
   }
 
-  // ---- the other three: not connected to ONE yet ---------------------------
+  // ---- the other three ----------------------------------------------------
   OTHERS.forEach((p, k) => {
     const [label, sub] = OTHER_LABEL[p];
+    const name = OTHER_NAME[p];
     const locked = !includes(o.pkg, p);
+    const a = others[p];
+    const base = { id: p, type: "product" as const, label, parentId: "one", product: p, importance: 0.85 - k * 0.03 };
+    if (locked) return add({ ...base, secondaryLabel: sub, locked: true, summary: "Included in ONE Complete." });
+    if (!a) return add({ ...base, secondaryLabel: "Not connected", summary: `${name} isn't connected to ONE yet. Its work will show here once it is. Open ${name} to see it today.` });
+    if (!a.reachable) return add({ ...base, secondaryLabel: "Couldn't reach", summary: `ONE couldn't reach ${name} just now. It will be back shortly; open ${name} to see it today.` });
+    if (!a.env?.found) return add({ ...base, secondaryLabel: sub, summary: `ONE didn't find a ${name} account under your email. If you use ${name} with another email, ask us to link it.` });
+    const xs = otherItems(p, a);
+    const dueHere = xs.filter(isToday);
     add({
-      id: p,
-      type: "product",
-      label,
-      secondaryLabel: locked ? sub : "Not connected",
-      parentId: "one",
-      product: p,
-      importance: 0.85 - k * 0.03,
-      locked: locked || undefined,
-      summary: locked
-        ? "Included in ONE Complete."
-        : `${OTHER_NAME[p]} isn't connected to ONE yet. Its work will show here once it is. Open ${OTHER_NAME[p]} to see it today.`,
+      ...base,
+      secondaryLabel: sub,
+      status: worst(xs),
+      summary: dueHere.length ? `${dueHere.length === 1 ? "One thing needs" : `${dueHere.length} things need`} you in ${name}, starting with: ${dueHere[0].title}.` : xs.length ? `Nothing in ${name} is due today; ${xs.length} coming up.` : `Nothing in ${name} needs you right now.`,
+      stats: (a.env.stats ?? []).map((st) => ({ label: st.label, value: ofMax(st) ?? "None" })),
+    });
+    const groups = new Map<string, SummaryItem[]>();
+    xs.forEach((it) => {
+      const g = KIND_GROUP[it.kind] ?? "Other";
+      groups.set(g, [...(groups.get(g) ?? []), it]);
+    });
+    [...groups.entries()].forEach(([g, list], gi) => {
+      const cid = `${p}-${g.toLowerCase().replace(/[^a-z]+/g, "-")}`;
+      add({ id: cid, type: "category", label: g, secondaryLabel: `${list.length} waiting`, parentId: p, product: p, importance: 1 - gi * 0.04, status: worst(list), summary: `${g} in ${name}.` });
+      list.forEach((it, j) => itemNode(add, it, cid, p, 1 - j * 0.03));
     });
   });
 
   // ---- the day and the timeline ------------------------------------------
-  const today: DayItem[] = items
-    .filter(isToday)
+  const today: DayItem[] = tagged
+    .filter(({ it }) => isToday(it))
     .slice(0, 8)
-    .map((i) => {
+    .map(({ it: i, p }) => {
       const kind = dayKind(i);
       return {
         id: `day:${i.id}`,
-        nodeId: nodes.some((n) => n.id === nodeId(i)) ? nodeId(i) : "move-audit",
-        product: itemProduct(i),
+        nodeId: nodes.some((n) => n.id === nodeId(i)) ? nodeId(i) : p ?? "move-audit",
+        product: productOf(i, p),
         kind,
         what: i.title,
         minutes: MINUTES[kind],
         vip: i.kind === "vip_touch" || i.kind === "birthday" || undefined,
       };
     });
-  const dated = items
-    .filter((i) => i.due && nodes.some((n) => n.id === nodeId(i)))
-    .map((i) => ({ id: nodeId(i), product: itemProduct(i) as ProductKey, at: `${i.due}T18:00:00.000Z`, what: i.title }));
+  const dated = tagged
+    .filter(({ it: i }) => i.due && nodes.some((n) => n.id === nodeId(i)))
+    .map(({ it: i, p }) => ({ id: nodeId(i), product: productOf(i, p), at: `${i.due}T18:00:00.000Z`, what: i.title }));
 
   return { nodes, edges, rootId: "one", changes: [], dated, today };
 }
@@ -318,7 +371,7 @@ export function personLabel(it: SummaryItem): { label: string; sub?: string } {
   return { label: m[2].trim(), sub: [m[1].trim(), it.detail].filter(Boolean).join(" · ") };
 }
 
-function itemNode(add: (n: Omit<GraphNode, "importance"> & { importance?: number }) => void, it: SummaryItem, parentId: string, product: "go" | "move", importance: number, type: GraphNode["type"] = "task") {
+function itemNode(add: (n: Omit<GraphNode, "importance"> & { importance?: number }) => void, it: SummaryItem, parentId: string, product: ProductKey, importance: number, type: GraphNode["type"] = "task") {
   const named = type === "person" ? personLabel(it) : { label: it.title, sub: it.detail };
   add({
     id: nodeId(it),
@@ -338,13 +391,14 @@ function itemNode(add: (n: Omit<GraphNode, "importance"> & { importance?: number
 }
 
 // The same answer in the shape the morning note and ranking use.
-export function liveData(env: SummaryEnvelope | null, agent: LiveAgent, today: string, reachable: boolean): DashboardData {
+export function liveData(env: SummaryEnvelope | null, agent: LiveAgent, today: string, reachable: boolean, others: OtherAnswers = {}): DashboardData {
   const found = !!env?.found && reachable;
   const items = found ? (env!.items ?? []) : [];
-  const toItem = (i: SummaryItem): Item => ({
+  const KINDS: ItemKind[] = ["safety", "billing", "failed", "vip_touch", "birthday", "drop_by", "approval", "follow_up", "new_contacts", "reaction", "prep", "report", "other"];
+  const toItem = (i: SummaryItem, p?: OtherKey): Item => ({
     id: i.id,
-    product: itemProduct(i),
-    kind: (["vip_touch", "birthday", "follow_up", "other"].includes(i.kind) ? i.kind : "other") as ItemKind,
+    product: p ?? itemProduct(i),
+    kind: (KINDS.includes(i.kind as ItemKind) ? i.kind : "other") as ItemKind,
     title: i.title,
     detail: i.detail,
     due: i.due ?? undefined,
@@ -363,21 +417,31 @@ export function liveData(env: SummaryEnvelope | null, agent: LiveAgent, today: s
       found && env!.streak != null && { label: "Streak", value: `${env!.streak} days` },
     ].filter((s): s is { label: string; value: string } => !!s),
     statusLine: "",
-    items: items.filter((i) => itemProduct(i) === "go").map(toItem),
+    items: items.filter((i) => itemProduct(i) === "go").map((i) => toItem(i)),
   };
   const move: ProductSummary = {
     product: "move",
     reachable: found,
     stats: ofMax(touched) ? [{ label: "VIP-50 fully touched this month", value: ofMax(touched)! }] : [],
     statusLine: "",
-    items: items.filter((i) => itemProduct(i) === "move").map(toItem),
+    items: items.filter((i) => itemProduct(i) === "move").map((i) => toItem(i)),
   };
-  const others: ProductSummary[] = OTHERS.map((p) => ({ product: p, reachable: false, stats: [], statusLine: "", items: [] }));
+  const rest: ProductSummary[] = OTHERS.map((p) => {
+    const a = includes(agent.pkg, p) ? others[p] : undefined;
+    const ok = !!a?.reachable && !!a.env?.found;
+    return {
+      product: p,
+      reachable: ok,
+      stats: ok ? (a!.env!.stats ?? []).map((st) => ({ label: st.label, value: ofMax(st) ?? "None" })) : [],
+      statusLine: "",
+      items: otherItems(p, a).map((i) => toItem(i, p)),
+    };
+  });
   return {
     agent: { firstName: agent.firstName, lastName: "", email: agent.email, package: agent.pkg, founding: agent.founding, timeZone: "America/Denver" },
     today,
     scoreboard: null,
-    products: [go, move, ...others],
+    products: [go, move, ...rest],
     coaching: null,
   };
 }
