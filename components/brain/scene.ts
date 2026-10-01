@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Sprite as PixiSprite, Text } from "pixi.js";
+import { Application, Assets, Container, Graphics, Sprite as PixiSprite, Text, type Texture } from "pixi.js";
 import type { GraphNode, ProductKey } from "@/lib/graph/types.ts";
 import type { Placed } from "@/lib/brain/layout.ts";
 import { type Camera, type Viewport, lerpCamera, toScreen } from "@/lib/brain/camera.ts";
@@ -75,6 +75,8 @@ export class BrainScene {
   private halo = new Container();
   private orbits = new Container();
   private sprites = new Map<string, Sprite>();
+  // Faces and homes: a loaded photo per URL; null when it failed (initials stay).
+  private photos = new Map<string, Texture | null>();
   private edges: SceneEdge[] = [];
   private pulses: Pulse[] = [];
   private pings: Ping[] = [];
@@ -250,9 +252,28 @@ export class BrainScene {
     return { id: node.id, node, root, glow, body, deco, label, sub, cur: { x: 0, y: 0, r: 1, a: 0 }, tgt: { x: 0, y: 0, r: 1, a: 1 }, drawnR: 0, drawnKey: "", phase: Math.random() * Math.PI * 2, leaving: false, role: "" };
   }
 
+  // Starts loading a photo the first time it is needed; the orb keeps its
+  // initials or icon until it arrives, and for good if it fails.
+  private photoFor(url: string): Texture | null {
+    if (this.photos.has(url)) return this.photos.get(url) ?? null;
+    this.photos.set(url, null);
+    Assets.load<Texture>({ src: url, parser: "texture" })
+      .then((tex) => {
+        this.photos.set(url, tex);
+        for (const sp of this.sprites.values())
+          if (sp.node.image === url && !sp.leaving) {
+            sp.drawnKey = "";
+            this.style(sp, sp.role);
+          }
+      })
+      .catch(() => this.photos.set(url, null));
+    return null;
+  }
+
   private style(s: Sprite, role: string) {
     const n = s.node;
-    const key = `${n.type}|${n.status}|${n.locked}|${role}|${n.label}|${n.secondaryLabel}|${s.tgt.r}`;
+    const photo = n.image ? this.photoFor(n.image) : null;
+    const key = `${n.type}|${n.status}|${n.locked}|${role}|${n.label}|${n.secondaryLabel}|${s.tgt.r}|${photo ? "p" : ""}`;
     if (key === s.drawnKey) return;
     s.drawnKey = key;
     const r = s.tgt.r;
@@ -312,7 +333,16 @@ export class BrainScene {
     s.deco.addChild(d);
 
     const inside = n.type === "product" || role === "focus";
-    if (n.type === "person") {
+    if (photo && !inside && !n.locked) {
+      // The person's face or the home, cropped to the orb.
+      const pic = new PixiSprite(photo);
+      pic.anchor.set(0.5);
+      const fit = r * 0.9;
+      pic.scale.set((fit * 2) / Math.min(photo.width, photo.height));
+      const mask = new Graphics().circle(0, 0, fit).fill({ color: 0xffffff });
+      pic.mask = mask;
+      s.deco.addChild(mask, pic);
+    } else if (n.type === "person") {
       const t = new Text({ text: initials(n.label), style: { fontFamily: FONT, fontSize: Math.round(r * 0.62), fontWeight: "700", fill: WHITE }, resolution: 3 });
       t.anchor.set(0.5);
       s.deco.addChild(t);

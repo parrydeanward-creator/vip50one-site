@@ -31,6 +31,7 @@ export interface BrainAgent {
   firstName: string;
   initials: string;
   label: string; // spoken name for the account button
+  photo?: string; // the agent's own photo (MASTER user_profiles.avatar_url)
 }
 
 // The made-up agent the demo, films and screenshots use.
@@ -668,7 +669,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         </nav>
         {live ? (
           <form className="me-form" method="post" action="/auth/signout">
-            <span className="me" aria-label={agent.label}>{agent.initials}</span>
+            <span className="me" aria-label={agent.label}>
+              {agent.photo ? <img className="me-pic" src={agent.photo} alt="" /> : agent.initials}
+            </span>
             <button className="signout" type="submit">Sign out</button>
           </form>
         ) : (
@@ -827,7 +830,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                       }}
                     >
                       <span className="rail-icon" style={{ color: hex(PRODUCT_COLOR[k.product]) }}>
-                        {k.type === "person" ? <b>{initialsOf(k.label)}</b> : <Icon kind={iconFor(k)} size={18} />}
+                        {k.image && !k.locked ? <img className="rail-pic" src={k.image} alt="" /> : k.type === "person" ? <b>{initialsOf(k.label)}</b> : <Icon kind={iconFor(k)} size={18} />}
                       </span>
                       <span className="rail-text">
                         <span>{k.label}</span>
