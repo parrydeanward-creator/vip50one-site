@@ -35,6 +35,7 @@ export const PRODUCTS: SalesProduct[] = [
       "A daily score and a weekly score, so you know where you stand",
     ],
     image: "/home/go.jpg",
+    film: { src: "/home/films/go.mp4", poster: "/home/films/go.jpg", captions: "/home/films/go.vtt" },
     device: "phone",
     in: ["relationship", "complete"],
   },
@@ -51,6 +52,7 @@ export const PRODUCTS: SalesProduct[] = [
       "Action plans and a monthly market report for each client's neighborhood",
     ],
     image: "/home/move.jpg",
+    film: { src: "/home/films/move.mp4", poster: "/home/films/move.jpg", captions: "/home/films/move.vtt" },
     device: "laptop",
     in: ["relationship", "complete"],
   },
@@ -67,6 +69,7 @@ export const PRODUCTS: SalesProduct[] = [
       "Let your seller watch the open house live, and send a weekly report from six quick answers",
     ],
     image: "/home/marquee.jpg",
+    film: { src: "/home/films/marquee.mp4", poster: "/home/films/marquee.jpg", captions: "/home/films/marquee.vtt" },
     device: "laptop",
     in: ["complete"],
   },
@@ -83,6 +86,7 @@ export const PRODUCTS: SalesProduct[] = [
       "Send the seller the report in one tap",
     ],
     image: "/home/open.jpg",
+    film: { src: "/home/films/open.mp4", poster: "/home/films/open.jpg", captions: "/home/films/open.vtt" },
     device: "phone",
     in: ["complete"],
   },
@@ -99,6 +103,7 @@ export const PRODUCTS: SalesProduct[] = [
       "Ask the lender for a pre-approval letter right from the home",
     ],
     image: "/home/showly.jpg",
+    film: { src: "/home/films/showly.mp4", poster: "/home/films/showly.jpg", captions: "/home/films/showly.vtt" },
     device: "phone",
     in: ["complete"],
   },
@@ -161,8 +166,7 @@ export interface Testimonial {
 
 // From research/TESTIMONIALS.md (ops chat, 1 Oct): word for word from the live
 // pages with Parry's edits ("Dean" -> "Parry", one typo). Parry approved all,
-// in full. Photos are the ones GHL already shows beside each quote.
-const GHL = "https://assets.cdn.filesafe.space/vnA7c9gF2AV3o5qbBaNf/media/";
+// in full. Photos are the ones GHL showed beside each quote, copied here.
 
 export const TESTIMONIALS: Testimonial[] = [
   {
@@ -178,6 +182,7 @@ export const TESTIMONIALS: Testimonial[] = [
     role: "Real Estate Agent / Luxury Agency Team Lead, Idaho",
     quote:
       "I was on the verge of quitting the business entirely and returning to a regular 9-to-5 job. But after joining VIP-50, everything changed. I'm now the team lead for Idaho with multiple transactions actively flowing through my pipeline—and this transformation happened in just a few short months.",
+    photo: "/home/stories/travis-evenden.jpg",
     tie: "Travis leads a team with Parry at The Luxury Agency.",
   },
   {
@@ -185,14 +190,14 @@ export const TESTIMONIALS: Testimonial[] = [
     role: "M.S. Realtor",
     quote:
       "What I have enjoyed about the VIP50 program is the emphasis that's placed on something we're all starved for — genuine connection with others. The fact that I can prioritize my relationships with the people I care about as a facet of my business is a no brainer. It's also a great community of agents and likeminded people to come together and get support, advice, or just camaraderie; something that is incredibly valuable in this oftentimes isolating business.",
-    photo: GHL + "69d15e874cde4bbc2aae69d6.jpeg",
+    photo: "/home/stories/holly-lane.jpg",
   },
   {
     name: "Greg James",
     role: "Real Estate Advisor",
     quote:
       "After more than 30 years in the real estate business, I've seen just about every coaching program out there—and very few truly move the needle. The VIP-50 program is different. It's not just theory; it's a clear, proven system that creates real momentum and measurable results. If you're serious about growth and operating at a higher level, VIP-50 is the real deal.",
-    photo: GHL + "69bd69b48bbec1272b74b537.jpg",
+    photo: "/home/stories/greg-james.jpg",
     tie: "Greg is an agent on Parry's team at The Luxury Agency.",
   },
   {
@@ -200,26 +205,26 @@ export const TESTIMONIALS: Testimonial[] = [
     role: "Real Estate Agent, Exit Realty",
     quote:
       "VIP-50 is a great tool and training to scale your business to the next level. I have been working hard to differentiate myself using the VIP-50 to take my business much higher. My people are willing to help me achieve my goals especially with how much value I have been giving them using the VIP-50 system.",
-    photo: GHL + "69c0836f5596d1aa7903be00.jpg",
+    photo: "/home/stories/femi-collaku.jpg",
   },
   {
     name: "Shellie C.",
     quote:
       "The VIP-50 training was the professional intervention I didn't know I needed. The trainers politely (but firmly) pointed out that I've mostly been getting in my own way, and this program finally gave me the roadmap to step aside and let my business actually grow. I've traded my \"winging it\" strategy for a predictable, referral-heavy model that doesn't involve me spinning my wheels. If you're ready to stop being your own biggest bottleneck and start scaling with some actual clarity, this is it.",
-    photo: GHL + "69d19cfd3d829c73b22a365d.jpg",
+    photo: "/home/stories/shellie-c.jpg",
   },
   {
     name: "Mark H.",
     quote:
       "VIP 50 has completely rewritten how I interact with my people. As an agent your people are your highest priority and this has made every conversation, text, and event have so much more meaning. These people are people I have chosen not only to pour into, but to accept help, feedback, and support from. The program doesn't just benefit me as an agent. It makes me a better person. I bend over backwards to help and protect my sphere and this has helped me take back my time and dive deeper into building up the people I'm closest with. Highly recommend it. If you jump all in with an open mind and fully effort you will never look back!",
-    photo: GHL + "69d43b4b6b3a18d986153963.png",
+    photo: "/home/stories/mark-h.jpg",
     tie: "Mark is an agent on Parry's team at The Luxury Agency.",
   },
   {
     name: "Jara H.",
     quote:
       "Parry and Aaron have completely changed my business model, The VIP 50 is brilliantly designed retraining the way your business SOI is built, and in turn has helped me truly connect with people and serve my clients better! I will be forever grateful for their mentorship and dedication to serve their people.",
-    photo: GHL + "69d7ea2ad5a667daf64dd20d.jpeg",
+    photo: "/home/stories/jara-h.jpg",
   },
   {
     name: "T. Taylor",

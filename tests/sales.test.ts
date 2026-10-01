@@ -78,3 +78,15 @@ test("the VIP50V50 code is never advertised on the public page (Parry, 1 Oct)", 
   assert.ok(!/VIP50V50/i.test(readFileSync("app/page.tsx", "utf8")));
   assert.ok(!/VIP50V50/i.test(JSON.stringify({ PRODUCTS, PACKAGES, FAQ, TESTIMONIALS })));
 });
+
+test("every product's voiced tour is on the page, with sound (never muted), posters and captions", async () => {
+  const { existsSync, readFileSync } = await import("node:fs");
+  for (const p of PRODUCTS) {
+    assert.ok(p.film, `${p.id} has no tour`);
+    for (const f of [p.film!.src, p.film!.poster!, p.film!.captions!]) assert.ok(existsSync(`public${f}`), f);
+    assert.match(readFileSync(`public${p.film!.captions}`, "utf8"), /^WEBVTT/);
+  }
+  for (const f of ["components/sales/InlineFilm.tsx", "app/page.tsx"]) assert.ok(!/\bmuted\b/.test(readFileSync(f, "utf8")), f);
+  // testimonial photos are served by the site itself
+  for (const t of TESTIMONIALS) if (t.photo) { assert.match(t.photo, /^\/home\/stories\//, t.name); assert.ok(existsSync(`public${t.photo}`), t.photo); }
+});
