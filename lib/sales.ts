@@ -193,6 +193,7 @@ export const TESTIMONIALS: Testimonial[] = [
     quote:
       "After more than 30 years in the real estate business, I've seen just about every coaching program out there—and very few truly move the needle. The VIP-50 program is different. It's not just theory; it's a clear, proven system that creates real momentum and measurable results. If you're serious about growth and operating at a higher level, VIP-50 is the real deal.",
     photo: GHL + "69bd69b48bbec1272b74b537.jpg",
+    tie: "Greg is an agent on Parry's team at The Luxury Agency.",
   },
   {
     name: "Femi Collaku",
