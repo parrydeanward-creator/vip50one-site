@@ -187,13 +187,19 @@ export default async function Home() {
 
         <section className="sp-founders">
           <p className="sp-eyebrow center">Who built it</p>
+          <h2 className="center">Built by agents who actually do the work</h2>
+          <figure className="sp-founders-hero">
+            <img src="/home/founders/parry-and-aaron.jpg" alt="Aaron Pehrson and Parry Ward in front of the VIP-50 sign" loading="lazy" />
+          </figure>
           <div className="sp-founder-grid">
             <div>
+              <img className="sp-founder-pic" src="/home/founders/parry-ward.jpg" alt="Parry Ward" loading="lazy" />
               <h3>Parry Ward</h3>
               <p className="sp-tag">The Relationship Architect</p>
               <p>Founder of The Luxury Agency. Built the VIP-50 method to get off the hamster wheel of chasing strangers.</p>
             </div>
             <div>
+              <img className="sp-founder-pic" src="/home/founders/aaron-pehrson.jpg" alt="Aaron Pehrson" loading="lazy" />
               <h3>Aaron Pehrson</h3>
               <p className="sp-tag">The Systems Operator</p>
               <p>The one in the room who makes it click, and makes sure nobody gets left behind.</p>

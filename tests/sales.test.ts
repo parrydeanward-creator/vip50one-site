@@ -90,3 +90,12 @@ test("every product's voiced tour is on the page, with sound (never muted), post
   // testimonial photos are served by the site itself
   for (const t of TESTIMONIALS) if (t.photo) { assert.match(t.photo, /^\/home\/stories\//, t.name); assert.ok(existsSync(`public${t.photo}`), t.photo); }
 });
+
+test("founder photos: Parry is the portrait in glasses, Aaron the plaid shirt (Parry, 1 Oct)", async () => {
+  const { existsSync, readFileSync } = await import("node:fs");
+  for (const f of ["parry-and-aaron", "parry-ward", "aaron-pehrson"]) assert.ok(existsSync(`public/home/founders/${f}.jpg`), f);
+  const page = readFileSync("app/page.tsx", "utf8");
+  assert.ok(page.indexOf('src="/home/founders/parry-ward.jpg"') < page.indexOf("<h3>Parry Ward</h3>"));
+  assert.ok(page.indexOf('src="/home/founders/aaron-pehrson.jpg"') < page.indexOf("<h3>Aaron Pehrson</h3>"));
+  assert.ok(page.indexOf('src="/home/founders/aaron-pehrson.jpg"') > page.indexOf("<h3>Parry Ward</h3>"));
+});

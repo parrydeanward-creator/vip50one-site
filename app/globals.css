@@ -978,3 +978,8 @@ a.link { display: block; text-decoration: none; }
 .sp-who small { color: var(--text-3); font-size: 12.5px; margin-top: 2px; }
 .sp-face { flex: none; width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(212, 175, 55, 0.5); }
 .sp-initials { display: grid; place-items: center; font-weight: 800; color: var(--gold); background: rgba(212, 175, 55, 0.08); }
+.sp-founders h2 { font-size: clamp(40px, 5vw, 64px); margin-bottom: 28px; }
+.sp-founders-hero { margin: 0 auto 22px; max-width: 1100px; border-radius: 20px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 40px 120px rgba(0, 0, 0, 0.6); }
+.sp-founders-hero img { display: block; width: 100%; height: auto; }
+.sp-founder-grid { max-width: 1100px; margin-left: auto; margin-right: auto; }
+.sp-founder-pic { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; object-position: 50% 20%; border-radius: 14px; margin-bottom: 18px; }
