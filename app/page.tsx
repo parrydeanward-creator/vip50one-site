@@ -1,12 +1,9 @@
-import { redirect } from "next/navigation";
-import { masterClient } from "@/lib/server/auth.ts";
 import InlineFilm from "@/components/sales/InlineFilm.tsx";
 import { FAQ, JOIN, PACKAGES, PRODUCTS, joinFor, shownTestimonials } from "@/lib/sales.ts";
 
 // vip50one.com (Parry, 29 Sep): visitors see the sales page; signed-in
-// clients go straight to their dashboard, ONE Brain.
-
-export const dynamic = "force-dynamic";
+// clients go straight to their dashboard, ONE Brain (middleware.ts does that,
+// so this page never waits on MASTER and is built once, not per visit).
 export const metadata = {
   title: "VIP-50 ONE | Your whole real estate business, one place",
   description: "ONE GO, ONE MOVE, Marquee, ONE Open and Showly, connected by ONE Brain. The VIP-50 referral method, run every day.",
@@ -14,10 +11,7 @@ export const metadata = {
 
 const ACCENT: Record<string, string> = { go: "#f2a93b", move: "#2fb7a3", marquee: "#4f7fe0", open: "#f06a5a", showly: "#9b6ce0" };
 
-export default async function Home() {
-  const sb = await masterClient();
-  const { data } = await sb.auth.getUser().catch(() => ({ data: { user: null } }));
-  if (data.user) redirect("/dashboard");
+export default function Home() {
   const stories = shownTestimonials();
 
   return (

@@ -2,8 +2,7 @@ import { morningNote } from "@/lib/assistant.ts";
 import { demoData } from "@/lib/demo.ts";
 import { PACKAGE_LABEL } from "@/lib/products.ts";
 import { rankToday } from "@/lib/rank.ts";
-import { signedIn } from "@/lib/server/auth.ts";
-import { liveBundle } from "@/lib/server/live.ts";
+import { signedInBundle } from "@/lib/server/live.ts";
 import type { PackageId } from "@/lib/types.ts";
 
 // The morning note for ONE's card. Written by Claude when ANTHROPIC_API_KEY is
@@ -21,8 +20,8 @@ export async function GET(req: Request) {
     const data = demoData({ pkg });
     return Response.json(await morningNote(data, rankToday(data)), { headers: { "Cache-Control": "no-store" } });
   }
-  const me = await signedIn();
-  if (!me?.member) return Response.json({ error: "Sign in first." }, { status: 401 });
-  const { data } = await liveBundle(me);
+  const live = await signedInBundle();
+  if (!live?.bundle) return Response.json({ error: "Sign in first." }, { status: 401 });
+  const { data } = live.bundle;
   return Response.json(await morningNote(data, rankToday(data)), { headers: { "Cache-Control": "no-store" } });
 }

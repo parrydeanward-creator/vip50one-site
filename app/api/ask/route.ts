@@ -4,8 +4,7 @@ import { demoGraph } from "@/lib/graph/demo.ts";
 import { indexGraph } from "@/lib/graph/model.ts";
 import { PACKAGE_LABEL } from "@/lib/products.ts";
 import type { PackageId } from "@/lib/types.ts";
-import { signedIn } from "@/lib/server/auth.ts";
-import { liveBundle } from "@/lib/server/live.ts";
+import { signedInBundle } from "@/lib/server/live.ts";
 
 // Ask ONE: POST { question, package } -> { answer, results[{id, reasons}], source }.
 // Claude when ANTHROPIC_API_KEY is set, plain rules otherwise (lib/askAI.ts).
@@ -26,9 +25,10 @@ export async function POST(req: Request) {
     const answer = await askOne(question, indexGraph(demoGraph(pkg)), `demo|${pkg}`);
     return Response.json(answer, { headers: { "Cache-Control": "no-store" } });
   }
-  const me = await signedIn();
-  if (!me?.member) return Response.json({ error: "Sign in first." }, { status: 401 });
-  const { graph } = await liveBundle(me);
+  const live = await signedInBundle();
+  if (!live?.bundle) return Response.json({ error: "Sign in first." }, { status: 401 });
+  const { me } = live;
+  const { graph } = live.bundle;
   const answer = await askOne(question, indexGraph(graph), `live|${me.email}|${new Date().toISOString().slice(0, 13)}`);
   return Response.json(answer, { headers: { "Cache-Control": "no-store" } });
 }

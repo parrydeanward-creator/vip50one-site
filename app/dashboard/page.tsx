@@ -2,8 +2,7 @@ import Brain from "@/components/brain/Brain.tsx";
 import { demoGraph } from "@/lib/graph/demo.ts";
 import { JOIN_URL } from "@/lib/master.ts";
 import { PACKAGE_LABEL } from "@/lib/products.ts";
-import { signedIn } from "@/lib/server/auth.ts";
-import { liveBundle } from "@/lib/server/live.ts";
+import { signedInBundle } from "@/lib/server/live.ts";
 import type { PackageId } from "@/lib/types.ts";
 import { redirect } from "next/navigation";
 
@@ -22,9 +21,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     const pkg: PackageId = p in PACKAGE_LABEL ? (p as PackageId) : "complete";
     return <Brain graph={demoGraph(pkg)} pkg={pkg} />;
   }
-  const me = await signedIn();
-  if (!me) redirect("/login");
-  if (!me.member) {
+  const live = await signedInBundle();
+  if (!live) redirect("/login");
+  const { me, bundle } = live;
+  if (!bundle) {
     return (
       <main className="noaccess">
         <div className="login-card">
@@ -45,7 +45,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       </main>
     );
   }
-  const { graph } = await liveBundle(me);
+  const { graph } = bundle;
   const label = `${me.displayName}, ${PACKAGE_LABEL[me.pkg]}${me.founding ? ", founding member" : ""}`;
   return <Brain graph={graph} pkg={me.pkg} live agent={{ firstName: me.firstName, initials: me.initials, label, photo: me.photo }} />;
 }

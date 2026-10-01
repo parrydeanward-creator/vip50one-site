@@ -44,13 +44,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // ONE's morning note, written by the AI when it is available (rules otherwise).
   const [note, setNote] = useState<{ note: string; source: "ai" | "rules" } | null>(null);
   useEffect(() => {
-    let live = true;
+    let current = true;
     fetch(`/api/note?package=${encodeURIComponent(pkg)}${live ? "" : "&demo=1"}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((n) => live && n && setNote(n))
+      .then((n) => current && n && setNote(n))
       .catch(() => {});
     return () => {
-      live = false;
+      current = false;
     };
   }, [pkg, live]);
   const ix = useMemo(() => indexGraph(graph), [graph]);
