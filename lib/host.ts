@@ -6,6 +6,14 @@
 export const MOVE_URL = "https://move.vip50one.com";
 
 /**
+ * The classic dashboard (ONE MOVE's). ONE Brain and ONE MOVE each carry a
+ * "New dashboard | Classic" switch at the top (Parry, 2 Oct; vip50-web-crm#25
+ * is the other half). The sign-in is shared on .vip50one.com, so switching
+ * never asks for a password.
+ */
+export const CLASSIC_DASHBOARD_URL = `${MOVE_URL}/dashboard`;
+
+/**
  * Paths that are links people already hold: they stay on vip50one.com and
  * hand over to ONE MOVE, where sign-up, checkout and reactivation live
  * (CHECKOUT.md §4). The query (package, interval, code) goes with them.

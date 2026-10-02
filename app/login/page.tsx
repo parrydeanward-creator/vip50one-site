@@ -1,5 +1,6 @@
 import { signIn } from "./actions.ts";
 import { JOIN_URL, RESET_URL } from "@/lib/master.ts";
+import PasswordField from "@/components/auth/PasswordField.tsx";
 
 export const metadata = { title: "Sign in | VIP-50 ONE" };
 
@@ -28,7 +29,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<Re
         <label htmlFor="email">Email</label>
         <input id="email" name="email" type="email" autoComplete="email" required autoFocus />
         <label htmlFor="password">Password</label>
-        <input id="password" name="password" type="password" autoComplete="current-password" required />
+        <PasswordField />
         <button type="submit">Sign in</button>
         <p className="login-links">
           <a href={RESET_URL}>Forgot your password?</a>

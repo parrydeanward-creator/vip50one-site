@@ -1,5 +1,6 @@
 "use client";
 
+import { CLASSIC_DASHBOARD_URL } from "@/lib/host.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BusinessGraph, GraphNode } from "@/lib/graph/types.ts";
 import { DESKTOP_BUDGET, PHONE_BUDGET, childrenOf, indexGraph, pathTo, visibleSet } from "@/lib/graph/model.ts";
@@ -667,6 +668,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </span>
           ))}
         </nav>
+        {live && (
+          <nav className="dash-switch" aria-label="Dashboard version">
+            <span aria-current="page">New dashboard</span>
+            <a href={CLASSIC_DASHBOARD_URL}>Classic</a>
+          </nav>
+        )}
         {live ? (
           <form className="me-form" method="post" action="/auth/signout">
             <span className="me" aria-label={agent.label}>
