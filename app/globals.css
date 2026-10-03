@@ -1040,3 +1040,28 @@ a.link { display: block; text-decoration: none; }
 .d-why { margin-top: 18px; }
 .d-why h2 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
 .d-why ul { margin: 0; padding-left: 18px; color: var(--text-2); font-size: 14px; line-height: 1.5; }
+
+/* The person in the right panel (VIP-SUMMARY §3c). */
+.cc { margin-top: 16px; }
+.cc-meta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 13px; color: var(--text-2); }
+.cc-tier { padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(212, 175, 55, 0.5); color: var(--gold-2); font-weight: 700; font-size: 11px; letter-spacing: 0.06em; }
+.cc-lines { display: grid; gap: 2px; margin: 10px 0 0; font-size: 14px; color: var(--text); }
+.cc-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+.cc-btn { display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 12px; background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #0b0b0b; font-weight: 800; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; }
+.cc-btn.off { background: rgba(255, 255, 255, 0.04); color: var(--text-3); border: 1px solid var(--line); }
+.cc-ask { margin-top: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(212, 175, 55, 0.4); background: rgba(212, 175, 55, 0.06); }
+.cc-ask p { margin: 0 0 8px; font-weight: 600; }
+.cc-ask div { display: flex; gap: 8px; flex-wrap: wrap; }
+.cc-ask .btn { margin-top: 0; min-height: 40px; padding: 8px 14px; }
+.cc-done { margin: 10px 0 0; color: var(--gold-2); font-weight: 600; font-size: 14px; }
+.cc-err { margin: 10px 0 0; color: #ff8a80; font-size: 13px; }
+.cc-loading { margin: 14px 0 0; color: var(--text-3); font-size: 13px; }
+.cc-boxes h2, .cc-tasks h2 { margin: 18px 0 8px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.cc-boxes ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+.cc-boxes li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
+.cc-boxes li i { width: 18px; height: 18px; flex: none; display: grid; place-items: center; border-radius: 5px; border: 1px solid var(--line); font-style: normal; font-size: 12px; color: #0b0b0b; }
+.cc-boxes li.on { color: var(--text); }
+.cc-boxes li.on i { background: var(--gold-2); border-color: var(--gold-2); }
+.cc-tasks ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--text); }
+.cc-tasks small { color: var(--text-3); }
+.cc-source { margin: 14px 0 0; font-size: 12px; color: var(--text-3); }

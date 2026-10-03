@@ -37,6 +37,7 @@ export interface SummaryItem {
   seen?: boolean | null;
   image?: string; // VIP-SUMMARY §3 v1.1, optional
   decide?: { via: string; id: string; accept_label: string; ask_gci?: boolean }; // §3b v1.3, optional
+  contact_id?: string | null; // §3c v1.4, optional
 }
 
 export interface SummaryEnvelope {
@@ -565,6 +566,7 @@ function itemNode(add: (n: Omit<GraphNode, "importance"> & { importance?: number
     href: it.link,
     image: safeImage(it.image),
     decide: decideOf(it),
+    contactId: typeof it.contact_id === "string" && UUID.test(it.contact_id) ? it.contact_id : undefined,
   });
 }
 
