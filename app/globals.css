@@ -1065,3 +1065,14 @@ a.link { display: block; text-decoration: none; }
 .cc-tasks ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--text); }
 .cc-tasks small { color: var(--text-3); }
 .cc-source { margin: 14px 0 0; font-size: 12px; color: var(--text-3); }
+
+/* A follow-up with no contact yet (VIP-SUMMARY §3c.6). */
+.pp { margin-top: 16px; }
+.pp h2 { margin: 0 0 6px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.pp-note { margin: 0 0 10px; color: var(--text-2); font-size: 13.5px; line-height: 1.45; }
+.pp-search { width: 100%; box-sizing: border-box; min-height: 42px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(5, 8, 22, 0.6); color: #fff; font-size: 15px; }
+.pp-hits { list-style: none; margin: 8px 0 10px; padding: 0; display: grid; gap: 6px; }
+.pp-hits button { width: 100%; display: grid; text-align: left; gap: 2px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); color: var(--text); cursor: pointer; }
+.pp-hits button:hover { border-color: rgba(245, 197, 66, 0.7); }
+.pp-hits small { color: var(--text-3); font-size: 12px; }
+.pp-done .btn { margin-top: 4px; }

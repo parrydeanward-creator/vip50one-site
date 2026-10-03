@@ -23,3 +23,14 @@ test("routes are ONE MOVE's, and only plain numbers and emails reach tel:, sms: 
   assert.equal(mailable(" brian@example.com "), "brian@example.com");
   assert.equal(mailable("x?subject=<script>"), null);
 });
+
+test("§3c.6: the task id rides along; the name to search comes from the title", async () => {
+  const { taskIdOf } = await import("../lib/live.ts");
+  const { nameFromTitle } = await import("../lib/contact.ts");
+  assert.equal(taskIdOf("go:task:f16ab304-01fa-4321-bf6a-a20babc5a112"), "f16ab304-01fa-4321-bf6a-a20babc5a112");
+  assert.equal(taskIdOf("go:untouched:12"), undefined);
+  assert.equal(taskIdOf("go:task:1; drop"), undefined);
+  assert.equal(nameFromTitle("Call Brian Irby"), "Brian Irby");
+  assert.equal(nameFromTitle("Lunch with Sarah Bennett"), "Sarah Bennett");
+  assert.equal(nameFromTitle("💋My Sexy Lover💋"), "My Sexy Lover");
+});

@@ -70,6 +70,8 @@ export interface GraphNode {
   decide?: { id: string; acceptLabel: string; askGci: boolean };
   // VIP-SUMMARY §3c: the ONE MOVE contact this item is about (contact card, Call / Text / Email).
   contactId?: string;
+  // The MASTER task behind a ONE MOVE item ("go:task:<uuid>"): closed when its touch is logged.
+  taskId?: string;
 }
 
 export interface GraphEdge {

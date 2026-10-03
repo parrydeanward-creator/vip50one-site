@@ -18,7 +18,7 @@ import {
 // Tapping one opens the phone, messages or mail; the panel then asks once
 // whether to log it (as ONE MOVE's action bar does, so a misdial never
 // counts). Logging runs ONE MOVE's own logTouchEverywhere.
-export default function ContactPanel({ contactId, onLogged }: { contactId: string; onLogged: () => void }) {
+export default function ContactPanel({ contactId, taskId, onLogged }: { contactId: string; taskId?: string; onLogged: () => void }) {
   const [card, setCard] = useState<ContactCard | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [ask, setAsk] = useState<TouchKind | null>(null);
@@ -50,7 +50,13 @@ export default function ContactPanel({ contactId, onLogged }: { contactId: strin
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact_id: contactId, kind, detail: `${kind === "call" ? "Called" : kind === "text" ? "Texted" : "Emailed"} from ONE Brain` }),
+        body: JSON.stringify({
+          contact_id: contactId,
+          kind,
+          detail: `${kind === "call" ? "Called" : kind === "text" ? "Texted" : "Emailed"} from ONE Brain`,
+          // §3c.3 (v1.5): close the follow-up this came from (vip50-web-crm#40, live).
+          ...(taskId ? { task_id: taskId } : {}),
+        }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.ok) throw new Error(j.error ?? "ONE MOVE didn't take that. Try again.");
