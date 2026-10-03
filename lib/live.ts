@@ -86,7 +86,11 @@ const KIND_GROUP: Record<string, string> = {
   follow_up: "Follow-ups",
   prep: "Open house prep",
   open_house: "Upcoming open houses",
+  book_open_house: "Book your next open house",
 };
+
+// REMINDERS.md: ONE Open's page for booking a new open house.
+export const OPEN_NEW_EVENT = "https://open.vip-50.com/app/events/new";
 
 // "Sat 4 Oct, 11:00 AM" in Mountain time.
 export function openHouseWhen(iso: string): string {
@@ -169,6 +173,7 @@ export function dayKind(it: SummaryItem): DayKind {
   if (it.kind === "reaction") return "follow_up";
   if (["failed", "billing", "safety", "prep"].includes(it.kind)) return "other";
   if (it.kind === "open_house") return "meeting";
+  if (it.kind === "book_open_house" || it.kind === "agent_attraction") return "other";
   const t = it.title.toLowerCase();
   if (it.kind === "follow_up" || it.kind === "other") return "follow_up";
   if (/video|text/.test(t)) return "text";
@@ -194,7 +199,11 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
     if (n.parentId) edges.push({ id: `${n.parentId}>${n.id}`, source: n.parentId, target: n.id, relationshipType: "belongs_to", strength: 1 });
   };
   const found = !!env?.found && o.reachable;
-  const items = found ? (env!.items ?? []) : [];
+  const allItems = found ? (env!.items ?? []) : [];
+  // REMINDERS.md: "Set Up Open House" belongs to ONE OPEN when the agent has it.
+  const hasOpen = includes(o.pkg, "open");
+  const booking = hasOpen ? allItems.filter((i) => i.kind === "book_open_house").map((i) => ({ ...i, link: OPEN_NEW_EVENT })) : [];
+  const items = hasOpen ? allItems.filter((i) => i.kind !== "book_open_house") : allItems;
   const goItems = items.filter((i) => itemProduct(i) === "go");
   const moveItems = items.filter((i) => itemProduct(i) === "move");
   const daily = found ? stat(env!, "daily_points") : undefined;
@@ -205,7 +214,7 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
   const isToday = (i: SummaryItem) => i.urgency !== "soon" && (!i.due || i.due <= o.today);
   // The other three, only for products in the agent's package.
   const open = OTHERS.filter((p) => includes(o.pkg, p));
-  const extra = open.map((p) => ({ p, items: otherItems(p, others[p]) }));
+  const extra = open.map((p) => ({ p, items: p === "open" ? [...booking, ...otherItems(p, others[p])] : otherItems(p, others[p]) }));
   const tagged: { it: SummaryItem; p?: OtherKey }[] = [...items.map((it) => ({ it })), ...extra.flatMap(({ p, items: xs }) => xs.map((it) => ({ it, p })))];
   const due = tagged.filter(({ it }) => isToday(it)).map(({ it }) => it);
   add({
@@ -302,6 +311,8 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
   const followups = moveItems.filter((i) => i.kind === "follow_up" || i.kind === "other");
   const dates = moveItems.filter((i) => i.kind === "birthday");
   const audit = moveItems.filter((i) => i.kind === "vip_touch");
+  const attraction = moveItems.filter((i) => i.kind === "agent_attraction");
+  const bookHere = moveItems.filter((i) => i.kind === "book_open_house"); // no ONE Open in the package
   add({
     id: "move",
     type: "product",
@@ -324,6 +335,14 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
     if (followups.length) {
       add({ id: "move-followups", type: "category", label: "Follow-ups overdue", secondaryLabel: `${followups.length} overdue`, parentId: "move", product: "move", importance: 1, status: "action", summary: "Tasks in ONE MOVE that are past their date and not done." });
       followups.forEach((it, k) => itemNode(add, it, "move-followups", "move", 1 - k * 0.03));
+    }
+    if (attraction.length) {
+      add({ id: "move-attraction", type: "category", label: "Agent attraction", secondaryLabel: `${attraction.length} waiting`, parentId: "move", product: "move", importance: 0.9, status: worst(attraction), summary: "Your Agent Attraction reminders in ONE MOVE." });
+      attraction.forEach((it, k) => itemNode(add, it, "move-attraction", "move", 1 - k * 0.03));
+    }
+    if (bookHere.length) {
+      add({ id: "move-book-oh", type: "category", label: "Book your next open house", secondaryLabel: `${bookHere.length} waiting`, parentId: "move", product: "move", importance: 0.9, status: worst(bookHere), summary: "Your every-two-weeks reminder to book an open house." });
+      bookHere.forEach((it, k) => itemNode(add, it, "move-book-oh", "move", 1 - k * 0.03));
     }
     if (dates.length) {
       add({ id: "move-dates", type: "category", label: "Birthdays and anniversaries", secondaryLabel: `${dates.length} in the next 30 days`, parentId: "move", product: "move", importance: 0.95, status: dates.some((d) => d.urgency === "today") ? "attention" : "opportunity", summary: "Your VIP-50 and VIP-100's special dates coming up." });
@@ -352,17 +371,20 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
     const a = others[p];
     const base = { id: p, type: "product" as const, label, parentId: "one", product: p, importance: 0.85 - k * 0.03 };
     if (locked) return add({ ...base, secondaryLabel: sub, locked: true, summary: "Included in ONE Complete." });
-    if (!a) return add({ ...base, secondaryLabel: "Not connected", summary: `${name} isn't connected to ONE yet. Its work will show here once it is. Open ${name} to see it today.` });
-    if (!a.reachable) return add({ ...base, secondaryLabel: "Couldn't reach", summary: `ONE couldn't reach ${name} just now. It will be back shortly; open ${name} to see it today.` });
-    if (!a.env?.found) return add({ ...base, secondaryLabel: sub, summary: `ONE didn't find a ${name} account under your email. If you use ${name} with another email, ask us to link it.` });
-    const xs = otherItems(p, a);
+    // Items from MASTER (REMINDERS.md) show even when the product itself does not answer.
+    const xs = extra.find((e) => e.p === p)?.items ?? [];
+    if (!xs.length) {
+      if (!a) return add({ ...base, secondaryLabel: "Not connected", summary: `${name} isn't connected to ONE yet. Its work will show here once it is. Open ${name} to see it today.` });
+      if (!a.reachable) return add({ ...base, secondaryLabel: "Couldn't reach", summary: `ONE couldn't reach ${name} just now. It will be back shortly; open ${name} to see it today.` });
+      if (!a.env?.found) return add({ ...base, secondaryLabel: sub, summary: `ONE didn't find a ${name} account under your email. If you use ${name} with another email, ask us to link it.` });
+    }
     const dueHere = xs.filter(isToday);
     add({
       ...base,
       secondaryLabel: sub,
       status: worst(xs),
       summary: dueHere.length ? `${dueHere.length === 1 ? "One thing needs" : `${dueHere.length} things need`} you in ${name}, starting with: ${dueHere[0].title}.` : xs.length ? `Nothing in ${name} is due today; ${xs.length} coming up.` : `Nothing in ${name} needs you right now.`,
-      stats: (a.env.stats ?? []).map((st) => ({ label: st.label, value: ofMax(st) ?? "None" })),
+      stats: (a?.env?.stats ?? []).map((st) => ({ label: st.label, value: ofMax(st) ?? "None" })),
     });
     const groups = new Map<string, SummaryItem[]>();
     xs.forEach((it) => {
