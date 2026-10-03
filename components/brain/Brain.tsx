@@ -2,6 +2,7 @@
 
 import { CLASSIC_DASHBOARD_URL } from "@/lib/host.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { BusinessGraph, GraphNode } from "@/lib/graph/types.ts";
 import { DESKTOP_BUDGET, PHONE_BUDGET, childrenOf, indexGraph, pathTo, visibleSet } from "@/lib/graph/model.ts";
 import { bounds, layout } from "@/lib/brain/layout.ts";
@@ -87,6 +88,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const askInputRef = useRef<HTMLInputElement>(null);
   const askIds = useMemo(() => ask?.results.map((r) => r.id) ?? [], [ask]);
   // Morning fly-through: step 0 is ONE, then each of today's top three.
+  const router = useRouter();
+  const [decided, setDecided] = useState<Record<string, string>>({});
+  const [deciding, setDeciding] = useState(false);
+  const [decideErr, setDecideErr] = useState<string | null>(null);
+  const [gci, setGci] = useState("");
   // Which ONE MOVE menu groups are open (this browser only).
   const [openGroups, setOpenGroups] = useState<string[]>([]);
   useEffect(() => {
@@ -700,6 +706,35 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       return next;
     });
 
+  // VIP-SUMMARY §3b: Accept or Dismiss a suggestion here, with the agent's own
+  // sign-in. Then the Brain steps back up and reloads the summary.
+  const decide = async (n: GraphNode, accept: boolean) => {
+    if (!n.decide) return;
+    setDeciding(true);
+    setDecideErr(null);
+    try {
+      const r = await fetch("/api/decide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: n.decide.id, accept, gci: accept && n.decide.askGci && gci ? gci : null }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error ?? "Something went wrong.");
+      const msg = j.status === "accepted" ? `Done: ${n.decide.acceptLabel.toLowerCase()}.` : j.status === "dismissed" ? "Dismissed." : "Already decided.";
+      setDecided((d) => ({ ...d, [n.id]: msg }));
+      setGci("");
+      setTimeout(() => {
+        const up = n.parentId ? ix.byId.get(n.parentId)?.parentId ?? n.parentId : n.product;
+        goTo(up ?? n.product);
+        router.refresh();
+      }, 1200);
+    } catch (e) {
+      setDecideErr(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setDeciding(false);
+    }
+  };
+
   const orderedForTab = [...vs.nodes].sort((a, b) => roleRank(a.role) - roleRank(b.role) || a.order - b.order);
 
   return (
@@ -1197,6 +1232,28 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </>
           ) : (
             focus.summary && <p className="d-sum">{focus.summary}</p>
+          )}
+
+          {focus.decide && !focus.locked && !ask && (
+            <div className="decide">
+              {decided[focus.id] ? (
+                <p className="decide-done" role="status">{decided[focus.id]}</p>
+              ) : (
+                <>
+                  {focus.decide.askGci && (
+                    <label className="decide-gci">
+                      <span>GCI for this closing (optional)</span>
+                      <input inputMode="decimal" placeholder="$" value={gci} onChange={(e) => setGci(e.target.value.replace(/[^0-9.]/g, ""))} />
+                    </label>
+                  )}
+                  <div className="decide-btns">
+                    <button className="btn" disabled={deciding} onClick={() => decide(focus, true)}>{focus.decide.acceptLabel}</button>
+                    <button className="btn ghost-btn" disabled={deciding} onClick={() => decide(focus, false)}>Dismiss</button>
+                  </div>
+                  {decideErr && <p className="decide-err" role="alert">{decideErr}</p>}
+                </>
+              )}
+            </div>
           )}
 
           {focus.type === "core" && slots.length > 0 && (

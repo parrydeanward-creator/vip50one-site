@@ -66,6 +66,8 @@ export interface GraphNode {
   locked?: boolean; // product outside the agent's package
   href?: string; // opens this exact thing in its product (real data: the item's link)
   image?: string; // a photo for the orb: the person's face or the home (https only; initials or the icon until then)
+  // VIP-SUMMARY §3b: the agent can Accept or Dismiss this suggestion in the Brain.
+  decide?: { id: string; acceptLabel: string; askGci: boolean };
 }
 
 export interface GraphEdge {
