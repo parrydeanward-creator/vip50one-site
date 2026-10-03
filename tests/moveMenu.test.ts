@@ -51,3 +51,10 @@ test("no ONE MOVE account: the pages still show, nothing lit", () => {
   assert.ok(g.nodes.some((n) => n.label === "Daily Tracker" && n.parentId === moveGroupId("trackers")));
   assert.ok(!g.nodes.some((n) => n.parentId === "move" && n.status));
 });
+
+test("VIP Management opens inside the Brain; other pages still open ONE MOVE", async () => {
+  const { inBrainPage, movePageId } = await import("../lib/moveMenu.ts");
+  assert.equal(inBrainPage(movePageId("/contacts/vip"))?.label, "VIP Management");
+  assert.equal(inBrainPage(movePageId("/contacts")), null);
+  assert.equal(inBrainPage("move"), null);
+});
