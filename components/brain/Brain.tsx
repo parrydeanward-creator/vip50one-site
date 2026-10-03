@@ -19,7 +19,7 @@ import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib
 import { RANGE, dayLabel, inWindow, offsetLabel, windowTitle } from "@/lib/timeline.ts";
 import { clock, completedBy, duration, isEvening, planDay, recap } from "@/lib/day.ts";
 import { localDay } from "@/lib/morning.ts";
-import { MOVE_MENU, moveMenuHref } from "@/lib/moveMenu.ts";
+import { MOVE_BOTTOM, MOVE_GROUPS, MOVE_TOP, moveGroupId, moveMenuHref, type MovePage } from "@/lib/moveMenu.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -87,6 +87,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const askInputRef = useRef<HTMLInputElement>(null);
   const askIds = useMemo(() => ask?.results.map((r) => r.id) ?? [], [ask]);
   // Morning fly-through: step 0 is ONE, then each of today's top three.
+  // Which ONE MOVE menu groups are open (this browser only).
+  const [openGroups, setOpenGroups] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem("one.moveMenu.open") ?? "[]");
+      if (Array.isArray(v)) setOpenGroups(v.filter((k): k is string => typeof k === "string"));
+    } catch {}
+  }, []);
   const [tour, setTour] = useState<{ ids: string[]; step: number } | null>(null);
   const tourRef = useRef(tour);
   tourRef.current = tour;
@@ -659,6 +667,28 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   else if (!ask && productHref && focus.type !== "core" && !focus.locked) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
   if (!ask && focus.locked) orbActions.push({ label: "Add with Complete", href: UPGRADE_URL });
 
+  // ONE MOVE's menu in the rail: one link per page, groups as drop-downs.
+  const moveLink = (m: MovePage) => (
+    <li key={m.path}>
+      <a className="rail-btn rail-link" href={moveMenuHref(m.path)}>
+        <span className="rail-icon" style={{ color: hex(PRODUCT_COLOR.move) }}>
+          <Icon kind={m.path === "/dashboard" ? "move" : iconForText(m.label)} size={16} />
+        </span>
+        <span className="rail-text">
+          <span>{m.label}</span>
+        </span>
+      </a>
+    </li>
+  );
+  const toggleGroup = (key: string) =>
+    setOpenGroups((gs) => {
+      const next = gs.includes(key) ? gs.filter((k) => k !== key) : [...gs, key];
+      try {
+        localStorage.setItem("one.moveMenu.open", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
   const orderedForTab = [...vs.nodes].sort((a, b) => roleRank(a.role) - roleRank(b.role) || a.order - b.order);
 
   return (
@@ -821,18 +851,25 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               <p className="rail-head">ONE MOVE</p>
               <p className="rail-sub">Main menu</p>
               <ul>
-                {MOVE_MENU.map((m) => (
-                  <li key={m.path}>
-                    <a className="rail-btn rail-link" href={moveMenuHref(m.path)}>
-                      <span className="rail-icon" style={{ color: hex(PRODUCT_COLOR.move) }}>
-                        <Icon kind={m.path === "/dashboard" ? "move" : iconForText(m.label)} size={16} />
-                      </span>
-                      <span className="rail-text">
-                        <span>{m.label}</span>
-                      </span>
-                    </a>
-                  </li>
-                ))}
+                {MOVE_TOP.map(moveLink)}
+                {MOVE_GROUPS.map((g) => {
+                  const gn = ix.byId.get(moveGroupId(g.key));
+                  const open = openGroups.includes(g.key);
+                  return (
+                    <li key={g.key} className={`rail-group ${open ? "open" : ""}`}>
+                      <button className="rail-btn rail-group-btn" aria-expanded={open} onClick={() => toggleGroup(g.key)}>
+                        <span className="rail-text">
+                          <span>{g.label}</span>
+                          {gn?.status && gn.secondaryLabel && <small>{gn.secondaryLabel}</small>}
+                        </span>
+                        {gn?.status && <i className="rail-dot" style={{ background: hex(STATUS[gn.status].color) }} aria-label={STATUS[gn.status].label} />}
+                        <span className="rail-caret" aria-hidden>{open ? "▾" : "▸"}</span>
+                      </button>
+                      {open && <ul className="rail-sublist">{g.pages.map(moveLink)}</ul>}
+                    </li>
+                  );
+                })}
+                {MOVE_BOTTOM.map(moveLink)}
               </ul>
             </nav>
           )}
