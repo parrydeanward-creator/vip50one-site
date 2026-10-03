@@ -418,6 +418,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     // Things anchored to orbs: the hover preview, the focused orb's action
     // chips, and its WHY box. Placed in screen space every frame.
     const vp = s.viewport;
+    // The side panel sits over the right of the map: cards stop at its left edge.
+    const peekHost = peekRef.current?.offsetParent as HTMLElement | null;
+    const dr = drawerRef.current?.getBoundingClientRect();
+    const hr = peekHost?.getBoundingClientRect();
+    const right = dr && hr && dr.width > 0 && dr.left > hr.left ? Math.min(vp.width, dr.left - hr.left) : vp.width;
     const place = (el: HTMLElement | null, id: string | null, fn: (p: { x: number; y: number; r: number }, w: number, h: number) => [number, number]) => {
       if (!el) return;
       const p = id ? s.screenOf(id) : null;
@@ -427,10 +432,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       }
       const [x, y] = fn(p, el.offsetWidth, el.offsetHeight);
       el.style.visibility = "visible";
-      el.style.transform = `translate(${Math.round(Math.min(Math.max(8, x), vp.width - el.offsetWidth - 8))}px, ${Math.round(Math.min(Math.max(8, y), vp.height - el.offsetHeight - 8))}px)`;
+      el.style.transform = `translate(${Math.round(Math.min(Math.max(8, x), right - el.offsetWidth - 8))}px, ${Math.round(Math.min(Math.max(8, y), vp.height - el.offsetHeight - 8))}px)`;
     };
     const pid = peekIdRef.current;
-    place(peekRef.current, pid && pid !== stateRef.current ? pid : null, (p, w, h) => (p.x + p.r + 14 + w > vp.width ? [p.x - p.r - 14 - w, p.y - h / 2] : [p.x + p.r + 14, p.y - h / 2]));
+    place(peekRef.current, pid && pid !== stateRef.current ? pid : null, (p, w, h) => (p.x + p.r + 14 + w > right - 8 ? [p.x - p.r - 14 - w, p.y - h / 2] : [p.x + p.r + 14, p.y - h / 2]));
     place(chipsRef.current, stateRef.current, (p, w) => [p.x - w / 2, p.y + p.r + 14]);
     place(whyRef.current, stateRef.current, (p, w, h) => {
       const chipsW = chipsRef.current?.offsetWidth ?? 0;
