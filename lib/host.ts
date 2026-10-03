@@ -7,7 +7,7 @@ export const MOVE_URL = "https://move.vip50one.com";
 
 /**
  * The classic dashboard (ONE MOVE's). ONE Brain and ONE MOVE each carry a
- * "New dashboard | Classic" switch at the top (Parry, 2 Oct; vip50-web-crm#25
+ * "ONE Brain | Classic" switch at the top (Parry, 2 Oct; renamed 3 Oct; vip50-web-crm#25
  * is the other half). The sign-in is shared on .vip50one.com, so switching
  * never asks for a password.
  */

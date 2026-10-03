@@ -5,11 +5,11 @@ import { CLASSIC_DASHBOARD_URL } from "../lib/host.ts";
 
 const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 
-test("ONE Brain's top bar carries the New dashboard | Classic switch for signed-in agents", () => {
+test("ONE Brain's top bar carries the ONE Brain | Classic switch (renamed from New dashboard, Parry 3 Oct) for signed-in agents", () => {
   assert.equal(CLASSIC_DASHBOARD_URL, "https://move.vip50one.com/dashboard");
   const b = read("components/brain/Brain.tsx");
   assert.match(b, /\{live && \(\s*<nav className="dash-switch" aria-label="Dashboard version">/);
-  assert.match(b, /<span aria-current="page">New dashboard<\/span>/);
+  assert.match(b, /<span aria-current="page">ONE Brain<\/span>/);
   assert.match(b, /<a href=\{CLASSIC_DASHBOARD_URL\}>Classic<\/a>/);
 });
 
