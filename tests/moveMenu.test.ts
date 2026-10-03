@@ -52,9 +52,17 @@ test("no ONE MOVE account: the pages still show, nothing lit", () => {
   assert.ok(!g.nodes.some((n) => n.parentId === "move" && n.status));
 });
 
-test("VIP Management opens inside the Brain; other pages still open ONE MOVE", async () => {
-  const { inBrainPage, movePageId } = await import("../lib/moveMenu.ts");
+// Rewritten 3 Oct: VIP Management alone opened inside the Brain as a trial;
+// Parry liked the full window, so every menu page now does
+// except Dashboard (Classic's home, which has no orb).
+test("every ONE MOVE menu page opens inside the Brain; other orbs do not", async () => {
+  const { inBrainPage, movePageId, IN_BRAIN } = await import("../lib/moveMenu.ts");
+  assert.equal(IN_BRAIN.size, 22);
+  assert.ok(!IN_BRAIN.has("/dashboard")); // Classic's home stays a link
   assert.equal(inBrainPage(movePageId("/contacts/vip"))?.label, "VIP Management");
-  assert.equal(inBrainPage(movePageId("/contacts")), null);
+  assert.equal(inBrainPage(movePageId("/contacts"))?.label, "Contacts");
+  assert.equal(inBrainPage(movePageId("/lounge"))?.label, "The Lounge");
   assert.equal(inBrainPage("move"), null);
+  assert.equal(inBrainPage("move-g-people"), null);
+  assert.equal(inBrainPage("move-followups"), null);
 });
