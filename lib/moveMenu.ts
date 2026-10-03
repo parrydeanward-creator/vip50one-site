@@ -90,6 +90,11 @@ export const MOVE_MENU: MovePage[] = [...MOVE_TOP, ...MOVE_GROUPS.flatMap((g) =>
 
 export const moveMenuHref = (path: string) => `${MOVE_URL}${path}`;
 
+function MOVE_MENU_PATHS(): string[] {
+  // Dashboard is ONE MOVE's Classic home, not a page inside the Brain.
+  return MOVE_MENU.map((m) => m.path).filter((p) => p !== "/dashboard");
+}
+
 /** Graph ids: a group orb and a page orb. Touch Audit keeps its live id. */
 export const moveGroupId = (key: string) => `move-g-${key}`;
 export const movePageId = (path: string) =>
@@ -97,14 +102,14 @@ export const movePageId = (path: string) =>
 
 /**
  * Pages that open inside the Brain instead of a new tab: the real ONE MOVE
- * page in a wide panel, in ONE MOVE's embed mode (its own sidebar and top bar
- * hidden). VIP Management first so Parry can see the flow (3 Oct); the rest
- * follow on his thumbs up.
+ * page in the full window, in ONE MOVE's embed mode (its own sidebar and top
+ * bar hidden). VIP Management first (3 Oct); Parry liked it ("a full window
+ * which is great"), so every menu page now opens this way.
  */
 /** ONE MOVE's desktop layout needs this many pixels (its lg breakpoint, 1024, plus room). */
 export const MOVE_PAGE_WIDTH = 1280;
 
-export const IN_BRAIN: ReadonlySet<string> = new Set(["/contacts/vip"]);
+export const IN_BRAIN: ReadonlySet<string> = new Set(MOVE_MENU_PATHS());
 
 const PATH_BY_ID = new Map(MOVE_MENU.map((m) => [movePageId(m.path), m]));
 
