@@ -567,7 +567,14 @@ function itemNode(add: (n: Omit<GraphNode, "importance"> & { importance?: number
     image: safeImage(it.image),
     decide: decideOf(it),
     contactId: typeof it.contact_id === "string" && UUID.test(it.contact_id) ? it.contact_id : undefined,
+    taskId: taskIdOf(it.id),
   });
+}
+
+/** "go:task:<uuid>" -> the uuid (VIP-SUMMARY §3c.3, `task_id`). */
+export function taskIdOf(id: string): string | undefined {
+  const m = /^go:task:([0-9a-f-]{36})$/i.exec(id);
+  return m && UUID.test(m[1]) ? m[1] : undefined;
 }
 
 // VIP-SUMMARY §3b: only the one function v1.3 allows, only with a real id.

@@ -56,3 +56,23 @@ export function mailable(email: string | null | undefined): string | null {
 export const TIER_LABEL: Record<string, string> = { vip50: "VIP-50", vip100: "VIP-100" };
 
 export const LOG_QUESTION: Record<TouchKind, string> = { call: "Log this call", text: "Log this text", email: "Log this email" };
+
+// VIP-SUMMARY §3c.6 (v1.5): a task with no contact yet.
+export const contactsSearchUrl = (q: string) => `${MOVE_URL}/api/brain/contacts?q=${encodeURIComponent(q)}`;
+export const taskLinkUrl = `${MOVE_URL}/api/brain/task/link`;
+export const taskDoneUrl = `${MOVE_URL}/api/brain/task/done`;
+
+export interface ContactHit {
+  id: string;
+  name: string;
+  tier?: string | null;
+  phone_last4?: string | null;
+}
+
+/** "Call Brian Irby" -> "Brian Irby": the name to search for first. */
+export function nameFromTitle(title: string): string {
+  return title
+    .replace(/^\s*(call|text|video text|e-?mail|meet with|meet|lunch with|coffee with|follow up with|follow-up with)\s+/i, "")
+    .replace(/[^\p{L}\p{N}\s'.-]/gu, "")
+    .trim();
+}
