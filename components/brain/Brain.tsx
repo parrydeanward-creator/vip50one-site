@@ -20,7 +20,7 @@ import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib
 import { RANGE, dayLabel, inWindow, offsetLabel, windowTitle } from "@/lib/timeline.ts";
 import { clock, completedBy, duration, isEvening, planDay, recap } from "@/lib/day.ts";
 import { localDay } from "@/lib/morning.ts";
-import { IN_BRAIN, MOVE_BOTTOM, MOVE_GROUPS, MOVE_TOP, inBrainPage, moveGroupId, moveMenuHref, movePageId, type MovePage } from "@/lib/moveMenu.ts";
+import { IN_BRAIN, MOVE_PAGE_WIDTH, MOVE_BOTTOM, MOVE_GROUPS, MOVE_TOP, inBrainPage, moveGroupId, moveMenuHref, movePageId, type MovePage } from "@/lib/moveMenu.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -93,6 +93,22 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const [deciding, setDeciding] = useState(false);
   const [decideErr, setDecideErr] = useState<string | null>(null);
   const [gci, setGci] = useState("");
+  // A ONE MOVE page inside the Brain fills the window. When the window is
+  // narrower than ONE MOVE's full desktop layout (VIP-50, Swap and VIP-100
+  // side by side), the page is drawn at that width and shrunk to fit, so it
+  // looks the same as Classic (Parry, 3 Oct).
+  const frameBoxRef = useRef<HTMLDivElement>(null);
+  const [frameScale, setFrameScale] = useState(1);
+  const focusIsPage = !!inBrainPage(state.focusId);
+  useEffect(() => {
+    const el = frameBoxRef.current;
+    if (!el) return;
+    const fit = () => setFrameScale(Math.min(1, el.clientWidth / MOVE_PAGE_WIDTH));
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [focusIsPage]);
   // Which ONE MOVE menu groups are open (this browser only).
   const [openGroups, setOpenGroups] = useState<string[]>([]);
   useEffect(() => {
@@ -1457,7 +1473,18 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               <a className="link" href={moveMenuHref(pagePanel.path)} target="_blank" rel="noreferrer">Open full screen ↗</a>
               <button className="page-panel-close" onClick={() => goTo(focus.parentId ?? "move")} aria-label={`Close ${pagePanel.label}`}>×</button>
             </header>
-            <iframe className="page-panel-frame" src={moveMenuHref(pagePanel.path)} title={`${pagePanel.label} in ONE MOVE`} />
+            <div ref={frameBoxRef} className="page-panel-body">
+              <iframe
+                className="page-panel-frame"
+                src={moveMenuHref(pagePanel.path)}
+                title={`${pagePanel.label} in ONE MOVE`}
+                style={
+                  frameScale < 1
+                    ? { width: `${100 / frameScale}%`, height: `${100 / frameScale}%`, transform: `scale(${frameScale})`, transformOrigin: "0 0" }
+                    : undefined
+                }
+              />
+            </div>
           </section>
         )}
       </div>
