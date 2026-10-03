@@ -132,7 +132,8 @@ a.link { display: block; text-decoration: none; }
 /* on-orb interaction: hover preview, action chips, WHY box */
 .peek, .chips, .orb-why { position: absolute; left: 0; top: 0; z-index: 3; }
 .peek, .chips, .orb-why { z-index: 6; } /* never under the side panel */
-.peek { width: 240px; pointer-events: none; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(212, 175, 55, 0.35); background: rgba(9, 13, 30, 0.92); backdrop-filter: blur(10px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); }
+.peek { z-index: 7; } /* and above the orb's buttons */
+.peek { width: 240px; pointer-events: auto; cursor: pointer; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(212, 175, 55, 0.35); background: rgba(9, 13, 30, 0.92); backdrop-filter: blur(10px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); }
 .peek p { margin: 0; }
 .peek-kicker { font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; }
 .peek-title { margin-top: 4px !important; font-weight: 700; font-size: 15px; }
