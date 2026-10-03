@@ -101,6 +101,9 @@ export const movePageId = (path: string) =>
  * hidden). VIP Management first so Parry can see the flow (3 Oct); the rest
  * follow on his thumbs up.
  */
+/** ONE MOVE's desktop layout needs this many pixels (its lg breakpoint, 1024, plus room). */
+export const MOVE_PAGE_WIDTH = 1280;
+
 export const IN_BRAIN: ReadonlySet<string> = new Set(["/contacts/vip"]);
 
 const PATH_BY_ID = new Map(MOVE_MENU.map((m) => [movePageId(m.path), m]));
