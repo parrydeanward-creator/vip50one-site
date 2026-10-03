@@ -17,6 +17,10 @@ export interface SummaryStat {
   pace?: number | null;
   from?: string;
   to?: string;
+  // ONE Open's next_open_house carries the house itself (VIP-SUMMARY §5).
+  address?: string | null;
+  starts_at?: string | null;
+  link?: string | null;
 }
 
 export interface SummaryItem {
@@ -81,12 +85,43 @@ const KIND_GROUP: Record<string, string> = {
   safety: "Safety",
   follow_up: "Follow-ups",
   prep: "Open house prep",
+  open_house: "Upcoming open houses",
 };
+
+// "Sat 4 Oct, 11:00 AM" in Mountain time.
+export function openHouseWhen(iso: string): string {
+  const d = new Date(iso);
+  const f = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", ...o }).format(d);
+  return `${f({ weekday: "short" })} ${f({ day: "numeric" })} ${f({ month: "short" })}, ${f({ hour: "numeric", minute: "2-digit" })}`;
+}
+
+/** ONE Open's next open house as an item, so it shows as a home under ONE OPEN and in Your day. */
+export function upcomingOpenHouses(env: SummaryEnvelope | undefined, today: string): SummaryItem[] {
+  const s = env?.stats?.find((x) => x.key === "next_open_house");
+  if (!s || s.value == null || !s.address || !s.starts_at || Number.isNaN(Date.parse(s.starts_at))) return [];
+  const link = safeImage(s.link ?? null);
+  if (!link) return [];
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date(s.starts_at));
+  const when = openHouseWhen(s.starts_at);
+  return [{
+    id: `open:upcoming:${day}:${s.address}`,
+    kind: "open_house",
+    title: s.address,
+    detail: s.value === 0 ? `Today, ${when.split(", ")[1]}` : when,
+    urgency: s.value === 0 ? "today" : "soon",
+    due: day < today ? today : day,
+    why: [s.value === 0 ? `Your open house at ${s.address} is today.` : `Your next open house is ${when} at ${s.address}.`, "Open it in ONE Open to check the plan, the sign-in and the follow-up."],
+    link,
+  }];
+}
 
 /** An answered product's items, with ids made unique across products. */
 function otherItems(p: OtherKey, a: OtherAnswer | undefined): SummaryItem[] {
   if (!a?.reachable || !a.env?.found) return [];
-  return (a.env.items ?? []).map((i) => ({ ...i, id: i.id.startsWith(`${p}:`) ? i.id : `${p}:${i.id}` }));
+  const xs = (a.env.items ?? []).map((i) => ({ ...i, id: i.id.startsWith(`${p}:`) ? i.id : `${p}:${i.id}` }));
+  if (p !== "open") return xs;
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date());
+  return [...upcomingOpenHouses(a.env, today), ...xs];
 }
 
 const productOf = (it: SummaryItem, p?: OtherKey): ProductKey => p ?? itemProduct(it);
@@ -133,6 +168,7 @@ export function dayKind(it: SummaryItem): DayKind {
   if (it.kind === "visitor_rating") return "rating";
   if (it.kind === "reaction") return "follow_up";
   if (["failed", "billing", "safety", "prep"].includes(it.kind)) return "other";
+  if (it.kind === "open_house") return "meeting";
   const t = it.title.toLowerCase();
   if (it.kind === "follow_up" || it.kind === "other") return "follow_up";
   if (/video|text/.test(t)) return "text";
@@ -336,7 +372,7 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
     [...groups.entries()].forEach(([g, list], gi) => {
       const cid = `${p}-${g.toLowerCase().replace(/[^a-z]+/g, "-")}`;
       add({ id: cid, type: "category", label: g, secondaryLabel: `${list.length} waiting`, parentId: p, product: p, importance: 1 - gi * 0.04, status: worst(list), summary: `${g} in ${name}.` });
-      list.forEach((it, j) => itemNode(add, it, cid, p, 1 - j * 0.03));
+      list.forEach((it, j) => itemNode(add, it, cid, p, 1 - j * 0.03, it.kind === "open_house" ? "property" : "task"));
     });
   });
 
