@@ -113,3 +113,12 @@ export function inBrainPage(nodeId: string): MovePage | null {
   const m = PATH_BY_ID.get(nodeId);
   return m && IN_BRAIN.has(m.path) ? m : null;
 }
+
+/** A group orb around ONE MOVE: no "Open ONE MOVE" button on it (Parry, 3 Oct). */
+export const isMoveGroup = (id: string) => id.startsWith("move-g-");
+
+/**
+ * A plain page orb (its name is all there is to show): no hover card, a click
+ * opens it (Parry, 3 Oct). The live Touch Audit keeps its card; it has numbers.
+ */
+export const isMovePage = (id: string) => id.startsWith("move-p-");

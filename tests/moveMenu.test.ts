@@ -58,3 +58,12 @@ test("VIP Management opens inside the Brain; other pages still open ONE MOVE", a
   assert.equal(inBrainPage(movePageId("/contacts")), null);
   assert.equal(inBrainPage("move"), null);
 });
+
+test("group orbs and plain page orbs are told apart (no Open button, no hover card)", async () => {
+  const { isMoveGroup, isMovePage, movePageId, moveGroupId } = await import("../lib/moveMenu.ts");
+  assert.ok(isMoveGroup(moveGroupId("people")));
+  assert.ok(!isMoveGroup("move"));
+  assert.ok(isMovePage(movePageId("/contacts/vip")));
+  assert.ok(!isMovePage(movePageId("/contacts/audit")));
+  assert.ok(!isMovePage("move-followups"));
+});
