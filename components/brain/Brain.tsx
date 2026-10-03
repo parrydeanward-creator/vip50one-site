@@ -784,7 +784,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         </nav>
         {live && (
           <nav className="dash-switch" aria-label="Dashboard version">
-            <span aria-current="page">New dashboard</span>
+            <span aria-current="page">ONE Brain</span>
             <a href={CLASSIC_DASHBOARD_URL}>Classic</a>
           </nav>
         )}
@@ -1492,7 +1492,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               <p className="page-panel-title">
                 <span style={{ color: hex(PRODUCT_COLOR.move) }}>ONE MOVE</span> · {pagePanel.label}
               </p>
-              <a className="link" href={moveMenuHref(pagePanel.path)} target="_blank" rel="noreferrer">Open full screen ↗</a>
               <button className="page-panel-close" onClick={() => goTo(focus.parentId ?? "move")} aria-label={`Close ${pagePanel.label}`}>×</button>
             </header>
             <div ref={frameBoxRef} className="page-panel-body">
