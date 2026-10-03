@@ -90,6 +90,9 @@ export const MOVE_MENU: MovePage[] = [...MOVE_TOP, ...MOVE_GROUPS.flatMap((g) =>
 
 export const moveMenuHref = (path: string) => `${MOVE_URL}${path}`;
 
+/** The same page inside the Brain: ?embed=1 lets ONE MOVE take the Brain look before it paints. */
+export const moveEmbedHref = (path: string) => `${MOVE_URL}${path}${path.includes("?") ? "&" : "?"}embed=1`;
+
 function MOVE_MENU_PATHS(): string[] {
   // Dashboard is ONE MOVE's Classic home, not a page inside the Brain.
   return MOVE_MENU.map((m) => m.path).filter((p) => p !== "/dashboard");

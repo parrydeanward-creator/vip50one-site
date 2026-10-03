@@ -20,7 +20,7 @@ import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib
 import { RANGE, dayLabel, inWindow, offsetLabel, windowTitle } from "@/lib/timeline.ts";
 import { clock, completedBy, duration, isEvening, planDay, recap } from "@/lib/day.ts";
 import { localDay } from "@/lib/morning.ts";
-import { IN_BRAIN, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_GROUPS, MOVE_TOP, inBrainPage, moveGroupId, moveMenuHref, movePageId, type MovePage } from "@/lib/moveMenu.ts";
+import { IN_BRAIN, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_GROUPS, MOVE_TOP, inBrainPage, moveEmbedHref, moveGroupId, moveMenuHref, movePageId, type MovePage } from "@/lib/moveMenu.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -109,6 +109,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // side by side), the page is drawn at that width and shrunk to fit, so it
   // looks the same as Classic (Parry, 3 Oct).
   const frameBoxRef = useRef<HTMLDivElement>(null);
+  const [frameReady, setFrameReady] = useState<string | null>(null);
   const [frameScale, setFrameScale] = useState(1);
   const focusIsPage = !!inBrainPage(state.focusId);
   useEffect(() => {
@@ -724,6 +725,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   };
   // A ONE MOVE page that opens inside the Brain (lib/moveMenu.ts IN_BRAIN).
   const pagePanel = !ask && !tour ? inBrainPage(state.focusId) : null;
+  // Each opening starts behind the veil again, even for the same page.
+  const panelPath = pagePanel?.path ?? null;
+  useEffect(() => {
+    setFrameReady(null);
+  }, [panelPath]);
   const toggleGroup = (key: string) =>
     setOpenGroups((gs) => {
       const next = gs.includes(key) ? gs.filter((k) => k !== key) : [...gs, key];
@@ -1495,10 +1501,22 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               <button className="page-panel-close" onClick={() => goTo(focus.parentId ?? "move")} aria-label={`Close ${pagePanel.label}`}>×</button>
             </header>
             <div ref={frameBoxRef} className="page-panel-body">
+              {frameReady !== pagePanel.path && (
+                <div className="page-panel-veil" role="status">
+                  <span className="page-panel-spin" aria-hidden="true" />
+                  Opening {pagePanel.label}…
+                </div>
+              )}
               <iframe
-                className="page-panel-frame"
-                src={moveMenuHref(pagePanel.path)}
+                className={`page-panel-frame ${frameReady === pagePanel.path ? "ready" : ""}`}
+                src={moveEmbedHref(pagePanel.path)}
                 title={`${pagePanel.label} in ONE MOVE`}
+                onLoad={() => {
+                  // ONE MOVE switches to the Brain look as it starts; give it a
+                  // beat so the old colours never show (Parry, 3 Oct).
+                  const path = pagePanel.path;
+                  setTimeout(() => setFrameReady(path), 120);
+                }}
                 style={
                   frameScale < 1
                     ? { width: `${100 / frameScale}%`, height: `${100 / frameScale}%`, transform: `scale(${frameScale})`, transformOrigin: "0 0" }

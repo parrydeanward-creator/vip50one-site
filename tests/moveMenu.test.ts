@@ -75,3 +75,8 @@ test("group orbs and plain page orbs are told apart (no Open button, no hover ca
   assert.ok(!isMovePage(movePageId("/contacts/audit")));
   assert.ok(!isMovePage("move-followups"));
 });
+
+test("pages inside the Brain ask ONE MOVE for its embed look up front", async () => {
+  const { moveEmbedHref } = await import("../lib/moveMenu.ts");
+  assert.equal(moveEmbedHref("/contacts"), "https://move.vip50one.com/contacts?embed=1");
+});
