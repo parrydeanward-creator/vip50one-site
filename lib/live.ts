@@ -36,6 +36,7 @@ export interface SummaryItem {
   link: string;
   seen?: boolean | null;
   image?: string; // VIP-SUMMARY §3 v1.1, optional
+  decide?: { via: string; id: string; accept_label: string; ask_gci?: boolean }; // §3b v1.3, optional
 }
 
 export interface SummaryEnvelope {
@@ -371,7 +372,9 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
   }
 
   // ---- ONE MOVE -----------------------------------------------------------
-  const followups = moveItems.filter((i) => i.kind === "follow_up" || i.kind === "other");
+  const isSuggestion = (i: SummaryItem) => i.id.startsWith("move:listing:");
+  const suggestions = moveItems.filter(isSuggestion); // LISTINGS.md §4.5, decided in the Brain (§3b)
+  const followups = moveItems.filter((i) => !isSuggestion(i) && (i.kind === "follow_up" || i.kind === "other"));
   const dates = moveItems.filter((i) => i.kind === "birthday");
   const audit = moveItems.filter((i) => i.kind === "vip_touch");
   const attraction = moveItems.filter((i) => i.kind === "agent_attraction");
@@ -398,7 +401,7 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
   // opening its pages; The Lounge and My Profile beside them. What needs the
   // agent sits in the group it belongs to and lights that group up.
   const groupNeeds: Record<string, SummaryItem[]> = {
-    people: [...followups, ...dates, ...audit],
+    people: [...followups, ...suggestions, ...dates, ...audit],
     events: bookHere,
     outreach: attraction,
   };
@@ -429,6 +432,10 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
     if (followups.length) {
       add({ id: "move-followups", type: "category", label: "Follow-ups overdue", secondaryLabel: `${followups.length} overdue`, parentId: people, product: "move", importance: 1, status: "action", summary: "Tasks in ONE MOVE that are past their date and not done." });
       followups.forEach((it, k) => itemNode(add, it, "move-followups", "move", 1 - k * 0.03));
+    }
+    if (suggestions.length) {
+      add({ id: "move-suggest", type: "category", label: "From your listings", secondaryLabel: `${suggestions.length} to decide`, parentId: people, product: "move", importance: 0.98, status: worst(suggestions), summary: "Suggestions from your listings in Marquee. Nothing happens until you accept." });
+      suggestions.forEach((it, k) => itemNode(add, it, "move-suggest", "move", 1 - k * 0.03));
     }
     if (attraction.length) {
       add({ id: "move-attraction", type: "category", label: "Agent attraction", secondaryLabel: `${attraction.length} waiting`, parentId: moveGroupId("outreach"), product: "move", importance: 0.9, status: worst(attraction), summary: "Your Agent Attraction reminders in ONE MOVE." });
@@ -557,7 +564,16 @@ function itemNode(add: (n: Omit<GraphNode, "importance"> & { importance?: number
     timestamps: it.due ? { due: it.due } : undefined,
     href: it.link,
     image: safeImage(it.image),
+    decide: decideOf(it),
   });
+}
+
+// VIP-SUMMARY §3b: only the one function v1.3 allows, only with a real id.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function decideOf(it: SummaryItem): GraphNode["decide"] {
+  const d = it.decide;
+  if (!d || d.via !== "listing_suggestion_decide" || typeof d.id !== "string" || !UUID.test(d.id)) return undefined;
+  return { id: d.id, acceptLabel: typeof d.accept_label === "string" && d.accept_label.trim() ? d.accept_label.trim().slice(0, 40) : "Accept", askGci: d.ask_gci === true };
 }
 
 // The same answer in the shape the morning note and ranking use.
