@@ -20,7 +20,7 @@ import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib
 import { RANGE, dayLabel, inWindow, offsetLabel, windowTitle } from "@/lib/timeline.ts";
 import { clock, completedBy, duration, isEvening, planDay, recap } from "@/lib/day.ts";
 import { localDay } from "@/lib/morning.ts";
-import { MOVE_BOTTOM, MOVE_GROUPS, MOVE_TOP, moveGroupId, moveMenuHref, type MovePage } from "@/lib/moveMenu.ts";
+import { IN_BRAIN, MOVE_BOTTOM, MOVE_GROUPS, MOVE_TOP, inBrainPage, moveGroupId, moveMenuHref, movePageId, type MovePage } from "@/lib/moveMenu.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -674,18 +674,29 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   if (!ask && focus.locked) orbActions.push({ label: "Add with Complete", href: UPGRADE_URL });
 
   // ONE MOVE's menu in the rail: one link per page, groups as drop-downs.
-  const moveLink = (m: MovePage) => (
-    <li key={m.path}>
-      <a className="rail-btn rail-link" href={moveMenuHref(m.path)}>
+  const moveLink = (m: MovePage) => {
+    const inner = (
+      <>
         <span className="rail-icon" style={{ color: hex(PRODUCT_COLOR.move) }}>
           <Icon kind={m.path === "/dashboard" ? "move" : iconForText(m.label)} size={16} />
         </span>
         <span className="rail-text">
           <span>{m.label}</span>
         </span>
-      </a>
-    </li>
-  );
+      </>
+    );
+    return (
+      <li key={m.path}>
+        {IN_BRAIN.has(m.path) ? (
+          <button className="rail-btn rail-link" onClick={() => goTo(movePageId(m.path))}>{inner}</button>
+        ) : (
+          <a className="rail-btn rail-link" href={moveMenuHref(m.path)}>{inner}</a>
+        )}
+      </li>
+    );
+  };
+  // A ONE MOVE page that opens inside the Brain (lib/moveMenu.ts IN_BRAIN).
+  const pagePanel = !ask && !tour ? inBrainPage(state.focusId) : null;
   const toggleGroup = (key: string) =>
     setOpenGroups((gs) => {
       const next = gs.includes(key) ? gs.filter((k) => k !== key) : [...gs, key];
@@ -1436,6 +1447,18 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </div>
           )}
         </aside>
+        )}
+        {pagePanel && (
+          <section className="page-panel pop" key={pagePanel.path} aria-label={`${pagePanel.label} in ONE MOVE`}>
+            <header className="page-panel-bar">
+              <p className="page-panel-title">
+                <span style={{ color: hex(PRODUCT_COLOR.move) }}>ONE MOVE</span> · {pagePanel.label}
+              </p>
+              <a className="link" href={moveMenuHref(pagePanel.path)} target="_blank" rel="noreferrer">Open full screen ↗</a>
+              <button className="page-panel-close" onClick={() => goTo(focus.parentId ?? "move")} aria-label={`Close ${pagePanel.label}`}>×</button>
+            </header>
+            <iframe className="page-panel-frame" src={moveMenuHref(pagePanel.path)} title={`${pagePanel.label} in ONE MOVE`} />
+          </section>
         )}
       </div>
     </div>
