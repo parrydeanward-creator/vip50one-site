@@ -692,12 +692,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const productHref = PRODUCT_HREF[focus.product];
   // Actions that live on the focused orb itself (and in the card as well).
   const orbActions: { label: string; run?: () => void; href?: string; primary?: boolean; pressed?: boolean }[] = [];
-  if (ask) {
+  // Inside ONE MOVE (Parry, 3 Oct): no buttons on the orb; everything about it,
+  // and what to do, sits in the panel on the right.
+  const moveQuiet = focus.product === "move" && focus.id !== "move";
+  if (ask || moveQuiet) {
     // The answer panel carries the actions while ONE is answering.
   } else if (firstRec) orbActions.push({ label: "Why?", run: () => setOrbWhy((w) => !w), primary: true, pressed: orbWhy });
-  if (!ask && showMeTargets.length) orbActions.push({ label: highlight ? "Show everything" : "Show me", run: showMe, pressed: !!highlight });
-  if (!ask && focus.href && !focus.locked) orbActions.push({ label: `Open in ${productName(focus.product)} ↗`, href: focus.href });
-  else if (!ask && productHref && focus.type !== "core" && !focus.locked && !isMoveGroup(focus.id)) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
+  if (!ask && !moveQuiet && showMeTargets.length) orbActions.push({ label: highlight ? "Show everything" : "Show me", run: showMe, pressed: !!highlight });
+  if (!ask && !moveQuiet && focus.href && !focus.locked) orbActions.push({ label: `Open in ${productName(focus.product)} ↗`, href: focus.href });
+  else if (!ask && !moveQuiet && productHref && focus.type !== "core" && !focus.locked && !isMoveGroup(focus.id)) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
   if (!ask && focus.locked) orbActions.push({ label: "Add with Complete", href: UPGRADE_URL });
 
   // ONE MOVE's menu in the rail: one link per page, groups as drop-downs.
@@ -1396,13 +1399,29 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </div>
           )}
 
-          {showMeTargets.length > 0 && (
+          {moveQuiet && focus.recommendations?.length ? (
+            <div className="d-why">
+              <h2>Why it's here</h2>
+              <ul>
+                {[...new Set(focus.recommendations.flatMap((r) => r.why))].map((f) => (
+                  <li key={f}>{f}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {moveQuiet && focus.href && !kids.length && (
+            <a className="d-open" href={focus.href} target="_blank" rel="noreferrer">
+              Open in ONE MOVE ↗
+            </a>
+          )}
+
+          {!moveQuiet && showMeTargets.length > 0 && (
             <button className="btn btn-wide" aria-pressed={!!highlight} onClick={showMe}>
               {highlight ? "Show everything" : "Show me →"}
             </button>
           )}
 
-          {focus.recommendations && (
+          {focus.recommendations && !moveQuiet && (
             <div className="d-recs">
               <h2>ONE recommends</h2>
               <ul>
@@ -1447,7 +1466,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
           )}
 
           {kids.length > 0 && (
-            <div className={`d-list inside ${railCount > childrenOf(ix, state.focusId).length - 1 ? "" : "keep"}`}>
+            <div className={`d-list inside ${railCount > childrenOf(ix, state.focusId).length - 1 && !moveQuiet ? "" : "keep"}`}>
               <h2>{focus.type === "core" ? "Your products" : "Inside"}</h2>
               <ul>
                 {kids.map((k) => (
