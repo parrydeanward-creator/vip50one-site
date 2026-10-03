@@ -19,6 +19,7 @@ import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib
 import { RANGE, dayLabel, inWindow, offsetLabel, windowTitle } from "@/lib/timeline.ts";
 import { clock, completedBy, duration, isEvening, planDay, recap } from "@/lib/day.ts";
 import { localDay } from "@/lib/morning.ts";
+import { MOVE_MENU, moveMenuHref } from "@/lib/moveMenu.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -129,10 +130,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     [ix, state.focusId, phone, ask, askIds, tour, timeline, datedIds, dayView, dayIds],
   );
   const placed = useMemo(() => layout(vs), [vs]);
+  // ONE MOVE focused: the rail is ONE MOVE's main menu, as in Classic (Parry, 3 Oct).
+  // Its live items stay in the panel on the right.
+  const moveMenu = state.focusId === "move" && !focus.locked && !ask && !tour && !timeline && !dayView;
   // The rail: the focused node's children as floating buttons on the left.
   const railNodes = useMemo(
     () =>
-      tour
+      moveMenu
+        ? []
+        : tour
         ? tour.ids.map((id) => ix.byId.get(id)!).filter(Boolean)
         : ask
           ? askIds.map((id) => ix.byId.get(id)!).filter(Boolean)
@@ -141,7 +147,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             : dayView
               ? dayIds.map((id) => ix.byId.get(id)!).filter(Boolean)
               : childrenOf(ix, state.focusId).slice(0, 9),
-    [ix, state.focusId, ask, askIds, tour, timeline, datedIds, dayView, dayIds],
+    [ix, state.focusId, ask, askIds, tour, timeline, datedIds, dayView, dayIds, moveMenu],
   );
   const railCount = railNodes.length;
   const railRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -189,11 +195,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       }
       // Desktop: the detail card floats on the right; fit the graph to the rest.
       const room = Math.min(CARD_ROOM, vp.width * 0.4);
-      const rail = railCount > 0 && vp.width > 1100 ? RAIL_ROOM : 0;
+      const rail = (railCount > 0 || moveMenu) && vp.width > 1100 ? RAIL_ROOM : 0;
       const c = fit(b, { width: vp.width - room - rail, height: vp.height }, 40);
       s.setCamera({ ...c, x: c.x + (room - rail) / 2 / c.scale }, animate);
     },
-    [phone, railCount],
+    [phone, railCount, moveMenu],
   );
   const fitNow = useCallback(
     (animate: boolean) => {
@@ -810,6 +816,26 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
 
             {!ready && <div className="loading">Waking ONE…</div>}
           </div>
+          {moveMenu && (
+            <nav className="rail rail-menu pop" key="rail-move-menu" aria-label="ONE MOVE menu">
+              <p className="rail-head">ONE MOVE</p>
+              <p className="rail-sub">Main menu</p>
+              <ul>
+                {MOVE_MENU.map((m) => (
+                  <li key={m.path}>
+                    <a className="rail-btn rail-link" href={moveMenuHref(m.path)}>
+                      <span className="rail-icon" style={{ color: hex(PRODUCT_COLOR.move) }}>
+                        <Icon kind={m.path === "/dashboard" ? "move" : iconForText(m.label)} size={16} />
+                      </span>
+                      <span className="rail-text">
+                        <span>{m.label}</span>
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )}
           {railCount > 0 && (
             <nav className="rail pop" key={`rail-${ask ? `ask-${ask.question}` : state.focusId}`} aria-label={ask ? "ONE's answer" : `Inside ${focus.label}`}>
               <p className="rail-head">{tour ? "Your morning" : ask ? "ONE's answer" : focus.type === "core" ? "Your business" : focus.label}</p>
