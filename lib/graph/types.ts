@@ -68,6 +68,8 @@ export interface GraphNode {
   image?: string; // a photo for the orb: the person's face or the home (https only; initials or the icon until then)
   // VIP-SUMMARY §3b: the agent can Accept or Dismiss this suggestion in the Brain.
   decide?: { id: string; acceptLabel: string; askGci: boolean };
+  // VIP-SUMMARY §3c: the ONE MOVE contact this item is about (contact card, Call / Text / Email).
+  contactId?: string;
 }
 
 export interface GraphEdge {

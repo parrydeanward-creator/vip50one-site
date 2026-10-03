@@ -3,6 +3,7 @@
 import { CLASSIC_DASHBOARD_URL } from "@/lib/host.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import ContactPanel from "./ContactPanel.tsx";
 import type { BusinessGraph, GraphNode } from "@/lib/graph/types.ts";
 import { DESKTOP_BUDGET, PHONE_BUDGET, childrenOf, indexGraph, pathTo, visibleSet } from "@/lib/graph/model.ts";
 import { bounds, layout } from "@/lib/brain/layout.ts";
@@ -1281,6 +1282,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </>
           ) : (
             focus.summary && <p className="d-sum">{focus.summary}</p>
+          )}
+
+          {focus.contactId && !focus.locked && !ask && (
+            <ContactPanel key={focus.contactId} contactId={focus.contactId} onLogged={() => router.refresh()} />
           )}
 
           {focus.decide && !focus.locked && !ask && (
