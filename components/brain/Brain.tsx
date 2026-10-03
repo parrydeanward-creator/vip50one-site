@@ -20,7 +20,7 @@ import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib
 import { RANGE, dayLabel, inWindow, offsetLabel, windowTitle } from "@/lib/timeline.ts";
 import { clock, completedBy, duration, isEvening, planDay, recap } from "@/lib/day.ts";
 import { localDay } from "@/lib/morning.ts";
-import { IN_BRAIN, MOVE_PAGE_WIDTH, MOVE_BOTTOM, MOVE_GROUPS, MOVE_TOP, inBrainPage, moveGroupId, moveMenuHref, movePageId, type MovePage } from "@/lib/moveMenu.ts";
+import { IN_BRAIN, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_GROUPS, MOVE_TOP, inBrainPage, moveGroupId, moveMenuHref, movePageId, type MovePage } from "@/lib/moveMenu.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -697,7 +697,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   } else if (firstRec) orbActions.push({ label: "Why?", run: () => setOrbWhy((w) => !w), primary: true, pressed: orbWhy });
   if (!ask && showMeTargets.length) orbActions.push({ label: highlight ? "Show everything" : "Show me", run: showMe, pressed: !!highlight });
   if (!ask && focus.href && !focus.locked) orbActions.push({ label: `Open in ${productName(focus.product)} ↗`, href: focus.href });
-  else if (!ask && productHref && focus.type !== "core" && !focus.locked) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
+  else if (!ask && productHref && focus.type !== "core" && !focus.locked && !isMoveGroup(focus.id)) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
   if (!ask && focus.locked) orbActions.push({ label: "Add with Complete", href: UPGRADE_URL });
 
   // ONE MOVE's menu in the rail: one link per page, groups as drop-downs.
@@ -840,7 +840,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                   onClick={() => clickNode(v.node.id)}
                   onPointerEnter={(e) => {
                     sceneRef.current?.setHover(v.node.id);
-                    if (e.pointerType === "mouse") showPeek(v.node.id);
+                    if (e.pointerType === "mouse" && !isMovePage(v.node.id)) showPeek(v.node.id);
                   }}
                   onPointerLeave={() => {
                     sceneRef.current?.setHover(null);
@@ -848,7 +848,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                   }}
                   onFocus={() => {
                     sceneRef.current?.setHover(v.node.id);
-                    setPeekId(v.node.id);
+                    if (!isMovePage(v.node.id)) setPeekId(v.node.id);
                   }}
                   onBlur={() => {
                     sceneRef.current?.setHover(null);
