@@ -19,6 +19,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
+      <head>
+        {/* ONE MOVE pages open inside the Brain: start the connection early. */}
+        <link rel="preconnect" href="https://move.vip50one.com" crossOrigin="use-credentials" />
+        <link rel="dns-prefetch" href="https://move.vip50one.com" />
+      </head>
       <body>{children}</body>
     </html>
   );
