@@ -94,3 +94,19 @@ export const moveMenuHref = (path: string) => `${MOVE_URL}${path}`;
 export const moveGroupId = (key: string) => `move-g-${key}`;
 export const movePageId = (path: string) =>
   path === "/contacts/audit" ? "move-audit" : `move-p-${path.slice(1).replace(/[^a-z0-9]+/g, "-")}`;
+
+/**
+ * Pages that open inside the Brain instead of a new tab: the real ONE MOVE
+ * page in a wide panel, in ONE MOVE's embed mode (its own sidebar and top bar
+ * hidden). VIP Management first so Parry can see the flow (3 Oct); the rest
+ * follow on his thumbs up.
+ */
+export const IN_BRAIN: ReadonlySet<string> = new Set(["/contacts/vip"]);
+
+const PATH_BY_ID = new Map(MOVE_MENU.map((m) => [movePageId(m.path), m]));
+
+/** The page a focused orb opens inside the Brain, if any. */
+export function inBrainPage(nodeId: string): MovePage | null {
+  const m = PATH_BY_ID.get(nodeId);
+  return m && IN_BRAIN.has(m.path) ? m : null;
+}
