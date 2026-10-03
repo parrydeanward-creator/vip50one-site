@@ -46,6 +46,68 @@ export interface SummaryEnvelope {
   items?: SummaryItem[];
   streak?: number;
   weekly_rank?: number | null;
+  listings?: SummaryListing[];       // VIP-SUMMARY §3a (v1.2), Marquee
+  open_houses?: SummaryOpenHouse[];  // VIP-SUMMARY §3a (v1.2), ONE Open
+}
+
+export interface SummaryListing {
+  ref: string;
+  address: string;
+  property_key?: string | null;
+  status: "live" | "under_contract" | "closed" | string;
+  list_price?: number | null;
+  sold_price?: number | null;
+  live_on?: string | null;
+  under_contract_on?: string | null;
+  closed_on?: string | null;
+  image?: string | null;
+  link?: string | null;
+}
+
+export interface SummaryOpenHouse {
+  id: string;
+  address: string;
+  property_key?: string | null;
+  starts_at: string;
+  ends_at?: string | null;
+  hosting?: string | null;
+  image?: string | null;
+  link?: string | null;
+}
+
+const money = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+const daysBetween = (from: string, to: string) => Math.max(0, Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86400000));
+
+/** One listing as a home: "Live · 5 days on market · $333,333", "Under contract", "Closed · $612,000". */
+export function listingLine(l: SummaryListing, today: string): string {
+  if (l.status === "closed") return ["Closed", l.sold_price ? money(l.sold_price) : null].filter(Boolean).join(" · ");
+  if (l.status === "under_contract") return ["Under contract", l.list_price ? money(l.list_price) : null].filter(Boolean).join(" · ");
+  const dom = l.live_on ? daysBetween(l.live_on, today) : null;
+  return ["Live", dom != null ? `${dom} ${dom === 1 ? "day" : "days"} on market` : null, l.list_price ? money(l.list_price) : null].filter(Boolean).join(" · ");
+}
+
+/** ONE Open's upcoming open houses as items (v1.2 list; falls back to the single next_open_house stat). */
+export function openHouseItems(env: SummaryEnvelope | undefined, today: string): SummaryItem[] {
+  const list = env?.open_houses;
+  if (!list?.length) return upcomingOpenHouses(env, today);
+  return list.slice(0, 10).flatMap((h) => {
+    const link = safeImage(h.link ?? null);
+    if (!link || !h.address || Number.isNaN(Date.parse(h.starts_at))) return [];
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date(h.starts_at));
+    const when = openHouseWhen(h.starts_at);
+    const isToday = day === today;
+    return [{
+      id: `open:upcoming:${h.id}`,
+      kind: "open_house",
+      title: h.address,
+      detail: isToday ? `Today, ${when.split(", ")[1]}` : when,
+      urgency: isToday ? "today" : "soon",
+      due: day < today ? today : day,
+      why: [isToday ? `Your open house at ${h.address} is today.` : `Open house ${when} at ${h.address}.`, h.hosting === "other" ? "You are hosting another agent's listing." : "Open it in ONE Open to check the plan, the sign-in and the follow-up."],
+      link,
+      image: safeImage(h.image ?? null),
+    } as SummaryItem];
+  });
 }
 
 export interface LiveAgent {
@@ -125,7 +187,7 @@ function otherItems(p: OtherKey, a: OtherAnswer | undefined): SummaryItem[] {
   const xs = (a.env.items ?? []).map((i) => ({ ...i, id: i.id.startsWith(`${p}:`) ? i.id : `${p}:${i.id}` }));
   if (p !== "open") return xs;
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date());
-  return [...upcomingOpenHouses(a.env, today), ...xs];
+  return [...openHouseItems(a.env, today), ...xs];
 }
 
 const productOf = (it: SummaryItem, p?: OtherKey): ProductKey => p ?? itemProduct(it);
@@ -396,6 +458,24 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
       add({ id: cid, type: "category", label: g, secondaryLabel: `${list.length} waiting`, parentId: p, product: p, importance: 1 - gi * 0.04, status: worst(list), summary: `${g} in ${name}.` });
       list.forEach((it, j) => itemNode(add, it, cid, p, 1 - j * 0.03, it.kind === "open_house" ? "property" : "task"));
     });
+    // VIP-SUMMARY §3a: Marquee's listings as homes, even when nothing is due.
+    const homes = (a?.env?.listings ?? []).filter((l) => l.ref && l.address).slice(0, 20);
+    if (p === "marquee" && homes.length) {
+      add({ id: "marquee-listings", type: "category", label: "Your listings", secondaryLabel: `${homes.length} ${homes.length === 1 ? "home" : "homes"}`, parentId: p, product: p, importance: 1.02, status: "healthy", summary: "Your listings in Marquee: live, under contract and recently closed." });
+      homes.forEach((l, j) => add({
+        id: `marquee:listing:${l.ref}`,
+        type: "property",
+        label: l.address.split(",")[0].trim(),
+        secondaryLabel: listingLine(l, o.today),
+        parentId: "marquee-listings",
+        product: p,
+        importance: 1 - j * 0.03,
+        status: l.status === "closed" ? "opportunity" : "healthy",
+        summary: `${l.address}. ${listingLine(l, o.today)}.`,
+        href: safeImage(l.link ?? null),
+        image: safeImage(l.image ?? null),
+      }));
+    }
   });
 
   // ---- the day and the timeline ------------------------------------------
