@@ -172,6 +172,10 @@ a.link { display: block; text-decoration: none; }
 .rail-menu .rail-btn { min-height: 38px; padding: 5px 10px; text-decoration: none; color: inherit; }
 .rail-menu .rail-icon { width: 26px; height: 26px; }
 .rail-menu .rail-text span { font-size: 13.5px; }
+.rail-group-btn { justify-content: space-between; }
+.rail-group.open > .rail-group-btn { border-color: rgba(245, 197, 66, 0.55); }
+.rail-caret { flex: none; font-size: 12px; color: var(--gold); width: 12px; text-align: center; }
+.rail-menu .rail-sublist { margin: 5px 0 2px 14px; padding-left: 8px; border-left: 1px solid rgba(212, 175, 55, 0.25); }
 .rail-more { margin: 8px 0 0 6px; font-size: 12px; color: var(--text-3); }
 .rail-line { stroke-width: 1; opacity: 0; transition: opacity 250ms, stroke-width 160ms; stroke-opacity: 0.35; }
 .rail-line.lit { stroke-width: 2; stroke-opacity: 0.9; }

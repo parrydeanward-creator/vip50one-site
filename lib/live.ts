@@ -1,4 +1,5 @@
 import { includes } from "./products.ts";
+import { MOVE_BOTTOM, MOVE_GROUPS, moveGroupId, moveMenuHref, movePageId } from "./moveMenu.ts";
 import type { DayItem, DayKind } from "./day.ts";
 import type { BusinessGraph, GraphEdge, GraphNode, NodeStatus, ProductKey } from "./graph/types.ts";
 import type { DashboardData, Item, ItemKind, PackageId, ProductSummary } from "./types.ts";
@@ -393,37 +394,68 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
         ]
       : undefined,
   });
+  // ONE MOVE's menu as orbs (Parry, 3 Oct): five groups around ONE MOVE, each
+  // opening its pages; The Lounge and My Profile beside them. What needs the
+  // agent sits in the group it belongs to and lights that group up.
+  const groupNeeds: Record<string, SummaryItem[]> = {
+    people: [...followups, ...dates, ...audit],
+    events: bookHere,
+    outreach: attraction,
+  };
+  MOVE_GROUPS.forEach((g, gi) => {
+    const needs = found ? groupNeeds[g.key] ?? [] : [];
+    const gid = moveGroupId(g.key);
+    add({
+      id: gid,
+      type: "category",
+      label: g.label,
+      secondaryLabel: needs.length ? `${needs.length} ${needs.length === 1 ? "needs" : "need"} you` : g.blurb,
+      parentId: "move",
+      product: "move",
+      importance: 1 - gi * 0.04,
+      status: needs.length ? worst(needs) : undefined,
+      summary: `${g.label} in ONE MOVE: ${g.pages.map((pg) => pg.label).join(", ")}.`,
+    });
+    g.pages.forEach((pg, j) => {
+      if (pg.path === "/contacts/audit") return; // the live Touch Audit below
+      add({ id: movePageId(pg.path), type: "feature", label: pg.label, parentId: gid, product: "move", importance: 0.8 - j * 0.02, href: moveMenuHref(pg.path) });
+    });
+  });
+  MOVE_BOTTOM.forEach((pg, j) =>
+    add({ id: movePageId(pg.path), type: "feature", label: pg.label, parentId: "move", product: "move", importance: 0.7 - j * 0.02, href: moveMenuHref(pg.path) }),
+  );
+  const people = moveGroupId("people");
   if (found) {
     if (followups.length) {
-      add({ id: "move-followups", type: "category", label: "Follow-ups overdue", secondaryLabel: `${followups.length} overdue`, parentId: "move", product: "move", importance: 1, status: "action", summary: "Tasks in ONE MOVE that are past their date and not done." });
+      add({ id: "move-followups", type: "category", label: "Follow-ups overdue", secondaryLabel: `${followups.length} overdue`, parentId: people, product: "move", importance: 1, status: "action", summary: "Tasks in ONE MOVE that are past their date and not done." });
       followups.forEach((it, k) => itemNode(add, it, "move-followups", "move", 1 - k * 0.03));
     }
     if (attraction.length) {
-      add({ id: "move-attraction", type: "category", label: "Agent attraction", secondaryLabel: `${attraction.length} waiting`, parentId: "move", product: "move", importance: 0.9, status: worst(attraction), summary: "Your Agent Attraction reminders in ONE MOVE." });
+      add({ id: "move-attraction", type: "category", label: "Agent attraction", secondaryLabel: `${attraction.length} waiting`, parentId: moveGroupId("outreach"), product: "move", importance: 0.9, status: worst(attraction), summary: "Your Agent Attraction reminders in ONE MOVE." });
       attraction.forEach((it, k) => itemNode(add, it, "move-attraction", "move", 1 - k * 0.03));
     }
     if (bookHere.length) {
-      add({ id: "move-book-oh", type: "category", label: "Book your next open house", secondaryLabel: `${bookHere.length} waiting`, parentId: "move", product: "move", importance: 0.9, status: worst(bookHere), summary: "Your every-two-weeks reminder to book an open house." });
+      add({ id: "move-book-oh", type: "category", label: "Book your next open house", secondaryLabel: `${bookHere.length} waiting`, parentId: moveGroupId("events"), product: "move", importance: 0.9, status: worst(bookHere), summary: "Your every-two-weeks reminder to book an open house." });
       bookHere.forEach((it, k) => itemNode(add, it, "move-book-oh", "move", 1 - k * 0.03));
     }
     if (dates.length) {
-      add({ id: "move-dates", type: "category", label: "Birthdays and anniversaries", secondaryLabel: `${dates.length} in the next 30 days`, parentId: "move", product: "move", importance: 0.95, status: dates.some((d) => d.urgency === "today") ? "attention" : "opportunity", summary: "Your VIP-50 and VIP-100's special dates coming up." });
+      add({ id: "move-dates", type: "category", label: "Birthdays and anniversaries", secondaryLabel: `${dates.length} in the next 30 days`, parentId: people, product: "move", importance: 0.95, status: dates.some((d) => d.urgency === "today") ? "attention" : "opportunity", summary: "Your VIP-50 and VIP-100's special dates coming up." });
       dates.forEach((it, k) => itemNode(add, it, "move-dates", "move", 1 - k * 0.03, "person"));
     }
-    add({
-      id: "move-audit",
-      type: "category",
-      label: "Touch Audit",
-      secondaryLabel: ofMax(touched) ? `${ofMax(touched)} fully touched` : "This month",
-      parentId: "move",
-      product: "move",
-      importance: 0.9,
-      status: audit.length ? "attention" : "healthy",
-      summary: "Monthly touches for every VIP-50: call, video text, social, newsletter and mixer invite.",
-      recommendations: audit.map((it) => ({ title: it.title, why: it.why, targetId: "move-audit" })),
-      href: audit[0]?.link ?? `${MOVE_URL}/contacts/audit`,
-    });
   }
+  add({
+    id: "move-audit",
+    type: found ? "category" : "feature",
+    label: "Touch Audit",
+    secondaryLabel: found ? (ofMax(touched) ? `${ofMax(touched)} fully touched` : "This month") : undefined,
+    parentId: people,
+    product: "move",
+    importance: 0.9,
+    status: found ? (audit.length ? "attention" : "healthy") : undefined,
+    summary: "Monthly touches for every VIP-50: call, video text, social, newsletter and mixer invite.",
+    recommendations: audit.map((it) => ({ title: it.title, why: it.why, targetId: "move-audit" })),
+    href: audit[0]?.link ?? `${MOVE_URL}/contacts/audit`,
+  });
 
   // ---- the other three ----------------------------------------------------
   OTHERS.forEach((p, k) => {
