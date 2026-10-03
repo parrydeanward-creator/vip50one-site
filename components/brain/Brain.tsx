@@ -695,7 +695,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const orbActions: { label: string; run?: () => void; href?: string; primary?: boolean; pressed?: boolean }[] = [];
   // Inside ONE MOVE (Parry, 3 Oct): no buttons on the orb; everything about it,
   // and what to do, sits in the panel on the right.
-  const moveQuiet = focus.product === "move" && focus.id !== "move";
+  // No "Open ONE MOVE" anywhere, the ONE MOVE orb included (Parry, 3 Oct: "get
+  // rid of them everywhere"); its pages open inside the Brain.
+  const moveQuiet = focus.product === "move";
   if (ask || moveQuiet) {
     // The answer panel carries the actions while ONE is answering.
   } else if (firstRec) orbActions.push({ label: "Why?", run: () => setOrbWhy((w) => !w), primary: true, pressed: orbWhy });
@@ -1415,11 +1417,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               </ul>
             </div>
           ) : null}
-          {moveQuiet && focus.href && !kids.length && (
-            <a className="d-open" href={focus.href} target="_blank" rel="noreferrer">
-              Open in ONE MOVE ↗
-            </a>
-          )}
 
           {!moveQuiet && showMeTargets.length > 0 && (
             <button className="btn btn-wide" aria-pressed={!!highlight} onClick={showMe}>
