@@ -70,6 +70,17 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const chipsRef = useRef<HTMLDivElement>(null);
   const whyRef = useRef<HTMLDivElement>(null);
   const [peekId, setPeekId] = useState<string | null>(null);
+  // The hover card waits a moment before closing, so the pointer can travel
+  // onto it and click it (Parry, 3 Oct: it vanished on the way).
+  const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showPeek = (id: string) => {
+    if (peekTimer.current) clearTimeout(peekTimer.current);
+    setPeekId(id);
+  };
+  const hidePeekSoon = () => {
+    if (peekTimer.current) clearTimeout(peekTimer.current);
+    peekTimer.current = setTimeout(() => setPeekId(null), 350);
+  };
   const peekIdRef = useRef<string | null>(null);
   peekIdRef.current = peekId;
   const [orbWhy, setOrbWhy] = useState(false);
@@ -778,11 +789,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                   onClick={() => clickNode(v.node.id)}
                   onPointerEnter={(e) => {
                     sceneRef.current?.setHover(v.node.id);
-                    if (e.pointerType === "mouse") setPeekId(v.node.id);
+                    if (e.pointerType === "mouse") showPeek(v.node.id);
                   }}
                   onPointerLeave={() => {
                     sceneRef.current?.setHover(null);
-                    setPeekId(null);
+                    hidePeekSoon();
                   }}
                   onFocus={() => {
                     sceneRef.current?.setHover(v.node.id);
@@ -796,7 +807,18 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               ))}
             </div>
             {peek && (
-              <div ref={peekRef} className="peek" style={{ visibility: "hidden" }} aria-hidden="true">
+              <div
+                ref={peekRef}
+                className="peek"
+                style={{ visibility: "hidden" }}
+                aria-hidden="true"
+                onPointerEnter={() => showPeek(peek.id)}
+                onPointerLeave={hidePeekSoon}
+                onClick={() => {
+                  setPeekId(null);
+                  clickNode(peek.id);
+                }}
+              >
                 <p className="peek-kicker" style={{ color: hex(PRODUCT_COLOR[peek.product]) }}>
                   {productName(peek.product)}
                   {peek.status && !peek.locked && (
@@ -818,7 +840,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                 ) : (
                   peek.summary && !peek.locked && <p className="peek-sum">{clip(peek.summary, 110)}</p>
                 )}
-                <p className="peek-hint">{childrenOf(ix, peek.id).length ? "Click to open" : "Click for details"}</p>
+                <p className="peek-hint">{inBrainPage(peek.id) ? "Click to open it here" : childrenOf(ix, peek.id).length ? "Click to open" : "Click for details"}</p>
               </div>
             )}
 
