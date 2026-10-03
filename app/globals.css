@@ -1036,9 +1036,7 @@ a.link { display: block; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .page-panel-spin { animation: none; } .page-panel-frame { transition: none; } }
 @media (max-width: 719px) { .page-panel { position: fixed; inset: 0; border-radius: 0; z-index: 30; } }
 
-/* Inside ONE MOVE: the facts behind an item, and a quiet link to it (Parry, 3 Oct). */
+/* Inside ONE MOVE: the facts behind an item (Parry, 3 Oct). */
 .d-why { margin-top: 18px; }
 .d-why h2 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
 .d-why ul { margin: 0; padding-left: 18px; color: var(--text-2); font-size: 14px; line-height: 1.5; }
-.d-open { display: inline-block; margin-top: 16px; color: var(--text-3); font-size: 13px; text-decoration: none; }
-.d-open:hover { color: var(--gold-2); }
