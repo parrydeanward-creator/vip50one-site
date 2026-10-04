@@ -63,7 +63,9 @@ export default function ContactPanel({ contactId, taskId, onLogged }: { contactI
       setDone(kind === "email" ? "Email logged." : `${kind === "call" ? "Call" : "Text"} logged${j.completed_task ? ", task done" : ""}. Boxes ticked.`);
       setAsk(null);
       await load();
-      onLogged();
+      // Let "logged" show for a moment; then the Brain reloads and a closed
+      // follow-up leaves the list.
+      setTimeout(onLogged, 1500);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "ONE MOVE didn't take that. Try again.");
     } finally {
