@@ -1367,3 +1367,16 @@ a.link { display: block; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .hw-lit { animation: none; } }
 .pf-field textarea { resize: vertical; min-height: 160px; line-height: 1.5; }
 .pf-count { align-self: flex-end; font-size: 12px; color: var(--muted, rgba(255,255,255,0.5)); }
+
+/* Rolodex groups, add and edit (§3i.7). */
+.rx-group { cursor: pointer; outline: none; }
+.rx-group:hover circle:nth-of-type(2), .rx-group:focus-visible circle:nth-of-type(2) { filter: brightness(1.25); }
+.rx-h { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.rx-h:hover { text-decoration: underline; }
+.rx-search { width: 100%; margin: 12px 0 4px; font: inherit; font-size: 14px; color: var(--text); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; }
+.rx-search:focus { outline: none; border-color: var(--gold); }
+.rx-form { display: flex; flex-direction: column; gap: 12px; }
+.rx-move { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
+.rx-move select { font: inherit; font-size: 13px; color: var(--text); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; }
+.rx-danger { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; color: var(--text-2); }
+.rx-del { border-color: #ff6b6b; color: #ffb3b3; }
