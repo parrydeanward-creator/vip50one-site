@@ -1111,10 +1111,13 @@ a.link { display: block; text-decoration: none; }
 .gp-boxes li.on i { background: var(--gold-2); border-color: var(--gold-2); }
 
 /* VIP rings (VIP-SUMMARY §3d) */
-.vr { position: absolute; inset: 0; display: flex; background: radial-gradient(circle at 40% 50%, #0d1530 0%, #050816 70%); }
-.vr-stage { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.page-panel-native { inset: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.page-panel-native .page-panel-body { background: radial-gradient(circle at 38% 50%, #0c1430 0%, #060a1a 55%, #050816 100%); }
+.vr { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 380px; }
+.vr-stage { position: relative; min-width: 0; min-height: 0; }
 .vr-line { margin: 12px 18px 0; color: var(--text-2); font-size: 13px; }
-.vr-svg { flex: 1; min-height: 0; width: 100%; touch-action: none; user-select: none; }
+.vr-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; touch-action: none; user-select: none; cursor: grab; }
+.vr-svg:active { cursor: grabbing; }
 .vr-track { fill: none; stroke: rgba(245, 197, 66, 0.22); stroke-width: 1.2; }
 .vr-track-out { stroke: rgba(47, 183, 163, 0.16); stroke-dasharray: 2 8; }
 .vr-link { stroke: rgba(245, 197, 66, 0.16); stroke-width: 1; stroke-dasharray: 3 5; }
@@ -1143,7 +1146,11 @@ a.link { display: block; text-decoration: none; }
 .vr-lifted { opacity: 0.3; }
 .vr-ghost circle { fill: rgba(42, 36, 16, 0.92); stroke: var(--gold-2); stroke-width: 2; }
 .vr-ghost text { fill: #fff; font-weight: 600; font-size: 16px; }
-.vr-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 52px; padding: 8px 18px 14px; font-size: 14px; }
+.vr-bar { position: absolute; left: 252px; bottom: 16px; z-index: 3; width: max-content; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 272px); padding: 10px 12px 10px 18px; border: 1px solid rgba(212, 175, 55, 0.35); border-radius: 18px; background: var(--panel); backdrop-filter: blur(12px); font-size: 14px; }
+.vr-drawer { min-height: 0; position: relative; z-index: 2; }
+.vr-flag { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; }
+.vr-classic { margin-top: 26px; padding: 0; border: 0; background: none; color: var(--text-2); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; }
+.vr-classic:hover { color: #fff; }
 .vr-hint { color: var(--text-2); font-size: 13px; }
 .vr-btn { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
 .vr-btn:hover { border-color: rgba(245, 197, 66, 0.8); }
@@ -1165,5 +1172,5 @@ a.link { display: block; text-decoration: none; }
 .vr-msg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-2); }
 .page-panel-classic { margin-right: 4px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer; }
 .page-panel-classic:hover { color: #fff; border-color: rgba(245, 197, 66, 0.8); }
-@media (max-width: 899px) { .vr { flex-direction: column; } .vr-side { width: auto; max-height: 45%; border-left: 0; border-top: 1px solid var(--line); } }
+@media (max-width: 899px) { .vr { grid-template-columns: 1fr; grid-template-rows: 1fr 45%; } .vr-drawer { border-left: 0; border-top: 1px solid var(--line); } .vr-bar { left: 12px; max-width: calc(100% - 24px); bottom: 80px; } }
 @media (prefers-reduced-motion: reduce) { .vr-disc { transition: none; } }
