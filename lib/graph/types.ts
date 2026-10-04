@@ -72,6 +72,8 @@ export interface GraphNode {
   contactId?: string;
   // The MASTER task behind a ONE MOVE item ("go:task:<uuid>"): closed when its touch is logged.
   taskId?: string;
+  // The Trackers group: today's daily tracker boxes (VIP-SUMMARY v1.6).
+  boxes?: { label: string; done: boolean; points: number }[];
 }
 
 export interface GraphEdge {

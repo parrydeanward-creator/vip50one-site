@@ -34,3 +34,31 @@ test("meters and the month", () => {
   assert.equal(daysLeftInMonth("2026-10-04"), 28);
   assert.equal(daysLeftInMonth("2026-02-28"), 1);
 });
+
+test("v1.6: today's boxes, weekly boxes, the challenge day (hidden when not enrolled), the full overdue count", () => {
+  const e2: SummaryEnvelope = {
+    ...env,
+    today_boxes: [
+      { key: "made_bed", label: "Made bed", done: true, points: 1 },
+      { key: "call_1", label: "Call", done: false, points: 1 },
+      { key: "lunch_face_to_face", label: "Lunch face to face", done: false, points: 2 },
+      { key: "custom_field_1_checked", label: "  ", done: false, points: 1 },
+    ],
+    stats: [
+      ...env.stats!,
+      { key: "week_boxes_done", label: "Weekly boxes", value: 3, max: 16 },
+      { key: "challenge_day", label: "90-Day Challenge", value: 86, max: 90 },
+      { key: "followups_overdue", label: "Follow-ups overdue", value: 57 },
+    ],
+  };
+  const g2 = liveGraph(e2, { pkg: "relationship", firstName: "P", reachable: true, today: "2026-10-04" }, {});
+  const tr = g2.nodes.find((n) => n.id === "move-g-trackers")!;
+  assert.equal(tr.boxes!.length, 3); // the unlabelled custom box is left out
+  assert.ok(tr.stats!.some((s) => s.label === "Weekly boxes" && s.value === "3 / 16"));
+  assert.ok(tr.stats!.some((s) => s.label === "90-Day Challenge" && s.value === "86 / 90"));
+  assert.equal(g2.nodes.find((n) => n.id === "move-followups")!.secondaryLabel, "57 overdue");
+
+  const e3: SummaryEnvelope = { ...e2, stats: e2.stats!.map((s) => (s.key === "challenge_day" ? { ...s, value: null } : s)) };
+  const g3 = liveGraph(e3, { pkg: "relationship", firstName: "P", reachable: true, today: "2026-10-04" }, {});
+  assert.ok(!g3.nodes.find((n) => n.id === "move-g-trackers")!.stats!.some((s) => s.label === "90-Day Challenge"));
+});
