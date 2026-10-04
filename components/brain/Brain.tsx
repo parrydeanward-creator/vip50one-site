@@ -183,6 +183,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     [...lastPath.current].reverse().map((id) => ix.byId.get(id)).find((n) => !!n) ??
     ix.byId.get(graph.rootId)!;
   if (focus.id === state.focusId) lastPath.current = pathTo(ix, focus.id).slice(0, -1).map((n) => n.id);
+  const focusIdRef = useRef(focus.id);
+  focusIdRef.current = focus.id;
   const vs = useMemo(
     () =>
       tour
@@ -596,8 +598,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     setHighlight(null);
     setOpenWhy(null);
     if (ask) return clearAsk(); // back from an answer is the map you were on
-    setState((s) => nav.back(s));
-  }, [ask, clearAsk]);
+    // One step up the path at the top (Parry, 4 Oct), from what is on screen.
+    setState((s) => nav.up(s, pathTo(ix, focusIdRef.current)));
+  }, [ask, clearAsk, ix]);
   const goHome = useCallback(() => {
     setHighlight(null);
     setAsk(null);
@@ -1207,7 +1210,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
           </div>
 
           <div className="controls" role="toolbar" aria-label="Map controls">
-            <button onClick={goBack} disabled={!state.history.length} aria-label="Back">
+            <button onClick={goBack} disabled={!ask && focus.id === graph.rootId} aria-label="Back">
               ←
             </button>
             <button className="zoom-btn" onClick={() => zoom(1.25)} aria-label="Zoom in">
