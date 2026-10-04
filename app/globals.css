@@ -1419,3 +1419,19 @@ a.link { display: block; text-decoration: none; }
 .hw-note-x:hover { color: #ff9a9a; }
 @media (prefers-reduced-motion: reduce) { .hw-breath, .hw-sparks circle, .hw-shimmer, .hw-frost, .hw-flare, .hw-beat, .hw-trail circle { animation: none; } .hw-sparks { display: none; } }
 .hw-matches { margin-top: -4px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.03); }
+.rx-n-sm { fill: #fff; font-size: 18px; font-weight: 700; pointer-events: none; }
+.rx-back { fill: rgba(220, 226, 240, 0.6); font-size: 12px; letter-spacing: 0.08em; pointer-events: none; }
+
+/* Orb focus motion (Parry, 4 Oct: "open that orb and bring it to the front, just like it does
+   from ONE to MOVE"). An orb glides and grows to its new place; what's inside flies out of it. */
+.fx-move { transform-box: view-box; transform-origin: 0 0; transition: transform 700ms cubic-bezier(0.22, 0.9, 0.25, 1), opacity 450ms ease; }
+.fx-out { transform-box: view-box; transform-origin: 0 0; animation: fx-out 640ms cubic-bezier(0.22, 0.9, 0.25, 1) both; }
+@keyframes fx-out {
+  from { transform: translate(var(--fx), var(--fy)) scale(0.15); opacity: 0; }
+  to { transform: translate(var(--tx), var(--ty)) scale(1); opacity: 1; }
+}
+.fx-fade { animation: fx-fade 600ms ease both; }
+@keyframes fx-fade { from { opacity: 0; } to { opacity: 1; } }
+.fx-gone { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .fx-move { transition: none; } .fx-out, .fx-fade { animation: none; } }
+.rx-n-big { fill: #fff; font-size: 56px; font-weight: 700; pointer-events: none; }

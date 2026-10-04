@@ -20,6 +20,7 @@ const GOLD = "#f5c542";
 const TEAL = "#2fb7a3";
 const MONTH_R = 290;
 const QUARTER_R = 470;
+const FOCUS_R = 520;
 
 export default function TouchAudit({
   onUnavailable,
@@ -77,6 +78,16 @@ export default function TouchAudit({
   const seats = useMemo(() => {
     if (!a) return new Map<string, { x: number; y: number; r: number }>();
     const m = new Map<string, { x: number; y: number; r: number }>();
+    if (touch && a.touches.some((t) => t.key === touch)) {
+      // Focus (Parry, 4 Oct): the tapped touch comes to the middle, the others wait on the outer ring.
+      const others = a.touches.filter((t) => t.key !== touch);
+      m.set(touch, { x: C, y: C, r: 108 });
+      others.forEach((t, i) => {
+        const ang = -Math.PI / 2 + (2 * Math.PI * (i + 0.5)) / others.length;
+        m.set(t.key, { x: C + FOCUS_R * Math.cos(ang), y: C + FOCUS_R * Math.sin(ang), r: 38 });
+      });
+      return m;
+    }
     const month = a.touches.filter((t) => t.kind === "month");
     const quarter = a.touches.filter((t) => t.kind === "quarter");
     month.forEach((t, i) => {
@@ -88,13 +99,13 @@ export default function TouchAudit({
       m.set(t.key, { x: C + QUARTER_R * Math.cos(ang), y: C + QUARTER_R * Math.sin(ang), r: 46 });
     });
     return m;
-  }, [a]);
+  }, [a, touch]);
 
   const sel = a && touch ? a.touches.find((t) => t.key === touch) ?? null : null;
   const faces = useMemo(() => {
     if (!sel) return [];
     const s = seats.get(sel.key)!;
-    return ringRows(sel.missing.map((p) => p.id), s.x, s.y, [s.r + 46, s.r + 92, s.r + 138], 18, 6);
+    return ringRows(sel.missing.map((p) => p.id), s.x, s.y, [s.r + 62, s.r + 118, s.r + 174, s.r + 230, s.r + 286], 22, 10);
   }, [sel, seats]);
   const byId = useMemo(() => new Map(roster?.vip50.map((p) => [p.id, p] as const) ?? []), [roster]);
   const who: VipPerson | undefined = person ? byId.get(person) : undefined;
@@ -121,6 +132,7 @@ export default function TouchAudit({
     setAsking(false);
     setPerson(null);
     setTouch((t) => (t === key ? null : key));
+    cam.reset();
   };
   const back = () => {
     if (asking) return setAsking(false);
@@ -173,21 +185,26 @@ export default function TouchAudit({
   }
 
   const top = C + CORE - 2 * CORE * a.coverage;
+  // A touch orb is drawn at radius 100 and moved/scaled into place, so it glides and grows when
+  // tapped (to the middle) and shrinks back out to the ring (Parry, 4 Oct).
   const orb = (t: TouchStat) => {
     const s = seats.get(t.key)!;
+    const k = s.r / 100;
     const share = t.total ? t.done / t.total : 0;
     const color = t.kind === "month" ? GOLD : TEAL;
     const on = touch === t.key;
-    const ftop = s.y + s.r - 2 * s.r * share;
+    const ftop = 100 - 200 * share;
+    const small = s.r < 50;
     return (
       <g
         key={t.key}
         data-tap
-        className={`ta-orb${on ? " on" : ""}${touch && !on ? " dim" : ""}`}
+        className={`ta-orb fx-move${on ? " on" : ""}`}
+        style={{ transform: `translate(${s.x}px, ${s.y}px) scale(${k})` }}
         role="button"
         tabIndex={0}
         aria-pressed={on}
-        aria-label={`${t.label}: ${t.done} of ${t.total} VIPs this ${t.kind === "month" ? "month" : "quarter"}`}
+        aria-label={on ? `${t.label}: back to all touches` : `${t.label}: ${t.done} of ${t.total} VIPs this ${t.kind === "month" ? "month" : "quarter"}`}
         onClick={() => pickTouch(t.key)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -196,16 +213,21 @@ export default function TouchAudit({
           }
         }}
       >
-        <circle cx={s.x} cy={s.y} r={s.r * 1.7} fill={`url(#ta-glow-${t.kind})`} opacity={0.4 + 0.6 * share} />
-        <circle cx={s.x} cy={s.y} r={s.r} fill="url(#ta-glass)" />
+        <circle r={170} fill={`url(#ta-glow-${t.kind})`} opacity={0.4 + 0.6 * share} />
+        <circle r={100} fill="url(#ta-glass)" />
         <clipPath id={`ta-clip-${t.key}`}>
-          <circle cx={s.x} cy={s.y} r={s.r - 2} />
+          <circle r={97} />
         </clipPath>
-        <rect x={s.x - s.r} y={ftop} width={s.r * 2} height={s.y + s.r - ftop} fill={`url(#ta-fill-${t.kind})`} clipPath={`url(#ta-clip-${t.key})`} className="dt-fill" />
-        <circle cx={s.x} cy={s.y} r={s.r} fill="none" stroke={color} strokeWidth={on ? 4 : 2.5} />
-        <ellipse cx={s.x} cy={s.y - s.r * 0.55} rx={s.r * 0.5} ry={s.r * 0.17} fill="#fff" fillOpacity={0.08} />
-        <text className="ta-count" x={s.x} y={s.y - 2} textAnchor="middle" fontSize={s.r * 0.42}>{`${t.done}/${t.total}`}</text>
-        <text className="ta-label" x={s.x} y={s.y + s.r * 0.36} textAnchor="middle" fontSize={Math.max(11, s.r * 0.2)}>{t.label.toUpperCase()}</text>
+        <rect x={-100} y={ftop} width={200} height={100 - ftop} fill={`url(#ta-fill-${t.kind})`} clipPath={`url(#ta-clip-${t.key})`} className="dt-fill" />
+        <circle r={100} fill="none" stroke={color} strokeWidth={(on ? 4 : 2.5) / Math.max(k, 0.4)} />
+        <ellipse cy={-55} rx={50} ry={17} fill="#fff" fillOpacity={0.08} />
+        <text className="ta-count" y={-2} textAnchor="middle" fontSize={42}>{`${t.done}/${t.total}`}</text>
+        {small ? (
+          <text className="ta-label" y={100 + 18 / k} textAnchor="middle" fontSize={12 / k}>{t.label.toUpperCase()}</text>
+        ) : (
+          <text className="ta-label" y={36} textAnchor="middle" fontSize={Math.max(11 / k, 20)}>{t.label.toUpperCase()}</text>
+        )}
+        {on && <text className="rx-back" y={62} textAnchor="middle" fontSize={12 / k}>tap for all touches</text>}
       </g>
     );
   };
@@ -315,6 +337,10 @@ export default function TouchAudit({
             </clipPath>
           </defs>
 
+          {sel ? (
+            <circle key="focus-track" className="vr-track fx-fade" cx={C} cy={C} r={FOCUS_R} />
+          ) : (
+            <g key="ring" className="fx-fade">
           <circle className="vr-track" cx={C} cy={C} r={MONTH_R} />
           <circle className="vr-track vr-track-out" cx={C} cy={C} r={QUARTER_R} />
           {[...seats.entries()].map(([k, s]) => (
@@ -329,19 +355,22 @@ export default function TouchAudit({
           <circle cx={C} cy={C} r={CORE} fill="none" stroke="#ffd86a" strokeWidth={3} />
           <text className="dt-score" x={C} y={C - 2} textAnchor="middle">{pct(a.coverage)}</text>
           <text className="dt-score-sub" x={C} y={C + 30} textAnchor="middle">THIS MONTH</text>
+            </g>
+          )}
 
           {a.touches.map(orb)}
 
           {sel &&
-            faces.map((f) => {
+            faces.map((f, idx) => {
               const p = byId.get(f.id)!;
               const pic = broken.has(f.id) ? null : faceUrl(p.photo);
               const picked = person === f.id;
               return (
                 <g
-                  key={`f-${f.id}`}
+                  key={`f-${sel.key}-${f.id}`}
                   data-tap
-                  className={`ta-face${picked ? " on" : ""}`}
+                  className={`ta-face fx-out${picked ? " on" : ""}`}
+                  style={{ "--fx": `${C}px`, "--fy": `${C}px`, "--tx": `${f.x}px`, "--ty": `${f.y}px`, animationDelay: `${Math.min(idx, 60) * 14}ms` } as React.CSSProperties}
                   role="button"
                   tabIndex={0}
                   aria-label={`${p.name}, still needs ${sel.label.toLowerCase()}`}
@@ -352,16 +381,16 @@ export default function TouchAudit({
                   }}
                 >
                   <title>{p.name}</title>
-                  <circle cx={f.x} cy={f.y} r={f.r} fill="#121a36" stroke={picked ? "#fff" : GOLD} strokeWidth={picked ? 3 : 1.6} />
+                  <circle cx={0} cy={0} r={f.r} fill="#121a36" stroke={picked ? "#fff" : GOLD} strokeWidth={picked ? 3 : 1.6} />
                   {pic ? (
                     <>
                       <clipPath id={`ta-fc-${f.id}`}>
-                        <circle cx={f.x} cy={f.y} r={f.r - 1.5} />
+                        <circle cx={0} cy={0} r={f.r - 1.5} />
                       </clipPath>
-                      <image href={pic} x={f.x - f.r} y={f.y - f.r} width={f.r * 2} height={f.r * 2} preserveAspectRatio="xMidYMid slice" clipPath={`url(#ta-fc-${f.id})`} pointerEvents="none" onError={() => setBroken((b) => new Set(b).add(f.id))} />
+                      <image href={pic} x={-f.r} y={-f.r} width={f.r * 2} height={f.r * 2} preserveAspectRatio="xMidYMid slice" clipPath={`url(#ta-fc-${f.id})`} pointerEvents="none" onError={() => setBroken((b) => new Set(b).add(f.id))} />
                     </>
                   ) : (
-                    <text className="vr-init vr-init-50" x={f.x} y={f.y} dy="0.35em" textAnchor="middle" fontSize={f.r * 0.7}>
+                    <text className="vr-init vr-init-50" x={0} y={0} dy="0.35em" textAnchor="middle" fontSize={f.r * 0.7}>
                       {initialsOf(p.name)}
                     </text>
                   )}

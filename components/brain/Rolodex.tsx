@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { dialable, mailable } from "@/lib/contact.ts";
 import { DRAFT_FIELDS, FAMILIES, FAMILY_COLOR, FAN_MAX, bizInitials, draftOf, draftProblem, familyLabel, fanOrder, groupSeats, placedLine, readRolodex, recommendedLine, rolodexUrl, saveBody, withShared, type CommunityBiz, type Draft, type FamilyKey, type MineBiz, type Rolodex as RolodexData } from "@/lib/rolodex.ts";
+import { ringRows } from "@/lib/vips.ts";
 import { useSvgCamera } from "./useSvgCamera.ts";
 
 // VIP-SUMMARY §3i: the Business Rolodex in ONE Brain, with its Community.
@@ -16,6 +17,7 @@ const SIZE = 1320;
 const C = SIZE / 2;
 const FR = 330;
 const SLICE = ((2 * Math.PI) / FAMILIES.length) * 0.86;
+const OR = 590;
 const GOLD = "#f5c542";
 const TEAL = "#2fb7a3";
 
@@ -78,22 +80,40 @@ export default function Rolodex({
   const idOf = (b: Biz) => (b.kind === "mine" ? b.id : b.key);
   const sel = pick ? list.find((b) => idOf(b) === pick) ?? null : null;
 
+  // One set of group orbs that move between two arrangements: all groups round the core, or one
+  // group in the middle with the rest on the outer ring. Business orbs fly out of their group orb.
   const layout = useMemo(() => {
-    const fams = FAMILIES.map((f, i) => {
-      const a = -Math.PI / 2 + (2 * Math.PI * i) / FAMILIES.length;
-      return { ...f, a, x: C + FR * Math.cos(a), y: C + FR * Math.sin(a) };
-    });
-    const seats: { id: string; more: number; x: number; y: number; r: number; fam: (typeof fams)[number] }[] = [];
-    for (const f of fams) {
-      const items = fanOrder(list.filter((b) => b.family === f.key), (b) => (b.kind === "mine" ? b.shared : b.recommended_by.length > 1));
-      const shown = items.length > FAN_MAX ? items.slice(0, FAN_MAX - 1) : items;
-      const more = items.length - shown.length;
-      const pos = groupSeats(shown.length + (more ? 1 : 0), f.x, f.y, C, C, SLICE, FR);
-      shown.forEach((b, j) => seats.push({ id: idOf(b), more: 0, ...pos[j], r: b.kind === "community" ? 17 + Math.min(4, b.recommended_by.length) * 2.5 : 21, fam: f }));
-      if (more) seats.push({ id: `more:${f.key}`, more, ...pos[shown.length], r: 24, fam: f });
+    const orbs = new Map<FamilyKey, { x: number; y: number; k: number; lx: number; ly: number; anchor: "start" | "middle" | "end" }>();
+    const seats: { id: string; more: number; x: number; y: number; r: number; fam: FamilyKey; fx: number; fy: number; delay: number }[] = [];
+    const order = (items: Biz[]) => fanOrder(items, (b) => (b.kind === "mine" ? b.shared : b.recommended_by.length > 1));
+    if (group) {
+      const others = FAMILIES.filter((x) => x.key !== group);
+      orbs.set(group, { x: C, y: C, k: 1, lx: C, ly: C + 24, anchor: "middle" });
+      others.forEach((o, i) => {
+        const a = -Math.PI / 2 + (2 * Math.PI * (i + 0.5)) / others.length;
+        const x = C + OR * Math.cos(a);
+        const y = C + OR * Math.sin(a);
+        orbs.set(o.key, { x, y, k: 0.3, lx: x, ly: y + 46, anchor: "middle" });
+      });
+      const items = order(list.filter((b) => b.family === group));
+      ringRows(items.map(idOf), C, C, [196, 266, 336, 406, 476], 25, 24).forEach((r, j) => seats.push({ id: r.id, more: 0, x: r.x, y: r.y, r: 25, fam: group, fx: C, fy: C, delay: Math.min(j, 40) * 22 }));
+    } else {
+      FAMILIES.forEach((f, i) => {
+        const a = -Math.PI / 2 + (2 * Math.PI * i) / FAMILIES.length;
+        const x = C + FR * Math.cos(a);
+        const y = C + FR * Math.sin(a);
+        const l = labelAt(a);
+        orbs.set(f.key, { x, y, k: 0.48, lx: x + l.dx, ly: y + l.dy, anchor: l.anchor });
+        const items = order(list.filter((b) => b.family === f.key));
+        const shown = items.length > FAN_MAX ? items.slice(0, FAN_MAX - 1) : items;
+        const more = items.length - shown.length;
+        const pos = groupSeats(shown.length + (more ? 1 : 0), x, y, C, C, SLICE, FR);
+        shown.forEach((b, j) => seats.push({ id: idOf(b), more: 0, ...pos[j], r: b.kind === "community" ? 17 + Math.min(4, b.recommended_by.length) * 2.5 : 21, fam: f.key, fx: x, fy: y, delay: j * 30 }));
+        if (more) seats.push({ id: `more:${f.key}`, more, ...pos[shown.length], r: 24, fam: f.key, fx: x, fy: y, delay: shown.length * 30 });
+      });
     }
-    return { fams, seats };
-  }, [list]);
+    return { orbs, seats };
+  }, [list, group]);
   const byId = useMemo(() => new Map(list.map((b) => [idOf(b), b] as const)), [list]);
 
   const switchView = (v: View) => {
@@ -107,7 +127,9 @@ export default function Rolodex({
     setPick(null);
     setEdit(null);
     setNote(null);
+    setQ("");
     setGroup(group === k ? null : k);
+    cam.reset();
   };
   const back = () => {
     if (edit) return setEdit(null);
@@ -191,6 +213,49 @@ export default function Rolodex({
     post("add", { key: b.key }, `${b.name} is in your Rolodex now.`);
   };
 
+  const bizOrb = (b: Biz, s: { r: number }, col: string, style: React.CSSProperties, cut: number, key: string) => {
+    const id = idOf(b);
+    const on = pick === id;
+    const count = b.kind === "community" ? b.recommended_by.length : 0;
+    return (
+      <g
+        key={key}
+        data-tap
+        className="rx-biz fx-out"
+        style={style}
+        role="button"
+        tabIndex={0}
+        aria-pressed={on}
+        aria-label={`${b.name}${b.offer ? ", has an offer for clients" : ""}${b.kind === "mine" && b.shared ? ", shared" : ""}${count ? `, recommended by ${count}` : ""}`}
+        onClick={() => {
+          setNote(null);
+          setEdit(null);
+          setPick(on ? null : id);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setEdit(null);
+            setPick(on ? null : id);
+          }
+        }}
+      >
+        <title>{b.name}</title>
+        {b.offer && <circle r={s.r + 6} fill="none" stroke={GOLD} strokeWidth={2} strokeDasharray="2 3" />}
+        <circle r={s.r} fill="url(#rx-glass)" stroke={on ? "#fff" : col} strokeWidth={on ? 3 : 1.6} />
+        <text dy="0.35em" textAnchor="middle" style={{ fill: col, fontSize: s.r * 0.62, fontWeight: 700 }} pointerEvents="none">{bizInitials(b.name)}</text>
+        <text className={`rx-name${on ? " on" : ""}`} y={s.r + 14} textAnchor="middle">{b.name.length > cut ? `${b.name.slice(0, cut - 1)}…` : b.name}</text>
+        {b.kind === "mine" && b.shared && <circle cx={s.r * 0.75} cy={-s.r * 0.75} r={6} fill={TEAL} stroke="#070b18" strokeWidth={2} />}
+        {count > 1 && (
+          <g pointerEvents="none">
+            <circle cx={s.r * 0.75} cy={-s.r * 0.75} r={9} fill={TEAL} stroke="#070b18" strokeWidth={2} />
+            <text x={s.r * 0.75} y={-s.r * 0.75} dy="0.35em" textAnchor="middle" className="rx-count">{count}</text>
+          </g>
+        )}
+      </g>
+    );
+  };
+
   if (err) {
     return (
       <div className="vr-msg" role="alert">
@@ -239,107 +304,89 @@ export default function Rolodex({
             </radialGradient>
           </defs>
 
-          <circle className="vr-track" cx={C} cy={C} r={FR} />
-          {layout.fams.map((f) => {
-            const n = list.filter((b) => b.family === f.key).length;
-            const col = FAMILY_COLOR[f.key];
-            const on = group === f.key;
-            return (
-              <g
-                key={f.key}
-                data-tap
-                className="rx-group"
-                role="button"
-                tabIndex={0}
-                aria-pressed={on}
-                aria-label={`${f.label}, ${n} ${n === 1 ? "business" : "businesses"}`}
-                onClick={() => openGroup(f.key)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    openGroup(f.key);
-                  }
-                }}
-              >
-                <line className="vr-link" x1={C} y1={C} x2={f.x} y2={f.y} pointerEvents="none" />
-                <circle cx={f.x} cy={f.y} r={92} fill={`url(#rx-glow-${f.key})`} opacity={n ? 1 : 0.3} />
-                <circle cx={f.x} cy={f.y} r={48} fill="url(#rx-glass)" stroke={on ? "#fff" : col} strokeWidth={on ? 3.5 : 2.5} opacity={n ? 1 : 0.45} />
-                <text className="rx-n" x={f.x} y={f.y} dy="0.35em" textAnchor="middle">{n}</text>
-                <text className="rx-fam" x={f.x + labelAt(f.a).dx} y={f.y + labelAt(f.a).dy} dy="0.35em" textAnchor={labelAt(f.a).anchor} style={{ fill: col }}>{f.label.toUpperCase()}</text>
-              </g>
-            );
-          })}
+          <circle key={`track-${group ?? "all"}`} className="vr-track fx-fade" cx={C} cy={C} r={group ? OR : FR} />
+          {!group &&
+            [...layout.orbs.entries()].map(([k, o]) => <line key={`l-${k}-${view}`} className="vr-link fx-fade" x1={C} y1={C} x2={o.x} y2={o.y} pointerEvents="none" />)}
+
+          {/* the core: My Rolodex / Community; it steps back while a group is open */}
+          <g className={`fx-move${group ? " fx-gone" : ""}`} style={{ transform: `translate(${C}px, ${C}px) scale(${group ? 0.3 : 1})` }} pointerEvents="none">
+            <circle r={135} fill="url(#rx-core-glow)" />
+            <circle r={96} fill="url(#rx-glass)" stroke={coreColor} strokeWidth={3} />
+            <text className="dt-score" y={-6} textAnchor="middle">{list.length}</text>
+            <text className="dt-score-sub" y={24} textAnchor="middle" style={{ fill: view === "mine" ? "#ffe08a" : "#8af0de" }}>{view === "mine" ? "MY ROLODEX" : "COMMUNITY"}</text>
+          </g>
+
           {layout.seats.map((s) => {
-            const col = FAMILY_COLOR[s.fam.key];
+            const col = FAMILY_COLOR[s.fam];
+            const vars = { "--fx": `${s.fx}px`, "--fy": `${s.fy}px`, "--tx": `${s.x}px`, "--ty": `${s.y}px`, animationDelay: `${s.delay}ms` } as React.CSSProperties;
+            const line = <line key={`ln-${group ?? "all"}-${view}-${s.id}`} className="fx-fade" x1={s.fx} y1={s.fy} x2={s.x} y2={s.y} stroke={col} strokeOpacity={0.16} pointerEvents="none" style={{ animationDelay: `${s.delay + 200}ms` }} />;
             if (s.more) {
-              return (
+              return [
+                line,
                 <g
-                  key={s.id}
+                  key={`${group ?? "all"}-${view}-${s.id}`}
                   data-tap
-                  className="rx-biz"
+                  className="rx-biz fx-out"
+                  style={vars}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${s.more} more in ${s.fam.label}`}
-                  onClick={() => openGroup(s.fam.key)}
+                  aria-label={`${s.more} more in ${familyLabel(s.fam)}`}
+                  onClick={() => openGroup(s.fam)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      openGroup(s.fam.key);
+                      openGroup(s.fam);
                     }
                   }}
                 >
-                  <line x1={s.fam.x} y1={s.fam.y} x2={s.x} y2={s.y} stroke={col} strokeOpacity={0.18} pointerEvents="none" />
-                  <circle cx={s.x} cy={s.y} r={s.r} fill="url(#rx-glass)" stroke={col} strokeWidth={1.6} strokeDasharray="4 4" />
-                  <text x={s.x} y={s.y} dy="0.35em" textAnchor="middle" style={{ fill: col, fontSize: 15, fontWeight: 700 }} pointerEvents="none">{`+${s.more}`}</text>
-                  <text className="rx-name" x={s.x} y={s.y + s.r + 14} textAnchor="middle">more</text>
-                </g>
-              );
+                  <circle r={s.r} fill="url(#rx-glass)" stroke={col} strokeWidth={1.6} strokeDasharray="4 4" />
+                  <text dy="0.35em" textAnchor="middle" style={{ fill: col, fontSize: 15, fontWeight: 700 }} pointerEvents="none">{`+${s.more}`}</text>
+                  <text className="rx-name" y={s.r + 14} textAnchor="middle">more</text>
+                </g>,
+              ];
             }
-            const b = byId.get(s.id)!;
-            const on = pick === s.id;
-            const count = b.kind === "community" ? b.recommended_by.length : 0;
+            return [line, bizOrb(byId.get(s.id)!, s, col, vars, group ? 13 : 16, `${group ?? "all"}-${view}-${s.id}`)];
+          })}
+
+          {/* group orbs: drawn at radius 100 and scaled, so they glide and grow between places */}
+          {FAMILIES.map((f) => {
+            const o = layout.orbs.get(f.key)!;
+            const n = list.filter((b) => b.family === f.key).length;
+            const col = FAMILY_COLOR[f.key];
+            const centre = group === f.key;
+            const act = () => openGroup(f.key);
             return (
-              <g
-                key={s.id}
-                data-tap
-                className="rx-biz"
-                role="button"
-                tabIndex={0}
-                aria-pressed={on}
-                aria-label={`${b.name}${b.offer ? ", has an offer for clients" : ""}${b.kind === "mine" && b.shared ? ", shared" : ""}${count ? `, recommended by ${count}` : ""}`}
-                onClick={() => {
-                  setNote(null);
-                  setEdit(null);
-                  setPick(on ? null : s.id);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setEdit(null);
-                    setPick(on ? null : s.id);
-                  }
-                }}
-              >
-                <title>{b.name}</title>
-                <line x1={s.fam.x} y1={s.fam.y} x2={s.x} y2={s.y} stroke={col} strokeOpacity={0.18} pointerEvents="none" />
-                {b.offer && <circle cx={s.x} cy={s.y} r={s.r + 6} fill="none" stroke={GOLD} strokeWidth={2} strokeDasharray="2 3" />}
-                <circle cx={s.x} cy={s.y} r={s.r} fill="url(#rx-glass)" stroke={on ? "#fff" : col} strokeWidth={on ? 3 : 1.6} />
-                <text x={s.x} y={s.y} dy="0.35em" textAnchor="middle" style={{ fill: col, fontSize: s.r * 0.62, fontWeight: 700 }} pointerEvents="none">{bizInitials(b.name)}</text>
-                <text className={`rx-name${on ? " on" : ""}`} x={s.x} y={s.y + s.r + 14} textAnchor="middle">{b.name.length > 16 ? `${b.name.slice(0, 15)}…` : b.name}</text>
-                {b.kind === "mine" && b.shared && <circle cx={s.x + s.r * 0.75} cy={s.y - s.r * 0.75} r={6} fill={TEAL} stroke="#070b18" strokeWidth={2} />}
-                {count > 1 && (
-                  <g pointerEvents="none">
-                    <circle cx={s.x + s.r * 0.75} cy={s.y - s.r * 0.75} r={9} fill={TEAL} stroke="#070b18" strokeWidth={2} />
-                    <text x={s.x + s.r * 0.75} y={s.y - s.r * 0.75} dy="0.35em" textAnchor="middle" className="rx-count">{count}</text>
-                  </g>
-                )}
+              <g key={f.key}>
+                <g
+                  data-tap
+                  className="rx-group fx-move"
+                  style={{ transform: `translate(${o.x}px, ${o.y}px) scale(${o.k})` }}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={centre}
+                  aria-label={centre ? `${f.label}: back to all groups` : `${f.label}, ${n} ${n === 1 ? "business" : "businesses"}`}
+                  onClick={act}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      act();
+                    }
+                  }}
+                >
+                  <circle r={190} fill={`url(#rx-glow-${f.key})`} opacity={n ? 1 : 0.35} />
+                  <circle r={100} fill="url(#rx-glass)" stroke={col} strokeWidth={centre ? 4 : 5} opacity={n ? 1 : 0.5} />
+                  <text className="rx-n-big" y={centre ? -6 : 0} dy={centre ? 0 : "0.35em"} textAnchor="middle">{n}</text>
+                </g>
+                <g className="fx-move" style={{ transform: `translate(${o.lx}px, ${o.ly}px)` }} pointerEvents="none">
+                  <text className="rx-fam" dy="0.35em" textAnchor={o.anchor} style={{ fill: col, fontSize: centre && f.label.length > 12 ? 11 : undefined }}>{f.label.toUpperCase()}</text>
+                  {centre && <text key={`back-${f.key}`} className="rx-back fx-fade" y={26} textAnchor="middle" style={{ animationDelay: "500ms" }}>tap for all groups</text>}
+                </g>
               </g>
             );
           })}
-          <circle cx={C} cy={C} r={135} fill="url(#rx-core-glow)" />
-          <circle cx={C} cy={C} r={96} fill="url(#rx-glass)" stroke={coreColor} strokeWidth={3} />
-          <text className="dt-score" x={C} y={C - 6} textAnchor="middle">{list.length}</text>
-          <text className="dt-score-sub" x={C} y={C + 24} textAnchor="middle" style={{ fill: view === "mine" ? "#ffe08a" : "#8af0de" }}>{view === "mine" ? "MY ROLODEX" : "COMMUNITY"}</text>
+          {group && list.filter((b) => b.family === group).length === 0 && (
+            <text key={`empty-${group}`} x={C} y={C + 170} textAnchor="middle" className="rx-name fx-fade">{view === "mine" ? "Nothing in this group yet" : "No one has shared one of these yet"}</text>
+          )}
         </svg>
 
         {note && (
