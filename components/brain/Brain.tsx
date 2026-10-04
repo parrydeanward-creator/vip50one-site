@@ -617,6 +617,17 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     fitNow(true);
   }, [graph.rootId, fitNow]);
 
+  // PROFILE.md §4: ?open=profile opens My Profile (the link every product uses).
+  useEffect(() => {
+    const u = new URL(window.location.href);
+    if (u.searchParams.get("open") !== "profile") return;
+    u.searchParams.delete("open");
+    window.history.replaceState(null, "", u.toString());
+    goTo(movePageId("/profile"));
+    // once, on arrival
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const g = returnNote(window.location.search);
     if (!g) return;
