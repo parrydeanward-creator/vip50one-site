@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ContactPanel from "./ContactPanel.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
-import { LOGGABLE, audit, logQuestion, pct, type TouchStat } from "@/lib/audit.ts";
+import { LOGGABLE, SHORT, audit, gridRows, hasTouch, logQuestion, pct, type TouchStat } from "@/lib/audit.ts";
 import { touchUrl } from "@/lib/contact.ts";
 import { faceUrl, initialsOf, readRoster, ringRows, shortName, vipsUrl, type VipPerson, type VipRoster } from "@/lib/vips.ts";
 
@@ -41,6 +41,18 @@ export default function TouchAudit({
   const [busy, setBusy] = useState(false);
   const [broken, setBroken] = useState<Set<string>>(() => new Set());
   const cam = useSvgCamera(SIZE);
+  const [view, setView] = useState<"ring" | "grid">("ring");
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("one.audit.view") === "grid") setView("grid");
+    } catch {}
+  }, []);
+  const pickView = (v: "ring" | "grid") => {
+    setView(v);
+    try {
+      localStorage.setItem("one.audit.view", v);
+    } catch {}
+  };
 
   const load = useCallback(async () => {
     let r: Response;
@@ -86,6 +98,23 @@ export default function TouchAudit({
   }, [sel, seats]);
   const byId = useMemo(() => new Map(roster?.vip50.map((p) => [p.id, p] as const) ?? []), [roster]);
   const who: VipPerson | undefined = person ? byId.get(person) : undefined;
+  const rows = useMemo(() => (roster ? gridRows(roster) : []), [roster]);
+  const whoHas = !!(who && sel && hasTouch(who, sel));
+
+  // Grid: a tap on a person's empty touch asks to log it; anything else opens them.
+  const tapCell = (p: VipPerson, key: string, done: boolean) => {
+    setNote(null);
+    setTouch(key);
+    setPerson(p.id);
+    setAsking(!done && !!LOGGABLE[key]);
+  };
+  const tapPerson = (p: VipPerson) => {
+    const first = a?.touches.find((t) => !hasTouch(p, t)) ?? a?.touches[0];
+    setNote(null);
+    setAsking(false);
+    setTouch(first?.key ?? null);
+    setPerson(p.id);
+  };
 
   const pickTouch = (key: string) => {
     setNote(null);
@@ -184,6 +213,76 @@ export default function TouchAudit({
   return (
     <div className="vr" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
       <div className="vr-stage">
+        <div className="ta-views" role="tablist" aria-label="Touch Audit view">
+          <button role="tab" aria-selected={view === "ring"} className={view === "ring" ? "on" : ""} onClick={() => pickView("ring")}>Ring</button>
+          <button role="tab" aria-selected={view === "grid"} className={view === "grid" ? "on" : ""} onClick={() => pickView("grid")}>Grid</button>
+        </div>
+        {view === "grid" ? (
+          <div className="tg" data-tap>
+            <div className="tg-tiles">
+              <div className="tg-tile tg-gauge">
+                <svg viewBox="0 0 120 120" aria-hidden="true">
+                  <circle cx="60" cy="60" r="50" className="tg-gauge-track" />
+                  {a.coverage > 0 && <circle cx="60" cy="60" r="50" className="tg-gauge-fill" strokeDasharray={`${314.16 * a.coverage} 314.16`} transform="rotate(-90 60 60)" />}
+                  <text x="60" y="60" dy="0.35em" textAnchor="middle" className="tg-gauge-n">{pct(a.coverage)}</text>
+                </svg>
+                <div className="tg-tile-l">This month</div>
+              </div>
+              <div className="tg-tile tg-good"><b>{a.fully}</b><span>Fully touched</span><i>all 5 monthly</i></div>
+              <div className="tg-tile tg-mid"><b>{a.people - a.fully - a.untouched}</b><span>Partly touched</span><i>1 to 4 done</i></div>
+              <div className="tg-tile tg-bad"><b>{a.untouched}</b><span>Not touched</span><i>none yet</i></div>
+              <div className="tg-tile tg-q"><b>{rows.filter((r) => r.quarterDone === 3).length}</b><span>Quarter done</span><i>all 3 quarterly</i></div>
+            </div>
+            <div className="tg-table" role="table" aria-label="VIP-50 touches this month">
+              <div className="tg-row tg-head" role="row">
+                <div className="tg-who" role="columnheader">{`VIP-50 · ${a.people}`}</div>
+                {a.touches.map((t, i) => (
+                  <div key={t.key} role="columnheader" className={`tg-h tg-${t.kind}${i === 5 ? " tg-split" : ""}${touch === t.key ? " on" : ""}`}>
+                    <button onClick={() => pickTouch(t.key)} title={`${t.label}: ${t.done} of ${t.total}`}>
+                      <span>{SHORT[t.key] ?? t.label}</span>
+                      <em>{`${t.done}/${t.total}`}</em>
+                      <i style={{ width: `${t.total ? (100 * t.done) / t.total : 0}%` }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {rows.map((r) => {
+                const p = r.person;
+                const pic = broken.has(p.id) ? null : faceUrl(p.photo);
+                return (
+                  <div key={p.id} role="row" className={`tg-row${person === p.id ? " on" : ""}${r.monthDone === 5 ? " full" : ""}`}>
+                    <div className="tg-who" role="rowheader">
+                      <button className="tg-person" onClick={() => tapPerson(p)}>
+                        <span className={`tg-face${r.monthDone === 5 ? " full" : ""}`}>
+                          {pic ? <img src={pic} alt="" onError={() => setBroken((b) => new Set(b).add(p.id))} /> : initialsOf(p.name)}
+                        </span>
+                        <span className="tg-name">{p.name}</span>
+                        <span className="tg-pips" aria-label={`${r.monthDone} of 5 this month`}>
+                          {[0, 1, 2, 3, 4].map((k) => <i key={k} className={k < r.monthDone ? "on" : ""} />)}
+                        </span>
+                      </button>
+                    </div>
+                    {r.cells.map((c, i) => {
+                      const t = a.touches.find((x) => x.key === c.key)!;
+                      return (
+                        <div key={c.key} role="cell" className={`tg-c tg-${c.kind}${i === 5 ? " tg-split" : ""}${touch === c.key ? " col" : ""}`}>
+                          <button
+                            className={`tg-dot${c.done ? " done" : ""}`}
+                            onClick={() => tapCell(p, c.key, c.done)}
+                            aria-label={`${p.name}: ${t.label} ${c.done ? "done" : "not done yet"}`}
+                            title={`${t.label}: ${c.done ? "done" : LOGGABLE[c.key] ? "tap to log" : "ticks when you send one"}`}
+                          >
+                            {c.done ? "✓" : LOGGABLE[c.key] ? "+" : ""}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
         <svg ref={cam.svgRef} className="vr-svg" viewBox={cam.viewBox} preserveAspectRatio="xMidYMid meet" {...cam.handlers} role="group" aria-label="This month's VIP-50 touches">
           <defs>
             <radialGradient id="ta-glass" cx="50%" cy="50%" r="50%">
@@ -270,6 +369,7 @@ export default function TouchAudit({
               );
             })}
         </svg>
+        )}
 
         {note && (
           <div className="vr-bar pop" role="status">
@@ -279,9 +379,13 @@ export default function TouchAudit({
         )}
         <div className="controls" role="toolbar" aria-label="Map controls">
           <button onClick={back} aria-label="Back">←</button>
-          <button className="zoom-btn" onClick={() => cam.zoomAt(1.25)} aria-label="Zoom in">+</button>
-          <button className="zoom-btn" onClick={() => cam.zoomAt(0.8)} aria-label="Zoom out">−</button>
-          <button onClick={cam.reset} aria-label="Centre on your touches">◎</button>
+          {view === "ring" && (
+            <>
+              <button className="zoom-btn" onClick={() => cam.zoomAt(1.25)} aria-label="Zoom in">+</button>
+              <button className="zoom-btn" onClick={() => cam.zoomAt(0.8)} aria-label="Zoom out">−</button>
+              <button onClick={cam.reset} aria-label="Centre on your touches">◎</button>
+            </>
+          )}
         </div>
       </div>
 
@@ -289,10 +393,12 @@ export default function TouchAudit({
         {who && sel ? (
           <>
             <div className="d-head">
-              <span className="chip" style={{ color: GOLD, borderColor: GOLD }}>{`Needs ${sel.label.toLowerCase()}`}</span>
+              <span className="chip" style={{ color: whoHas ? TEAL : GOLD, borderColor: whoHas ? TEAL : GOLD }}>
+                {whoHas ? `${sel.label} done this ${sel.kind === "month" ? "month" : "quarter"}` : `Needs ${sel.label.toLowerCase()}`}
+              </span>
             </div>
             <h1 className="d-title">{who.name}</h1>
-            {LOGGABLE[sel.key] && (
+            {LOGGABLE[sel.key] && !whoHas && (
               <div className="ta-log">
                 {asking ? (
                   <>
@@ -305,7 +411,7 @@ export default function TouchAudit({
                 )}
               </div>
             )}
-            {!LOGGABLE[sel.key] && <p className="d-sum">{`${sel.label} ticks by itself the week you send one.`}</p>}
+            {!LOGGABLE[sel.key] && !whoHas && <p className="d-sum">{`${sel.label} ticks by itself the week you send one.`}</p>}
             <ContactPanel key={who.id} contactId={who.id} onLogged={() => { load(); onChanged(); }} />
           </>
         ) : sel ? (
