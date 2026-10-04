@@ -247,7 +247,7 @@ export const FAQ: { q: string; a: string }[] = [
   { q: "Is there an annual plan?", a: "Yes. Paying for a year gets you two months free." },
   { q: "Can I buy one product on its own?", a: "No. ONE comes as packages, because the products work together: what happens in one shows up in the others and in ONE Brain." },
   { q: "Does anything post or send without me?", a: "No. Nothing publishes on your behalf unless you approved that exact piece and either pressed publish or switched on scheduled posting for that listing yourself. It is off until you do." },
-  { q: "Do open house visitors go into my VIP-50?", a: "Never on their own. Visitors and tour buyers are kept with their source; ONE suggests the follow-up and you decide." },
+  { q: "Do open house visitors go into my VIP-50?", a: "Never on their own. Visitors and tour buyers are kept with their source; Pulse, ONE's AI, suggests the follow-up and you decide." },
   { q: "I'm a loan officer.", a: "Showly's lender side is $150 a month and works alongside the agents you partner with." },
   { q: "I'm already a member.", a: "Sign in at the top of the page with the same email and password as ONE GO and ONE MOVE." },
 ];

@@ -30,7 +30,7 @@ export function addMove(add: Add) {
         label: "New to sort",
         sub: "3 from Saturday",
         status: "attention",
-        summary: "Visitors from Saturday's open house, tagged open-house. They are not in your VIP-50; ONE suggests a follow-up and you decide.",
+        summary: "Visitors from Saturday's open house, tagged open-house. They are not in your VIP-50; Pulse suggests a follow-up and you decide.",
         kids: [
           { id: "mv-n1", label: "Kim Reyes", sub: "open-house · 5 stars", type: "person", status: "opportunity" },
           { id: "mv-n2", label: "Sam Patel", sub: "open-house · neighbor", type: "person" },
