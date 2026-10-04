@@ -9,6 +9,7 @@ import {
   readRoster,
   ringSeats,
   rosterLine,
+  shortName,
   seatAt,
   segmentPath,
   swapQuestion,
@@ -30,8 +31,15 @@ import {
 
 const SIZE = 1000;
 const C = SIZE / 2;
-const INNER = 280;
-const OUTER = 430;
+const INNER = 265;
+const OUTER = 418;
+// The Brain's own colours (lib/brain/theme.ts): VIP-50 in ONE's gold, VIP-100
+// in ONE MOVE's teal, status dots as on every orb.
+const GOLD = "#f5c542";
+const TEAL = "#2fb7a3";
+const RED = "#e4574a";
+const AMBER = "#e5b83a";
+const GREEN = "#3fbf7f";
 
 type Pending =
   | { kind: "swap"; out: VipPerson; into: VipPerson }
@@ -82,8 +90,8 @@ export default function VipRings({ today, onUnavailable, onChanged }: { today: s
     return m;
   }, [roster]);
 
-  const inner = useMemo(() => ringSeats(roster?.vip50.map((p) => p.id) ?? [], C, C, INNER, 34), [roster]);
-  const outer = useMemo(() => ringSeats(roster?.vip100.map((p) => p.id) ?? [], C, C, OUTER, 28), [roster]);
+  const inner = useMemo(() => ringSeats(roster?.vip50.map((p) => p.id) ?? [], C, C, INNER, 36), [roster]);
+  const outer = useMemo(() => ringSeats(roster?.vip100.map((p) => p.id) ?? [], C, C, OUTER, 22), [roster]);
 
   const toSvg = (e: { clientX: number; clientY: number }) => {
     const svg = svgRef.current;
@@ -186,21 +194,30 @@ export default function VipRings({ today, onUnavailable, onChanged }: { today: s
   const dragging = drag?.moved ? byId.get(drag.id) : undefined;
   const dropOn = drag?.moved && dragging ? seatAt(dragging.ring === "vip50" ? outer : inner, drag.x, drag.y, 10) : null;
 
+  // Each person is an orb, drawn the way the Brain draws its orbs: dark glass
+  // lit toward the rim by the ring's colour, a highlight on top, a soft glow,
+  // the month's touches as an arc outside, and a status dot top right.
   const face = (s: Seat, ring: "vip50" | "vip100") => {
     const p = byId.get(s.id)!.p;
     const segs = touchSegments(p.month);
     const done = segs.filter((x) => x.done).length;
+    const full = segs.length > 0 && done === segs.length;
     const picked = s.id === pick50 || s.id === pick100;
     const urg = p.urgency === "overdue" ? "overdue" : p.urgency === "due_soon" ? "soon" : "ok";
     const lifted = drag?.moved && drag.id === s.id;
+    const big = ring === "vip50";
+    const labels = (big ? roster.vip50.length : roster.vip100.length) <= 30;
+    const dot = urg === "overdue" ? RED : urg === "soon" ? AMBER : full ? GREEN : null;
+    const dr = Math.max(4, s.r * 0.2);
+    const da = -Math.PI / 4;
     return (
       <g
         key={s.id}
-        className={`vr-face vr-${urg}${picked ? " vr-picked" : ""}${dropOn?.id === s.id ? " vr-drop" : ""}${lifted ? " vr-lifted" : ""}`}
+        className={`vr-face ${big ? "vr-50" : "vr-100"} vr-${urg}${picked ? " vr-picked" : ""}${dropOn?.id === s.id ? " vr-drop" : ""}${lifted ? " vr-lifted" : ""}`}
         role="button"
         tabIndex={0}
         aria-pressed={picked}
-        aria-label={`${p.name}, ${ring === "vip50" ? "VIP-50" : "VIP-100"}, ${done} of ${segs.length} touches this month${urg === "overdue" ? ", overdue" : urg === "soon" ? ", due soon" : ""}`}
+        aria-label={`${p.name}, ${big ? "VIP-50" : "VIP-100"}, ${done} of ${segs.length} touches this month${urg === "overdue" ? ", overdue" : urg === "soon" ? ", due soon" : ""}`}
         onPointerDown={onDown(s.id)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -210,14 +227,28 @@ export default function VipRings({ today, onUnavailable, onChanged }: { today: s
         }}
       >
         <title>{`${p.name} · ${done}/${segs.length} this month · ${lastTouchLine(p, today)}`}</title>
-        <circle className="vr-halo" cx={s.x} cy={s.y} r={s.r + 9} />
+        <circle className="vr-glow" cx={s.x} cy={s.y} r={s.r * (big ? 1.9 : 1.6)} fill={`url(#vr-glow-${urg === "overdue" ? "red" : big ? "gold" : "teal"})`} />
         {segs.map((seg, i) => (
-          <path key={seg.key} className={seg.done ? "vr-seg vr-seg-on" : "vr-seg"} d={segmentPath(s.x, s.y, s.r + 4.5, i, segs.length)} />
+          <path key={seg.key} className={seg.done ? "vr-seg vr-seg-on" : "vr-seg"} d={segmentPath(s.x, s.y, s.r + (big ? 7 : 5), i, segs.length)} strokeWidth={big ? 3.6 : 2.6} />
         ))}
-        <circle className="vr-disc" cx={s.x} cy={s.y} r={s.r} />
-        <text className="vr-init" x={s.x} y={s.y} fontSize={Math.max(9, s.r * 0.62)} dy="0.35em" textAnchor="middle">
+        <circle className="vr-disc" cx={s.x} cy={s.y} r={s.r} fill={`url(#vr-body-${big ? "gold" : "teal"})`} stroke={big ? GOLD : TEAL} strokeWidth={Math.max(1.6, s.r * 0.07)} />
+        <circle cx={s.x} cy={s.y} r={s.r - Math.max(1.6, s.r * 0.07)} fill="none" stroke="#fff" strokeOpacity={0.16} strokeWidth={1} />
+        <ellipse cx={s.x} cy={s.y - s.r * 0.5} rx={s.r * 0.55} ry={s.r * 0.22} fill="#fff" fillOpacity={0.07} />
+        <text className={big ? "vr-init vr-init-50" : "vr-init vr-init-100"} x={s.x} y={s.y} fontSize={Math.max(9, s.r * (big ? 0.6 : 0.62))} dy="0.35em" textAnchor="middle">
           {initialsOf(p.name)}
         </text>
+        {dot && <circle cx={s.x + s.r * Math.cos(da)} cy={s.y + s.r * Math.sin(da)} r={dr} fill={dot} stroke="#070b18" strokeWidth={1.5} />}
+        {labels && (
+          <text
+            className={big ? "vr-name vr-name-50" : "vr-name vr-name-100"}
+            x={s.x + Math.cos(Math.atan2(s.y - C, s.x - C)) * (s.r + (big ? 26 : 20))}
+            y={s.y + Math.sin(Math.atan2(s.y - C, s.x - C)) * (s.r + (big ? 26 : 20))}
+            dy="0.35em"
+            textAnchor={Math.abs(s.x - C) < s.r ? "middle" : s.x > C ? "start" : "end"}
+          >
+            {shortName(p)}
+          </text>
+        )}
       </g>
     );
   };
@@ -237,12 +268,54 @@ export default function VipRings({ today, onUnavailable, onChanged }: { today: s
           role="group"
           aria-label="Your VIP-50 (inner ring) and VIP-100 (outer ring)"
         >
-          <circle className="vr-track" cx={C} cy={C} r={INNER} />
+          <defs>
+            <radialGradient id="vr-body-gold" cx="50%" cy="50%" r="50%">
+              <stop offset="0" stopColor="#070b18" />
+              <stop offset="0.55" stopColor="#0b1020" />
+              <stop offset="0.86" stopColor="#5e4d1f" />
+              <stop offset="1" stopColor="#b7952f" />
+            </radialGradient>
+            <radialGradient id="vr-body-teal" cx="50%" cy="50%" r="50%">
+              <stop offset="0" stopColor="#070b18" />
+              <stop offset="0.6" stopColor="#0b1020" />
+              <stop offset="0.9" stopColor="#123c3c" />
+              <stop offset="1" stopColor="#1f6e65" />
+            </radialGradient>
+            <radialGradient id="vr-glow-gold">
+              <stop offset="0.45" stopColor={GOLD} stopOpacity="0.28" />
+              <stop offset="1" stopColor={GOLD} stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="vr-glow-teal">
+              <stop offset="0.5" stopColor={TEAL} stopOpacity="0.16" />
+              <stop offset="1" stopColor={TEAL} stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="vr-glow-red">
+              <stop offset="0.45" stopColor={RED} stopOpacity="0.42" />
+              <stop offset="1" stopColor={RED} stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="vr-core" cx="50%" cy="45%" r="50%">
+              <stop offset="0" stopColor="#3a2c0a" />
+              <stop offset="0.5" stopColor="#1c1608" />
+              <stop offset="0.8" stopColor="#5a4312" />
+              <stop offset="0.95" stopColor="#d9a72e" />
+              <stop offset="1" stopColor="#ffd86a" />
+            </radialGradient>
+            <radialGradient id="vr-core-glow">
+              <stop offset="0.5" stopColor="#ffd86a" stopOpacity="0.35" />
+              <stop offset="1" stopColor="#ffd86a" stopOpacity="0" />
+            </radialGradient>
+          </defs>
           <circle className="vr-track vr-track-out" cx={C} cy={C} r={OUTER} />
-          <circle className="vr-core" cx={C} cy={C} r={92} />
-          <text className="vr-core-big" x={C} y={C - 8} textAnchor="middle">{`${roster.vip50.length}/${roster.cap}`}</text>
-          <text className="vr-core-small" x={C} y={C + 24} textAnchor="middle">VIP-50</text>
-          <text className="vr-ring-label" x={C} y={C - OUTER - 40} textAnchor="middle">VIP-100</text>
+          <circle className="vr-track" cx={C} cy={C} r={INNER} />
+          {inner.map((s) => (
+            <line key={`l-${s.id}`} className="vr-link" x1={C} y1={C} x2={s.x} y2={s.y} />
+          ))}
+          <circle cx={C} cy={C} r={170} fill="url(#vr-core-glow)" />
+          <circle className="vr-core" cx={C} cy={C} r={96} fill="url(#vr-core)" />
+          <circle cx={C} cy={C} r={86} fill="none" stroke="#ffe9a8" strokeOpacity={0.35} />
+          <ellipse cx={C} cy={C - 52} rx={48} ry={17} fill="#fff" fillOpacity={0.07} />
+          <text className="vr-core-big" x={C} y={C - 4} textAnchor="middle">{`${roster.vip50.length}/${roster.cap}`}</text>
+          <text className="vr-core-small" x={C} y={C + 28} textAnchor="middle">VIP-50</text>
           {outer.map((s) => face(s, "vip100"))}
           {inner.map((s) => face(s, "vip50"))}
           {drag?.moved && dragging && (
@@ -266,7 +339,7 @@ export default function VipRings({ today, onUnavailable, onChanged }: { today: s
               <button className="vr-btn" onClick={() => { setPick50(null); setPick100(null); }}>Clear</button>
             </>
           ) : (
-            <span className="vr-hint">{note ?? "Drag a face onto someone in the other ring to swap, or pick one on each ring. Red means overdue."}</span>
+            <span className="vr-hint">{note ?? "Drag a face onto someone in the other ring to swap, or pick one on each ring."}</span>
           )}
         </div>
       </div>
@@ -290,9 +363,13 @@ export default function VipRings({ today, onUnavailable, onChanged }: { today: s
           <div className="vr-side-empty">
             <p>Click a face to see the person, call, text or email them, and log it.</p>
             <ul className="vr-key">
+              <li><span className="vr-k vr-k-orb50" /> VIP-50, your superfans (inner ring)</li>
+              <li><span className="vr-k vr-k-orb100" /> VIP-100, your reserve (outer ring)</li>
               <li><span className="vr-k vr-k-on" /> Touch done this month</li>
               <li><span className="vr-k" /> Touch still to do</li>
               <li><span className="vr-k vr-k-red" /> Overdue (14+ days)</li>
+              <li><span className="vr-k vr-k-amber" /> Due soon (7-13 days)</li>
+              <li><span className="vr-k vr-k-green" /> Every touch done this month</li>
             </ul>
           </div>
         )}
