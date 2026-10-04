@@ -45,6 +45,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const hello = `${greeting()}, ${agent.firstName}.`;
   // The graph changes while the page is open (live signals tick its numbers).
   const [graph, setGraph] = useState(initialGraph);
+  // Fresh numbers from the server (router.refresh) replace the graph. Without
+  // this, a refresh after logging a call changed nothing on screen.
+  useEffect(() => {
+    if (live) setGraph(initialGraph);
+  }, [initialGraph, live]);
   // ONE's morning note, written by the AI when it is available (rules otherwise).
   const [note, setNote] = useState<{ note: string; source: "ai" | "rules" } | null>(null);
   useEffect(() => {
@@ -158,7 +163,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const askRef = useRef(ask);
   askRef.current = ask;
 
-  const focus = ix.byId.get(state.focusId)!;
+  // After a refresh the focused item may be gone (a follow-up just done): show
+  // the nearest thing still there; the effect below moves the map to it.
+  const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
+  const focus =
+    ix.byId.get(state.focusId) ??
+    [...lastPath.current].reverse().map((id) => ix.byId.get(id)).find((n) => !!n) ??
+    ix.byId.get(graph.rootId)!;
+  if (focus.id === state.focusId) lastPath.current = pathTo(ix, focus.id).slice(0, -1).map((n) => n.id);
   const vs = useMemo(
     () =>
       tour
@@ -538,6 +550,31 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     setDayMap(false);
     setState((s) => nav.go(s, id));
   }, []);
+  useEffect(() => {
+    if (focus.id !== state.focusId) goTo(focus.id);
+  }, [focus.id, state.focusId, goTo]);
+
+  // Live numbers (Parry, 4 Oct): re-read the agent's data every minute while
+  // the Brain is open and visible, and on coming back to the tab, so a box
+  // ticked in ONE GO or ONE MOVE shows here within a minute.
+  useEffect(() => {
+    if (!live) return;
+    let last = Date.now();
+    const refresh = () => {
+      if (document.visibilityState !== "visible" || Date.now() - last < 15_000) return;
+      last = Date.now();
+      router.refresh();
+    };
+    const t = setInterval(refresh, 60_000);
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [live, router]);
+
   const clearAsk = useCallback(() => {
     setAsk(null);
     setAskWhy(null);
