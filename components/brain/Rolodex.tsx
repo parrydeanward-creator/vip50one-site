@@ -515,7 +515,7 @@ export default function Rolodex({
               );
             })}
             {group && <button className="vr-classic" onClick={() => setGroup(null)}>All groups</button>}
-            {(classicOnly || (view === "mine" && !group)) && <button className="vr-classic" onClick={onClassic}>{classicOnly ? "Add or edit on the Classic page" : "Open the Classic Rolodex"}</button>}
+            {classicOnly && <button className="vr-classic" onClick={onClassic}>Add or edit on the Classic page</button>}
           </>
         )}
       </aside>
