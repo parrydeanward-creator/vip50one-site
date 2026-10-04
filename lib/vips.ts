@@ -179,3 +179,30 @@ export function lastTouchLine(p: VipPerson, today: string): string {
   if (d === 1) return "Touched yesterday";
   return `Last touched ${d} days ago`;
 }
+
+/**
+ * Several rings for one tier, so every orb keeps a size you can tap (Parry,
+ * 4 Oct: double or triple the rings instead of shrinking the orbs). Rows are
+ * used from the inside out, only as many as needed; people are shared across
+ * the used rows in proportion to their length, each row offset half a step so
+ * neighbours sit in the gaps.
+ */
+export function ringRows(ids: string[], cx: number, cy: number, radii: number[], r: number, gap = 10): Seat[] {
+  const cap = radii.map((R) => Math.max(1, Math.floor((2 * Math.PI * R) / (2 * r + gap))));
+  let rows = 1;
+  while (rows < radii.length && cap.slice(0, rows).reduce((a, b) => a + b, 0) < ids.length) rows++;
+  const used = radii.slice(0, rows);
+  const total = used.reduce((a, b) => a + b, 0);
+  const counts = used.map((R) => Math.floor((ids.length * R) / total));
+  for (let i = 0; counts.reduce((a, b) => a + b, 0) < ids.length; i = (i + 1) % rows) counts[rows - 1 - i]++;
+  const out: Seat[] = [];
+  let k = 0;
+  used.forEach((R, row) => {
+    const n = counts[row];
+    for (let j = 0; j < n; j++) {
+      const a = -Math.PI / 2 + (2 * Math.PI * (j + (row % 2 ? 0.5 : 0))) / n;
+      out.push({ id: ids[k++], x: cx + R * Math.cos(a), y: cy + R * Math.sin(a), r });
+    }
+  });
+  return out;
+}

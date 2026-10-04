@@ -110,3 +110,25 @@ test("faces: only ONE MOVE's signed face links are drawn", () => {
   assert.equal(faceUrl("https://move.vip50one.com/contacts?id=x"), null);
   assert.equal(faceUrl("javascript:alert(1)"), null);
 });
+
+test("rows: orbs keep their size; a new ring opens only when the one inside is full (Parry, 4 Oct)", async () => {
+  const { ringRows } = await import("../lib/vips.ts");
+  const ids = (n: number) => Array.from({ length: n }, (_, i) => id(i));
+  const radii = [245, 320, 395];
+  const rowsOf = (seats: { x: number; y: number }[]) => new Set(seats.map((s) => Math.round(Math.hypot(s.x, s.y)))).size;
+  assert.equal(rowsOf(ringRows(ids(16), 0, 0, radii, 30)), 1);
+  assert.equal(rowsOf(ringRows(ids(56), 0, 0, radii, 30)), 3);
+  const full = ringRows(ids(75), 0, 0, radii, 30);
+  assert.equal(full.length, 75);
+  assert.ok(full.every((s) => s.r === 30), "every VIP-50 orb keeps its size");
+  assert.equal(new Set(full.map((s) => s.id)).size, 75);
+  // No two orbs overlap, within a row or across rows.
+  for (let i = 0; i < full.length; i++)
+    for (let j = i + 1; j < full.length; j++)
+      assert.ok(Math.hypot(full[i].x - full[j].x, full[i].y - full[j].y) >= 2 * 30 - 0.5, `orbs ${i} and ${j} overlap`);
+  // 100 VIP-100s fit two teal rings.
+  const teal = ringRows(ids(100), 0, 0, [480, 540, 600], 22);
+  assert.equal(teal.length, 100);
+  assert.equal(rowsOf(teal), 2);
+  assert.deepEqual(ringRows([], 0, 0, radii, 30), []);
+});
