@@ -1307,3 +1307,13 @@ a.link { display: block; text-decoration: none; }
 .wk-day-l { fill: var(--text-2); font-size: 11px; letter-spacing: 0.14em; pointer-events: none; }
 .wk-day.today .wk-day-l { fill: #fff; font-weight: 700; }
 .wk-auto { color: var(--text-3); font-style: normal; font-size: 12px; }
+
+/* Business Rolodex (§3i). */
+.rx-n { fill: #fff; font-size: 28px; font-weight: 700; pointer-events: none; }
+.rx-fam { font-size: 12px; letter-spacing: 0.12em; font-weight: 700; paint-order: stroke; stroke: #070b18; stroke-width: 4px; pointer-events: none; }
+.rx-biz { cursor: pointer; outline: none; }
+.rx-biz:hover circle, .rx-biz:focus-visible circle { filter: brightness(1.25); }
+.rx-name { fill: rgba(220, 226, 240, 0.75); font-size: 11px; paint-order: stroke; stroke: #070b18; stroke-width: 3px; pointer-events: none; }
+.rx-name.on { fill: #fff; }
+.rx-count { fill: #04201c; font-size: 10px; font-weight: 800; }
+.rx-small { font-size: 13px; }
