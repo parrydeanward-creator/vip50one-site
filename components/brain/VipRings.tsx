@@ -8,6 +8,7 @@ import {
   initialsOf,
   lastTouchLine,
   readRoster,
+  ringRows,
   ringSeats,
   shortName,
   seatAt,
@@ -29,10 +30,10 @@ import {
 // other ring (or pick one on each ring) to swap; nothing moves until the
 // agent says yes. The swap, the 50 cap and "overdue" are ONE MOVE's.
 
-const SIZE = 1000;
+const SIZE = 1300;
 const C = SIZE / 2;
-const INNER = 265;
-const OUTER = 418;
+const INNER = 395; // outermost VIP-50 row
+const OUTER = 480; // innermost VIP-100 row
 // The Brain's own colours (lib/brain/theme.ts): VIP-50 in ONE's gold, VIP-100
 // in ONE MOVE's teal, status dots as on every orb.
 const GOLD = "#f5c542";
@@ -108,8 +109,8 @@ export default function VipRings({
     return m;
   }, [roster]);
 
-  const inner = useMemo(() => ringSeats(roster?.vip50.map((p) => p.id) ?? [], C, C, INNER, 36), [roster]);
-  const outer = useMemo(() => ringSeats(roster?.vip100.map((p) => p.id) ?? [], C, C, OUTER, 22), [roster]);
+  const inner = useMemo(() => ringRows(roster?.vip50.map((p) => p.id) ?? [], C, C, [245, 320, 395], 30), [roster]);
+  const outer = useMemo(() => ringRows(roster?.vip100.map((p) => p.id) ?? [], C, C, [480, 540, 600], 22), [roster]);
 
   const toSvg = (e: { clientX: number; clientY: number }) => {
     const svg = svgRef.current;
@@ -276,7 +277,7 @@ export default function VipRings({
     const urg = p.urgency === "overdue" ? "overdue" : p.urgency === "due_soon" ? "soon" : "ok";
     const lifted = drag?.moved && drag.id === s.id;
     const big = ring === "vip50";
-    const labels = (big ? roster.vip50.length : roster.vip100.length) <= 30;
+    const labels = (big ? inner : outer).every((t) => Math.hypot(t.x - C, t.y - C) < (big ? 260 : 500));
     const pic = broken.has(s.id) ? null : faceUrl(p.photo);
     const dot = urg === "overdue" ? RED : urg === "soon" ? AMBER : full ? GREEN : null;
     const dr = Math.max(4, s.r * 0.2);
@@ -411,8 +412,12 @@ export default function VipRings({
               <stop offset="1" stopColor="#ffd86a" stopOpacity="0" />
             </radialGradient>
           </defs>
-          <circle className="vr-track vr-track-out" cx={C} cy={C} r={OUTER} />
-          <circle className="vr-track" cx={C} cy={C} r={INNER} />
+          {[...new Set(outer.map((t) => Math.round(Math.hypot(t.x - C, t.y - C))))].map((R) => (
+            <circle key={`to-${R}`} className="vr-track vr-track-out" cx={C} cy={C} r={R} />
+          ))}
+          {[...new Set(inner.map((t) => Math.round(Math.hypot(t.x - C, t.y - C))))].map((R) => (
+            <circle key={`ti-${R}`} className="vr-track" cx={C} cy={C} r={R} />
+          ))}
           {inner.map((s) => (
             <line key={`l-${s.id}`} className="vr-link" x1={C} y1={C} x2={s.x} y2={s.y} />
           ))}
