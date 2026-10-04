@@ -1300,3 +1300,10 @@ a.link { display: block; text-decoration: none; }
 .chip .pulse-mark svg { width: 22px; height: 10px; }
 @media (max-width: 899px) { .pulse-mark b { font-size: 17px; } }
 @media (prefers-reduced-motion: reduce) { .pulse-mark.beating .pulse-line { animation: none; } }
+
+/* Weekly Tracker (§3g): the seven days inside the ring. */
+.wk-day-n { fill: #fff; font-size: 16px; font-weight: 700; pointer-events: none; }
+.wk-day:not(.on) .wk-day-n { fill: rgba(200, 210, 230, 0.6); }
+.wk-day-l { fill: var(--text-2); font-size: 11px; letter-spacing: 0.14em; pointer-events: none; }
+.wk-day.today .wk-day-l { fill: #fff; font-weight: 700; }
+.wk-auto { color: var(--text-3); font-style: normal; font-size: 12px; }
