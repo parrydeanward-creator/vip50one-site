@@ -226,3 +226,36 @@ export function phoneLine(phone: string | null): string | null {
   const ten = d.length === 11 && d.startsWith("1") ? d.slice(1) : d.length === 10 ? d : null;
   return ten ? `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}` : phone;
 }
+
+// §3h.9 (v1.17): add and remove people from the Brain.
+export interface NewPerson { name: string; phone: string; cls: HwcClass; contactId: string | null; note: string }
+export const blankPerson = (cls: HwcClass = "hot"): NewPerson => ({ name: "", phone: "", cls, contactId: null, note: "" });
+
+/** A problem with the Add form in plain words, or null. */
+export function addProblem(p: NewPerson): string | null {
+  if (!p.name.trim()) return "Give the person a name.";
+  if (p.name.trim().length > 120) return "The name can be at most 120 characters.";
+  if (p.phone.length > 40) return "That phone number is too long.";
+  const d = p.phone.replace(/\D/g, "");
+  if (p.phone.trim() && d.length < 7) return "That phone number looks too short.";
+  if (p.note.length > 2000) return "The first note can be at most 2000 characters.";
+  return null;
+}
+
+/** The body for hwc/add. */
+export function addBody(p: NewPerson): Record<string, string> {
+  const b: Record<string, string> = { name: p.name.trim(), phone: p.phone.trim(), class: p.cls };
+  if (p.contactId) b.contact_id = p.contactId;
+  if (p.note.trim()) b.note = p.note.trim();
+  return b;
+}
+
+/** Contact matches from hwc/contacts, well-formed only. */
+export function readMatches(raw: unknown): { id: string; name: string; phone: string | null }[] {
+  const m = (raw as { matches?: unknown } | null)?.matches;
+  if (!Array.isArray(m)) return [];
+  return m
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === "object" && typeof (x as { id?: unknown }).id === "string" && typeof (x as { name?: unknown }).name === "string")
+    .slice(0, 8)
+    .map((x) => ({ id: x.id as string, name: (x.name as string).slice(0, 120), phone: str(x.phone, 40) }));
+}
