@@ -7,8 +7,8 @@ export const metadata = {
   description: "What VIP-50 ONE collects, why, who it is shared with, and how to have it deleted.",
 };
 
-// Who to write to about privacy. Parry confirms the address before this page goes live.
-const PRIVACY_EMAIL = "privacy@vip50one.com";
+// Who to write to about privacy (Parry, 4 Oct).
+const PRIVACY_EMAIL = "info@VIP-50.com"; // Parry, 4 Oct
 const UPDATED = "4 October 2026";
 
 export default function Privacy() {

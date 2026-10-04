@@ -7,7 +7,7 @@ export const metadata = {
   description: "The terms for using VIP-50 ONE: packages, trial, billing, cancelling, your data and acceptable use.",
 };
 
-const CONTACT_EMAIL = "privacy@vip50one.com"; // the same address as the privacy page; Parry confirms
+const CONTACT_EMAIL = "info@VIP-50.com"; // Parry, 4 Oct
 const UPDATED = "4 October 2026";
 
 export default function Terms() {
@@ -90,6 +90,12 @@ export default function Terms() {
         <p>
           ONE is provided as it is. As far as the law allows, VIP-50 LLC is not liable for lost business, lost profits or indirect losses, and our total liability to you is
           limited to what you paid us in the 12 months before the claim.
+        </p>
+
+        <h2>Utah law</h2>
+        <p>
+          VIP-50 LLC is a Utah company. These terms are governed by the laws of the State of Utah, and any dispute is settled in the state or federal courts located in
+          Utah, unless the law where you live gives you the right to bring it there.
         </p>
 
         <h2>Changes to these terms</h2>
