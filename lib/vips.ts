@@ -48,12 +48,28 @@ export function readRoster(raw: unknown): VipRoster | null {
   return { cap, month: typeof r.month === "string" ? r.month : null, counts: (r.counts as VipRoster["counts"]) ?? null, vip50: people(r.vip50), vip100: people(r.vip100) };
 }
 
-/** "Lycia Ward" -> "LW"; one name -> its first two letters. */
+/**
+ * "Lycia Ward" -> "LW"; one name -> its first two letters. Only letters and
+ * digits count, so a name that starts with an emoji or a symbol still gives
+ * clean initials (seen live, 4 Oct).
+ */
 export function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  const words = name
+    .split(/\s+/)
+    .map((w) => Array.from(w).filter((ch) => /[\p{L}\p{N}]/u.test(ch)).join(""))
+    .filter(Boolean);
+  if (!words.length) return "?";
+  if (words.length === 1) return Array.from(words[0]).slice(0, 2).join("").toUpperCase();
+  return (Array.from(words[0])[0] + Array.from(words[words.length - 1])[0]).toUpperCase();
+}
+
+/** The name under an orb: the first name, cleaned the same way. */
+export function shortName(p: { name: string; first_name?: string | null }): string {
+  const clean = (w: string) => Array.from(w).filter((ch) => /[\p{L}\p{N}'.-]/u.test(ch)).join("").replace(/^[.'-]+/, "");
+  const first = clean(p.first_name?.trim() ?? "");
+  if (first) return first;
+  const word = p.name.split(/\s+/).map(clean).find(Boolean);
+  return word || initialsOf(p.name);
 }
 
 /**

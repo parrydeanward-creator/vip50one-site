@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  shortName,
   canPromote,
   initialsOf,
   lastTouchLine,
@@ -42,6 +43,9 @@ test("initials", () => {
   assert.equal(initialsOf("  Mary Ann  de Souza "), "MS");
   assert.equal(initialsOf("Cher"), "CH");
   assert.equal(initialsOf(""), "?");
+  assert.equal(initialsOf("\u{1F3E1} Wendy"), "WE");
+  assert.equal(initialsOf("\u{2764}\u{FE0F}Jo Walker"), "JW");
+  assert.equal(initialsOf("Ángel Ñúñez"), "ÁÑ");
 });
 
 test("the touch ring follows Parry's order and grows when ONE MOVE sends a sixth", () => {
@@ -87,4 +91,11 @@ test("last touch in plain words", () => {
   assert.equal(lastTouchLine({ ...person(1, "A"), last_touch_on: "2026-10-04" }, "2026-10-04"), "Touched today");
   assert.equal(lastTouchLine({ ...person(1, "A"), last_touch_on: "2026-10-03" }, "2026-10-04"), "Touched yesterday");
   assert.equal(lastTouchLine({ ...person(1, "A"), last_touch_on: "2026-09-20" }, "2026-10-04"), "Last touched 14 days ago");
+});
+
+test("the name under an orb is the first name, without emoji", () => {
+  assert.equal(shortName({ name: "Lycia Ward" }), "Lycia");
+  assert.equal(shortName({ name: "\u{1F3E1} Wendy Walker", first_name: "\u{1F3E1}" }), "Wendy");
+  assert.equal(shortName({ name: "\u{1F3E1}" }), "?");
+  assert.equal(shortName({ name: "Sam Lee", first_name: "Sammy" }), "Sammy");
 });
