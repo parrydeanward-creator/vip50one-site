@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { changes, fitSize, greetingName, photoProblem, problem, readProfile } from "../lib/profile.ts";
+import { FIELDS, changes, fitSize, greetingName, photoProblem, problem, readProfile } from "../lib/profile.ts";
 
 const raw = { email: "a@b.com", full_name: "Parry Dean Ward", preferred_name: "", mobile: "8015551234", brokerage: "Luxury Realty", license_no: "", license_state: "ut", time_zone: "", title: "", bio: "", photo_url: "http://insecure/x.jpg", photo_version: "abc" };
 
@@ -32,4 +32,15 @@ test("form and photo problems in plain words; greeting name", () => {
   assert.equal(photoProblem({ type: "image/png", size: 1e6 }), null);
   assert.equal(greetingName(p), "Parry");
   assert.equal(greetingName({ ...p, preferred_name: "PD" }), "PD");
+});
+
+test("a long bio and title are kept in full, up to ONE MOVE's limits (bio 1000, title 120)", () => {
+  const bio = "B".repeat(971);
+  const title = "T".repeat(110);
+  const p = readProfile({ ...raw, bio, title })!;
+  assert.equal(p.bio.length, 971);
+  assert.equal(p.title.length, 110);
+  assert.equal(readProfile({ ...raw, bio: "B".repeat(1200) })!.bio.length, 1000);
+  assert.equal(FIELDS.find((f) => f.key === "bio")!.max, 1000);
+  assert.equal(FIELDS.find((f) => f.key === "title")!.max, 120);
 });
