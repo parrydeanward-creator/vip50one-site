@@ -1289,3 +1289,13 @@ a.link { display: block; text-decoration: none; }
   .tg-pips { display: none; }
   .tg-who { position: sticky; left: 0; z-index: 1; background: rgba(7, 11, 24, 0.96); }
 }
+
+/* Pulse, the AI's mark: a gold heartbeat line and the name. */
+.pulse-mark { display: inline-flex; align-items: center; gap: 6px; flex: none; color: var(--gold-2); vertical-align: middle; }
+.pulse-mark b { font-family: var(--font-display), "Bebas Neue", sans-serif; font-weight: 400; font-size: 20px; letter-spacing: 0.08em; }
+.pulse-line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 3px rgba(245, 197, 66, 0.7)); stroke-dasharray: 90; stroke-dashoffset: 0; }
+.pulse-mark.beating .pulse-line { animation: pulse-run 1.1s linear infinite; }
+@keyframes pulse-run { 0% { stroke-dashoffset: 90; } 60% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -90; } }
+.chip .pulse-mark svg { width: 22px; height: 10px; }
+@media (max-width: 899px) { .pulse-mark b { font-size: 17px; } }
+@media (prefers-reduced-motion: reduce) { .pulse-mark.beating .pulse-line { animation: none; } }

@@ -30,7 +30,7 @@ export const OPEN_STEPS: ShowStep[] = [
   { id: "attack", device: "phone", screen: "attack", kicker: "Follow-Up Attack", title: "The follow-up is already planned.", line: "Day 0-1, days 2-7, weeks 2-4. Plus three emails that stop the moment they book.", ms: 5600 },
   { id: "reports", device: "phone", screen: "reports", kicker: "Reports", title: "Send the seller report in one tap.", line: "Visitors, hot leads, feedback and pipeline GCI from this open house.", ms: 4800 },
   { id: "score", device: "phone", screen: "score", kicker: "Scorecard", title: "Your business-building machine.", line: "Open houses to conversations to clients to referrals. Week after week.", ms: 5000 },
-  { id: "flow", device: "brain", screen: "brain", image: "/film/brain-home.png", kicker: "Connected", coming: true, title: "Visitors flow into ONE MOVE, tagged.", line: "Never into your VIP-50. ONE suggests the follow-up; you decide.", ms: 5000 },
+  { id: "flow", device: "brain", screen: "brain", image: "/film/brain-home.png", kicker: "Connected", coming: true, title: "Visitors flow into ONE MOVE, tagged.", line: "Never into your VIP-50. Pulse suggests the follow-up; you decide.", ms: 5000 },
   { id: "outro", device: "phone", screen: "score", kicker: "", title: "", line: "", ms: 5200 },
 ];
 

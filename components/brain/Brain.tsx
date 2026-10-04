@@ -25,6 +25,7 @@ import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib
 import { RANGE, dayLabel, inWindow, offsetLabel, windowTitle } from "@/lib/timeline.ts";
 import { clock, completedBy, duration, isEvening, planDay, recap } from "@/lib/day.ts";
 import { localDay } from "@/lib/morning.ts";
+import PulseMark from "./PulseMark.tsx";
 import { returnNote, withoutNotes } from "@/lib/googleReturn.ts";
 import { IN_BRAIN, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_GROUPS, MOVE_TOP, inBrainPage, moveEmbedHref, moveGroupId, moveMenuHref, movePageId, type MovePage } from "@/lib/moveMenu.ts";
 
@@ -1049,8 +1050,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </nav>
           )}
           {railCount > 0 && (
-            <nav className="rail pop" key={`rail-${ask ? `ask-${ask.question}` : state.focusId}`} aria-label={ask ? "ONE's answer" : `Inside ${focus.label}`}>
-              <p className="rail-head">{tour ? "Your morning" : ask ? "ONE's answer" : focus.type === "core" ? "Your business" : focus.label}</p>
+            <nav className="rail pop" key={`rail-${ask ? `ask-${ask.question}` : state.focusId}`} aria-label={ask ? "Pulse's answer" : `Inside ${focus.label}`}>
+              <p className="rail-head">{tour ? "Morning Pulse" : ask ? "Pulse" : focus.type === "core" ? "Your business" : focus.label}</p>
               {!ask && !tour && focus.type !== "core" && focus.secondaryLabel && <p className="rail-sub">{focus.secondaryLabel}</p>}
               <ul>
                 {railNodes.map((k) => (
@@ -1100,14 +1101,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
           <form
             className={`ask ${askOpen ? "open" : ""}`}
             role="search"
-            aria-label="Ask ONE"
+            aria-label="Ask Pulse"
             onSubmit={(e) => {
               e.preventDefault();
               askOne(askText);
             }}
           >
             <div className="ask-field">
-              <span className="ask-mark" aria-hidden="true">ONE</span>
+              <PulseMark beating={asking} />
               <input
                 ref={askInputRef}
                 value={askText}
@@ -1120,8 +1121,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                     (e.target as HTMLInputElement).blur();
                   }
                 }}
-                placeholder="Ask ONE anything about your business…"
-                aria-label="Ask ONE a question about your business"
+                placeholder="Ask Pulse about your business…"
+                aria-label="Ask Pulse a question about your business"
                 maxLength={300}
                 enterKeyHint="search"
               />
@@ -1146,7 +1147,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                 ))}
               </ul>
             )}
-            {asking && <p className="ask-status" role="status">ONE is thinking…</p>}
+            {asking && <p className="ask-status" role="status">Pulse is thinking…</p>}
             {askErr && <p className="ask-status err" role="alert">{askErr}</p>}
           </form>
 
@@ -1156,7 +1157,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             return (
               <div className="tour-card pop" key={`tour-${tour.step}`} role="status" aria-live="polite">
                 <p className="tour-kicker">
-                  Your morning{n ? ` · ${tour.step} of ${tour.ids.length}` : ""}
+                  Morning Pulse{n ? ` · ${tour.step} of ${tour.ids.length}` : ""}
                 </p>
                 {n ? (
                   <>
@@ -1258,10 +1259,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         </section>
 
         {ask ? (
-          <aside ref={drawerRef} key={`ask-${ask.question}`} className="drawer pop" aria-label="ONE's answer" aria-live="polite">
+          <aside ref={drawerRef} key={`ask-${ask.question}`} className="drawer pop" aria-label="Pulse's answer" aria-live="polite">
             <div className="d-head">
               <span className="chip" style={{ color: hex(PRODUCT_COLOR.one), borderColor: hex(PRODUCT_COLOR.one) }}>
-                Ask ONE
+                <PulseMark label={false} /> Ask Pulse
               </span>
             </div>
             <p className="ask-q">{ask.question}</p>
@@ -1269,7 +1270,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             {ask.source === "ai" && <p className="d-src">Answered from your business, just now</p>}
             {ask.results.length > 0 && (
               <div className="d-recs">
-                <h2>ONE's answer</h2>
+                <h2>Pulse found</h2>
                 <ul>
                   {ask.results.map((r) => {
                     const n = ix.byId.get(r.id);
@@ -1369,7 +1370,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
           {focus.type === "core" && note ? (
             <>
               <p className="d-sum">{note.note}</p>
-              {note.source === "ai" && <p className="d-src">Written for you this morning</p>}
+              {note.source === "ai" && <p className="d-src">Pulse wrote this for you this morning</p>}
             </>
           ) : (
             focus.summary && !isMoveGroup(focus.id) && <p className="d-sum">{focus.summary}</p>
