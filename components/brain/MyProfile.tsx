@@ -178,7 +178,8 @@ export default function MyProfile({
                   {TIME_ZONES.map((z) => <option key={z.value} value={z.value}>{z.label}</option>)}
                 </select>
               ) : f.long ? (
-                <textarea value={draft[f.key]} maxLength={f.max} rows={3} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} />
+                <><textarea value={draft[f.key]} maxLength={f.max} rows={8} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} />
+                <span className="pf-count">{draft[f.key].length} / {f.max}</span></>
               ) : (
                 <input value={draft[f.key]} maxLength={f.max} inputMode={f.key === "mobile" ? "tel" : undefined} autoComplete={f.key === "full_name" ? "name" : f.key === "mobile" ? "tel" : "off"} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} />
               )}
