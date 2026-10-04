@@ -27,7 +27,7 @@ import { clock, completedBy, duration, isEvening, planDay, recap } from "@/lib/d
 import { localDay } from "@/lib/morning.ts";
 import PulseMark from "./PulseMark.tsx";
 import { returnNote, withoutNotes } from "@/lib/googleReturn.ts";
-import { IN_BRAIN, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_GROUPS, MOVE_TOP, inBrainPage, moveEmbedHref, moveGroupId, moveMenuHref, movePageId, type MovePage } from "@/lib/moveMenu.ts";
+import { IN_BRAIN, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_GROUPS, MOVE_TOP, inBrainPage, moveEmbedHref, moveGroupId, moveMenuHref, movePageId, type MovePage, pageAddress, pageFromAddress } from "@/lib/moveMenu.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -617,13 +617,18 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     fitNow(true);
   }, [graph.rootId, fitNow]);
 
-  // PROFILE.md §4: ?open=profile opens My Profile (the link every product uses).
+  // A page's own address (/dashboard/profile) or PROFILE.md §4's
+  // ?open=profile opens that page on arrival.
   useEffect(() => {
     const u = new URL(window.location.href);
-    if (u.searchParams.get("open") !== "profile") return;
-    u.searchParams.delete("open");
-    window.history.replaceState(null, "", u.toString());
-    goTo(movePageId("/profile"));
+    const fromPath = pageFromAddress(u.pathname);
+    const wantsProfile = u.searchParams.get("open") === "profile";
+    if (!fromPath && !wantsProfile) return;
+    if (wantsProfile) {
+      u.searchParams.delete("open");
+      window.history.replaceState(null, "", u.toString());
+    }
+    goTo(movePageId(fromPath ?? "/profile"));
     // once, on arrival
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -631,7 +636,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   useEffect(() => {
     const g = returnNote(window.location.search);
     if (!g) return;
-    window.history.replaceState(null, "", withoutNotes(window.location.href));
+    window.history.replaceState(null, "", pageAddress("/profile") + withoutNotes(window.location.href).replace(/^[^?#]*/, ""));
     setGoogleNote(g);
     goTo(movePageId("/profile"));
     const t = setTimeout(() => setGoogleNote(null), 12000);
@@ -818,6 +823,17 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   useEffect(() => {
     setFrameReady(null);
     setVipClassic(false);
+  }, [panelPath]);
+  // The address follows the open page: /dashboard/profile, /dashboard/weekly...
+  const arrived = useRef(false);
+  useEffect(() => {
+    if (!arrived.current) {
+      // let the arrival effects open the page the address names first
+      arrived.current = true;
+      if (!panelPath && pageFromAddress(window.location.pathname)) return;
+    }
+    const want = pageAddress(panelPath);
+    if (window.location.pathname !== want) window.history.replaceState(null, "", want + window.location.search + window.location.hash);
   }, [panelPath]);
   // ONE MOVE pages drawn natively: VIP Management (the VIP rings, §3d) and the
   // Daily Tracker (§3e). The Classic page stays one click away, and is the
