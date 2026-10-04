@@ -9,6 +9,7 @@ import DailyTracker from "./DailyTracker.tsx";
 import WeeklyTracker from "./WeeklyTracker.tsx";
 import Rolodex from "./Rolodex.tsx";
 import MyProfile from "./MyProfile.tsx";
+import HotWarmCold from "./HotWarmCold.tsx";
 import TouchAudit from "./TouchAudit.tsx";
 import GroupPanel from "./GroupPanel.tsx";
 import type { BusinessGraph, GraphNode } from "@/lib/graph/types.ts";
@@ -841,7 +842,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // ONE MOVE pages drawn natively: VIP Management (the VIP rings, §3d) and the
   // Daily Tracker (§3e). The Classic page stays one click away, and is the
   // fallback until ONE MOVE's route answers.
-  const NATIVE: Record<string, "vip" | "daily" | "weekly" | "audit" | "rolodex" | "profile"> = { "/contacts/vip": "vip", "/daily": "daily", "/weekly": "weekly", "/contacts/audit": "audit", "/rolodex": "rolodex", "/profile": "profile" };
+  const NATIVE: Record<string, "vip" | "daily" | "weekly" | "audit" | "rolodex" | "profile" | "hwc"> = { "/contacts/vip": "vip", "/daily": "daily", "/weekly": "weekly", "/contacts/audit": "audit", "/rolodex": "rolodex", "/profile": "profile", "/hot-warm-cold": "hwc" };
   const [vipClassic, setVipClassic] = useState(false);
   const nativeKind = panelPath ? NATIVE[panelPath] : undefined;
   const vipNative = !!nativeKind && !vipClassic;
@@ -1662,6 +1663,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             <div ref={frameBoxRef} className="page-panel-body">
               {vipNative && nativeKind === "audit" ? (
                 <TouchAudit
+                  onUnavailable={vipUnavailable}
+                  onChanged={() => router.refresh()}
+                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onClassic={() => setVipClassic(true)}
+                />
+              ) : vipNative && nativeKind === "hwc" ? (
+                <HotWarmCold
                   onUnavailable={vipUnavailable}
                   onChanged={() => router.refresh()}
                   onBack={() => goTo(focus.parentId ?? "move")}
