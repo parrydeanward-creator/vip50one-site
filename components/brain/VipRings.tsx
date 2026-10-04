@@ -320,15 +320,10 @@ export default function VipRings({
     );
   };
 
-  // Back steps out the way the Brain does: first the open person, then the page.
+  // Back is one step up the path at the top, as everywhere (Parry, 4 Oct):
+  // VIP Management -> People. An open swap question is cancelled first.
   const back = () => {
     if (pending) return setPending(null);
-    if (selected || pick50 || pick100) {
-      setSelected(null);
-      setPick50(null);
-      setPick100(null);
-      return;
-    }
     onBack();
   };
   const open = Math.max(0, roster.cap - roster.vip50.length);

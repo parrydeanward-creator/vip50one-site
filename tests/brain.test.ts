@@ -120,3 +120,17 @@ test("every recommendation has facts behind it and points at a real node", () =>
       if (r.targetId) assert.ok(ix.byId.has(r.targetId), r.targetId);
     }
 });
+
+test("back is one step up the path at the top, not the way you came (Parry, 4 Oct)", () => {
+  const leaf = ix.graph.nodes.find((n) => pathTo(ix, n.id).length >= 3)!;
+  const path = pathTo(ix, leaf.id);
+  // Arrived by jumping straight from ONE to the leaf: back still goes to its parent.
+  let s = nav.go(nav.start(ix.graph.rootId), leaf.id);
+  s = nav.up(s, path);
+  assert.equal(s.focusId, path[path.length - 2].id);
+  s = nav.up(s, pathTo(ix, s.focusId));
+  assert.equal(s.focusId, path[path.length - 3].id);
+  // At ONE, back stays at ONE.
+  const root = nav.start(ix.graph.rootId);
+  assert.equal(nav.up(root, pathTo(ix, root.focusId)).focusId, ix.graph.rootId);
+});

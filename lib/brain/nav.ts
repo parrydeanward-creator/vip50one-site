@@ -25,3 +25,13 @@ export function back(s: NavState): NavState {
 export function reset(s: NavState, rootId: string): NavState {
   return go(s, rootId);
 }
+
+/**
+ * Back is one step up the path shown at the top (ONE / ONE MOVE / People /
+ * VIP Management), not the way the agent came (Parry, 4 Oct). `path` is that
+ * breadcrumb, root first. At the root, back stays put.
+ */
+export function up(s: NavState, path: { id: string }[]): NavState {
+  const parent = path.length > 1 ? path[path.length - 2].id : null;
+  return parent ? go(s, parent) : s;
+}
