@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PersonPanel from "./PersonPanel.tsx";
 import VipRings from "./VipRings.tsx";
+import DailyTracker from "./DailyTracker.tsx";
 import GroupPanel from "./GroupPanel.tsx";
 import type { BusinessGraph, GraphNode } from "@/lib/graph/types.ts";
 import { DESKTOP_BUDGET, PHONE_BUDGET, childrenOf, indexGraph, pathTo, visibleSet } from "@/lib/graph/model.ts";
@@ -789,11 +790,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     setFrameReady(null);
     setVipClassic(false);
   }, [panelPath]);
-  // VIP-SUMMARY §3d: VIP Management is drawn natively (the VIP rings); the
-  // Classic page stays one click away, and is the fallback until ONE MOVE's
-  // route answers.
+  // ONE MOVE pages drawn natively: VIP Management (the VIP rings, §3d) and the
+  // Daily Tracker (§3e). The Classic page stays one click away, and is the
+  // fallback until ONE MOVE's route answers.
+  const NATIVE: Record<string, "vip" | "daily"> = { "/contacts/vip": "vip", "/daily": "daily" };
   const [vipClassic, setVipClassic] = useState(false);
-  const vipNative = panelPath === "/contacts/vip" && !vipClassic;
+  const nativeKind = panelPath ? NATIVE[panelPath] : undefined;
+  const vipNative = !!nativeKind && !vipClassic;
   const vipUnavailable = useCallback(() => setVipClassic(true), []);
   const toggleGroup = (key: string) =>
     setOpenGroups((gs) => {
@@ -1588,7 +1591,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               <p className="page-panel-title">
                 <span style={{ color: hex(PRODUCT_COLOR.move) }}>ONE MOVE</span> · {pagePanel.label}
               </p>
-              {pagePanel.path === "/contacts/vip" && (
+              {nativeKind && (
                 <button className="page-panel-classic" onClick={() => setVipClassic((v) => !v)}>
                   {vipClassic ? "ONE Brain view" : "Classic page"}
                 </button>
@@ -1597,7 +1600,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </header>
             )}
             <div ref={frameBoxRef} className="page-panel-body">
-              {vipNative ? (
+              {vipNative && nativeKind === "daily" ? (
+                <DailyTracker
+                  onUnavailable={vipUnavailable}
+                  onChanged={() => router.refresh()}
+                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onClassic={() => setVipClassic(true)}
+                />
+              ) : vipNative ? (
                 <VipRings
                   today={localDay(new Date())}
                   onUnavailable={vipUnavailable}
