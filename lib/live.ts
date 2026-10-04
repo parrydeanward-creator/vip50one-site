@@ -406,6 +406,22 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
     events: bookHere,
     outreach: attraction,
   };
+  const groupStats = (key: string): GraphNode["stats"] => {
+    if (!found) return undefined;
+    const list =
+      key === "people"
+        ? [ofMax(touched) && { label: "VIP-50 fully touched this month", value: ofMax(touched)! }]
+        : key === "trackers"
+          ? [
+              ofMax(daily) && { label: "Daily score", value: ofMax(daily)! },
+              ofMax(weekly) && { label: "Weekly score", value: ofMax(weekly)! },
+              env!.streak != null && { label: "Streak", value: `${env!.streak} ${env!.streak === 1 ? "day" : "days"}` },
+              env!.weekly_rank != null && { label: "Leaderboard", value: `#${env!.weekly_rank}` },
+            ]
+          : [];
+    const out = list.filter((x): x is { label: string; value: string } => !!x);
+    return out.length ? out : undefined;
+  };
   MOVE_GROUPS.forEach((g, gi) => {
     const needs = found ? groupNeeds[g.key] ?? [] : [];
     const gid = moveGroupId(g.key);
@@ -419,6 +435,8 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
       importance: 1 - gi * 0.04,
       status: needs.length ? worst(needs) : undefined,
       summary: `${g.label} in ONE MOVE: ${g.pages.map((pg) => pg.label).join(", ")}.`,
+      // The numbers the group's panel leads with (Parry, 4 Oct: People and Trackers).
+      stats: groupStats(g.key),
     });
     g.pages.forEach((pg, j) => {
       if (pg.path === "/contacts/audit") return; // the live Touch Audit below

@@ -4,6 +4,7 @@ import { CLASSIC_DASHBOARD_URL } from "@/lib/host.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PersonPanel from "./PersonPanel.tsx";
+import GroupPanel from "./GroupPanel.tsx";
 import type { BusinessGraph, GraphNode } from "@/lib/graph/types.ts";
 import { DESKTOP_BUDGET, PHONE_BUDGET, childrenOf, indexGraph, pathTo, visibleSet } from "@/lib/graph/model.ts";
 import { bounds, layout } from "@/lib/brain/layout.ts";
@@ -1318,8 +1319,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               {note.source === "ai" && <p className="d-src">Written for you this morning</p>}
             </>
           ) : (
-            focus.summary && <p className="d-sum">{focus.summary}</p>
+            focus.summary && !isMoveGroup(focus.id) && <p className="d-sum">{focus.summary}</p>
           )}
+
+          {isMoveGroup(focus.id) && !ask && <GroupPanel node={focus} ix={ix} today={localDay(new Date())} goTo={goTo} />}
 
           {(focus.contactId || focus.taskId) && focus.product === "move" && !focus.locked && !ask && (
             <PersonPanel
@@ -1517,7 +1520,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </div>
           )}
 
-          {kids.length > 0 && (
+          {kids.length > 0 && !isMoveGroup(focus.id) && (
             <div className={`d-list inside ${railCount > childrenOf(ix, state.focusId).length - 1 && !moveQuiet ? "" : "keep"}`}>
               <h2>{focus.type === "core" ? "Your products" : "Inside"}</h2>
               <ul>
