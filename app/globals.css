@@ -1354,3 +1354,14 @@ a.link { display: block; text-decoration: none; }
   .pf-hero { flex-direction: column; text-align: center; }
   .pf-form { grid-template-columns: 1fr; }
 }
+
+/* Hot / Warm / Cold (§3h). */
+.hw-orb, .hw-face { cursor: pointer; outline: none; transition: opacity 160ms; }
+.hw-orb.dim, .hw-face.dim { opacity: 0.25; }
+.hw-orb:hover circle, .hw-orb:focus-visible circle { filter: brightness(1.2); }
+.hw-face:hover circle, .hw-face:focus-visible circle { stroke: #fff; }
+.hw-n { fill: #fff; font-size: 44px; font-weight: 700; pointer-events: none; }
+.hw-label { font-size: 15px; letter-spacing: 0.18em; font-weight: 700; pointer-events: none; }
+.hw-lit { animation: hw-spin 18s linear infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes hw-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .hw-lit { animation: none; } }
