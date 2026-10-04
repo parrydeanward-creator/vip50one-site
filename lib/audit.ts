@@ -61,3 +61,44 @@ export function logQuestion(touchLabel: string, firstName: string): string {
   const a = /^[aeiou]/.test(what) ? "an" : "a";
   return `Log ${a} ${what} with ${firstName}?`;
 }
+
+/** Short column heads for the grid view. */
+export const SHORT: Record<string, string> = {
+  call: "Call",
+  video_text: "Video",
+  social: "Social",
+  newsletter: "News",
+  mixer: "Mixer",
+  face_to_face: "Face",
+  handwritten_note: "Note",
+  drop_by: "Drop-by",
+};
+
+export interface GridRow {
+  person: VipPerson;
+  monthDone: number;
+  quarterDone: number;
+  cells: { key: string; kind: "month" | "quarter"; done: boolean }[];
+}
+
+/** The grid view: one row per VIP-50, least touched first, then by name. */
+export function gridRows(r: VipRoster): GridRow[] {
+  const rows = r.vip50.map((p) => {
+    const cells = [
+      ...MONTH_BOXES.map(([k]) => ({ key: k, kind: "month" as const, done: !!p.month?.[k] })),
+      ...QUARTER_BOXES.map(([k]) => ({ key: k, kind: "quarter" as const, done: !!p.quarter?.[k] })),
+    ];
+    return {
+      person: p,
+      monthDone: cells.filter((c) => c.kind === "month" && c.done).length,
+      quarterDone: cells.filter((c) => c.kind === "quarter" && c.done).length,
+      cells,
+    };
+  });
+  return rows.sort((a, b) => a.monthDone - b.monthDone || a.quarterDone - b.quarterDone || a.person.name.localeCompare(b.person.name));
+}
+
+/** Whether this person has this touch (this month, or this quarter). */
+export function hasTouch(p: VipPerson, t: { key: string; kind: "month" | "quarter" }): boolean {
+  return !!(t.kind === "month" ? p.month : p.quarter)?.[t.key];
+}

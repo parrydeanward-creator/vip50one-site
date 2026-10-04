@@ -46,3 +46,25 @@ test("newsletter and mixer are never logged by hand; the question reads right", 
   assert.equal(logQuestion("Face-to-face", "Sam"), "Log a face-to-face with Sam?");
   assert.equal(logQuestion("Handwritten note", "Ann"), "Log a handwritten note with Ann?");
 });
+
+test("grid rows: least touched first, then quarter, then name; eight cells each", async () => {
+  const { gridRows, hasTouch } = await import("../lib/audit.ts");
+  const r = {
+    cap: 75,
+    vip50: [
+      { id: "a", name: "Zed", month: { call: true, social: true }, quarter: {} },
+      { id: "b", name: "Amy", month: {}, quarter: { drop_by: true } },
+      { id: "c", name: "Bob", month: {}, quarter: {} },
+      { id: "d", name: "Cal", month: { call: true, video_text: true, social: true, newsletter: true, mixer: true }, quarter: {} },
+    ],
+    vip100: [],
+  } as never;
+  const rows = gridRows(r);
+  assert.deepEqual(rows.map((x) => x.person.name), ["Bob", "Amy", "Zed", "Cal"]);
+  assert.equal(rows[0].cells.length, 8);
+  assert.equal(rows[2].monthDone, 2);
+  assert.equal(rows[3].monthDone, 5);
+  assert.equal(rows[1].quarterDone, 1);
+  assert.equal(hasTouch(rows[1].person, { key: "drop_by", kind: "quarter" }), true);
+  assert.equal(hasTouch(rows[1].person, { key: "drop_by", kind: "month" }), false);
+});
