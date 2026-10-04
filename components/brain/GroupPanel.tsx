@@ -67,6 +67,26 @@ export default function GroupPanel({ node, ix, today, goTo }: { node: GraphNode;
         </section>
       )}
 
+      {node.boxes && node.boxes.length > 0 && (
+        <section>
+          <h2>Today</h2>
+          <p className="gp-small gp-lead">
+            {node.boxes.filter((b) => b.done).length} of {node.boxes.length} boxes done ·{" "}
+            {node.boxes.filter((b) => b.done).reduce((a, b) => a + b.points, 0)} of {node.boxes.reduce((a, b) => a + b.points, 0)} points
+          </p>
+          <ul className="gp-boxes">
+            {[...node.boxes.filter((b) => !b.done), ...node.boxes.filter((b) => b.done)].map((b, i) => (
+              <li key={`${b.label}-${i}`} className={b.done ? "on" : ""}>
+                <i aria-hidden="true">{b.done ? "✓" : ""}</i>
+                <span>{b.label}</span>
+                <small>{b.points} pt{b.points === 1 ? "" : "s"}</small>
+              </li>
+            ))}
+          </ul>
+          <p className="gp-small">Tick boxes in Daily Tracker (below) or in ONE GO; this list refreshes every minute.</p>
+        </section>
+      )}
+
       {coming.length > 0 && (
         <section>
           <h2>Coming up</h2>
@@ -87,7 +107,7 @@ export default function GroupPanel({ node, ix, today, goTo }: { node: GraphNode;
         </section>
       )}
 
-      {!doNow.length && !coming.length && !stats.length && <p className="gp-small">Nothing here needs you right now.</p>}
+      {!doNow.length && !coming.length && !stats.length && !node.boxes?.length && <p className="gp-small">Nothing here needs you right now.</p>}
 
       {group && (
         <section>

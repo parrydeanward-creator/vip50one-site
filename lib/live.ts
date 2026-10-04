@@ -49,6 +49,8 @@ export interface SummaryEnvelope {
   items?: SummaryItem[];
   streak?: number;
   weekly_rank?: number | null;
+  // VIP-SUMMARY v1.6: today's daily tracker boxes, Mountain day, in /daily order.
+  today_boxes?: { key: string; label: string; done: boolean; points: number }[] | null;
   listings?: SummaryListing[];       // VIP-SUMMARY §3a (v1.2), Marquee
   open_houses?: SummaryOpenHouse[];  // VIP-SUMMARY §3a (v1.2), ONE Open
 }
@@ -406,6 +408,14 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
     events: bookHere,
     outreach: attraction,
   };
+  const todayBoxes = found && Array.isArray(env!.today_boxes)
+    ? env!.today_boxes
+        .filter((b) => b && typeof b.label === "string" && b.label.trim())
+        .map((b) => ({ label: b.label.trim(), done: b.done === true, points: Number.isFinite(b.points) ? b.points : 1 }))
+    : undefined;
+  const overdueCount = found ? stat(env!, "followups_overdue")?.value ?? null : null;
+  const weekBoxes = found ? stat(env!, "week_boxes_done") : undefined;
+  const challenge = found ? stat(env!, "challenge_day") : undefined;
   const groupStats = (key: string): GraphNode["stats"] => {
     if (!found) return undefined;
     const list =
@@ -415,6 +425,8 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
           ? [
               ofMax(daily) && { label: "Daily score", value: ofMax(daily)! },
               ofMax(weekly) && { label: "Weekly score", value: ofMax(weekly)! },
+              ofMax(weekBoxes) && { label: "Weekly boxes", value: ofMax(weekBoxes)! },
+              challenge?.value != null && ofMax(challenge) && { label: "90-Day Challenge", value: ofMax(challenge)! },
               env!.streak != null && { label: "Streak", value: `${env!.streak} ${env!.streak === 1 ? "day" : "days"}` },
               env!.weekly_rank != null && { label: "Leaderboard", value: `#${env!.weekly_rank}` },
             ]
@@ -437,6 +449,7 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
       summary: `${g.label} in ONE MOVE: ${g.pages.map((pg) => pg.label).join(", ")}.`,
       // The numbers the group's panel leads with (Parry, 4 Oct: People and Trackers).
       stats: groupStats(g.key),
+      boxes: g.key === "trackers" ? todayBoxes : undefined,
     });
     g.pages.forEach((pg, j) => {
       if (pg.path === "/contacts/audit") return; // the live Touch Audit below
@@ -449,7 +462,7 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
   const people = moveGroupId("people");
   if (found) {
     if (followups.length) {
-      add({ id: "move-followups", type: "category", label: "Follow-ups overdue", secondaryLabel: `${followups.length} overdue`, parentId: people, product: "move", importance: 1, status: "action", summary: "Tasks in ONE MOVE that are past their date and not done." });
+      add({ id: "move-followups", type: "category", label: "Follow-ups overdue", secondaryLabel: `${overdueCount ?? followups.length} overdue`, parentId: people, product: "move", importance: 1, status: "action", summary: "Tasks in ONE MOVE that are past their date and not done." });
       followups.forEach((it, k) => itemNode(add, it, "move-followups", "move", 1 - k * 0.03));
     }
     if (suggestions.length) {
