@@ -1,7 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CONNECTIONS, FIELDS, TIME_ZONES, changes, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, type Profile } from "@/lib/profile.ts";
+import { CONNECTIONS, FIELDS, TIME_ZONES, UPLOAD_MAX, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, type Profile } from "@/lib/profile.ts";
+
+/** Draw the photo at most 1200px on the long side as a JPEG, so it fits ONE MOVE's 4 MB limit. */
+async function shrink(file: File): Promise<Blob> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const { w, h } = fitSize(bmp.width, bmp.height);
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    c.getContext("2d")!.drawImage(bmp, 0, 0, w, h);
+    bmp.close();
+    const out = await new Promise<Blob | null>((ok) => c.toBlob(ok, "image/jpeg", 0.88));
+    if (out && out.size <= UPLOAD_MAX) return out;
+  } catch {
+    // a format this browser cannot draw (some HEIC): send it as it is if it fits
+  }
+  if (file.size <= UPLOAD_MAX) return file;
+  throw new Error("That photo is too large to send. Choose a smaller one or a JPEG.");
+}
 
 // VIP-SUMMARY §3j / PROFILE.md: the one My Profile for the whole system, in
 // ONE Brain. The headshot in a gold ring (preview before saving), the facts
@@ -90,7 +109,8 @@ export default function MyProfile({
     setNote(null);
     try {
       const fd = new FormData();
-      fd.append("photo", pending.file);
+      const blob = await shrink(pending.file);
+      fd.append("photo", blob, blob === pending.file ? pending.file.name : "headshot.jpg");
       const p = await answer(await fetch(photoUrl, { method: "POST", credentials: "include", body: fd }));
       setSaved(p);
       setDraft((d) => (d ? { ...d, photo_url: p.photo_url, photo_version: p.photo_version } : p));

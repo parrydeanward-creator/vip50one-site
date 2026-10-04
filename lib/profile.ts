@@ -50,10 +50,11 @@ const s = (v: unknown, max = 600) => (typeof v === "string" ? v.slice(0, max) : 
 export function readProfile(raw: unknown): Profile | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
-  if (typeof r.email !== "string") return null;
+  // ONE MOVE answers null for empty fields (vip50-web-crm#56); a profile needs a name or an email.
+  if (typeof r.email !== "string" && typeof r.full_name !== "string") return null;
   const photo = typeof r.photo_url === "string" && /^https:\/\//.test(r.photo_url) ? r.photo_url : null;
   return {
-    email: r.email,
+    email: typeof r.email === "string" ? r.email : "",
     full_name: s(r.full_name, 120),
     preferred_name: s(r.preferred_name, 60),
     mobile: s(r.mobile, 30),
@@ -90,12 +91,22 @@ export function problem(draft: Profile): string | null {
 }
 
 export const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
-export const PHOTO_MAX = 8 * 1024 * 1024;
+/** What ONE MOVE accepts (Vercel refuses bodies over 4.5 MB; vip50-web-crm#56). */
+export const UPLOAD_MAX = 4 * 1024 * 1024;
+/** What the agent may choose: the Brain shrinks it before uploading. */
+export const PHOTO_MAX = 25 * 1024 * 1024;
 /** A plain-words problem with a chosen photo, or null. */
 export function photoProblem(file: { type: string; size: number }): string | null {
   if (!PHOTO_TYPES.includes(file.type)) return "Choose a JPEG, PNG, WebP or HEIC photo.";
-  if (file.size > PHOTO_MAX) return "That photo is over 8 MB. Choose a smaller one.";
+  if (file.size > PHOTO_MAX) return "That photo is over 25 MB. Choose a smaller one.";
   return null;
+}
+
+/** The size a headshot is drawn at before upload: the long side at most `max`. */
+export function fitSize(w: number, h: number, max = 1200): { w: number; h: number } {
+  if (w <= max && h <= max) return { w, h };
+  const k = max / Math.max(w, h);
+  return { w: Math.round(w * k), h: Math.round(h * k) };
 }
 
 /** "Parry" from the preferred name, else the first word of the full name (PROFILE.md M1). */
