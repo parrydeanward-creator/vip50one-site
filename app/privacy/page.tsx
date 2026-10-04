@@ -105,6 +105,7 @@ export default function Privacy() {
       <footer className="sp-foot">
         <span>© VIP-50 LLC</span>
         <a href="/">Home</a>
+        <a href="/terms">Terms</a>
         <a href="/login">Sign in</a>
       </footer>
     </div>
