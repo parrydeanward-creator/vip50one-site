@@ -223,6 +223,7 @@ export default function Home() {
       <footer className="sp-foot">
         <span>© VIP-50 LLC</span>
         <a href="/login">Sign in</a>
+        <a href="/privacy">Privacy</a>
         <span>Screens show an example agent; people, businesses and addresses are invented.</span>
       </footer>
     </div>

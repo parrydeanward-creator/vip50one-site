@@ -1174,3 +1174,12 @@ a.link { display: block; text-decoration: none; }
 .page-panel-classic:hover { color: #fff; border-color: rgba(245, 197, 66, 0.8); }
 @media (max-width: 899px) { .vr { grid-template-columns: 1fr; grid-template-rows: 1fr 45%; } .vr-drawer { border-left: 0; border-top: 1px solid var(--line); } .vr-bar { left: 12px; max-width: calc(100% - 24px); bottom: 80px; } }
 @media (prefers-reduced-motion: reduce) { .vr-disc { transition: none; } }
+
+/* Privacy page */
+.legal { max-width: 760px; margin: 0 auto; padding: 40px 20px 60px; color: var(--text-2); line-height: 1.65; font-size: 16px; }
+.legal h1 { font-family: var(--font-display), "Bebas Neue", sans-serif; font-weight: 400; font-size: 52px; color: #fff; margin: 0; letter-spacing: 0.02em; }
+.legal-date { color: var(--text-3); font-size: 14px; margin: 4px 0 26px; }
+.legal h2 { color: var(--gold-2); font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; margin: 34px 0 10px; }
+.legal ul { padding-left: 20px; }
+.legal li { margin: 6px 0; }
+.legal a { color: var(--gold-2); }
