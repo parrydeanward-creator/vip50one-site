@@ -53,10 +53,11 @@ export default function Privacy() {
         <p>If you choose to connect your Google account, ONE asks Google for read-only access to your Google Contacts. We use it for one thing: to match the people in your
           Google Contacts with your contacts in ONE and copy their photos across, so you see faces instead of initials.</p>
         <ul>
-          <li>We read names, email addresses, phone numbers and photos, and only to make that match.</li>
+          <li>What we read: your Google contacts&apos; email addresses, phone numbers and photos, and only when you press Add photos from Google, to find the matching person in ONE.</li>
+          <li>What we keep: only the photos we copy, saved in private storage on your matching contacts in ONE (and only for contacts that had no photo yet), plus the access key Google gives us. Email addresses and phone numbers read from Google are used for the match and not stored.</li>
           <li>We never change or delete anything in your Google account.</li>
-          <li>We do not sell Google data, use it for advertising, or let people read it.</li>
-          <li>You can disconnect Google at any time from My Profile, which removes our access. You can also remove it in your Google account settings.</li>
+          <li>We do not sell or share Google data, use it for advertising, or use it to train AI models. No one at VIP-50 reads it unless you ask us to for support, or the law requires it.</li>
+          <li>Disconnecting Google in My Profile cancels our access at Google and deletes the access key straight away. You can also remove ONE in your Google account settings. Photos already copied stay on your contacts until you delete them, or email us to have them removed.</li>
         </ul>
         <p>
           VIP-50 ONE&apos;s use and transfer of information received from Google APIs follows the{" "}
