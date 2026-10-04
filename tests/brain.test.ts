@@ -134,3 +134,15 @@ test("back is one step up the path at the top, not the way you came (Parry, 4 Oc
   const root = nav.start(ix.graph.rootId);
   assert.equal(nav.up(root, pathTo(ix, root.focusId)).focusId, ix.graph.rootId);
 });
+
+test("each in-Brain page has its own address", async () => {
+  const { pageAddress, pageFromAddress } = await import("../lib/moveMenu.ts");
+  assert.equal(pageAddress("/profile"), "/dashboard/profile");
+  assert.equal(pageAddress(null), "/dashboard");
+  assert.equal(pageFromAddress("/dashboard/profile"), "/profile");
+  assert.equal(pageFromAddress("/dashboard/contacts/vip"), "/contacts/vip");
+  assert.equal(pageFromAddress("/dashboard/profile/"), "/profile");
+  assert.equal(pageFromAddress("/dashboard"), null);
+  assert.equal(pageFromAddress("/dashboard/nope"), null);
+  assert.equal(pageFromAddress("/dashboard/dashboard"), null);
+});

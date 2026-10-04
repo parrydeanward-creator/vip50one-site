@@ -130,3 +130,15 @@ export const isMoveGroup = (id: string) => id.startsWith("move-g-");
  * opens it (Parry, 3 Oct). The live Touch Audit keeps its card; it has numbers.
  */
 export const isMovePage = (id: string) => id.startsWith("move-p-");
+
+/**
+ * Each page inside the Brain has its own address (Parry, 4 Oct: "it should
+ * just say vip50one.com/dashboard/profile"): /dashboard + the ONE MOVE path.
+ */
+export const pageAddress = (path: string | null) => (path ? `/dashboard${path}` : "/dashboard");
+
+/** The in-Brain page an address names, or null for the Brain itself. */
+export function pageFromAddress(pathname: string): string | null {
+  const m = /^\/dashboard(\/.+?)\/?$/.exec(pathname);
+  return m && IN_BRAIN.has(m[1]) ? m[1] : null;
+}
