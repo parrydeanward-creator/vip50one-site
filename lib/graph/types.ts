@@ -70,6 +70,8 @@ export interface GraphNode {
   decide?: { id: string; acceptLabel: string; askGci: boolean };
   // VIP-SUMMARY §3c: the ONE MOVE contact this item is about (contact card, Call / Text / Email).
   contactId?: string;
+  // A special day today (theirs or their family's): the orb glows gold (vip_summary.special_days).
+  celebrate?: boolean;
   // The MASTER task behind a ONE MOVE item ("go:task:<uuid>"): closed when its touch is logged.
   taskId?: string;
   // The Trackers group: today's daily tracker boxes (VIP-SUMMARY v1.6).
@@ -110,4 +112,6 @@ export interface BusinessGraph {
   changes?: ChangeNote[];
   dated?: DatedNote[];
   today?: import("../day.ts").DayItem[];
+  // ONE MOVE contact ids with a special day today, for every face view (gold glow).
+  celebrate?: string[];
 }

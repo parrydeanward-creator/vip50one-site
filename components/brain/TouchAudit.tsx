@@ -28,12 +28,15 @@ export default function TouchAudit({
   onChanged,
   onBack,
   onClassic,
+  celebrate = [],
 }: {
   onUnavailable: () => void;
   onChanged: () => void;
   onBack: () => void;
   onClassic: () => void;
+  celebrate?: string[]; // contact ids with a special day today (gold glow)
 }) {
+  const glowing = new Set(celebrate);
   const [roster, setRoster] = useState<VipRoster | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [touch, setTouch] = useState<string | null>(null);
@@ -277,7 +280,7 @@ export default function TouchAudit({
                   <div key={p.id} role="row" className={`tg-row${person === p.id ? " on" : ""}${r.monthDone === 5 ? " full" : ""}`}>
                     <div className="tg-who" role="rowheader">
                       <button className="tg-person" onClick={() => tapPerson(p)}>
-                        <span className={`tg-face${r.monthDone === 5 ? " full" : ""}`}>
+                        <span className={`tg-face${r.monthDone === 5 ? " full" : ""}${glowing.has(p.id) ? " sd" : ""}`}>
                           {pic ? <img src={pic} alt="" onError={() => setBroken((b) => new Set(b).add(p.id))} /> : initialsOf(p.name)}
                         </span>
                         <span className="tg-name">{p.name}</span>
@@ -383,6 +386,7 @@ export default function TouchAudit({
                   }}
                 >
                   <title>{p.name}</title>
+                  {glowing.has(f.id) && <circle cx={0} cy={0} r={f.r + 10} fill="none" stroke="#f5c542" strokeWidth={4} className="sd-glow" pointerEvents="none" />}
                   <circle cx={0} cy={0} r={f.r} fill="#121a36" stroke={picked ? "#fff" : GOLD} strokeWidth={picked ? 3 : 1.6} />
                   {pic ? (
                     <>

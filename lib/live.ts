@@ -1,3 +1,4 @@
+import { celebrateIds, withSpecialDays } from "./specialDays.ts";
 import { includes } from "./products.ts";
 import { MOVE_BOTTOM, MOVE_GROUPS, moveGroupId, moveMenuHref, movePageId } from "./moveMenu.ts";
 import type { DayItem, DayKind } from "./day.ts";
@@ -53,6 +54,7 @@ export interface SummaryEnvelope {
   today_boxes?: { key: string; label: string; done: boolean; points: number }[] | null;
   listings?: SummaryListing[];       // VIP-SUMMARY §3a (v1.2), Marquee
   open_houses?: SummaryOpenHouse[];  // VIP-SUMMARY §3a (v1.2), ONE Open
+  special_days?: unknown[];          // vip50-web-crm#65; read only through lib/specialDays.ts
 }
 
 export interface SummaryListing {
@@ -258,7 +260,9 @@ export interface LiveOptions {
   today: string; // YYYY-MM-DD, America/Denver
 }
 
-export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: OtherAnswers = {}): BusinessGraph {
+export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: OtherAnswers = {}): BusinessGraph {
+  const env = withSpecialDays(raw);
+  const glow = celebrateIds(env);
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
   const add = (n: Omit<GraphNode, "importance"> & { importance?: number }) => {
@@ -569,7 +573,8 @@ export function liveGraph(env: SummaryEnvelope | null, o: LiveOptions, others: O
     .filter(({ it: i }) => i.due && nodes.some((n) => n.id === nodeId(i)))
     .map(({ it: i, p }) => ({ id: nodeId(i), product: productOf(i, p), at: `${i.due}T18:00:00.000Z`, what: i.title }));
 
-  return { nodes, edges, rootId: "one", changes: [], dated, today };
+  for (const n of nodes) if (n.contactId && glow.has(n.contactId)) n.celebrate = true;
+  return { nodes, edges, rootId: "one", changes: [], dated, today, celebrate: [...glow] };
 }
 
 // "Birthday: Lena Brooks" -> the person "Lena Brooks", "Birthday · Tomorrow",
@@ -617,7 +622,8 @@ export function decideOf(it: SummaryItem): GraphNode["decide"] {
 }
 
 // The same answer in the shape the morning note and ranking use.
-export function liveData(env: SummaryEnvelope | null, agent: LiveAgent, today: string, reachable: boolean, others: OtherAnswers = {}): DashboardData {
+export function liveData(raw: SummaryEnvelope | null, agent: LiveAgent, today: string, reachable: boolean, others: OtherAnswers = {}): DashboardData {
+  const env = withSpecialDays(raw);
   const found = !!env?.found && reachable;
   const items = found ? (env!.items ?? []) : [];
   const KINDS: ItemKind[] = ["safety", "billing", "failed", "vip_touch", "birthday", "drop_by", "approval", "follow_up", "new_contacts", "reaction", "prep", "report", "other"];

@@ -1530,7 +1530,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </a>
           )}
 
-          {focus.stats && <Stats stats={focus.stats} color={hex(PRODUCT_COLOR[focus.product])} ticked={(l) => ticked.has(`${focus.id}|${l}`)} />}
+          {focus.stats?.length ? <Stats stats={focus.stats} color={hex(PRODUCT_COLOR[focus.product])} ticked={(l) => ticked.has(`${focus.id}|${l}`)} /> : null}
 
           {focus.pace && !focus.locked && (
             <div className="pace">
@@ -1667,6 +1667,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                   onChanged={() => router.refresh()}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
+                  celebrate={graph.celebrate}
                 />
               ) : vipNative && nativeKind === "hwc" ? (
                 <HotWarmCold
@@ -1674,6 +1675,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                   onChanged={() => router.refresh()}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
+                  celebrate={graph.celebrate}
                 />
               ) : vipNative && nativeKind === "profile" ? (
                 <MyProfile
@@ -1709,6 +1711,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                   onChanged={() => router.refresh()}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
+                  celebrate={graph.celebrate}
                 />
               ) : (
               <>
