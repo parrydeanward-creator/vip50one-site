@@ -24,7 +24,7 @@ import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib
 import { RANGE, dayLabel, inWindow, offsetLabel, windowTitle } from "@/lib/timeline.ts";
 import { clock, completedBy, duration, isEvening, planDay, recap } from "@/lib/day.ts";
 import { localDay } from "@/lib/morning.ts";
-import { googleReturn, withoutGoogle } from "@/lib/googleReturn.ts";
+import { returnNote, withoutNotes } from "@/lib/googleReturn.ts";
 import { IN_BRAIN, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_GROUPS, MOVE_TOP, inBrainPage, moveEmbedHref, moveGroupId, moveMenuHref, movePageId, type MovePage } from "@/lib/moveMenu.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
@@ -174,9 +174,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const sceneFocus = ask || tour || timeline || dayView || !ix.byId.has(state.focusId) ? graph.rootId : state.focusId;
   // Live signals: the latest arrival (a small card) and the numbers that just ticked.
   const [toast, setToast] = useState<Signal | null>(null);
-  // Back from Google's sign-in (ONE MOVE's callback lands here): open My
-  // Profile and say what happened, once.
-  const [googleNote, setGoogleNote] = useState<{ ok: boolean; what: string } | null>(null);
+  // Back from Google, Lofty or billing (ONE MOVE sends the agent here,
+  // vip50-web-crm#49): open My Profile and say what happened, once.
+  const [googleNote, setGoogleNote] = useState<{ ok: boolean; kicker: string; what: string } | null>(null);
   const [ticked, setTicked] = useState<Set<string>>(() => new Set());
   const askRef = useRef(ask);
   askRef.current = ask;
@@ -616,9 +616,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   }, [graph.rootId, fitNow]);
 
   useEffect(() => {
-    const g = googleReturn(window.location.search);
+    const g = returnNote(window.location.search);
     if (!g) return;
-    window.history.replaceState(null, "", withoutGoogle(window.location.href));
+    window.history.replaceState(null, "", withoutNotes(window.location.href));
     setGoogleNote(g);
     goTo(movePageId("/profile"));
     const t = setTimeout(() => setGoogleNote(null), 12000);
@@ -1208,7 +1208,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               <div className="signal-card pop" key="google-note">
                 <i style={{ background: googleNote.ok ? "#3fbf7f" : "#e4574a" }} aria-hidden="true" />
                 <div>
-                  <p className="signal-kicker" style={{ color: hex(PRODUCT_COLOR.move) }}>ONE MOVE · Google</p>
+                  <p className="signal-kicker" style={{ color: hex(PRODUCT_COLOR.move) }}>{googleNote.kicker}</p>
                   <p className="signal-what">{googleNote.what}</p>
                 </div>
                 <button className="signal-x" onClick={() => setGoogleNote(null)} aria-label="Dismiss">
