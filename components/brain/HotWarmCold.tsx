@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { dialable } from "@/lib/contact.ts";
-import { CLASSES, CLASS_OF, hwcUrl, moveQuestion, noteDay, phoneLine, readHwc, reminderLine, shortDay, todayIn, trend, warmth, withMoved, type Hwc, type HwcClass } from "@/lib/hwc.ts";
+import { CLASSES, CLASS_OF, addBody, addProblem, blankPerson, hwcUrl, readMatches, type NewPerson, moveQuestion, noteDay, phoneLine, readHwc, reminderLine, shortDay, todayIn, trend, warmth, withMoved, type Hwc, type HwcClass } from "@/lib/hwc.ts";
 import { faceUrl, initialsOf, ringRows } from "@/lib/vips.ts";
 import PulseMark from "./PulseMark.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
@@ -27,6 +27,7 @@ const SEATS: Record<HwcClass, { x: number; y: number }> = {
 };
 
 const NOT_YET = "This arrives with ONE MOVE's next update. Nothing was changed; Classic has notes for now.";
+const NOT_YET_ADD = "Adding here arrives with ONE MOVE's next update. Nothing was saved; Classic can add for now.";
 
 export default function HotWarmCold({
   onUnavailable,
@@ -52,6 +53,9 @@ export default function HotWarmCold({
   const [asking2, setAsking2] = useState(false);
   const [remindOn, setRemindOn] = useState("");
   const [flare, setFlare] = useState(false);
+  const [adding, setAdding] = useState<NewPerson | null>(null);
+  const [matches, setMatches] = useState<{ id: string; name: string; phone: string | null }[]>([]);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const cam = useSvgCamera(SIZE);
 
   const load = useCallback(async () => {
@@ -96,7 +100,27 @@ export default function HotWarmCold({
     setDraft("");
     setAsk(null);
     setRemindOn("");
+    setConfirmRemove(false);
   }, [pick]);
+  // contact search for "Add a person" (as Classic's: the agent's own ONE MOVE contacts)
+  const addName = adding && !adding.contactId ? adding.name.trim() : "";
+  useEffect(() => {
+    if (addName.length < 2) return setMatches([]);
+    let gone = false;
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`${hwcUrl}/contacts?q=${encodeURIComponent(addName)}`, { credentials: "include", cache: "no-store" });
+        const list = r.ok ? readMatches(await r.json().catch(() => null)) : [];
+        if (!gone) setMatches(list);
+      } catch {
+        if (!gone) setMatches([]);
+      }
+    }, 250);
+    return () => {
+      gone = true;
+      clearTimeout(t);
+    };
+  }, [addName]);
   const who = pick ? byId.get(pick) : undefined;
   const first = who ? who.name.split(/\s+/)[0] : "";
 
@@ -193,7 +217,47 @@ export default function HotWarmCold({
     }
   };
 
+  const addPerson = async () => {
+    if (!adding || busy) return;
+    const problem = addProblem(adding);
+    if (problem) return setNote(problem);
+    setBusy(true);
+    setNote(null);
+    try {
+      let r: Response;
+      try {
+        r = await fetch(`${hwcUrl}/add`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(addBody(adding)) });
+      } catch {
+        throw new Error(NOT_YET_ADD);
+      }
+      const j = await r.json().catch(() => null);
+      if ((r.status === 404 || r.status === 405) && !(j as { error?: string } | null)?.error) throw new Error(NOT_YET_ADD);
+      const next = r.ok ? readHwc(j) : null;
+      if (!next) throw new Error((j as { error?: string } | null)?.error || "That didn't save. Nothing was changed.");
+      setData(next);
+      const id = (j as { added_id?: unknown }).added_id;
+      setNote(`${adding.name.trim()} is in ${CLASS_OF[adding.cls].label}.`);
+      setAdding(null);
+      setOnly(null);
+      setPick(typeof id === "string" && next.people.some((p) => p.id === id) ? id : null);
+      onChanged();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "That didn't save. Nothing was changed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = async () => {
+    if (!who) return;
+    const name = who.name;
+    if (await act("remove", { id: who.id }, `${name} is out of Hot/Warm/Cold.`)) {
+      setPick(null);
+      setConfirmRemove(false);
+    }
+  };
+
   const back = () => {
+    if (adding) return setAdding(null);
     if (asking) return setAsking(null);
     if (pick) return setPick(null);
     if (only) return setOnly(null);
@@ -360,7 +424,57 @@ export default function HotWarmCold({
       </div>
 
       <aside className="drawer vr-drawer" aria-label="Hot, Warm and Cold">
-        {who ? (
+        {adding ? (
+          <form
+            className="rx-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              addPerson();
+            }}
+          >
+            <div className="d-head">
+              <span className="chip" style={{ color: CLASS_OF[adding.cls].color, borderColor: CLASS_OF[adding.cls].color }}>New person</span>
+            </div>
+            <h1 className="d-title">Add a person</h1>
+            <p className="d-sum rx-small">Pulse starts watching them today and reminds you when they need a touch.</p>
+            <label className="pf-field">
+              <span>Name</span>
+              <input value={adding.name} maxLength={120} autoFocus autoComplete="off" onChange={(e) => setAdding({ ...adding, name: e.target.value, contactId: null })} />
+              {adding.contactId ? <small>Linked to your ONE MOVE contact.</small> : <small>Start typing to find someone already in your contacts.</small>}
+            </label>
+            {matches.length > 0 && !adding.contactId && (
+              <ul className="ta-list hw-matches">
+                {matches.map((m) => (
+                  <li key={m.id}>
+                    <button type="button" className="ta-name" onClick={() => { setAdding({ ...adding, name: m.name, phone: m.phone ?? adding.phone, contactId: m.id }); setMatches([]); }}>{m.name}</button>
+                    <span>{phoneLine(m.phone) ?? ""}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <label className="pf-field">
+              <span>Phone</span>
+              <input type="tel" value={adding.phone} maxLength={40} autoComplete="off" onChange={(e) => setAdding({ ...adding, phone: e.target.value })} />
+            </label>
+            <div className="pf-field">
+              <span>How warm are they?</span>
+              <div className="ta-log">
+                {CLASSES.map((c) => (
+                  <button key={c.key} type="button" className={`chip-btn${adding.cls === c.key ? " primary" : ""}`} style={adding.cls === c.key ? undefined : { color: c.color, borderColor: c.color }} aria-pressed={adding.cls === c.key} onClick={() => setAdding({ ...adding, cls: c.key })}>{c.label}</button>
+                ))}
+              </div>
+            </div>
+            <label className="pf-field">
+              <span>First note (optional)</span>
+              <textarea rows={3} maxLength={2000} placeholder="e.g. Wants to list in spring. Call after the 15th." value={adding.note} onChange={(e) => setAdding({ ...adding, note: e.target.value })} />
+              <small>Pulse reads it for a follow-up date.</small>
+            </label>
+            <div className="pf-actions">
+              <button type="submit" className="chip-btn primary" disabled={busy}>{busy ? "Adding…" : `Add to ${CLASS_OF[adding.cls].label}`}</button>
+              <button type="button" className="chip-btn" onClick={() => setAdding(null)}>Cancel</button>
+            </div>
+          </form>
+        ) : who ? (
           <>
             <div className="d-head">
               <span className="chip" style={{ color: CLASS_OF[who.cls].color, borderColor: CLASS_OF[who.cls].color }}>{CLASS_OF[who.cls].label}</span>
@@ -459,6 +573,17 @@ export default function HotWarmCold({
                 ))}
               </div>
             )}
+            <div className="rx-danger">
+              {confirmRemove ? (
+                <>
+                  <span>{`Remove ${who.name} and their notes from Hot/Warm/Cold? Your ONE MOVE contact stays.`}</span>
+                  <button className="chip-btn rx-del" disabled={busy} onClick={remove}>Yes, remove</button>
+                  <button className="chip-btn" onClick={() => setConfirmRemove(false)}>Keep</button>
+                </>
+              ) : (
+                <button className="vr-classic" onClick={() => setConfirmRemove(true)}>Remove from Hot/Warm/Cold</button>
+              )}
+            </div>
           </>
         ) : (
           <>
@@ -469,6 +594,9 @@ export default function HotWarmCold({
             <p className="d-sub">
               {CLASSES.map((c) => `${data.people.filter((p) => p.cls === c.key).length} ${c.label.toLowerCase()}`).join(" · ")}
             </p>
+            <div className="ta-log">
+              <button className="chip-btn primary" onClick={() => { setNote(null); setPick(null); setAdding(blankPerson(only ?? "hot")); }}>+ Add a person</button>
+            </div>
             <p className="d-sum">{`Today: ${CLASSES.filter((c) => data.today[c.key]).map((c) => c.label).join(", ") || "no"} box${CLASSES.filter((c) => data.today[c.key]).length === 1 ? "" : "es"} ticked. Call or text someone to tick theirs.`}</p>
             {!only && (
               <section className="hw-pulse">
@@ -508,7 +636,6 @@ export default function HotWarmCold({
                 </section>
               );
             })}
-            <button className="vr-classic" onClick={onClassic}>Add or remove people on the Classic page</button>
           </>
         )}
       </aside>

@@ -104,3 +104,22 @@ test("notes come through newest first, capped, and bad ones dropped", () => {
   assert.equal(p.notes.length, 50);
   assert.equal(p.notes[0].note, "note 0");
 });
+
+// §3h.9 (v1.17): add and remove people from the Brain.
+import { addBody, addProblem, blankPerson, readMatches } from "../lib/hwc.ts";
+
+test("adding a person: plain-word problems and the body sent", () => {
+  const p = blankPerson("warm");
+  assert.equal(addProblem(p), "Give the person a name.");
+  assert.equal(addProblem({ ...p, name: "Sarah", phone: "555" }), "That phone number looks too short.");
+  assert.equal(addProblem({ ...p, name: "Sarah" }), null); // phone optional, as Classic
+  assert.deepEqual(addBody({ ...p, name: " Sarah Mitchell ", phone: " (801) 555-1234 " }), { name: "Sarah Mitchell", phone: "(801) 555-1234", class: "warm" });
+  assert.deepEqual(addBody({ ...p, name: "Sarah", contactId: "c1", note: " Spring listing " }), { name: "Sarah", phone: "", class: "warm", contact_id: "c1", note: "Spring listing" });
+});
+
+test("contact matches: well-formed only, at most 8", () => {
+  const m = readMatches({ matches: [...Array.from({ length: 10 }, (_, i) => ({ id: `c${i}`, name: `N ${i}`, phone: null })), { id: 3 }] });
+  assert.equal(m.length, 8);
+  assert.deepEqual(m[0], { id: "c0", name: "N 0", phone: null });
+  assert.deepEqual(readMatches(null), []);
+});

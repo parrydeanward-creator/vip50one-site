@@ -1418,3 +1418,4 @@ a.link { display: block; text-decoration: none; }
 .hw-note-x { border: 0; background: none; color: var(--text-2); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
 .hw-note-x:hover { color: #ff9a9a; }
 @media (prefers-reduced-motion: reduce) { .hw-breath, .hw-sparks circle, .hw-shimmer, .hw-frost, .hw-flare, .hw-beat, .hw-trail circle { animation: none; } .hw-sparks { display: none; } }
+.hw-matches { margin-top: -4px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.03); }
