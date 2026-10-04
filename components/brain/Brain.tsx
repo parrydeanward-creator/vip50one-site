@@ -46,10 +46,21 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const hello = `${greeting()}, ${agent.firstName}.`;
   // The graph changes while the page is open (live signals tick its numbers).
   const [graph, setGraph] = useState(initialGraph);
+  const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server (router.refresh) replace the graph. Without
   // this, a refresh after logging a call changed nothing on screen.
   useEffect(() => {
-    if (live) setGraph(initialGraph);
+    if (!live) return;
+    // Swap the graph and, in the same render, move off an item that is gone
+    // (a follow-up just done). Rendering the new graph with the old focus
+    // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
+    const nix = indexGraph(initialGraph);
+    setGraph(initialGraph);
+    setState((s) => {
+      if (nix.byId.has(s.focusId)) return s;
+      const keep = [...lastPath.current].reverse().find((id) => nix.byId.has(id)) ?? initialGraph.rootId;
+      return nav.go(s, keep);
+    });
   }, [initialGraph, live]);
   // ONE's morning note, written by the AI when it is available (rules otherwise).
   const [note, setNote] = useState<{ note: string; source: "ai" | "rules" } | null>(null);
@@ -157,7 +168,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const day = useMemo(() => recap(slots), [slots]);
   const dayIds = useMemo(() => [...new Set(slots.map((x) => x.nodeId))], [slots]);
   const dayView = dayMap && !tour && !ask && !timeline;
-  const sceneFocus = ask || tour || timeline || dayView ? graph.rootId : state.focusId;
+  const sceneFocus = ask || tour || timeline || dayView || !ix.byId.has(state.focusId) ? graph.rootId : state.focusId;
   // Live signals: the latest arrival (a small card) and the numbers that just ticked.
   const [toast, setToast] = useState<Signal | null>(null);
   const [ticked, setTicked] = useState<Set<string>>(() => new Set());
@@ -166,7 +177,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
 
   // After a refresh the focused item may be gone (a follow-up just done): show
   // the nearest thing still there; the effect below moves the map to it.
-  const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   const focus =
     ix.byId.get(state.focusId) ??
     [...lastPath.current].reverse().map((id) => ix.byId.get(id)).find((n) => !!n) ??
@@ -182,13 +192,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             ? answerSet(ix, datedIds)
             : dayView
               ? answerSet(ix, dayIds)
-              : visibleSet(ix, state.focusId, phone ? PHONE_BUDGET : DESKTOP_BUDGET),
-    [ix, state.focusId, phone, ask, askIds, tour, timeline, datedIds, dayView, dayIds],
+              : visibleSet(ix, focus.id, phone ? PHONE_BUDGET : DESKTOP_BUDGET),
+    [ix, focus.id, phone, ask, askIds, tour, timeline, datedIds, dayView, dayIds],
   );
   const placed = useMemo(() => layout(vs), [vs]);
   // ONE MOVE focused: the rail is ONE MOVE's main menu, as in Classic (Parry, 3 Oct).
   // Its live items stay in the panel on the right.
-  const moveMenu = state.focusId === "move" && !focus.locked && !ask && !tour && !timeline && !dayView;
+  const moveMenu = focus.id === "move" && !focus.locked && !ask && !tour && !timeline && !dayView;
   // The rail: the focused node's children as floating buttons on the left.
   const railNodes = useMemo(
     () =>
@@ -202,8 +212,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             ? datedIds.map((id) => ix.byId.get(id)!).filter(Boolean)
             : dayView
               ? dayIds.map((id) => ix.byId.get(id)!).filter(Boolean)
-              : childrenOf(ix, state.focusId).slice(0, 9),
-    [ix, state.focusId, ask, askIds, tour, timeline, datedIds, dayView, dayIds, moveMenu],
+              : childrenOf(ix, focus.id).slice(0, 9),
+    [ix, focus.id, ask, askIds, tour, timeline, datedIds, dayView, dayIds, moveMenu],
   );
   const railCount = railNodes.length;
   const railRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -710,10 +720,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   };
 
   // ---- view ---------------------------------------------------------------
-  const path = pathTo(ix, state.focusId);
-  const kids = childrenOf(ix, state.focusId);
-  const related = (ix.links.get(state.focusId) ?? [])
-    .map((e) => ix.byId.get(e.source === state.focusId ? e.target : e.source))
+  const path = pathTo(ix, focus.id);
+  const kids = childrenOf(ix, focus.id);
+  const related = (ix.links.get(focus.id) ?? [])
+    .map((e) => ix.byId.get(e.source === focus.id ? e.target : e.source))
     .filter((n): n is GraphNode => !!n);
   const people = kids.filter((k) => k.type === "person").map((k) => k.id);
   const recTargets = (focus.recommendations ?? []).map((r) => r.targetId).filter((id): id is string => !!id && ix.byId.has(id));
@@ -1050,8 +1060,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                   </li>
                 ))}
               </ul>
-              {!ask && !tour && (vs.hiddenChildren > 0 || childrenOf(ix, state.focusId).length > railCount) ? (
-                <p className="rail-more">+{childrenOf(ix, state.focusId).length - railCount} more in the panel</p>
+              {!ask && !tour && (vs.hiddenChildren > 0 || childrenOf(ix, focus.id).length > railCount) ? (
+                <p className="rail-more">+{childrenOf(ix, focus.id).length - railCount} more in the panel</p>
               ) : null}
             </nav>
           )}
@@ -1521,7 +1531,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
           )}
 
           {kids.length > 0 && !isMoveGroup(focus.id) && (
-            <div className={`d-list inside ${railCount > childrenOf(ix, state.focusId).length - 1 && !moveQuiet ? "" : "keep"}`}>
+            <div className={`d-list inside ${railCount > childrenOf(ix, focus.id).length - 1 && !moveQuiet ? "" : "keep"}`}>
               <h2>{focus.type === "core" ? "Your products" : "Inside"}</h2>
               <ul>
                 {kids.map((k) => (
