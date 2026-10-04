@@ -1202,3 +1202,18 @@ a.link { display: block; text-decoration: none; }
 .legal ul { padding-left: 20px; }
 .legal li { margin: 6px 0; }
 .legal a { color: var(--gold-2); }
+
+/* Touch Audit in ONE Brain (VIP-SUMMARY §3f) */
+.ta-orb { cursor: pointer; outline: none; transition: opacity 160ms; }
+.ta-orb.dim { opacity: 0.45; }
+.ta-orb:hover circle, .ta-orb:focus-visible circle { filter: brightness(1.2); }
+.ta-count { fill: #fff; font-weight: 700; paint-order: stroke; stroke: rgba(10, 8, 2, 0.6); stroke-width: 3px; pointer-events: none; }
+.ta-label { fill: #fff3cc; letter-spacing: 0.1em; font-weight: 600; paint-order: stroke; stroke: rgba(10, 8, 2, 0.6); stroke-width: 3px; pointer-events: none; }
+.ta-face { cursor: pointer; outline: none; }
+.ta-face:hover circle, .ta-face:focus-visible circle { stroke: #fff; }
+.ta-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+.ta-list li { display: flex; justify-content: space-between; align-items: center; color: var(--text-2); font-size: 14px; }
+.ta-name { padding: 4px 0; border: 0; background: none; color: var(--text); font: inherit; cursor: pointer; text-align: left; }
+.ta-name:hover { color: var(--gold-2); }
+.ta-log { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0 16px; }
+.ta-log .d-sum { width: 100%; margin: 0; }
