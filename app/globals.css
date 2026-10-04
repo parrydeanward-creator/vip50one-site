@@ -1109,3 +1109,51 @@ a.link { display: block; text-decoration: none; }
 .gp-boxes li i { width: 16px; height: 16px; flex: none; display: grid; place-items: center; border-radius: 4px; border: 1px solid var(--line); font-style: normal; font-size: 11px; color: #0b0b0b; }
 .gp-boxes li.on { color: var(--text-3); }
 .gp-boxes li.on i { background: var(--gold-2); border-color: var(--gold-2); }
+
+/* VIP rings (VIP-SUMMARY §3d) */
+.vr { position: absolute; inset: 0; display: flex; background: radial-gradient(circle at 40% 50%, #0d1530 0%, #050816 70%); }
+.vr-stage { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.vr-line { margin: 12px 18px 0; color: var(--text-2); font-size: 13px; }
+.vr-svg { flex: 1; min-height: 0; width: 100%; touch-action: none; user-select: none; }
+.vr-track { fill: none; stroke: rgba(212, 175, 55, 0.14); stroke-width: 1.5; stroke-dasharray: 3 7; }
+.vr-track-out { stroke: rgba(160, 175, 210, 0.12); }
+.vr-core { fill: rgba(14, 20, 42, 0.9); stroke: rgba(245, 197, 66, 0.55); stroke-width: 2; }
+.vr-core-big { fill: #fff; font-size: 40px; font-weight: 700; }
+.vr-core-small { fill: var(--gold-2); font-size: 15px; letter-spacing: 0.12em; }
+.vr-ring-label { fill: var(--text-2); font-size: 14px; letter-spacing: 0.14em; opacity: 0.7; }
+.vr-face { cursor: grab; outline: none; }
+.vr-face:active { cursor: grabbing; }
+.vr-halo { fill: transparent; stroke: none; }
+.vr-disc { fill: #121a36; stroke: rgba(212, 175, 55, 0.4); stroke-width: 1.5; transition: stroke 120ms; }
+.vr-init { fill: #f3e2a5; font-weight: 600; pointer-events: none; }
+.vr-seg { fill: none; stroke: rgba(160, 175, 210, 0.22); stroke-width: 3.2; stroke-linecap: round; }
+.vr-seg-on { stroke: var(--gold-2); }
+.vr-overdue .vr-halo { fill: rgba(230, 60, 60, 0.16); stroke: rgba(240, 80, 80, 0.75); stroke-width: 1.5; }
+.vr-overdue .vr-disc { stroke: rgba(240, 80, 80, 0.9); }
+.vr-soon .vr-disc { stroke: rgba(240, 170, 60, 0.8); }
+.vr-face:hover .vr-disc, .vr-face:focus-visible .vr-disc { stroke: #fff; }
+.vr-picked .vr-disc { fill: #2a2410; stroke: var(--gold-2); stroke-width: 3; }
+.vr-drop .vr-disc { stroke: #7ef0b0; stroke-width: 3; }
+.vr-lifted { opacity: 0.35; }
+.vr-ghost circle { fill: rgba(42, 36, 16, 0.92); stroke: var(--gold-2); stroke-width: 2; }
+.vr-ghost text { fill: #fff; font-weight: 600; font-size: 16px; }
+.vr-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 52px; padding: 8px 18px 14px; font-size: 14px; }
+.vr-hint { color: var(--text-2); font-size: 13px; }
+.vr-btn { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.vr-btn:hover { border-color: rgba(245, 197, 66, 0.8); }
+.vr-btn:disabled { opacity: 0.5; cursor: default; }
+.vr-gold { background: var(--gold-2); color: #14100a; border-color: var(--gold-2); font-weight: 600; }
+.vr-side { width: 340px; flex-shrink: 0; overflow-y: auto; border-left: 1px solid var(--line); background: rgba(10, 15, 32, 0.85); padding: 16px; }
+.vr-side-name { margin: 0 0 4px; font-size: 20px; font-weight: 600; color: #fff; }
+.vr-side-tier { margin: 0 0 8px; color: var(--gold-2); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+.vr-side-moves { margin-top: 14px; }
+.vr-side-empty p { color: var(--text-2); font-size: 14px; margin-top: 0; }
+.vr-key { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; font-size: 13px; color: var(--text-2); }
+.vr-k { display: inline-block; width: 18px; height: 4px; border-radius: 2px; background: rgba(160, 175, 210, 0.3); margin-right: 8px; vertical-align: middle; }
+.vr-k-on { background: var(--gold-2); }
+.vr-k-red { height: 12px; width: 12px; border-radius: 50%; background: rgba(230, 60, 60, 0.2); border: 1.5px solid rgba(240, 80, 80, 0.85); }
+.vr-msg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-2); }
+.page-panel-classic { margin-right: 4px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer; }
+.page-panel-classic:hover { color: #fff; border-color: rgba(245, 197, 66, 0.8); }
+@media (max-width: 899px) { .vr { flex-direction: column; } .vr-side { width: auto; max-height: 45%; border-left: 0; border-top: 1px solid var(--line); } }
+@media (prefers-reduced-motion: reduce) { .vr-disc { transition: none; } }
