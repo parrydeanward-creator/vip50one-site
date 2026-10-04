@@ -49,6 +49,20 @@ export function readRoster(raw: unknown): VipRoster | null {
 }
 
 /**
+ * A face picture the Brain may draw: only ONE MOVE's signed face links
+ * (VIP-SUMMARY §3d v1.8). Anything else is ignored and initials show.
+ */
+export function faceUrl(photo: string | null | undefined): string | null {
+  if (!photo) return null;
+  try {
+    const u = new URL(photo);
+    return u.protocol === "https:" && u.origin === MOVE_URL && u.pathname.startsWith("/api/face/") ? u.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * "Lycia Ward" -> "LW"; one name -> its first two letters. Only letters and
  * digits count, so a name that starts with an emoji or a symbol still gives
  * clean initials (seen live, 4 Oct).

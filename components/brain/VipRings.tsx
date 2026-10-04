@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ContactPanel from "./ContactPanel.tsx";
 import {
   canPromote,
+  faceUrl,
   initialsOf,
   lastTouchLine,
   readRoster,
@@ -65,6 +66,8 @@ export default function VipRings({
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  // Faces that failed to load fall back to initials (never a broken picture).
+  const [broken, setBroken] = useState<Set<string>>(() => new Set());
   const [drag, setDrag] = useState<{ id: string; x: number; y: number; moved: boolean } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   // The view moves like the Brain: two-finger swipe or pinch to zoom, drag
@@ -274,6 +277,7 @@ export default function VipRings({
     const lifted = drag?.moved && drag.id === s.id;
     const big = ring === "vip50";
     const labels = (big ? roster.vip50.length : roster.vip100.length) <= 30;
+    const pic = broken.has(s.id) ? null : faceUrl(p.photo);
     const dot = urg === "overdue" ? RED : urg === "soon" ? AMBER : full ? GREEN : null;
     const dr = Math.max(4, s.r * 0.2);
     const da = -Math.PI / 4;
@@ -301,9 +305,30 @@ export default function VipRings({
         <circle className="vr-disc" cx={s.x} cy={s.y} r={s.r} fill={`url(#vr-body-${big ? "gold" : "teal"})`} stroke={big ? GOLD : TEAL} strokeWidth={Math.max(1.6, s.r * 0.07)} />
         <circle cx={s.x} cy={s.y} r={s.r - Math.max(1.6, s.r * 0.07)} fill="none" stroke="#fff" strokeOpacity={0.16} strokeWidth={1} />
         <ellipse cx={s.x} cy={s.y - s.r * 0.5} rx={s.r * 0.55} ry={s.r * 0.22} fill="#fff" fillOpacity={0.07} />
+        {pic && (
+          <>
+            <clipPath id={`vr-clip-${s.id}`}>
+              <circle cx={s.x} cy={s.y} r={s.r - Math.max(1.6, s.r * 0.07)} />
+            </clipPath>
+            <image
+              href={pic}
+              x={s.x - s.r}
+              y={s.y - s.r}
+              width={s.r * 2}
+              height={s.r * 2}
+              preserveAspectRatio="xMidYMid slice"
+              clipPath={`url(#vr-clip-${s.id})`}
+              pointerEvents="none"
+              onError={() => setBroken((b) => new Set(b).add(s.id))}
+            />
+            <circle cx={s.x} cy={s.y} r={s.r} fill="none" stroke={big ? GOLD : TEAL} strokeWidth={Math.max(1.6, s.r * 0.07)} pointerEvents="none" />
+          </>
+        )}
+        {!pic && (
         <text className={big ? "vr-init vr-init-50" : "vr-init vr-init-100"} x={s.x} y={s.y} fontSize={Math.max(9, s.r * (big ? 0.6 : 0.62))} dy="0.35em" textAnchor="middle">
           {initialsOf(p.name)}
         </text>
+        )}
         {dot && <circle cx={s.x + s.r * Math.cos(da)} cy={s.y + s.r * Math.sin(da)} r={dr} fill={dot} stroke="#070b18" strokeWidth={1.5} />}
         {labels && (
           <text

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  faceUrl,
   shortName,
   canPromote,
   initialsOf,
@@ -98,4 +99,14 @@ test("the name under an orb is the first name, without emoji", () => {
   assert.equal(shortName({ name: "\u{1F3E1} Wendy Walker", first_name: "\u{1F3E1}" }), "Wendy");
   assert.equal(shortName({ name: "\u{1F3E1}" }), "?");
   assert.equal(shortName({ name: "Sam Lee", first_name: "Sammy" }), "Sammy");
+});
+
+test("faces: only ONE MOVE's signed face links are drawn", () => {
+  const ok = "https://move.vip50one.com/api/face/8a1b2c3d-4e5f-4a6b-8c7d-000000000001?e=1791100000&s=" + "a".repeat(64);
+  assert.equal(faceUrl(ok), ok);
+  assert.equal(faceUrl(null), null);
+  assert.equal(faceUrl("http://move.vip50one.com/api/face/x"), null);
+  assert.equal(faceUrl("https://evil.example/api/face/x"), null);
+  assert.equal(faceUrl("https://move.vip50one.com/contacts?id=x"), null);
+  assert.equal(faceUrl("javascript:alert(1)"), null);
 });
