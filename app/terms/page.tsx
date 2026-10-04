@@ -7,7 +7,7 @@ export const metadata = {
   description: "The terms for using VIP-50 ONE: packages, trial, billing, cancelling, your data and acceptable use.",
 };
 
-const CONTACT_EMAIL = "privacy@vip50one.com"; // the same address as the privacy page; Parry confirms
+const CONTACT_EMAIL = "info@VIP-50.com"; // Parry, 4 Oct
 const UPDATED = "4 October 2026";
 
 export default function Terms() {
@@ -55,6 +55,17 @@ export default function Terms() {
           export until then; after that you can ask us to delete it (see the privacy page).
         </p>
 
+        <h2>Refunds</h2>
+        <ul>
+          <li>Monthly plans: no refunds for part of a month. When you cancel, your plan runs to the end of the month you have paid for. The 7-day free trial is there so you can try ONE first.</li>
+          <li>Annual plans: a full refund if you ask within 30 days of your first annual payment. After that there is no refund, and your plan runs to the end of the year you paid for.</li>
+          <li>Elite: a full refund if you ask within 7 days of paying and no coaching session has taken place yet. After that the Elite fee is not refundable, because the coaching time has been set aside for you.</li>
+          <li>Billing mistakes on our side, such as a double charge or a charge after you cancelled, are always refunded in full.</li>
+        </ul>
+        <p>
+          To ask for a refund, email <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. Refunds go back to the card you paid with.
+        </p>
+
         <h2>Your data</h2>
         <p>
           Your contacts, notes, listings and everything else you put into ONE are yours. You give us permission to store and process them only to run ONE for you, as the{" "}
@@ -90,6 +101,12 @@ export default function Terms() {
         <p>
           ONE is provided as it is. As far as the law allows, VIP-50 LLC is not liable for lost business, lost profits or indirect losses, and our total liability to you is
           limited to what you paid us in the 12 months before the claim.
+        </p>
+
+        <h2>Utah law</h2>
+        <p>
+          VIP-50 LLC is a Utah company. These terms are governed by the laws of the State of Utah, and any dispute is settled in the state or federal courts located in
+          Utah, unless the law where you live gives you the right to bring it there.
         </p>
 
         <h2>Changes to these terms</h2>
