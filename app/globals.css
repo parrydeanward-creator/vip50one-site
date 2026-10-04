@@ -1419,3 +1419,5 @@ a.link { display: block; text-decoration: none; }
 .hw-note-x:hover { color: #ff9a9a; }
 @media (prefers-reduced-motion: reduce) { .hw-breath, .hw-sparks circle, .hw-shimmer, .hw-frost, .hw-flare, .hw-beat, .hw-trail circle { animation: none; } .hw-sparks { display: none; } }
 .hw-matches { margin-top: -4px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.03); }
+.rx-n-sm { fill: #fff; font-size: 18px; font-weight: 700; pointer-events: none; }
+.rx-back { fill: rgba(220, 226, 240, 0.6); font-size: 12px; letter-spacing: 0.08em; pointer-events: none; }

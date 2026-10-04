@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { dialable, mailable } from "@/lib/contact.ts";
 import { DRAFT_FIELDS, FAMILIES, FAMILY_COLOR, FAN_MAX, bizInitials, draftOf, draftProblem, familyLabel, fanOrder, groupSeats, placedLine, readRolodex, recommendedLine, rolodexUrl, saveBody, withShared, type CommunityBiz, type Draft, type FamilyKey, type MineBiz, type Rolodex as RolodexData } from "@/lib/rolodex.ts";
+import { ringRows } from "@/lib/vips.ts";
 import { useSvgCamera } from "./useSvgCamera.ts";
 
 // VIP-SUMMARY §3i: the Business Rolodex in ONE Brain, with its Community.
@@ -107,7 +108,9 @@ export default function Rolodex({
     setPick(null);
     setEdit(null);
     setNote(null);
+    setQ("");
     setGroup(group === k ? null : k);
+    cam.reset();
   };
   const back = () => {
     if (edit) return setEdit(null);
@@ -191,6 +194,49 @@ export default function Rolodex({
     post("add", { key: b.key }, `${b.name} is in your Rolodex now.`);
   };
 
+  const bizOrb = (b: Biz, s: { x: number; y: number; r: number }, col: string, fx: number, fy: number, cut = 16) => {
+    const id = idOf(b);
+    const on = pick === id;
+    const count = b.kind === "community" ? b.recommended_by.length : 0;
+    return (
+      <g
+        key={id}
+        data-tap
+        className="rx-biz"
+        role="button"
+        tabIndex={0}
+        aria-pressed={on}
+        aria-label={`${b.name}${b.offer ? ", has an offer for clients" : ""}${b.kind === "mine" && b.shared ? ", shared" : ""}${count ? `, recommended by ${count}` : ""}`}
+        onClick={() => {
+          setNote(null);
+          setEdit(null);
+          setPick(on ? null : id);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setEdit(null);
+            setPick(on ? null : id);
+          }
+        }}
+      >
+        <title>{b.name}</title>
+        <line x1={fx} y1={fy} x2={s.x} y2={s.y} stroke={col} strokeOpacity={0.14} pointerEvents="none" />
+        {b.offer && <circle cx={s.x} cy={s.y} r={s.r + 6} fill="none" stroke={GOLD} strokeWidth={2} strokeDasharray="2 3" />}
+        <circle cx={s.x} cy={s.y} r={s.r} fill="url(#rx-glass)" stroke={on ? "#fff" : col} strokeWidth={on ? 3 : 1.6} />
+        <text x={s.x} y={s.y} dy="0.35em" textAnchor="middle" style={{ fill: col, fontSize: s.r * 0.62, fontWeight: 700 }} pointerEvents="none">{bizInitials(b.name)}</text>
+        <text className={`rx-name${on ? " on" : ""}`} x={s.x} y={s.y + s.r + 14} textAnchor="middle">{b.name.length > cut ? `${b.name.slice(0, cut - 1)}…` : b.name}</text>
+        {b.kind === "mine" && b.shared && <circle cx={s.x + s.r * 0.75} cy={s.y - s.r * 0.75} r={6} fill={TEAL} stroke="#070b18" strokeWidth={2} />}
+        {count > 1 && (
+          <g pointerEvents="none">
+            <circle cx={s.x + s.r * 0.75} cy={s.y - s.r * 0.75} r={9} fill={TEAL} stroke="#070b18" strokeWidth={2} />
+            <text x={s.x + s.r * 0.75} y={s.y - s.r * 0.75} dy="0.35em" textAnchor="middle" className="rx-count">{count}</text>
+          </g>
+        )}
+      </g>
+    );
+  };
+
   if (err) {
     return (
       <div className="vr-msg" role="alert">
@@ -239,6 +285,8 @@ export default function Rolodex({
             </radialGradient>
           </defs>
 
+          {!group && (
+            <>
           <circle className="vr-track" cx={C} cy={C} r={FR} />
           {layout.fams.map((f) => {
             const n = list.filter((b) => b.family === f.key).length;
@@ -340,6 +388,47 @@ export default function Rolodex({
           <circle cx={C} cy={C} r={96} fill="url(#rx-glass)" stroke={coreColor} strokeWidth={3} />
           <text className="dt-score" x={C} y={C - 6} textAnchor="middle">{list.length}</text>
           <text className="dt-score-sub" x={C} y={C + 24} textAnchor="middle" style={{ fill: view === "mine" ? "#ffe08a" : "#8af0de" }}>{view === "mine" ? "MY ROLODEX" : "COMMUNITY"}</text>
+            </>
+          )}
+          {group &&
+            (() => {
+              // One group in the middle, every business in it round it; the other groups on the
+              // outer ring, each a tap away (Parry, 4 Oct: "just like the main orb does").
+              const col = FAMILY_COLOR[group];
+              const items = fanOrder(list.filter((b) => b.family === group), (b) => (b.kind === "mine" ? b.shared : b.recommended_by.length > 1));
+              const seats = ringRows(items.map(idOf), C, C, [196, 266, 336, 406, 476], 25, 24);
+              const others = FAMILIES.filter((x) => x.key !== group);
+              const OR = 590;
+              return (
+                <g>
+                  <circle className="vr-track" cx={C} cy={C} r={OR} />
+                  {others.map((o, i) => {
+                    const a = -Math.PI / 2 + (2 * Math.PI * (i + 0.5)) / others.length;
+                    const x = C + OR * Math.cos(a);
+                    const y = C + OR * Math.sin(a);
+                    const n = list.filter((b) => b.family === o.key).length;
+                    const oc = FAMILY_COLOR[o.key];
+                    return (
+                      <g key={o.key} data-tap className="rx-group" role="button" tabIndex={0} aria-label={`${o.label}, ${n} ${n === 1 ? "business" : "businesses"}`} onClick={() => openGroup(o.key)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openGroup(o.key); } }}>
+                        <circle cx={x} cy={y} r={58} fill={`url(#rx-glow-${o.key})`} opacity={n ? 0.8 : 0.3} />
+                        <circle cx={x} cy={y} r={30} fill="url(#rx-glass)" stroke={oc} strokeWidth={2} opacity={n ? 1 : 0.45} />
+                        <text x={x} y={y} dy="0.35em" textAnchor="middle" className="rx-n-sm">{n}</text>
+                        <text x={x} y={y + 46} textAnchor="middle" className="rx-fam" style={{ fill: oc }}>{o.label.toUpperCase()}</text>
+                      </g>
+                    );
+                  })}
+                  {seats.map((s) => bizOrb(byId.get(s.id)!, s, col, C, C, 13))}
+                  {items.length === 0 && <text x={C} y={C + 170} textAnchor="middle" className="rx-name">{view === "mine" ? "Nothing in this group yet" : "No one has shared one of these yet"}</text>}
+                  <g data-tap className="rx-group" role="button" tabIndex={0} aria-label={`${familyLabel(group)}: back to all groups`} onClick={() => openGroup(group)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openGroup(group); } }}>
+                    <circle cx={C} cy={C} r={150} fill={`url(#rx-glow-${group})`} />
+                    <circle cx={C} cy={C} r={100} fill="url(#rx-glass)" stroke={col} strokeWidth={4} />
+                    <text className="dt-score" x={C} y={C - 6} textAnchor="middle">{items.length}</text>
+                    <text className="dt-score-sub" x={C} y={C + 24} textAnchor="middle" style={{ fill: col, fontSize: familyLabel(group).length > 12 ? 11 : undefined }}>{familyLabel(group).toUpperCase()}</text>
+                    <text className="rx-back" x={C} y={C + 50} textAnchor="middle">tap for all groups</text>
+                  </g>
+                </g>
+              );
+            })()}
         </svg>
 
         {note && (
