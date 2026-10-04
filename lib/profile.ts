@@ -30,9 +30,9 @@ export const FIELDS: { key: Field; label: string; max: number; long?: boolean; h
   { key: "brokerage", label: "Brokerage", max: 120 },
   { key: "license_no", label: "Licence number", max: 40 },
   { key: "license_state", label: "Licence state", max: 2, hint: "Two letters, e.g. UT." },
-  { key: "title", label: "Title", max: 80, hint: "e.g. REALTOR, Team Lead." },
+  { key: "title", label: "Title", max: 120, hint: "e.g. REALTOR, Team Lead." },
   { key: "time_zone", label: "Time zone", max: 64 },
-  { key: "bio", label: "Short bio", max: 600, long: true, hint: "Used on agent pages buyers see." },
+  { key: "bio", label: "Short bio", max: 1000, long: true, hint: "Used on agent pages buyers see." },
 ];
 
 export const TIME_ZONES: { value: string; label: string }[] = [
@@ -45,7 +45,9 @@ export const TIME_ZONES: { value: string; label: string }[] = [
   { value: "Pacific/Honolulu", label: "Hawaii" },
 ];
 
-const s = (v: unknown, max = 600) => (typeof v === "string" ? v.slice(0, max) : "");
+// limits match ONE MOVE's /api/brain/profile (lib/brain-profile.ts): bio 1000, title 120
+const LIMIT = (k: Field) => FIELDS.find((f) => f.key === k)?.max ?? 120;
+const s = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
 
 export function readProfile(raw: unknown): Profile | null {
   if (!raw || typeof raw !== "object") return null;
@@ -55,15 +57,15 @@ export function readProfile(raw: unknown): Profile | null {
   const photo = typeof r.photo_url === "string" && /^https:\/\//.test(r.photo_url) ? r.photo_url : null;
   return {
     email: typeof r.email === "string" ? r.email : "",
-    full_name: s(r.full_name, 120),
-    preferred_name: s(r.preferred_name, 60),
-    mobile: s(r.mobile, 30),
-    brokerage: s(r.brokerage, 120),
-    license_no: s(r.license_no, 40),
-    license_state: s(r.license_state, 2),
+    full_name: s(r.full_name, LIMIT("full_name")),
+    preferred_name: s(r.preferred_name, LIMIT("preferred_name")),
+    mobile: s(r.mobile, LIMIT("mobile")),
+    brokerage: s(r.brokerage, LIMIT("brokerage")),
+    license_no: s(r.license_no, LIMIT("license_no")),
+    license_state: s(r.license_state, LIMIT("license_state")),
     time_zone: s(r.time_zone, 64) || "America/Denver",
-    title: s(r.title, 80),
-    bio: s(r.bio, 600),
+    title: s(r.title, LIMIT("title")),
+    bio: s(r.bio, LIMIT("bio")),
     photo_url: photo,
     photo_version: typeof r.photo_version === "string" ? r.photo_version : null,
   };
