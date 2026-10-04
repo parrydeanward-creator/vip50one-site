@@ -8,7 +8,6 @@ import {
   lastTouchLine,
   readRoster,
   ringSeats,
-  rosterLine,
   shortName,
   seatAt,
   segmentPath,
@@ -45,7 +44,19 @@ type Pending =
   | { kind: "swap"; out: VipPerson; into: VipPerson }
   | { kind: "tier"; who: VipPerson; tier: "vip50" | "vip100" };
 
-export default function VipRings({ today, onUnavailable, onChanged }: { today: string; onUnavailable: () => void; onChanged: () => void }) {
+export default function VipRings({
+  today,
+  onUnavailable,
+  onChanged,
+  onBack,
+  onClassic,
+}: {
+  today: string;
+  onUnavailable: () => void;
+  onChanged: () => void;
+  onBack: () => void;
+  onClassic: () => void;
+}) {
   const [roster, setRoster] = useState<VipRoster | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -56,6 +67,10 @@ export default function VipRings({ today, onUnavailable, onChanged }: { today: s
   const [note, setNote] = useState<string | null>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number; moved: boolean } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  // The view moves like the Brain: two-finger swipe or pinch to zoom, drag
+  // the background to pan, + / - / centre buttons (Parry, 4 Oct).
+  const [cam, setCam] = useState({ x: C, y: C, s: 1 });
+  const gest = useRef({ pointers: new Map<number, { x: number; y: number }>(), pinch: 0, pan: false, lx: 0, ly: 0 });
 
   const load = useCallback(async () => {
     let r: Response;
@@ -95,12 +110,61 @@ export default function VipRings({ today, onUnavailable, onChanged }: { today: s
 
   const toSvg = (e: { clientX: number; clientY: number }) => {
     const svg = svgRef.current;
-    if (!svg) return { x: 0, y: 0 };
-    const b = svg.getBoundingClientRect();
-    const s = Math.min(b.width, b.height) / SIZE;
-    const ox = b.left + (b.width - SIZE * s) / 2;
-    const oy = b.top + (b.height - SIZE * s) / 2;
-    return { x: (e.clientX - ox) / s, y: (e.clientY - oy) / s };
+    const m = svg?.getScreenCTM();
+    if (!svg || !m) return { x: 0, y: 0 };
+    const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+    return { x: pt.x, y: pt.y };
+  };
+  const clampS = (v: number) => Math.min(4, Math.max(0.6, v));
+  // Zoom keeping the point under the fingers still.
+  const zoomAt = (factor: number, at?: { x: number; y: number }) =>
+    setCam((c) => {
+      const s2 = clampS(c.s * factor);
+      const k = c.s / s2;
+      const p = at ?? { x: c.x, y: c.y };
+      return { s: s2, x: p.x - (p.x - c.x) * k, y: p.y - (p.y - c.y) * k };
+    });
+  const view = `${cam.x - SIZE / (2 * cam.s)} ${cam.y - SIZE / (2 * cam.s)} ${SIZE / cam.s} ${SIZE / cam.s}`;
+
+  const onWheel = (e: React.WheelEvent) => zoomAt(Math.exp(-e.deltaY * 0.0015), toSvg(e));
+  const onBgDown = (e: React.PointerEvent) => {
+    if ((e.target as Element).closest?.(".vr-face")) return;
+    const g = gest.current;
+    g.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    if (g.pointers.size === 2) {
+      const [a, b] = [...g.pointers.values()];
+      g.pinch = Math.hypot(a.x - b.x, a.y - b.y);
+      g.pan = false;
+    } else {
+      g.pan = true;
+      g.lx = e.clientX;
+      g.ly = e.clientY;
+    }
+  };
+  const onBgMove = (e: React.PointerEvent) => {
+    const g = gest.current;
+    if (!g.pointers.has(e.pointerId)) return false;
+    g.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (g.pointers.size === 2) {
+      const [a, b] = [...g.pointers.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (g.pinch > 0) zoomAt(d / g.pinch, toSvg({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }));
+      g.pinch = d;
+    } else if (g.pan) {
+      const p0 = toSvg({ clientX: g.lx, clientY: g.ly });
+      const p1 = toSvg(e);
+      setCam((c) => ({ ...c, x: c.x - (p1.x - p0.x), y: c.y - (p1.y - p0.y) }));
+      g.lx = e.clientX;
+      g.ly = e.clientY;
+    }
+    return true;
+  };
+  const onBgUp = (e: React.PointerEvent) => {
+    const g = gest.current;
+    g.pointers.delete(e.pointerId);
+    g.pinch = 0;
+    if (!g.pointers.size) g.pan = false;
   };
 
   const choose = (id: string) => {
@@ -113,19 +177,22 @@ export default function VipRings({ today, onUnavailable, onChanged }: { today: s
   };
 
   const onDown = (id: string) => (e: React.PointerEvent) => {
+    e.stopPropagation();
     if (busy || pending) return;
     (e.target as Element).setPointerCapture?.(e.pointerId);
     const { x, y } = toSvg(e);
     setDrag({ id, x, y, moved: false });
   };
   const onMove = (e: React.PointerEvent) => {
+    if (onBgMove(e)) return;
     if (!drag) return;
     const { x, y } = toSvg(e);
     const from = [...inner, ...outer].find((s) => s.id === drag.id);
     const moved = drag.moved || (from ? Math.hypot(from.x - x, from.y - y) > 8 : false);
     setDrag({ ...drag, x, y, moved });
   };
-  const onUp = () => {
+  const onUp = (e: React.PointerEvent) => {
+    onBgUp(e);
     if (!drag || !roster) return setDrag(null);
     const d = drag;
     setDrag(null);
@@ -253,18 +320,37 @@ export default function VipRings({ today, onUnavailable, onChanged }: { today: s
     );
   };
 
+  // Back steps out the way the Brain does: first the open person, then the page.
+  const back = () => {
+    if (pending) return setPending(null);
+    if (selected || pick50 || pick100) {
+      setSelected(null);
+      setPick50(null);
+      setPick100(null);
+      return;
+    }
+    onBack();
+  };
+  const open = Math.max(0, roster.cap - roster.vip50.length);
+  const fully = roster.counts?.fully_touched ?? roster.vip50.filter((p) => touchSegments(p.month).every((x) => x.done)).length;
+
   return (
-    <div className="vr">
+    // Gestures here belong to the rings, never to the Brain map underneath.
+    <div className="vr" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
       <div className="vr-stage">
-        <p className="vr-line">{rosterLine(roster)}</p>
         <svg
           ref={svgRef}
           className="vr-svg"
-          viewBox={`0 0 ${SIZE} ${SIZE}`}
+          viewBox={view}
           preserveAspectRatio="xMidYMid meet"
+          onPointerDown={onBgDown}
           onPointerMove={onMove}
           onPointerUp={onUp}
-          onPointerCancel={() => setDrag(null)}
+          onPointerCancel={(e) => {
+            onBgUp(e);
+            setDrag(null);
+          }}
+          onWheel={onWheel}
           role="group"
           aria-label="Your VIP-50 (inner ring) and VIP-100 (outer ring)"
         >
@@ -325,43 +411,71 @@ export default function VipRings({ today, onUnavailable, onChanged }: { today: s
             </g>
           )}
         </svg>
-        <div className="vr-bar" role="status">
-          {pending ? (
-            <>
-              <span>{pending.kind === "swap" ? swapQuestion(pending.out, pending.into) : tierQuestion(pending.who, pending.tier)}</span>
-              <button className="vr-btn vr-gold" onClick={confirm} disabled={busy}>{busy ? "Moving…" : "Yes, move them"}</button>
-              <button className="vr-btn" onClick={() => setPending(null)} disabled={busy}>Cancel</button>
-            </>
-          ) : p50 && p100 ? (
-            <>
-              <span>{`${p50.name} ⇄ ${p100.name}`}</span>
-              <button className="vr-btn vr-gold" onClick={() => setPending({ kind: "swap", out: p50, into: p100 })}>Swap</button>
-              <button className="vr-btn" onClick={() => { setPick50(null); setPick100(null); }}>Clear</button>
-            </>
-          ) : (
-            <span className="vr-hint">{note ?? "Drag a face onto someone in the other ring to swap, or pick one on each ring."}</span>
-          )}
+        {(pending || (p50 && p100) || note) && (
+          <div className="vr-bar pop" role="status">
+            {pending ? (
+              <>
+                <span>{pending.kind === "swap" ? swapQuestion(pending.out, pending.into) : tierQuestion(pending.who, pending.tier)}</span>
+                <button className="chip-btn primary" onClick={confirm} disabled={busy}>{busy ? "Moving…" : "Yes, move them"}</button>
+                <button className="chip-btn" onClick={() => setPending(null)} disabled={busy}>Cancel</button>
+              </>
+            ) : p50 && p100 ? (
+              <>
+                <span>{`${shortName(p50)} ⇄ ${shortName(p100)}`}</span>
+                <button className="chip-btn primary" onClick={() => setPending({ kind: "swap", out: p50, into: p100 })}>Swap</button>
+                <button className="chip-btn" onClick={() => { setPick50(null); setPick100(null); }}>Clear</button>
+              </>
+            ) : (
+              <>
+                <span>{note}</span>
+                <button className="chip-btn" onClick={() => setNote(null)}>OK</button>
+              </>
+            )}
+          </div>
+        )}
+        <div className="controls" role="toolbar" aria-label="Map controls">
+          <button onClick={back} aria-label="Back">←</button>
+          <button className="zoom-btn" onClick={() => zoomAt(1.25)} aria-label="Zoom in">+</button>
+          <button className="zoom-btn" onClick={() => zoomAt(0.8)} aria-label="Zoom out">−</button>
+          <button onClick={() => setCam({ x: C, y: C, s: 1 })} aria-label="Centre on your VIPs">◎</button>
         </div>
       </div>
-      <aside className="vr-side" aria-label="Selected VIP">
+      <aside className="drawer vr-drawer" aria-label={sel ? sel.p.name : "VIP Management"}>
         {sel ? (
           <>
-            <h3 className="vr-side-name">{sel.p.name}</h3>
-            <p className="vr-side-tier">{sel.ring === "vip50" ? "VIP-50" : "VIP-100"} · {lastTouchLine(sel.p, today)}</p>
+            <div className="d-head">
+              <span className="chip" style={{ color: sel.ring === "vip50" ? GOLD : TEAL, borderColor: sel.ring === "vip50" ? GOLD : TEAL }}>
+                {sel.ring === "vip50" ? "VIP-50" : "VIP-100"}
+              </span>
+              {sel.p.urgency === "overdue" && <span className="vr-flag" style={{ color: RED }}>● Overdue</span>}
+            </div>
+            <h1 className="d-title">{sel.p.name}</h1>
+            <p className="d-sub">{lastTouchLine(sel.p, today)}</p>
             <ContactPanel key={sel.p.id} contactId={sel.p.id} onLogged={() => { load(); onChanged(); }} />
             <div className="vr-side-moves">
               {sel.ring === "vip50" ? (
-                <button className="vr-btn" onClick={() => setPending({ kind: "tier", who: sel.p, tier: "vip100" })}>Move to VIP-100</button>
+                <button className="chip-btn" onClick={() => setPending({ kind: "tier", who: sel.p, tier: "vip100" })}>Move to VIP-100</button>
               ) : canPromote(roster) ? (
-                <button className="vr-btn vr-gold" onClick={() => setPending({ kind: "tier", who: sel.p, tier: "vip50" })}>Move to VIP-50</button>
+                <button className="chip-btn primary" onClick={() => setPending({ kind: "tier", who: sel.p, tier: "vip50" })}>Move to VIP-50</button>
               ) : (
-                <p className="vr-hint">Your VIP-50 is full. Pick someone in it to swap with.</p>
+                <p className="d-sum">Your VIP-50 is full. Drag them onto someone in it to swap.</p>
               )}
             </div>
           </>
         ) : (
-          <div className="vr-side-empty">
-            <p>Click a face to see the person, call, text or email them, and log it.</p>
+          <>
+            <div className="d-head">
+              <span className="chip" style={{ color: TEAL, borderColor: TEAL }}>ONE MOVE</span>
+            </div>
+            <h1 className="d-title">VIP Management</h1>
+            <p className="d-sub">{`${roster.vip50.length} of ${roster.cap} in your VIP-50`}</p>
+            <p className="d-sum">
+              {`${fully} fully touched this month. ${roster.vip100.length} waiting in your VIP-100.`}
+              {open ? ` ${open} open ${open === 1 ? "spot" : "spots"}.` : ""}
+            </p>
+            <h2>How it works</h2>
+            <p className="d-sum">Click a face to call, text or email them and log it. Drag a face onto someone in the other ring to swap them, or pick one in each ring.</p>
+            <h2>Reading the rings</h2>
             <ul className="vr-key">
               <li><span className="vr-k vr-k-orb50" /> VIP-50, your superfans (inner ring)</li>
               <li><span className="vr-k vr-k-orb100" /> VIP-100, your reserve (outer ring)</li>
@@ -371,7 +485,8 @@ export default function VipRings({ today, onUnavailable, onChanged }: { today: s
               <li><span className="vr-k vr-k-amber" /> Due soon (7-13 days)</li>
               <li><span className="vr-k vr-k-green" /> Every touch done this month</li>
             </ul>
-          </div>
+            <button className="vr-classic" onClick={onClassic}>Open the Classic page</button>
+          </>
         )}
       </aside>
     </div>

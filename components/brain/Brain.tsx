@@ -1579,7 +1579,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         </aside>
         )}
         {pagePanel && (
-          <section className="page-panel pop" key={pagePanel.path} aria-label={`${pagePanel.label} in ONE MOVE`}>
+          <section className={`page-panel pop${vipNative ? " page-panel-native" : ""}`} key={pagePanel.path} aria-label={`${pagePanel.label} in ONE MOVE`}>
+            {!vipNative && (
             <header className="page-panel-bar">
               <p className="page-panel-title">
                 <span style={{ color: hex(PRODUCT_COLOR.move) }}>ONE MOVE</span> · {pagePanel.label}
@@ -1591,9 +1592,16 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               )}
               <button className="page-panel-close" onClick={() => goTo(focus.parentId ?? "move")} aria-label={`Close ${pagePanel.label}`}>×</button>
             </header>
+            )}
             <div ref={frameBoxRef} className="page-panel-body">
               {vipNative ? (
-                <VipRings today={localDay(new Date())} onUnavailable={vipUnavailable} onChanged={() => router.refresh()} />
+                <VipRings
+                  today={localDay(new Date())}
+                  onUnavailable={vipUnavailable}
+                  onChanged={() => router.refresh()}
+                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onClassic={() => setVipClassic(true)}
+                />
               ) : (
               <>
               {frameReady !== pagePanel.path && (
