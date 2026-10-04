@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ContactPanel from "./ContactPanel.tsx";
+import { focusFace, focusRings } from "@/lib/orbs.ts";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import { LOGGABLE, SHORT, audit, gridRows, hasTouch, logQuestion, pct, type TouchStat } from "@/lib/audit.ts";
 import { touchUrl } from "@/lib/contact.ts";
@@ -105,7 +106,8 @@ export default function TouchAudit({
   const faces = useMemo(() => {
     if (!sel) return [];
     const s = seats.get(sel.key)!;
-    return ringRows(sel.missing.map((p) => p.id), s.x, s.y, [s.r + 62, s.r + 118, s.r + 174, s.r + 230, s.r + 286], 22, 10);
+    const r = focusFace(sel.missing.length);
+    return ringRows(sel.missing.map((p) => p.id), s.x, s.y, focusRings(s.r, r), r, 16);
   }, [sel, seats]);
   const byId = useMemo(() => new Map(roster?.vip50.map((p) => [p.id, p] as const) ?? []), [roster]);
   const who: VipPerson | undefined = person ? byId.get(person) : undefined;
@@ -394,6 +396,7 @@ export default function TouchAudit({
                       {initialsOf(p.name)}
                     </text>
                   )}
+                  <text className="hw-face-name" y={f.r + Math.max(14, f.r * 0.36) + 4} textAnchor="middle" style={{ fontSize: Math.max(14, f.r * 0.36) }}>{shortName(p)}</text>
                 </g>
               );
             })}

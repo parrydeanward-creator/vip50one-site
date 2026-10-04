@@ -1435,3 +1435,4 @@ a.link { display: block; text-decoration: none; }
 .fx-gone { opacity: 0; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .fx-move { transition: none; } .fx-out, .fx-fade { animation: none; } }
 .rx-n-big { fill: #fff; font-size: 56px; font-weight: 700; pointer-events: none; }
+.hw-face-name { fill: rgba(232, 236, 248, 0.85); font-weight: 600; paint-order: stroke; stroke: #070b18; stroke-width: 4px; pointer-events: none; }

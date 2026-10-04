@@ -5,6 +5,7 @@ import { dialable } from "@/lib/contact.ts";
 import { CLASSES, CLASS_OF, addBody, addProblem, blankPerson, hwcUrl, readMatches, type NewPerson, moveQuestion, noteDay, phoneLine, readHwc, reminderLine, shortDay, todayIn, trend, warmth, withMoved, type Hwc, type HwcClass } from "@/lib/hwc.ts";
 import { faceUrl, initialsOf, ringRows } from "@/lib/vips.ts";
 import PulseMark from "./PulseMark.tsx";
+import { focusFace, focusRings } from "@/lib/orbs.ts";
 import { useSvgCamera } from "./useSvgCamera.ts";
 
 // VIP-SUMMARY §3h: Hot/Warm/Cold in ONE Brain. Three live orbs with each
@@ -93,8 +94,11 @@ export default function HotWarmCold({
     return CLASSES.filter((c) => !only || c.key === only).flatMap((c) => {
       const ids = data.people.filter((p) => p.cls === c.key).map((p) => p.id);
       const s = pos[c.key];
-      const radii = only ? [FOCUS + 66, FOCUS + 124, FOCUS + 182, FOCUS + 240, FOCUS + 298, FOCUS + 356] : [ORB + 58, ORB + 106, ORB + 154, ORB + 202, ORB + 250];
-      return ringRows(ids, s.x, s.y, radii, only ? 26 : 21, 8).map((x) => ({ ...x, cls: c.key }));
+      if (only) {
+        const r = focusFace(ids.length);
+        return ringRows(ids, s.x, s.y, focusRings(FOCUS, r), r, 18).map((x) => ({ ...x, cls: c.key }));
+      }
+      return ringRows(ids, s.x, s.y, [ORB + 60, ORB + 112, ORB + 164, ORB + 216, ORB + 268], 24, 8).map((x) => ({ ...x, cls: c.key }));
     });
   }, [data, only, pos]);
   const byId = useMemo(() => new Map(data?.people.map((p) => [p.id, p] as const) ?? []), [data]);
@@ -432,6 +436,7 @@ export default function HotWarmCold({
                 ) : (
                   <text x={0} y={0} dy="0.35em" textAnchor="middle" style={{ fill: c.color, fontSize: f.r * 0.72, fontWeight: 700 }} pointerEvents="none" opacity={0.55 + heat * 0.45}>{initialsOf(p.name)}</text>
                 )}
+                {only && <text className="hw-face-name" y={f.r + Math.max(14, f.r * 0.36) + 4} textAnchor="middle" style={{ fontSize: Math.max(14, f.r * 0.36) }}>{p.name.split(/\s+/)[0]}</text>}
                 {over && <circle cx={0} cy={0} r={f.r + 1.5} fill="none" stroke="#dff0ff" strokeWidth={2} strokeDasharray="2 4" opacity={0.85} pointerEvents="none" />}
               </g>
             );

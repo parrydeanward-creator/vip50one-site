@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { dialable, mailable } from "@/lib/contact.ts";
 import { DRAFT_FIELDS, FAMILIES, FAMILY_COLOR, FAN_MAX, bizInitials, draftOf, draftProblem, familyLabel, fanOrder, groupSeats, placedLine, readRolodex, recommendedLine, rolodexUrl, saveBody, withShared, type CommunityBiz, type Draft, type FamilyKey, type MineBiz, type Rolodex as RolodexData } from "@/lib/rolodex.ts";
 import { ringRows } from "@/lib/vips.ts";
+import { focusFace, focusRings } from "@/lib/orbs.ts";
 import { useSvgCamera } from "./useSvgCamera.ts";
 
 // VIP-SUMMARY §3i: the Business Rolodex in ONE Brain, with its Community.
@@ -96,7 +97,8 @@ export default function Rolodex({
         orbs.set(o.key, { x, y, k: 0.3, lx: x, ly: y + 46, anchor: "middle" });
       });
       const items = order(list.filter((b) => b.family === group));
-      ringRows(items.map(idOf), C, C, [196, 266, 336, 406, 476], 25, 24).forEach((r, j) => seats.push({ id: r.id, more: 0, x: r.x, y: r.y, r: 25, fam: group, fx: C, fy: C, delay: Math.min(j, 40) * 22 }));
+      const fr = focusFace(items.length);
+      ringRows(items.map(idOf), C, C, focusRings(100, fr), fr, 26).forEach((r, j) => seats.push({ id: r.id, more: 0, x: r.x, y: r.y, r: fr, fam: group, fx: C, fy: C, delay: Math.min(j, 40) * 22 }));
     } else {
       FAMILIES.forEach((f, i) => {
         const a = -Math.PI / 2 + (2 * Math.PI * i) / FAMILIES.length;
@@ -244,7 +246,7 @@ export default function Rolodex({
         {b.offer && <circle r={s.r + 6} fill="none" stroke={GOLD} strokeWidth={2} strokeDasharray="2 3" />}
         <circle r={s.r} fill="url(#rx-glass)" stroke={on ? "#fff" : col} strokeWidth={on ? 3 : 1.6} />
         <text dy="0.35em" textAnchor="middle" style={{ fill: col, fontSize: s.r * 0.62, fontWeight: 700 }} pointerEvents="none">{bizInitials(b.name)}</text>
-        <text className={`rx-name${on ? " on" : ""}`} y={s.r + 14} textAnchor="middle">{b.name.length > cut ? `${b.name.slice(0, cut - 1)}…` : b.name}</text>
+        <text className={`rx-name${on ? " on" : ""}`} y={s.r + Math.max(14, s.r * 0.34) + 2} textAnchor="middle" style={s.r > 30 ? { fontSize: Math.max(13, s.r * 0.3) } : undefined}>{b.name.length > cut ? `${b.name.slice(0, cut - 1)}…` : b.name}</text>
         {b.kind === "mine" && b.shared && <circle cx={s.r * 0.75} cy={-s.r * 0.75} r={6} fill={TEAL} stroke="#070b18" strokeWidth={2} />}
         {count > 1 && (
           <g pointerEvents="none">
@@ -345,7 +347,7 @@ export default function Rolodex({
                 </g>,
               ];
             }
-            return [line, bizOrb(byId.get(s.id)!, s, col, vars, group ? 13 : 16, `${group ?? "all"}-${view}-${s.id}`)];
+            return [line, bizOrb(byId.get(s.id)!, s, col, vars, group ? (s.r >= 44 ? 20 : 15) : 16, `${group ?? "all"}-${view}-${s.id}`)];
           })}
 
           {/* group orbs: drawn at radius 100 and scaled, so they glide and grow between places */}
