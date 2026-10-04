@@ -858,8 +858,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   return (
     <div className={`brain ${tour ? "touring" : ""}`}>
       <header className="bar">
-        <button className="brand" onClick={goHome} aria-label="ONE, home">
-          VIP-50 <b>ONE</b>
+        <button className="brand brand-logo" onClick={goHome} aria-label="VIP-50 ONE, home">
+          <img src="/brand/vip50-one.webp" alt="VIP-50 ONE" width={70} height={48} />
         </button>
         <nav className="crumbs" aria-label="Where you are">
           {path.map((n, i) => (

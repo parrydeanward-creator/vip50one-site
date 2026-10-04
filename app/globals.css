@@ -33,6 +33,10 @@ button { font: inherit; color: inherit; }
 .bar { display: flex; align-items: center; gap: 18px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: rgba(5, 8, 22, 0.6); backdrop-filter: blur(10px); z-index: 5; }
 .brand { background: none; border: 0; cursor: pointer; font-family: var(--font-display), "Bebas Neue", sans-serif; font-size: 26px; letter-spacing: 0.05em; padding: 4px 0; white-space: nowrap; }
 .brand b { color: var(--gold); font-weight: 400; margin-left: 4px; }
+.brand-logo { padding: 0; margin: -6px 0; line-height: 0; flex: none; }
+.brand-logo img { display: block; height: 48px; width: auto; filter: drop-shadow(0 0 10px rgba(245, 197, 66, 0.18)); transition: filter 160ms; }
+.brand-logo:hover img, .brand-logo:focus-visible img { filter: drop-shadow(0 0 14px rgba(245, 197, 66, 0.45)); }
+@media (max-width: 480px) { .brand-logo img { height: 40px; } }
 .crumbs { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
 .crumbs button { background: none; border: 0; color: var(--text-2); cursor: pointer; padding: 10px 2px; }
 .crumbs button:hover { color: var(--text); }
