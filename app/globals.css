@@ -866,7 +866,8 @@ a.link { display: block; text-decoration: none; }
 .login-links a { color: var(--text-2); }
 /* signed-in menu and the no-access page */
 .me-form { margin: 0; display: flex; align-items: center; gap: 8px; }
-.me-btn { cursor: pointer; border: 0; }
+.me-btn { cursor: pointer; background: none; padding: 0; font: inherit; }
+.me-btn:hover, .me-btn:focus-visible { border-color: var(--gold); box-shadow: 0 0 12px rgba(245, 197, 66, 0.45); outline: none; }
 .signout { background: none; border: 1px solid var(--line); color: var(--text-2); border-radius: 10px; padding: 6px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; }
 .signout:hover { color: var(--text); }
 .noaccess { min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; text-align: center; }
@@ -1015,7 +1016,7 @@ a.link { display: block; text-decoration: none; }
 .pw-wrap input { width: 100%; padding-right: 44px; box-sizing: border-box; }
 .pw-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: 0; color: var(--text-2); cursor: pointer; padding: 6px; line-height: 0; border-radius: 8px; }
 .pw-eye:hover, .pw-eye:focus-visible { color: var(--text); }
-@media (max-width: 480px) { .bar .me-form .me { display: none; } .bar .signout { padding: 5px 8px; font-size: 11px; } .bar .brand { flex: none; } }
+@media (max-width: 480px) { .bar .me-form .me { width: 32px; height: 32px; } .bar .signout { padding: 5px 8px; font-size: 11px; } .bar .brand { flex: none; } }
 
 /* Accept / Dismiss a suggestion in the Brain (VIP-SUMMARY §3b). */
 .decide { margin: 16px 0 4px; padding: 14px; border-radius: 14px; border: 1px solid rgba(212, 175, 55, 0.3); background: rgba(212, 175, 55, 0.05); }
