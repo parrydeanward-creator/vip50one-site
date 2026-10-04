@@ -19,6 +19,8 @@ import { useSvgCamera } from "./useSvgCamera.ts";
 
 const SIZE = 1700;
 const ORB = 138;
+const FOCUS = 190;
+const C = 850;
 const GOLD = "#f5c542";
 const SEATS: Record<HwcClass, { x: number; y: number }> = {
   hot: { x: 850, y: 470 },
@@ -77,14 +79,24 @@ export default function HotWarmCold({
     load();
   }, [load]);
 
+  // Focus (Parry, 4 Oct): a tapped class comes to the middle with all its people round it;
+  // the other two wait at the top, a tap away. Tap the middle again for all three.
+  const pos = useMemo((): Record<HwcClass, { x: number; y: number; r: number }> => {
+    if (!only) return { hot: { ...SEATS.hot, r: ORB }, warm: { ...SEATS.warm, r: ORB }, cold: { ...SEATS.cold, r: ORB } };
+    const rest = CLASSES.filter((c) => c.key !== only);
+    const out = { [only]: { x: C, y: C + 90, r: FOCUS } } as Record<HwcClass, { x: number; y: number; r: number }>;
+    rest.forEach((c, i) => (out[c.key] = { x: C + (i ? 1 : -1) * 620, y: 200, r: 96 }));
+    return out;
+  }, [only]);
   const seats = useMemo(() => {
     if (!data) return [];
-    return CLASSES.flatMap((c) => {
+    return CLASSES.filter((c) => !only || c.key === only).flatMap((c) => {
       const ids = data.people.filter((p) => p.cls === c.key).map((p) => p.id);
-      const s = SEATS[c.key];
-      return ringRows(ids, s.x, s.y, [ORB + 58, ORB + 106, ORB + 154, ORB + 202, ORB + 250], 21, 6).map((x) => ({ ...x, cls: c.key }));
+      const s = pos[c.key];
+      const radii = only ? [FOCUS + 66, FOCUS + 124, FOCUS + 182, FOCUS + 240, FOCUS + 298, FOCUS + 356] : [ORB + 58, ORB + 106, ORB + 154, ORB + 202, ORB + 250];
+      return ringRows(ids, s.x, s.y, radii, only ? 26 : 21, 8).map((x) => ({ ...x, cls: c.key }));
     });
-  }, [data]);
+  }, [data, only, pos]);
   const byId = useMemo(() => new Map(data?.people.map((p) => [p.id, p] as const) ?? []), [data]);
   const today = data?.date || todayIn();
   const due = useMemo(() => new Set(data?.reminders.map((r) => r.id) ?? []), [data]);
@@ -301,21 +313,26 @@ export default function HotWarmCold({
               </radialGradient>
             ))}
           </defs>
-          <line className="vr-link" x1={SEATS.hot.x} y1={SEATS.hot.y} x2={SEATS.warm.x} y2={SEATS.warm.y} />
-          <line className="vr-link" x1={SEATS.warm.x} y1={SEATS.warm.y} x2={SEATS.cold.x} y2={SEATS.cold.y} />
-          <line className="vr-link" x1={SEATS.cold.x} y1={SEATS.cold.y} x2={SEATS.hot.x} y2={SEATS.hot.y} />
+          {!only && (
+            <>
+              <line className="vr-link" x1={SEATS.hot.x} y1={SEATS.hot.y} x2={SEATS.warm.x} y2={SEATS.warm.y} />
+              <line className="vr-link" x1={SEATS.warm.x} y1={SEATS.warm.y} x2={SEATS.cold.x} y2={SEATS.cold.y} />
+              <line className="vr-link" x1={SEATS.cold.x} y1={SEATS.cold.y} x2={SEATS.hot.x} y2={SEATS.hot.y} />
+            </>
+          )}
 
           {CLASSES.map((c) => {
-            const s = SEATS[c.key];
+            const s = pos[c.key];
             const n = data.people.filter((p) => p.cls === c.key).length;
             const lit = data.today[c.key];
-            const dim = shownClass && shownClass !== c.key;
+            const dim = !only && shownClass && shownClass !== c.key;
             const dueN = data.reminders.filter((r) => r.cls === c.key).length;
             return (
               <g
                 key={c.key}
                 data-tap
-                className={`hw-orb${dim ? " dim" : ""}`}
+                className={`hw-orb fx-move${dim ? " dim" : ""}`}
+                style={{ transform: `translate(${s.x}px, ${s.y}px) scale(${s.r / ORB})` }}
                 role="button"
                 tabIndex={0}
                 aria-pressed={only === c.key}
@@ -324,48 +341,60 @@ export default function HotWarmCold({
                   setPick(null);
                   setAsking(null);
                   setOnly((o) => (o === c.key ? null : c.key));
+                  cam.reset();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setPick(null);
+                    setAsking(null);
+                    setOnly((o) => (o === c.key ? null : c.key));
+                    cam.reset();
+                  }
                 }}
               >
-                <circle cx={s.x} cy={s.y} r={ORB * 2.1} fill={`url(#hw-glow-${c.key})`} opacity={lit ? 1 : 0.55} className={`hw-breath hw-breath-${c.key}`} />
+                <circle cx={0} cy={0} r={ORB * 2.1} fill={`url(#hw-glow-${c.key})`} opacity={lit ? 1 : 0.55} className={`hw-breath hw-breath-${c.key}`} />
                 {c.key === "hot" && (
                   <g className="hw-sparks" pointerEvents="none">
                     {[0, 1, 2, 3, 4, 5].map((i) => (
-                      <circle key={i} cx={s.x + Math.cos(i * 1.05) * ORB * 0.8} cy={s.y - ORB * 0.6 + (i % 2) * 20} r={3} fill="#ffb27a" style={{ animationDelay: `${i * 0.55}s` }} />
+                      <circle key={i} cx={Math.cos(i * 1.05) * ORB * 0.8} cy={-ORB * 0.6 + (i % 2) * 20} r={3} fill="#ffb27a" style={{ animationDelay: `${i * 0.55}s` }} />
                     ))}
                   </g>
                 )}
-                {c.key === "warm" && <circle cx={s.x} cy={s.y} r={ORB + 26} fill="none" stroke="#ffd08a" strokeWidth={10} className="hw-shimmer" pointerEvents="none" />}
-                {c.key === "cold" && <circle cx={s.x} cy={s.y} r={ORB + 24} fill="none" stroke="#cfe6ff" strokeWidth={1.5} strokeDasharray="1 14 6 9" className="hw-frost" pointerEvents="none" />}
-                <circle cx={s.x} cy={s.y} r={ORB} fill="url(#hw-glass)" stroke={c.color} strokeWidth={lit ? 5 : 2.5} className={flare ? "hw-flare" : undefined} />
-                {lit && <circle cx={s.x} cy={s.y} r={ORB + 12} fill="none" stroke={c.color} strokeWidth={2} strokeDasharray="4 6" className="hw-lit" />}
-                <text className="hw-n" x={s.x} y={s.y - 8} textAnchor="middle">{n}</text>
-                <text className="hw-label" x={s.x} y={s.y + 30} textAnchor="middle" style={{ fill: c.color }}>{c.label.toUpperCase()}</text>
+                {c.key === "warm" && <circle cx={0} cy={0} r={ORB + 26} fill="none" stroke="#ffd08a" strokeWidth={10} className="hw-shimmer" pointerEvents="none" />}
+                {c.key === "cold" && <circle cx={0} cy={0} r={ORB + 24} fill="none" stroke="#cfe6ff" strokeWidth={1.5} strokeDasharray="1 14 6 9" className="hw-frost" pointerEvents="none" />}
+                <circle cx={0} cy={0} r={ORB} fill="url(#hw-glass)" stroke={c.color} strokeWidth={lit ? 5 : 2.5} className={flare ? "hw-flare" : undefined} />
+                {lit && <circle cx={0} cy={0} r={ORB + 12} fill="none" stroke={c.color} strokeWidth={2} strokeDasharray="4 6" className="hw-lit" />}
+                <text className="hw-n" x={0} y={-8} textAnchor="middle" style={undefined}>{n}</text>
+                <text className="hw-label" x={0} y={30} textAnchor="middle" style={{ fill: c.color }}>{c.label.toUpperCase()}</text>
+                {only === c.key && <text className="rx-back" x={0} y={56} textAnchor="middle">tap for all three</text>}
                 {dueN > 0 && (
                   <g pointerEvents="none">
-                    <circle cx={s.x + ORB * 0.74} cy={s.y - ORB * 0.74} r={22} fill={GOLD} stroke="#070b18" strokeWidth={3} />
-                    <text x={s.x + ORB * 0.74} y={s.y - ORB * 0.74} dy="0.35em" textAnchor="middle" className="hw-due">{dueN}</text>
+                    <circle cx={ORB * 0.74} cy={-ORB * 0.74} r={22} fill={GOLD} stroke="#070b18" strokeWidth={3} />
+                    <text x={ORB * 0.74} y={-ORB * 0.74} dy="0.35em" textAnchor="middle" className="hw-due">{dueN}</text>
                   </g>
                 )}
               </g>
             );
           })}
 
-          {seats.map((f) => {
+          {seats.map((f, idx) => {
             const p = byId.get(f.id)!;
             const c = CLASS_OF[f.cls];
             const pic = broken.has(p.id) ? null : faceUrl(p.photo);
             const on = pick === p.id;
-            const dim = shownClass && shownClass !== f.cls;
+            const dim = !only && shownClass && shownClass !== f.cls;
             const heat = warmth(p, today);
             const over = due.has(p.id);
             const isPick = picked.has(p.id);
             const tr = trend(p, today);
-            const out = Math.atan2(f.y - SEATS[f.cls].y, f.x - SEATS[f.cls].x);
+            const out = Math.atan2(f.y - pos[f.cls].y, f.x - pos[f.cls].x);
             return (
               <g
-                key={p.id}
+                key={`${only ?? "all"}-${p.id}`}
                 data-tap
-                className={`hw-face${dim ? " dim" : ""}`}
+                className={`hw-face fx-out${dim ? " dim" : ""}`}
+                style={{ "--fx": `${pos[f.cls].x}px`, "--fy": `${pos[f.cls].y}px`, "--tx": `${f.x}px`, "--ty": `${f.y}px`, animationDelay: `${Math.min(idx, 60) * 14}ms` } as React.CSSProperties}
                 role="button"
                 tabIndex={0}
                 aria-label={`${p.name}, ${c.label}${isPick ? ", Pulse's pick for today" : over ? ", due" : ""}`}
@@ -386,24 +415,24 @@ export default function HotWarmCold({
                 {tr && (
                   <g className={`hw-trail hw-trail-${tr}`} pointerEvents="none">
                     {[1, 2, 3].map((k) => (
-                      <circle key={k} cx={f.x - Math.cos(out) * (f.r + k * 9)} cy={f.y - Math.sin(out) * (f.r + k * 9)} r={4.5 - k} fill={tr === "up" ? "#ff9a4f" : "#8fc8ff"} style={{ animationDelay: `${k * 0.25}s` }} />
+                      <circle key={k} cx={-Math.cos(out) * (f.r + k * 9)} cy={-Math.sin(out) * (f.r + k * 9)} r={4.5 - k} fill={tr === "up" ? "#ff9a4f" : "#8fc8ff"} style={{ animationDelay: `${k * 0.25}s` }} />
                     ))}
                   </g>
                 )}
-                <circle cx={f.x} cy={f.y} r={f.r + 7} fill={c.color} opacity={0.08 + heat * 0.32} pointerEvents="none" />
-                {isPick && <circle cx={f.x} cy={f.y} r={f.r + 6} fill="none" stroke={GOLD} strokeWidth={3} className="hw-beat" pointerEvents="none" />}
-                <circle cx={f.x} cy={f.y} r={f.r} fill="#121a36" stroke={on ? "#fff" : c.color} strokeWidth={on ? 3 : 1.6} opacity={0.55 + heat * 0.45} />
+                <circle cx={0} cy={0} r={f.r + 7} fill={c.color} opacity={0.08 + heat * 0.32} pointerEvents="none" />
+                {isPick && <circle cx={0} cy={0} r={f.r + 6} fill="none" stroke={GOLD} strokeWidth={3} className="hw-beat" pointerEvents="none" />}
+                <circle cx={0} cy={0} r={f.r} fill="#121a36" stroke={on ? "#fff" : c.color} strokeWidth={on ? 3 : 1.6} opacity={0.55 + heat * 0.45} />
                 {pic ? (
                   <>
                     <clipPath id={`hw-fc-${p.id}`}>
-                      <circle cx={f.x} cy={f.y} r={f.r - 1.5} />
+                      <circle cx={0} cy={0} r={f.r - 1.5} />
                     </clipPath>
-                    <image href={pic} x={f.x - f.r} y={f.y - f.r} width={f.r * 2} height={f.r * 2} preserveAspectRatio="xMidYMid slice" clipPath={`url(#hw-fc-${p.id})`} pointerEvents="none" opacity={0.55 + heat * 0.45} onError={() => setBroken((b) => new Set(b).add(p.id))} />
+                    <image href={pic} x={-f.r} y={-f.r} width={f.r * 2} height={f.r * 2} preserveAspectRatio="xMidYMid slice" clipPath={`url(#hw-fc-${p.id})`} pointerEvents="none" opacity={0.55 + heat * 0.45} onError={() => setBroken((b) => new Set(b).add(p.id))} />
                   </>
                 ) : (
-                  <text x={f.x} y={f.y} dy="0.35em" textAnchor="middle" style={{ fill: c.color, fontSize: f.r * 0.72, fontWeight: 700 }} pointerEvents="none" opacity={0.55 + heat * 0.45}>{initialsOf(p.name)}</text>
+                  <text x={0} y={0} dy="0.35em" textAnchor="middle" style={{ fill: c.color, fontSize: f.r * 0.72, fontWeight: 700 }} pointerEvents="none" opacity={0.55 + heat * 0.45}>{initialsOf(p.name)}</text>
                 )}
-                {over && <circle cx={f.x} cy={f.y} r={f.r + 1.5} fill="none" stroke="#dff0ff" strokeWidth={2} strokeDasharray="2 4" opacity={0.85} pointerEvents="none" />}
+                {over && <circle cx={0} cy={0} r={f.r + 1.5} fill="none" stroke="#dff0ff" strokeWidth={2} strokeDasharray="2 4" opacity={0.85} pointerEvents="none" />}
               </g>
             );
           })}
