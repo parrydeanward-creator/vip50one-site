@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { dialable } from "@/lib/contact.ts";
 import { CLASSES, CLASS_OF, addBody, addProblem, blankPerson, hwcUrl, readMatches, type NewPerson, moveQuestion, noteDay, phoneLine, readHwc, reminderLine, shortDay, todayIn, trend, warmth, withMoved, type Hwc, type HwcClass } from "@/lib/hwc.ts";
 import { faceUrl, initialsOf, ringRows } from "@/lib/vips.ts";
@@ -143,6 +143,21 @@ export default function HotWarmCold({
   }, [addName]);
   const who = pick ? byId.get(pick) : undefined;
   const first = who ? who.name.split(/\s+/)[0] : "";
+
+  // Opening a class counts as working it today (Parry, 5 Oct; VIP-SUMMARY §3h.10). Quiet: until ONE
+  // MOVE ships the route, nothing changes and nothing is shown.
+  const ticking = useRef(new Set<string>());
+  useEffect(() => {
+    if (!only || !data || data.today[only] || ticking.current.has(only)) return;
+    ticking.current.add(only);
+    post("opened", { class: only })
+      .then((next) => {
+        setData(next);
+        onChanged();
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [only, data]);
 
   const post = async (path: string, body: unknown) => {
     let r: Response;
