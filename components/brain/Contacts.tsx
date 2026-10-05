@@ -7,6 +7,7 @@ import { initialsOf, ringRows } from "@/lib/vips.ts";
 import { focusFace, focusRings } from "@/lib/orbs.ts";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import PulseRing, { PULSE_COLOR, levelOf } from "./PulseRing.tsx";
+import CallPrepCard from "./CallPrepCard.tsx";
 
 // VIP-SUMMARY §3k (Parry, 4 Oct, option C): Contacts in ONE Brain. A map of
 // groups round "My Contacts" (tiers warm, where they came from cool), a gold
@@ -65,6 +66,7 @@ export default function Contacts({
   const [q, setQ] = useState("");
   const [found, setFound] = useState<PersonItem[] | null>(null);
   const [person, setPerson] = useState<Person | null>(null);
+  const [prepFor, setPrepFor] = useState<string | null>(null); // Call Prep before the call
   const [opening, setOpening] = useState<string | null>(null);
   const [openSec, setOpenSec] = useState<string | null>(null);
   // The drill on the map: a person, then one of their sections in the middle, then one field.
@@ -328,6 +330,7 @@ export default function Contacts({
 
   return (
     <div className="vr" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
+      {prepFor && <CallPrepCard contactId={prepFor} phone={person?.id === prepFor ? person.phone : null} onClose={() => setPrepFor(null)} onDial={() => setPrepFor(null)} />}
       <div className="vr-stage">
         <svg ref={cam.svgRef} className="vr-svg" viewBox={cam.viewBox} preserveAspectRatio="xMidYMid meet" {...cam.handlers} role="group" aria-label={person ? person.name : group ? gLabel(group) : "My Contacts"}>
           <defs>
@@ -685,7 +688,7 @@ export default function Contacts({
               </p>
             )}
             <div className="ta-log">
-              {tel && <a className={`chip-btn${person.pulse?.nextStep === "call" ? " primary" : ""}`} href={`tel:${tel}`}>Call</a>}
+              {tel && <button type="button" className={`chip-btn${person.pulse?.nextStep === "call" ? " primary" : ""}`} onClick={() => setPrepFor(person.id)}>Call</button>}
               {tel && <a className={`chip-btn${person.pulse?.nextStep === "text" ? " primary" : ""}`} href={`sms:${tel}`}>Text</a>}
               {mail && <a className="chip-btn" href={`mailto:${mail}`}>Email</a>}
             </div>

@@ -14,6 +14,7 @@ import {
   type TouchKind,
 } from "@/lib/contact.ts";
 import { LOGGABLE } from "@/lib/audit.ts";
+import CallPrepCard from "./CallPrepCard.tsx";
 
 // A box the agent ticks by hand asks first, like Call and Text (Parry, 5 Oct:
 // "the checkbox is not checking when clicked"). Newsletter and mixer invite
@@ -31,6 +32,7 @@ export default function ContactPanel({ contactId, taskId, onLogged }: { contactI
   const [ask, setAsk] = useState<Ask | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [prep, setPrep] = useState(false); // Call Prep before the call (PULSE-ROADMAP #1)
 
   const load = useCallback(async () => {
     try {
@@ -108,7 +110,7 @@ export default function ContactPanel({ contactId, taskId, onLogged }: { contactI
 
       <div className="cc-actions">
         {tel ? (
-          <a className="cc-btn" href={`tel:${tel}`} onClick={() => setAsk(askFor("call"))}>Call</a>
+          <button type="button" className="cc-btn" onClick={() => setPrep(true)}>Call</button>
         ) : (
           <span className="cc-btn off" aria-disabled="true">Call</span>
         )}
@@ -124,6 +126,17 @@ export default function ContactPanel({ contactId, taskId, onLogged }: { contactI
         )}
       </div>
 
+      {prep && (
+        <CallPrepCard
+          contactId={contactId}
+          phone={card.phone}
+          onClose={() => setPrep(false)}
+          onDial={() => {
+            setPrep(false);
+            setAsk(askFor("call"));
+          }}
+        />
+      )}
       {ask && (
         <div className="cc-ask pop" role="status">
           <p>
