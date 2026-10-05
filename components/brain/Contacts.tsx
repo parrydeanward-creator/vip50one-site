@@ -6,6 +6,7 @@ import { editText, editValue, gapsIn, groupColor, listUrl, peopleUrl, personTag,
 import { initialsOf, ringRows } from "@/lib/vips.ts";
 import { focusFace, focusRings } from "@/lib/orbs.ts";
 import { useSvgCamera } from "./useSvgCamera.ts";
+import PulseRing, { PULSE_COLOR, levelOf } from "./PulseRing.tsx";
 
 // VIP-SUMMARY §3k (Parry, 4 Oct, option C): Contacts in ONE Brain. A map of
 // groups round "My Contacts" (tiers warm, where they came from cool), a gold
@@ -386,7 +387,7 @@ export default function Contacts({
                 >
                   <title>{p.pulse ? `${p.name} · ${p.pulse}` : p.name}</title>
                   {glowing.has(p.id) && <circle r={s.r + 10} fill="none" stroke={GOLD} strokeWidth={4} className="sd-glow" pointerEvents="none" />}
-                  {p.pulse && <circle r={s.r + 6} fill="none" stroke={GOLD} strokeWidth={2.5} className="hw-beat" pointerEvents="none" />}
+                  <PulseRing r={s.r} level={p.pulse ? p.urgency ?? "today" : "good"} />
                   <circle r={s.r} fill="#121a36" stroke={col} strokeWidth={1.8} />
                   {faceOf(p, s.r, `pc-f-${s.id}`)}
                   <text className="hw-face-name" y={s.r + nameSize + 4} textAnchor="middle" style={{ fontSize: nameSize }}>{p.firstName ?? p.name.split(" ")[0]}</text>
@@ -418,11 +419,12 @@ export default function Contacts({
                     }}
                   >
                     <circle r={190} fill={`url(#pc-glow-${g.key})`} opacity={g.count ? 1 : 0.35} />
+                    {g.count > 0 && <PulseRing r={100} level={levelOf(g.needsYou, g.needsNow)} />}
                     <circle r={100} fill="url(#pc-glass)" stroke={col} strokeWidth={centre ? 4 : 5} opacity={g.count ? 1 : 0.5} strokeDasharray={g.kind === "source" ? "14 8" : undefined} />
                     <text className="rx-n-big" y={centre ? -6 : 0} dy={centre ? 0 : "0.35em"} textAnchor="middle" style={g.count > 999 ? { fontSize: 40 } : undefined}>{g.count.toLocaleString("en-US")}</text>
                     {g.needsYou > 0 && (
                       <g transform="translate(72,-72)" pointerEvents="none">
-                        <circle r={30} fill={GOLD} stroke="#070b18" strokeWidth={5} />
+                        <circle r={30} fill={PULSE_COLOR[levelOf(g.needsYou, g.needsNow)]} stroke="#070b18" strokeWidth={5} />
                         <text dy="0.35em" textAnchor="middle" style={{ fill: "#1b1400", fontSize: 28, fontWeight: 800 }}>{g.needsYou}</text>
                       </g>
                     )}
@@ -599,7 +601,8 @@ export default function Contacts({
                 >
                   {glowing.has(person.id) && <circle r={128} fill="none" stroke={GOLD} strokeWidth={5} className="sd-glow" />}
                   <circle r={150} fill="url(#pc-core-glow)" opacity={drill.sec ? 0.5 : 1} />
-                  <circle r={112} fill="#121a36" stroke={person.pulse ? GOLD : TEAL} strokeWidth={4} />
+                  <PulseRing r={112} level={person.pulse ? person.pulse.urgency : "good"} />
+                  <circle r={112} fill="#121a36" stroke={person.pulse ? PULSE_COLOR[person.pulse.urgency] : TEAL} strokeWidth={4} />
                   {faceOf(person, 112, `pc-big-${person.id}`)}
                   <text className="hw-face-name" y={146} textAnchor="middle" style={{ fontSize: drill.sec ? 40 : 26 }}>{drill.sec ? person.firstName ?? person.name : person.name}</text>
                 </g>

@@ -1577,3 +1577,13 @@ a.link { display: block; text-decoration: none; }
 .ta-due-now i { background: #e4574a; animation-duration: 1.6s; }
 @keyframes ta-due { 0% { box-shadow: 0 0 0 0 rgba(229, 184, 58, 0.7); } 100% { box-shadow: 0 0 0 10px rgba(229, 184, 58, 0); } }
 @media (prefers-reduced-motion: reduce) { .ta-due-p i { animation: none; } }
+/* Follow the pulse inside SVG pages (PulseRing.tsx), matching the map's rings */
+.pr-ring { transform-box: fill-box; transform-origin: center; animation: pr-ring 2.2s ease-out infinite; }
+.pr-ring.pr-now { animation-duration: 1.3s; }
+.pr-ring.pr-late { animation-delay: -1.1s; }
+.pr-ring.pr-now.pr-late { animation-delay: -0.65s; }
+@keyframes pr-ring { from { transform: scale(1); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+.pr-glow { transform-box: fill-box; transform-origin: center; opacity: 0.14; animation: pr-glow 2.2s ease-in-out infinite; }
+.pr-glow.pr-now { animation-duration: 1.3s; }
+@keyframes pr-glow { 50% { opacity: 0.3; transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .pr-ring, .pr-glow { animation: none; } .pr-ring.pr-late { display: none; } }

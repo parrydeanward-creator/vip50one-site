@@ -7,6 +7,7 @@ import { faceUrl, initialsOf, ringRows } from "@/lib/vips.ts";
 import PulseMark from "./PulseMark.tsx";
 import { focusFace, focusRings } from "@/lib/orbs.ts";
 import { useSvgCamera } from "./useSvgCamera.ts";
+import PulseRing, { PULSE_COLOR } from "./PulseRing.tsx";
 
 // VIP-SUMMARY §3h: Hot/Warm/Cold in ONE Brain. Three live orbs with each
 // class's people round them; an orb's ring lights once today's box for that
@@ -370,6 +371,8 @@ export default function HotWarmCold({
                 )}
                 {c.key === "warm" && <circle cx={0} cy={0} r={ORB + 26} fill="none" stroke="#ffd08a" strokeWidth={10} className="hw-shimmer" pointerEvents="none" />}
                 {c.key === "cold" && <circle cx={0} cy={0} r={ORB + 24} fill="none" stroke="#cfe6ff" strokeWidth={1.5} strokeDasharray="1 14 6 9" className="hw-frost" pointerEvents="none" />}
+                {/* A daily tracker step (Parry, 5 Oct): pulses until today's box for this class is ticked. */}
+                <PulseRing r={ORB + 4} level={lit ? "good" : "today"} />
                 <circle cx={0} cy={0} r={ORB} fill="url(#hw-glass)" stroke={c.color} strokeWidth={lit ? 5 : 2.5} className={flare ? "hw-flare" : undefined} />
                 {lit && <circle cx={0} cy={0} r={ORB + 12} fill="none" stroke={c.color} strokeWidth={2} strokeDasharray="4 6" className="hw-lit" />}
                 <text className="hw-n" x={0} y={-8} textAnchor="middle" style={undefined}>{n}</text>
@@ -377,7 +380,7 @@ export default function HotWarmCold({
                 {only === c.key && <text className="rx-back" x={0} y={56} textAnchor="middle">tap for all three</text>}
                 {dueN > 0 && (
                   <g pointerEvents="none">
-                    <circle cx={ORB * 0.74} cy={-ORB * 0.74} r={22} fill={GOLD} stroke="#070b18" strokeWidth={3} />
+                    <circle cx={ORB * 0.74} cy={-ORB * 0.74} r={22} fill={PULSE_COLOR.today} stroke="#070b18" strokeWidth={3} />
                     <text x={ORB * 0.74} y={-ORB * 0.74} dy="0.35em" textAnchor="middle" className="hw-due">{dueN}</text>
                   </g>
                 )}
@@ -428,6 +431,7 @@ export default function HotWarmCold({
                 )}
                 <circle cx={0} cy={0} r={f.r + 7} fill={c.color} opacity={0.08 + heat * 0.32} pointerEvents="none" />
                 {p.contactId && glowing.has(p.contactId) && <circle cx={0} cy={0} r={f.r + 12} fill="none" stroke="#f5c542" strokeWidth={4} className="sd-glow" pointerEvents="none" />}
+                {over && !isPick && <PulseRing r={f.r + 3} level="today" />}
                 {isPick && <circle cx={0} cy={0} r={f.r + 6} fill="none" stroke={GOLD} strokeWidth={3} className="hw-beat" pointerEvents="none" />}
                 <circle cx={0} cy={0} r={f.r} fill="#121a36" stroke={on ? "#fff" : c.color} strokeWidth={on ? 3 : 1.6} opacity={0.55 + heat * 0.45} />
                 {pic ? (

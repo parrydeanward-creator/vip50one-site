@@ -227,6 +227,13 @@ function statusOf(u: SummaryItem["urgency"]): NodeStatus | undefined {
   return u === "alert" ? "action" : u === "today" ? "attention" : undefined;
 }
 
+/** Today's Hot, Warm and Cold boxes in the daily tracker: how many are not ticked yet. Null if not sent. */
+export function hwcToday(boxes: { key: string; done: boolean }[] | null | undefined): { left: number } | null {
+  if (!boxes) return null;
+  const mine = boxes.filter((b) => b.key === "hot_contact" || b.key === "warm_contact" || b.key === "cold_contact");
+  return mine.length ? { left: mine.filter((b) => !b.done).length } : null;
+}
+
 /** The people behind items due today or overdue, for a page that pulses them. */
 export function dueIn(items: SummaryItem[]): GraphNode["dueContacts"] {
   const out = items
@@ -465,7 +472,21 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
     });
     g.pages.forEach((pg, j) => {
       if (pg.path === "/contacts/audit") return; // the live Touch Audit below
-      add({ id: movePageId(pg.path), type: "feature", label: pg.label, parentId: gid, product: "move", importance: 0.8 - j * 0.02, href: moveMenuHref(pg.path) });
+      // Hot/Warm/Cold is a daily tracker step (Parry, 5 Oct): it pulses until today's box for
+      // each class is ticked.
+      const hwc = pg.path === "/hot-warm-cold" && found ? hwcToday(env!.today_boxes) : null;
+      add({
+        id: movePageId(pg.path),
+        type: "feature",
+        label: pg.label,
+        secondaryLabel: hwc ? (hwc.left ? `${3 - hwc.left} of 3 worked today` : "All three worked today") : undefined,
+        parentId: gid,
+        product: "move",
+        importance: 0.8 - j * 0.02,
+        href: moveMenuHref(pg.path),
+        status: hwc ? (hwc.left ? "attention" : "healthy") : undefined,
+        needCount: hwc?.left || undefined,
+      });
     });
   });
   MOVE_BOTTOM.forEach((pg, j) =>
@@ -474,7 +495,7 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
   const people = moveGroupId("people");
   if (found) {
     if (followups.length) {
-      add({ id: "move-followups", type: "category", label: "Follow-ups overdue", secondaryLabel: `${overdueCount ?? followups.length} overdue`, parentId: people, product: "move", importance: 1, status: "action", summary: "Tasks in ONE MOVE that are past their date and not done." });
+      add({ id: "move-followups", type: "category", label: "Follow-ups overdue", secondaryLabel: `${overdueCount ?? followups.length} overdue`, parentId: people, product: "move", importance: 1, status: "action", summary: "Tasks in ONE MOVE that are past their date and not done.", needFloor: overdueCount ? { count: overdueCount, level: "now" } : undefined });
       followups.forEach((it, k) => itemNode(add, it, "move-followups", "move", 1 - k * 0.03));
     }
     if (suggestions.length) {

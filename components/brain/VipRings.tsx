@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ContactPanel from "./ContactPanel.tsx";
+import PulseRing from "./PulseRing.tsx";
 import {
   canPromote,
   faceUrl,
@@ -304,6 +305,7 @@ export default function VipRings({
         <title>{`${p.name} · ${done}/${segs.length} this month · ${lastTouchLine(p, today)}`}</title>
         {glowing.has(s.id) && <circle cx={s.x} cy={s.y} r={s.r + (big ? 13 : 10)} fill="none" stroke="#f5c542" strokeWidth={4} className="sd-glow" pointerEvents="none" />}
         <circle className="vr-glow" cx={s.x} cy={s.y} r={s.r * (big ? 1.9 : 1.6)} fill={`url(#vr-glow-${urg === "overdue" ? "red" : big ? "gold" : "teal"})`} />
+        <PulseRing x={s.x} y={s.y} r={s.r + (big ? 9 : 7)} level={urg === "overdue" ? "now" : urg === "soon" ? "today" : "good"} />
         {segs.map((seg, i) => (
           <path key={seg.key} className={seg.done ? "vr-seg vr-seg-on" : "vr-seg"} d={segmentPath(s.x, s.y, s.r + (big ? 7 : 5), i, segs.length)} strokeWidth={big ? 3.6 : 2.6} />
         ))}
@@ -510,9 +512,10 @@ export default function VipRings({
               <li><span className="vr-k vr-k-orb100" /> VIP-100, your reserve (outer ring)</li>
               <li><span className="vr-k vr-k-on" /> Touch done this month</li>
               <li><span className="vr-k" /> Touch still to do</li>
-              <li><span className="vr-k vr-k-red" /> Overdue (14+ days)</li>
-              <li><span className="vr-k vr-k-amber" /> Due soon (7-13 days)</li>
-              <li><span className="vr-k vr-k-green" /> Every touch done this month</li>
+              <li><span className="vr-k vr-k-red" /> Pulsing red: overdue (14+ days)</li>
+              <li><span className="vr-k vr-k-amber" /> Pulsing yellow: due soon (7-13 days)</li>
+              <li><span className="vr-k vr-k-green" /> Still green ring: up to date</li>
+              <li><span className="vr-k vr-k-green" /> Green dot: every touch done this month</li>
             </ul>
             <button className="vr-classic" onClick={onClassic}>Open the Classic page</button>
           </>

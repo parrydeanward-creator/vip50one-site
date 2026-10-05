@@ -73,6 +73,12 @@ export interface GraphNode {
   // Follow the pulse into a page (Parry, 5 Oct): the people inside this orb's page who need the
   // agent today, so the page can pulse them too (Touch Audit's due VIP touches).
   dueContacts?: { id: string; title: string; level: "now" | "today" }[];
+  // How many things inside this orb need the agent, when it is not one (Hot/Warm/Cold: the classes
+  // not yet worked today).
+  needCount?: number;
+  // At least this many inside need the agent, when only some are drawn as orbs (overdue follow-ups:
+  // vip_summary sends at most 40 items, the stat has them all; go-move, 5 Oct).
+  needFloor?: { count: number; level: "now" | "today" };
   // A special day today (theirs or their family's): the orb glows gold (vip_summary.special_days).
   celebrate?: boolean;
   // The MASTER task behind a ONE MOVE item ("go:task:<uuid>"): closed when its touch is logged.
