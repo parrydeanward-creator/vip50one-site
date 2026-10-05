@@ -5,6 +5,11 @@ import { type Camera, type Viewport, lerpCamera, toScreen } from "@/lib/brain/ca
 import { GOLD, GOLD_LIGHT, GREY, PRODUCT_COLOR, STATUS, WHITE } from "@/lib/brain/theme.ts";
 import { constellation, coreBody, glowTexture, icon, orbBody, orbit } from "./draw.ts";
 import { iconFor } from "@/lib/brain/icons.ts";
+import type { Need } from "@/lib/needs.ts";
+
+// Follow the pulse: red is overdue or an alert, amber is due today.
+const NEED_COLOR = { now: STATUS.action.color, today: STATUS.attention.color } as const;
+export type SceneNeed = Need & { leaf: boolean };
 
 // Layers 3 and 4 on the GPU: draws what presentation placed, and eases every
 // change (motion). It never decides what is shown or what anything means.
@@ -82,6 +87,8 @@ export class BrainScene {
   private pings: Ping[] = [];
   private flights: Flight[] = [];
   private pingG = new Graphics();
+  private needG = new Graphics();
+  private needs = new Map<string, SceneNeed>();
   private focusId = "";
   private hoverId: string | null = null;
   private dimOthers: Set<string> | null = null;
@@ -114,7 +121,7 @@ export class BrainScene {
     });
     host.appendChild(this.app.canvas);
     this.app.canvas.setAttribute("aria-hidden", "true");
-    this.world.addChild(this.orbits, this.edgeG, this.pingG, this.nodes, this.halo, this.pulseG);
+    this.world.addChild(this.orbits, this.edgeG, this.pingG, this.needG, this.nodes, this.halo, this.pulseG);
     this.app.stage.addChild(this.bg, this.world);
     this.buildHalo();
     this.buildOrbits();
@@ -200,6 +207,14 @@ export class BrainScene {
     this.idleFor = 0;
   }
 
+  // What needs the agent (lib/needs.ts). Orbs restyle only when their count or
+  // colour changes; the rings are drawn every frame.
+  setNeeds(needs: Map<string, SceneNeed>) {
+    this.needs = needs;
+    for (const s of this.sprites.values()) this.style(s, s.role);
+    this.idleFor = 0;
+  }
+
   // Ring out once from each node (it changed since the agent was last here).
   ping(ids: string[]) {
     if (this.reducedMotion) return;
@@ -273,7 +288,8 @@ export class BrainScene {
   private style(s: Sprite, role: string) {
     const n = s.node;
     const photo = n.image ? this.photoFor(n.image) : null;
-    const key = `${n.type}|${n.status}|${n.locked}|${role}|${n.label}|${n.secondaryLabel}|${s.tgt.r}|${photo ? "p" : ""}|${n.celebrate ? "c" : ""}`;
+    const need = n.locked || n.type === "core" ? undefined : this.needs.get(n.id);
+    const key = `${n.type}|${n.status}|${n.locked}|${role}|${n.label}|${n.secondaryLabel}|${s.tgt.r}|${photo ? "p" : ""}|${n.celebrate ? "c" : ""}|${need ? `${need.level}${need.count}${need.leaf}` : ""}`;
     if (key === s.drawnKey) return;
     s.drawnKey = key;
     const r = s.tgt.r;
@@ -332,14 +348,26 @@ export class BrainScene {
     // button's name), not a second ring fighting the product colour.
     const d = new Graphics();
     d.label = "status";
-    if (n.status && !n.locked && role !== "sibling" && role !== "ancestor") {
+    if (need && !need.leaf) {
+      // Above the person: how many inside need the agent, in the pulse colour.
+      const c = NEED_COLOR[need.level];
+      const br = Math.max(9, r * 0.2);
+      const bx = Math.cos(-Math.PI / 4) * r, by = Math.sin(-Math.PI / 4) * r;
+      d.circle(bx, by, br + 3).fill({ color: 0x070b18, alpha: 1 });
+      d.circle(bx, by, br).fill({ color: c, alpha: 1 });
+      const t = new Text({ text: need.count > 99 ? "99+" : String(need.count), style: { fontFamily: FONT, fontSize: Math.round(br * (need.count > 9 ? 0.95 : 1.2)), fontWeight: "800", fill: 0x070b18 }, resolution: 3 });
+      t.anchor.set(0.5);
+      t.position.set(bx, by);
+      s.deco.addChild(d, t);
+      d.label = "need";
+    } else if (n.status && !n.locked && !need && role !== "sibling" && role !== "ancestor") {
       const st = STATUS[n.status];
       const bx = Math.cos(-Math.PI / 4) * r, by = Math.sin(-Math.PI / 4) * r;
       const br = Math.max(5, r * 0.13);
       d.circle(bx, by, br + 3).fill({ color: 0x070b18, alpha: 1 });
       d.circle(bx, by, br).fill({ color: st.color, alpha: 1 });
     }
-    s.deco.addChild(d);
+    if (d.label !== "need") s.deco.addChild(d);
 
     const inside = n.type === "product" || role === "focus";
     if (photo && !inside && !n.locked) {
@@ -496,6 +524,7 @@ export class BrainScene {
     this.drawPulses(dt);
     this.drawFlights(dt);
     this.drawPings(dt);
+    this.drawNeeds();
     this.app.ticker.maxFPS = this.idleFor > 8 ? 30 : 0; // idle: 30fps
     this.onFrame?.();
   }
@@ -577,6 +606,31 @@ export class BrainScene {
       }
       g.circle(head.x, head.y, 16 * s).fill({ color: f.color, alpha: 0.18 * alpha });
       g.circle(head.x, head.y, 5 * s).fill({ color: 0xffffff, alpha: 0.95 * alpha });
+    }
+  }
+
+  // Follow the pulse: rings breathe out from every orb that needs the agent,
+  // faster and red when it is overdue. Under reduced motion, one still ring.
+  private drawNeeds() {
+    const g = this.needG.clear();
+    if (!this.needs.size) return;
+    const s = 1 / this.cam.scale;
+    for (const sp of this.sprites.values()) {
+      const need = this.needs.get(sp.id);
+      if (!need || sp.node.locked || sp.node.type === "core" || sp.cur.a < 0.05) continue;
+      const c = NEED_COLOR[need.level];
+      const a = sp.cur.a * (sp.role === "ancestor" || sp.role === "sibling" ? 0.6 : 1);
+      const r = sp.cur.r;
+      if (this.reducedMotion) {
+        g.circle(sp.cur.x, sp.cur.y, r + 6).stroke({ width: 2.5 * s, color: c, alpha: a * 0.9 });
+        continue;
+      }
+      const period = need.level === "now" ? 1.6 : 2.4;
+      for (const off of [0, 0.5]) {
+        const t = ((this.time / period + off + sp.phase / (Math.PI * 2)) % 1 + 1) % 1;
+        g.circle(sp.cur.x, sp.cur.y, r + 4 + r * 0.55 * t).stroke({ width: (3 - 2 * t) * s, color: c, alpha: a * 0.85 * (1 - t) });
+      }
+      g.circle(sp.cur.x, sp.cur.y, r + 3).stroke({ width: 1.5 * s, color: c, alpha: a * 0.7 });
     }
   }
 

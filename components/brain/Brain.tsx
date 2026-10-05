@@ -30,6 +30,10 @@ import { RANGE, dayLabel, inWindow, offsetLabel, windowTitle } from "@/lib/timel
 import { clock, completedBy, duration, isEvening, planDay, recap } from "@/lib/day.ts";
 import { localDay } from "@/lib/morning.ts";
 import PulseMark from "./PulseMark.tsx";
+import PulseIntro from "./PulseIntro.tsx";
+import { needWords, needsOf, type Need } from "@/lib/needs.ts";
+import { SEEN_KEY } from "@/lib/pulseIntro.ts";
+import type { SceneNeed } from "./scene.ts";
 import { returnNote, withoutNotes } from "@/lib/googleReturn.ts";
 import { IN_BRAIN, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_GROUPS, MOVE_TOP, inBrainPage, moveEmbedHref, moveGroupId, moveMenuHref, movePageId, type MovePage, pageAddress, pageFromAddress } from "@/lib/moveMenu.ts";
 
@@ -99,6 +103,26 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     };
   }, [pkg, live]);
   const ix = useMemo(() => indexGraph(graph), [graph]);
+  // Follow the pulse (Parry, 5 Oct): what needs the agent, added up every orb above it.
+  const needs = useMemo(() => needsOf(graph.nodes), [graph]);
+  const sceneNeeds = useMemo(() => {
+    const parents = new Set(graph.nodes.map((n) => n.parentId).filter((p): p is string => !!p));
+    const m = new Map<string, SceneNeed>();
+    for (const [id, need] of needs) m.set(id, { ...need, leaf: !parents.has(id) });
+    return m;
+  }, [graph, needs]);
+  // Meet Pulse: the centre orb opens it; a signed-in agent sees it once on a first visit.
+  const [intro, setIntro] = useState(false);
+  useEffect(() => {
+    if (!live) return;
+    try {
+      if (window.localStorage.getItem(SEEN_KEY)) return;
+      window.localStorage.setItem(SEEN_KEY, "1");
+    } catch {
+      return; // storage blocked: only the orb opens it
+    }
+    setIntro(true);
+  }, [live]);
   const [state, setState] = useState(() => nav.start(graph.rootId));
   const [phone, setPhone] = useState(false);
   const [ready, setReady] = useState(false);
@@ -313,11 +337,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     const s = sceneRef.current;
     if (!s) return;
     s.setScene(placed, ix.byId, vs.edges, sceneFocus);
+    s.setNeeds(sceneNeeds);
     const key = `${sceneFocus}|${phone}|${placed.map((p) => `${p.id}:${p.role}`).join(",")}`;
     if (key === framedKey.current) return;
     framedKey.current = key;
     if (!tourRef.current) fitNow(true);
-  }, [ready, placed, vs, ix, sceneFocus, fitNow, phone]);
+  }, [ready, placed, vs, ix, sceneFocus, fitNow, phone, sceneNeeds]);
 
   useEffect(() => {
     drawerRef.current?.scrollTo({ top: 0 });
@@ -773,6 +798,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const clickNode = (id: string) => {
     if (drag.current.moved) return; // that was a drag, not a tap
     if (ask) return id === graph.rootId ? goHome() : goTo(id);
+    if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setIntro(true);
     if (id !== state.focusId) goTo(id);
   };
 
@@ -972,7 +998,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                   }}
                   className={`node-btn ${v.role === "focus" ? "is-focus" : ""}`}
                   style={{ visibility: "hidden" }}
-                  aria-label={nodeLabel(v.node, v.role, v.hasChildren)}
+                  aria-label={nodeLabel(v.node, v.role, v.hasChildren, needs.get(v.node.id))}
                   aria-current={v.role === "focus" ? "true" : undefined}
                   onClick={() => clickNode(v.node.id)}
                   onPointerEnter={(e) => {
@@ -1765,6 +1791,21 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
           </section>
         )}
       </div>
+      {intro && (
+        <PulseIntro
+          pkg={pkg}
+          total={needs.get(graph.rootId)}
+          onClose={() => setIntro(false)}
+          onAsk={() => {
+            setIntro(false);
+            askInputRef.current?.focus();
+          }}
+          onMorning={() => {
+            setIntro(false);
+            startTour();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1777,10 +1818,13 @@ function productName(p: GraphNode["product"]) {
   return { one: "ONE", go: "ONE GO", move: "ONE MOVE", marquee: "Marquee", showly: "Showly", open: "ONE Open" }[p];
 }
 
-function nodeLabel(n: GraphNode, role: string, hasChildren: boolean) {
+function nodeLabel(n: GraphNode, role: string, hasChildren: boolean, need?: Need) {
   const parts = [n.label];
   if (n.secondaryLabel) parts.push(n.secondaryLabel);
-  if (n.status && !n.locked) parts.push(STATUS[n.status].label);
+  if (n.type === "core") {
+    if (role === "focus") parts.push("about Pulse");
+  } else if (need && !n.locked) parts.push(needWords(need, !hasChildren));
+  else if (n.status && !n.locked) parts.push(STATUS[n.status].label);
   if (n.locked) parts.push("not in your package");
   if (role === "focus") parts.push("selected");
   else if (role === "ancestor") parts.push("go back up");
