@@ -31,6 +31,7 @@ import { clock, completedBy, duration, isEvening, planDay, recap } from "@/lib/d
 import { localDay } from "@/lib/morning.ts";
 import PulseMark from "./PulseMark.tsx";
 import PulseIntro from "./PulseIntro.tsx";
+import SignalGuide from "./SignalGuide.tsx";
 import { needWords, needsOf, type Need } from "@/lib/needs.ts";
 import { SEEN_KEY } from "@/lib/pulseIntro.ts";
 import type { SceneNeed } from "./scene.ts";
@@ -113,6 +114,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   }, [graph, needs]);
   // Meet Pulse: the centre orb opens it; a signed-in agent sees it once on a first visit.
   const [intro, setIntro] = useState(false);
+  const [guide, setGuide] = useState(false); // What everything means
   useEffect(() => {
     if (!live) return;
     try {
@@ -1326,6 +1328,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             <button onClick={goHome} aria-label="Centre on ONE">
               ◎
             </button>
+            <button onClick={() => setGuide(true)} aria-label="What everything means" title="What everything means">
+              ?
+            </button>
           </div>
         </section>
 
@@ -1804,8 +1809,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             setIntro(false);
             startTour();
           }}
+          onGuide={() => {
+            setIntro(false);
+            setGuide(true);
+          }}
         />
       )}
+      {guide && <SignalGuide onClose={() => setGuide(false)} />}
     </div>
   );
 }

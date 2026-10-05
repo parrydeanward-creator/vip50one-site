@@ -6,7 +6,7 @@ import { COMING, LIVE, PROMISE, packageLine, todayLine } from "@/lib/pulseIntro.
 import type { Need } from "@/lib/needs.ts";
 
 // Meet Pulse: opens from the centre ONE orb (and once, on a first visit).
-export default function PulseIntro({ pkg, total, onClose, onAsk, onMorning }: { pkg?: string; total?: Need; onClose: () => void; onAsk: () => void; onMorning: () => void }) {
+export default function PulseIntro({ pkg, total, onClose, onAsk, onMorning, onGuide }: { pkg?: string; total?: Need; onClose: () => void; onAsk: () => void; onMorning: () => void; onGuide: () => void }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     closeRef.current?.focus();
@@ -59,6 +59,7 @@ export default function PulseIntro({ pkg, total, onClose, onAsk, onMorning }: { 
             <PulseMark label={false} /> Ask Pulse
           </button>
           <button className="pi-btn" onClick={onMorning}>Start my Morning Pulse</button>
+          <button className="pi-btn pi-guide" onClick={onGuide}>What everything means</button>
         </div>
       </section>
     </div>
