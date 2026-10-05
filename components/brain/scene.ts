@@ -110,6 +110,9 @@ export class BrainScene {
   // Below 1 slows every motion (used only to record Watch ONE Work smoothly
   // on a slow machine; the video is sped back up).
   timeScale = 1;
+  // How loud the signals are (Parry, 5 Oct: "make them way more pronounced"). The
+  // dashboard runs at 1.5; the films that teach the signals run louder.
+  boost = 1.5;
   onFrame: (() => void) | null = null;
 
   async init(host: HTMLElement, reducedMotion: boolean) {
@@ -334,10 +337,11 @@ export class BrainScene {
     // A special day today: the person glows gold, with a gold rim.
     if (n.celebrate && !n.locked) {
       s.glow.tint = GOLD;
-      s.glow.width = s.glow.height = r * 3.6;
+      s.glow.width = s.glow.height = r * (3.6 + 0.6 * this.boost);
       s.glow.alpha = 0.9 * lit;
       const rim = new Graphics();
-      rim.circle(0, 0, r + 5).stroke({ width: 3, color: GOLD, alpha: 0.95 });
+      rim.circle(0, 0, r + 5).stroke({ width: 3 * this.boost, color: GOLD, alpha: 0.95 });
+      rim.circle(0, 0, r + 5 + 6 * this.boost).stroke({ width: 1.5 * this.boost, color: GOLD_LIGHT, alpha: 0.45 });
       s.deco.addChild(rim);
     }
 
@@ -347,9 +351,9 @@ export class BrainScene {
       const frac = Math.max(0, Math.min(1, Number(ratio[1]) / Number(ratio[2])));
       const ar = r + 11;
       const arc = new Graphics();
-      arc.circle(0, 0, ar).stroke({ width: 3, color: 0xffffff, alpha: 0.08 });
+      arc.circle(0, 0, ar).stroke({ width: 3 * this.boost, color: 0xffffff, alpha: 0.12 });
       if (frac > 0) {
-        arc.moveTo(0, -ar).arc(0, 0, ar, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2).stroke({ width: 3, color: lighten(color), alpha: 0.95, cap: "round" });
+        arc.moveTo(0, -ar).arc(0, 0, ar, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2).stroke({ width: 3 * this.boost, color: lighten(color), alpha: 0.95, cap: "round" });
       }
       s.deco.addChild(arc);
     }
@@ -361,7 +365,7 @@ export class BrainScene {
     if (need && !need.leaf) {
       // Above the person: how many inside need the agent, in the pulse colour.
       const c = NEED_COLOR[need.level];
-      const br = Math.max(9, r * 0.2);
+      const br = Math.max(9, r * 0.2) * Math.sqrt(this.boost);
       const bx = Math.cos(-Math.PI / 4) * r, by = Math.sin(-Math.PI / 4) * r;
       d.circle(bx, by, br + 3).fill({ color: 0x070b18, alpha: 1 });
       d.circle(bx, by, br).fill({ color: c, alpha: 1 });
@@ -373,7 +377,7 @@ export class BrainScene {
     } else if (n.status && n.status !== "healthy" && !n.locked && !need && role !== "sibling" && role !== "ancestor") {
       const st = STATUS[n.status];
       const bx = Math.cos(-Math.PI / 4) * r, by = Math.sin(-Math.PI / 4) * r;
-      const br = Math.max(5, r * 0.13);
+      const br = Math.max(5, r * 0.13) * Math.sqrt(this.boost);
       d.circle(bx, by, br + 3).fill({ color: 0x070b18, alpha: 1 });
       d.circle(bx, by, br).fill({ color: st.color, alpha: 1 });
     }
@@ -494,7 +498,7 @@ export class BrainScene {
       }
       let breathe = 1;
       if (!this.reducedMotion) {
-        if (s.node.type === "core") breathe = 1 + 0.016 * Math.sin((this.time / 5) * Math.PI * 2);
+        if (s.node.type === "core") breathe = 1 + 0.016 * (1 + 2 * (this.boost - 1)) * Math.sin((this.time / 5) * Math.PI * 2);
         else if (s.node.type === "product") breathe = 1 + 0.006 * Math.sin((this.time / 6) * Math.PI * 2 + s.phase);
       }
       const hover = this.hoverId === s.id ? 1.07 : 1;
@@ -504,7 +508,7 @@ export class BrainScene {
       if (this.hoverId === s.id) s.glow.alpha = Math.min(1, s.glow.alpha + 0.02);
       if (s.node.status === "opportunity" && !this.reducedMotion) {
         const st = s.deco.getChildByLabel("status");
-        if (st) st.alpha = 0.6 + 0.4 * Math.sin(this.time * 1.6 + s.phase);
+        if (st) st.alpha = 0.55 + 0.45 * Math.sin(this.time * 2.2 + s.phase);
       }
     }
 
@@ -582,8 +586,8 @@ export class BrainScene {
       const y = a.cur.y + (b.cur.y - a.cur.y) * e;
       const fade = Math.sin(Math.PI * Math.min(1, p.t)) * Math.min(a.cur.a, b.cur.a);
       const s = 1 / this.cam.scale;
-      g.circle(x, y, 10 * s).fill({ color: p.color, alpha: 0.14 * fade });
-      g.circle(x, y, 3 * s).fill({ color: 0xffffff, alpha: 0.9 * fade });
+      g.circle(x, y, 10 * s * this.boost).fill({ color: p.color, alpha: 0.2 * fade });
+      g.circle(x, y, 3 * s * this.boost).fill({ color: 0xffffff, alpha: 0.95 * fade });
     }
   }
 
@@ -609,13 +613,13 @@ export class BrainScene {
       };
       // the path lights up behind the signal
       const tail = at(f.t - 0.22), head = at(f.t);
-      g.moveTo(tail.x, tail.y).lineTo(head.x, head.y).stroke({ width: 3 * s, color: f.color, alpha: 0.5 * alpha });
+      g.moveTo(tail.x, tail.y).lineTo(head.x, head.y).stroke({ width: 3 * s * this.boost, color: f.color, alpha: 0.6 * alpha });
       for (let i = 4; i >= 1; i--) {
         const p = at(f.t - i * 0.035);
-        g.circle(p.x, p.y, (5 - i) * 1.4 * s).fill({ color: f.color, alpha: (0.35 - i * 0.06) * alpha });
+        g.circle(p.x, p.y, (5 - i) * 1.4 * s * this.boost).fill({ color: f.color, alpha: (0.35 - i * 0.06) * alpha });
       }
-      g.circle(head.x, head.y, 16 * s).fill({ color: f.color, alpha: 0.18 * alpha });
-      g.circle(head.x, head.y, 5 * s).fill({ color: 0xffffff, alpha: 0.95 * alpha });
+      g.circle(head.x, head.y, 16 * s * this.boost).fill({ color: f.color, alpha: 0.25 * alpha });
+      g.circle(head.x, head.y, 5 * s * this.boost).fill({ color: 0xffffff, alpha: 0.95 * alpha });
     }
   }
 
@@ -632,22 +636,26 @@ export class BrainScene {
         // Nothing here needs the agent: a still green ring. An orb marked for
         // attention with nothing loaded under it keeps its dot instead.
         const st = sp.node.status;
-        if (st !== "action" && st !== "attention" && !sp.node.celebrate) g.circle(sp.cur.x, sp.cur.y, sp.cur.r + 6).stroke({ width: 2.2 * s, color: GOOD, alpha: sp.cur.a * 0.85 });
+        if (st !== "action" && st !== "attention" && !sp.node.celebrate) g.circle(sp.cur.x, sp.cur.y, sp.cur.r + 6).stroke({ width: 2.2 * s * this.boost, color: GOOD, alpha: sp.cur.a * 0.9 });
         continue;
       }
       const c = NEED_COLOR[need.level];
       const a = sp.cur.a * (sp.role === "ancestor" || sp.role === "sibling" ? 0.6 : 1);
       const r = sp.cur.r;
       if (this.reducedMotion) {
-        g.circle(sp.cur.x, sp.cur.y, r + 6).stroke({ width: 2.5 * s, color: c, alpha: a * 0.9 });
+        g.circle(sp.cur.x, sp.cur.y, r + 6).stroke({ width: 2.5 * s * this.boost, color: c, alpha: a * 0.95 });
         continue;
       }
-      const period = need.level === "now" ? 1.6 : 2.4;
+      const period = need.level === "now" ? 1.3 : 2.2;
+      const b = this.boost;
+      // a soft glow in the pulse colour behind the orb, swelling with the beat
+      const beat = 0.5 + 0.5 * Math.sin((this.time / period) * Math.PI * 2 + sp.phase);
+      g.circle(sp.cur.x, sp.cur.y, r * (1.25 + 0.12 * b * beat)).fill({ color: c, alpha: a * (0.08 + 0.06 * b * beat) });
       for (const off of [0, 0.5]) {
         const t = ((this.time / period + off + sp.phase / (Math.PI * 2)) % 1 + 1) % 1;
-        g.circle(sp.cur.x, sp.cur.y, r + 4 + r * 0.55 * t).stroke({ width: (3 - 2 * t) * s, color: c, alpha: a * 0.85 * (1 - t) });
+        g.circle(sp.cur.x, sp.cur.y, r + 4 + r * (0.55 + 0.25 * (b - 1)) * t).stroke({ width: (3 - 2 * t) * s * b, color: c, alpha: a * (1 - t) });
       }
-      g.circle(sp.cur.x, sp.cur.y, r + 3).stroke({ width: 1.5 * s, color: c, alpha: a * 0.7 });
+      g.circle(sp.cur.x, sp.cur.y, r + 3).stroke({ width: 2 * s * b, color: c, alpha: a * 0.9 });
     }
   }
 
@@ -656,7 +664,7 @@ export class BrainScene {
     this.pings = this.pings.filter((p) => p.t < 1);
     const s = 1 / this.cam.scale;
     for (const p of this.pings) {
-      p.t += dt / 1.8;
+      p.t += dt / (1.8 * Math.min(this.boost, 1.6));
       if (p.t < 0) continue;
       const sp = this.sprites.get(p.id);
       if (!sp || sp.cur.a < 0.05) continue;
@@ -664,7 +672,7 @@ export class BrainScene {
       for (const lag of [0, 0.18]) {
         const q = Math.max(0, e - lag);
         const fade = (1 - p.t) * sp.cur.a * (lag ? 0.5 : 1);
-        g.circle(sp.cur.x, sp.cur.y, sp.cur.r * (1 + 0.9 * q)).stroke({ width: 2.2 * s, color: p.color, alpha: 0.85 * fade });
+        g.circle(sp.cur.x, sp.cur.y, sp.cur.r * (1 + (0.9 + 0.4 * (this.boost - 1)) * q)).stroke({ width: 2.2 * s * this.boost, color: p.color, alpha: 0.95 * fade });
       }
     }
   }
