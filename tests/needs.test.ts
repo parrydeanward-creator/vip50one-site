@@ -63,3 +63,12 @@ test("words for screen readers", () => {
   assert.equal(needWords({ count: 1, level: "now" }, false), "1 needs you, some overdue");
   assert.equal(needWords(undefined, false), "");
 });
+
+test("a page orb counts the people inside it (Touch Audit with 3 due today counts 3)", () => {
+  const m = needsOf([
+    n("one", null, { type: "core" }),
+    n("audit", "one", { type: "category", status: "attention", dueContacts: [{ id: "a", title: "x", level: "today" }, { id: "b", title: "y", level: "today" }, { id: "c", title: "z", level: "today" }] }),
+  ]);
+  assert.deepEqual(m.get("audit"), { count: 3, level: "today" });
+  assert.deepEqual(m.get("one"), { count: 3, level: "today" });
+});

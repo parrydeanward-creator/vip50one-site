@@ -1562,3 +1562,18 @@ a.link { display: block; text-decoration: none; }
   .watch-card .watch-demo { grid-template-columns: 110px 1fr; }
   .watch-card .watch-demo .sg-demo { width: 110px; }
 }
+/* Touch boxes the agent can tick (asks first); newsletter and mixer tick on a real send */
+.cc-box { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 0; border: 0; background: none; color: var(--text-2); font-size: 13px; cursor: pointer; text-align: left; }
+.cc-box i { width: 18px; height: 18px; flex: none; border-radius: 5px; border: 1px solid rgba(245, 197, 66, 0.55); }
+.cc-box:hover i, .cc-box:focus-visible i { background: rgba(245, 197, 66, 0.18); }
+.cc-box:hover { color: var(--text); }
+.cc-boxes li.auto small { color: var(--text-3); font-size: 11px; }
+/* Touch Audit: the touches due today, pulsing (follow the pulse into the page) */
+.ta-due { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 3; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; max-width: calc(100% - 24px); padding: 8px 12px; border-radius: 14px; background: rgba(8, 12, 26, 0.9); border: 1px solid var(--line); }
+.ta-due-h { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.ta-due-p { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer; }
+.ta-due-p small { font-weight: 400; color: var(--text-2); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ta-due-p i { width: 10px; height: 10px; border-radius: 50%; background: #e5b83a; box-shadow: 0 0 0 0 rgba(229, 184, 58, 0.7); animation: ta-due 2.4s ease-out infinite; }
+.ta-due-now i { background: #e4574a; animation-duration: 1.6s; }
+@keyframes ta-due { 0% { box-shadow: 0 0 0 0 rgba(229, 184, 58, 0.7); } 100% { box-shadow: 0 0 0 10px rgba(229, 184, 58, 0); } }
+@media (prefers-reduced-motion: reduce) { .ta-due-p i { animation: none; } }
