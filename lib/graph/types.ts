@@ -70,6 +70,9 @@ export interface GraphNode {
   decide?: { id: string; acceptLabel: string; askGci: boolean };
   // VIP-SUMMARY §3c: the ONE MOVE contact this item is about (contact card, Call / Text / Email).
   contactId?: string;
+  // Follow the pulse into a page (Parry, 5 Oct): the people inside this orb's page who need the
+  // agent today, so the page can pulse them too (Touch Audit's due VIP touches).
+  dueContacts?: { id: string; title: string; level: "now" | "today" }[];
   // A special day today (theirs or their family's): the orb glows gold (vip_summary.special_days).
   celebrate?: boolean;
   // The MASTER task behind a ONE MOVE item ("go:task:<uuid>"): closed when its touch is logged.

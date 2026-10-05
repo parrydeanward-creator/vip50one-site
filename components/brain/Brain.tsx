@@ -1713,6 +1713,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
                   celebrate={graph.celebrate}
+                  due={ix.byId.get("move-audit")?.dueContacts}
                 />
               ) : vipNative && nativeKind === "contacts" ? (
                 <Contacts

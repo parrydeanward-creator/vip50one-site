@@ -227,6 +227,14 @@ function statusOf(u: SummaryItem["urgency"]): NodeStatus | undefined {
   return u === "alert" ? "action" : u === "today" ? "attention" : undefined;
 }
 
+/** The people behind items due today or overdue, for a page that pulses them. */
+export function dueIn(items: SummaryItem[]): GraphNode["dueContacts"] {
+  const out = items
+    .filter((i) => (i.urgency === "alert" || i.urgency === "today") && typeof i.contact_id === "string" && UUID.test(i.contact_id))
+    .map((i) => ({ id: i.contact_id as string, title: i.title, level: i.urgency === "alert" ? ("now" as const) : ("today" as const) }));
+  return out.length ? out : undefined;
+}
+
 function worst(items: SummaryItem[]): NodeStatus | undefined {
   if (items.some((i) => i.urgency === "alert")) return "action";
   if (items.some((i) => i.urgency === "today")) return "attention";
@@ -494,7 +502,10 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
     parentId: people,
     product: "move",
     importance: 0.9,
-    status: found ? (audit.length ? "attention" : "healthy") : undefined,
+    // Only a touch due today or overdue pulses; "not fully touched this month" is a gold dot (Parry,
+    // 5 Oct: it blinked yellow with nothing to do inside).
+    status: found ? (audit.length ? worst(audit) : "healthy") : undefined,
+    dueContacts: dueIn(audit),
     summary: "Monthly touches for every VIP-50: call, video text, social, newsletter and mixer invite.",
     recommendations: audit.map((it) => ({ title: it.title, why: it.why, targetId: "move-audit" })),
     href: audit[0]?.link ?? `${MOVE_URL}/contacts/audit`,
