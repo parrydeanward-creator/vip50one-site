@@ -177,3 +177,69 @@ export function pointsLeft(week: { score: number; minimum: number } | undefined)
   if (!week || !Number.isFinite(week.score)) return null;
   return Math.max(0, week.minimum - week.score);
 }
+
+// ---- the orb view (Parry, 5 Oct: "make the plan my day look more like what the move looks like") ----
+
+export interface Seat {
+  ref: string;
+  x: number;
+  y: number;
+  r: number;
+  angle: number; // radians, 0 at the top, clockwise
+}
+
+/** The plan round a clock ring, first at the top, clockwise in the agent's order; a longer item is a
+ * bigger orb. Pulse's suggestions sit on a wider ring outside. */
+export function planSeats(items: PlanItem[], cx: number, cy: number, ring: number): Seat[] {
+  const n = items.length;
+  if (!n) return [];
+  const step = (2 * Math.PI) / Math.max(n, 6);
+  const span = step * (n - 1);
+  const first = n < 6 ? -span / 2 : 0; // a short plan sits as an arc across the top
+  const cap = Math.max(16, Math.min(46, (ring * step) / 2 - 4));
+  return items.map((p, i) => {
+    const angle = first + i * step;
+    const r = Math.min(cap, 20 + (Math.min(p.minutes, 60) / 60) * 22);
+    return { ref: p.ref, angle, r, x: cx + ring * Math.sin(angle), y: cy - ring * Math.cos(angle) };
+  });
+}
+
+export function poolSeats(items: PlanItem[], cx: number, cy: number, ring: number): Seat[] {
+  const n = items.length;
+  const step = (2 * Math.PI) / Math.max(n, 10);
+  const r = Math.max(12, Math.min(22, (ring * step) / 2 - 4));
+  // start at the bottom so the outside ring never sits on top of the first plan item
+  return items.map((p, i) => {
+    const angle = Math.PI + (i - (n - 1) / 2) * step;
+    return { ref: p.ref, angle, r, x: cx + ring * Math.sin(angle), y: cy - ring * Math.cos(angle) };
+  });
+}
+
+/** Where an orb dropped at (x, y) goes in a plan of `n` items: its place round the ring, or null when it
+ * was dropped outside the ring (taken off) or inside the core. */
+export function dropIndex(x: number, y: number, cx: number, cy: number, ring: number, n: number, core: number): number | null {
+  const d = Math.hypot(x - cx, y - cy);
+  if (d < core || d > ring * 1.22) return null;
+  if (n <= 0) return 0;
+  const step = (2 * Math.PI) / Math.max(n, 6);
+  const first = n < 6 ? -(step * (n - 1)) / 2 : 0;
+  let a = Math.atan2(x - cx, cy - y); // 0 at the top, clockwise
+  if (n >= 6 && a < -step / 2) a += 2 * Math.PI;
+  return Math.max(0, Math.min(n, Math.round((a - first) / step)));
+}
+
+/** Put `item` at position `index` (where it lands after the move): moved within the plan, or inserted
+ * from Pulse suggests. */
+export function placeAt(items: PlanItem[], item: PlanItem, index: number): PlanItem[] {
+  const rest = items.filter((p) => p.ref !== item.ref);
+  rest.splice(Math.max(0, Math.min(rest.length, index)), 0, item);
+  return rest.slice(0, PLAN_MAX);
+}
+
+/** Two letters for an orb: the person's initials from "Call Jen Alvarez", else the kind. */
+export function orbMark(p: PlanItem): string {
+  const m = /^(?:[Cc]all|[Tt]ext|[Ee]mail|[Mm]eet|[Ww]rite|[Tt]hank|[Ww]ish)\s+([A-Z][a-z'’-]+)\s+([A-Z][a-z'’-]+)/.exec(p.title);
+  if (m) return `${m[1][0]}${m[2][0]}`;
+  const k: Partial<Record<string, string>> = { call: "☎", text: "✉", note: "✎", approval: "✓", meeting: "☕", rating: "★", follow_up: "↻", report: "▤" };
+  return k[p.kind] ?? "•";
+}

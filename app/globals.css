@@ -1636,3 +1636,48 @@ a.link { display: block; text-decoration: none; }
   .pm-body { flex-basis: calc(100% - 90px); }
   .pm-acts { width: 100%; justify-content: flex-end; }
 }
+
+/* Plan My Day as orbs (Parry, 5 Oct: like ONE MOVE in the Brain) */
+.pm-full { position: fixed; inset: 0; z-index: 60; background: radial-gradient(circle at 38% 50%, #0c1430 0%, #060a1a 55%, #050816 100%); }
+.pm-drawer .pm-start { margin-top: 14px; }
+.pm-drawer .pm-send { width: 100%; justify-content: center; margin-top: 6px; }
+.pm-drawer .pi-today { margin-top: 4px; }
+.pm-compact li { padding: 8px 10px; gap: 8px; }
+.pm-compact .pm-time { width: 54px; font-size: 12px; }
+.pm-compact .pm-body b { font-size: 13px; }
+.pm-compact .pm-acts button { min-width: 30px; min-height: 30px; padding: 0 6px; }
+.pm-list li.picked { border-color: rgba(245, 197, 66, 0.8); background: rgba(245, 197, 66, 0.08); }
+.pm-orb { cursor: grab; outline: none; }
+.pm-dragging, .pm-dragging .pm-orb { cursor: grabbing; }
+.pm-orb .pm-disc { transition: stroke 120ms, filter 120ms; }
+.pm-orb:hover .pm-disc, .pm-orb:focus-visible .pm-disc, .pm-orb.picked .pm-disc { stroke: #fff; filter: brightness(1.3); }
+.pm-orb.picked .pm-disc { stroke-width: 4; }
+.pm-orb.lifted { opacity: 0.25; }
+.pm-pool { opacity: 0.92; }
+.pm-pool .pm-mark { fill: rgba(220, 228, 245, 0.8); }
+.pm-mark { fill: #fff3cc; font-weight: 700; pointer-events: none; }
+.pm-orb.done .pm-mark { fill: #fff6d6; }
+.pm-plus circle { fill: #f5c542; }
+.pm-plus text { fill: #14100a; font-size: 14px; font-weight: 800; }
+.pm-time-l { fill: #ffd86a; font-size: 14px; font-weight: 700; pointer-events: none; }
+.pm-name-l { fill: rgba(225, 232, 248, 0.82); font-size: 12.5px; pointer-events: none; }
+.pm-core-end { fill: #ffe9a8; font-size: 14px; letter-spacing: 0.04em; }
+.pm-ring { stroke-width: 2; }
+.pm-ring-hot { stroke: rgba(245, 197, 66, 0.75); stroke-width: 4; filter: drop-shadow(0 0 8px rgba(245, 197, 66, 0.6)); }
+.pm-path { fill: none; stroke: rgba(245, 197, 66, 0.55); stroke-width: 2.5; stroke-dasharray: 2 10; stroke-linecap: round; animation: pm-march 1.6s linear infinite; }
+@keyframes pm-march { to { stroke-dashoffset: -24; } }
+.pm-out-label { fill: rgba(200, 210, 235, 0.5); font-size: 12px; }
+.pm-gold-glow { pointer-events: none; animation: pm-glow 2.4s ease-in-out infinite; }
+@keyframes pm-glow { 50% { opacity: 0.55; } }
+.pm-phone-line { stroke: rgba(245, 197, 66, 0.18); stroke-width: 1.5; stroke-dasharray: 4 8; }
+.pm-phone { opacity: 0.7; }
+.pm-phone.on { opacity: 1; filter: drop-shadow(0 0 10px rgba(245, 197, 66, 0.7)); }
+.pm-phone-label { fill: #ffe9a8; font-size: 13px; letter-spacing: 0.16em; font-weight: 700; }
+.pm-flight { filter: drop-shadow(0 0 8px #f5c542); }
+.pm-ghost circle { fill: rgba(42, 36, 16, 0.92); stroke: #ffd86a; stroke-width: 2.5; }
+.pm-ghost text { fill: #fff; font-weight: 700; font-size: 17px; }
+.pm-ghost.off circle { stroke: #e4574a; fill: rgba(60, 16, 14, 0.9); }
+@media (prefers-reduced-motion: reduce) { .pm-path, .pm-gold-glow { animation: none; } }
+.pm-drawer .pm-list li { flex-wrap: wrap; row-gap: 4px; }
+.pm-drawer .pm-body { flex-basis: calc(100% - 90px); }
+.pm-drawer .pm-acts { width: 100%; justify-content: flex-end; }

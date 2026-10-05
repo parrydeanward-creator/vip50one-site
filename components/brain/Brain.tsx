@@ -31,7 +31,7 @@ import { clock, completedBy, duration, isEvening, planDay, recap } from "@/lib/d
 import { localDay } from "@/lib/morning.ts";
 import PulseMark from "./PulseMark.tsx";
 import PulseIntro from "./PulseIntro.tsx";
-import SignalsFilm from "./SignalsFilm.tsx";
+import SignalsFilm, { ONE_FILM } from "./SignalsFilm.tsx";
 import PlanMyDay from "./PlanMyDay.tsx";
 import { planKey, planUrl, readPlan, timed, type Plan } from "@/lib/plan.ts";
 import { todayIn } from "@/lib/hwc.ts";
@@ -119,6 +119,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // from the film, and a signed-in agent sees Meet Pulse once on a first visit.
   const [intro, setIntro] = useState(false);
   const [guide, setGuide] = useState(false); // What everything means
+  const [oneFilm, setOneFilm] = useState(false); // Watch ONE Work, voiced
   useEffect(() => {
     if (!live) return;
     try {
@@ -1623,9 +1624,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                   ▶ Replay my morning
                 </button>
               )}
-              <a className="link" href="/watch">
+              <button className="link" onClick={() => setOneFilm(true)}>
                 ▶ Watch ONE Work
-              </a>
+              </button>
             </div>
           )}
 
@@ -1876,6 +1877,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
           }}
         />
       )}
+      {oneFilm && <SignalsFilm film={ONE_FILM} onClose={() => setOneFilm(false)} />}
       {planOpen && (
         <PlanMyDay
           today={graph.today ?? []}
