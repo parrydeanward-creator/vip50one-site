@@ -32,6 +32,9 @@ import { localDay } from "@/lib/morning.ts";
 import PulseMark from "./PulseMark.tsx";
 import PulseIntro from "./PulseIntro.tsx";
 import SignalsFilm from "./SignalsFilm.tsx";
+import PlanMyDay from "./PlanMyDay.tsx";
+import { planKey, planUrl, readPlan, timed, type Plan } from "@/lib/plan.ts";
+import { todayIn } from "@/lib/hwc.ts";
 import { needWords, needsOf, type Need } from "@/lib/needs.ts";
 import { SEEN_KEY } from "@/lib/pulseIntro.ts";
 import type { SceneNeed } from "./scene.ts";
@@ -214,7 +217,23 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const [dayDone, setDayDone] = useState<Set<string>>(() => new Set());
   const [dayMap, setDayMap] = useState(false);
   const [evening, setEvening] = useState(false);
-  const slots = useMemo(() => planDay(graph.today ?? [], dayDone), [graph.today, dayDone]);
+  // Plan My Day (§3l): once the agent has planned today, Your day is that plan, in their order.
+  const [planOpen, setPlanOpen] = useState(false);
+  const [planned, setPlanned] = useState<Plan | null>(null);
+  const slots = useMemo(() => {
+    if (!planned?.items.length) return planDay((graph.today ?? []).slice(0, 8), dayDone);
+    return timed(planned.items, planned.start).map((p) => ({
+      id: `day:${p.ref}`,
+      nodeId: p.nodeId && ix.byId.has(p.nodeId) ? p.nodeId : p.product === "go" ? "go" : "move",
+      product: p.product,
+      kind: p.kind,
+      what: p.title,
+      minutes: p.minutes,
+      start: p.start,
+      end: p.end,
+      done: p.done || dayDone.has(`day:${p.ref}`),
+    }));
+  }, [graph.today, dayDone, planned, ix]);
   const day = useMemo(() => recap(slots), [slots]);
   const dayIds = useMemo(() => [...new Set(slots.map((x) => x.nodeId))], [slots]);
   const dayView = dayMap && !tour && !ask && !timeline;
@@ -431,6 +450,25 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tour, placed]);
 
+  // Today's plan: this browser's copy, then ONE GO's (MASTER) when it answers.
+  useEffect(() => {
+    const date = todayIn();
+    const known = (graph.today ?? []).map((d) => ({ ref: d.ref ?? d.id.replace(/^day:/, ""), nodeId: d.nodeId, urgency: d.urgency, special: d.special }));
+    try {
+      const p = readPlan(JSON.parse(localStorage.getItem(planKey(date)) ?? "null"), known);
+      if (p && p.date === date) setPlanned(p);
+    } catch {}
+    if (!live) return;
+    fetch(planUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const p = readPlan(j, known);
+        if (p && p.date === date && p.sentAt) setPlanned(p);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live]);
+
   // Your day: remember what is done today (this browser), and whether it is evening.
   const dayKey = `one.day.${localDay(now)}`;
   useEffect(() => {
@@ -456,6 +494,17 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       }),
     [dayKey],
   );
+
+  // A tick on Your day: this browser, and the plan in MASTER when there is one (§3l.3: a check
+  // mark only, no touch and no tracker box).
+  const tickDay = (id: string, on: boolean) => {
+    setDone([id], on);
+    if (!planned) return;
+    const ref = id.replace(/^day:/, "");
+    setPlanned((p) => p && { ...p, items: p.items.map((i) => (i.ref === ref ? { ...i, done: on } : i)) });
+    if (live)
+      fetch(`${planUrl}/done`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ref, done: on }) }).catch(() => {});
+  };
 
   // Timeline: ring each item as it comes into view while dragging.
   const shownOnTimeline = useRef(new Set<string>());
@@ -1488,9 +1537,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </div>
           )}
 
+          {(focus.type === "core" || focus.id === "go") && !tour && (
+            <button className="pi-film pm-open" onClick={() => setPlanOpen(true)}>
+              <span className="pi-play" aria-hidden="true">☰</span>
+              <span>
+                <b>{planned?.items.length ? "Change my plan" : "Plan my day"}</b>
+                <span>{planned?.items.length ? "Your day is planned. Reorder it and send it to your phone again." : "Put today in your order and send it to ONE GO on your phone."}</span>
+              </span>
+            </button>
+          )}
+
           {focus.type === "core" && slots.length > 0 && (
             <div className="day">
-              <h2>Your day</h2>
+              <h2>{planned?.items.length ? "Your plan" : "Your day"}</h2>
               {evening || day.done === day.total ? (
                 <div className="day-recap pop">
                   <p className="day-recap-k">Your day, compiled</p>
@@ -1511,7 +1570,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                       className="day-tick"
                       aria-pressed={x.done}
                       aria-label={x.done ? `Done: ${x.what} Tap to undo.` : `Mark done: ${x.what}`}
-                      onClick={() => setDone([x.id], !x.done)}
+                      onClick={() => tickDay(x.id, !x.done)}
                     >
                       {x.done ? "✓" : ""}
                     </button>
@@ -1815,6 +1874,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             setIntro(false);
             setGuide(true);
           }}
+        />
+      )}
+      {planOpen && (
+        <PlanMyDay
+          today={graph.today ?? []}
+          week={graph.week}
+          live={live}
+          onClose={() => setPlanOpen(false)}
+          onGo={(id) => {
+            setPlanOpen(false);
+            goTo(id);
+          }}
+          onSaved={setPlanned}
         />
       )}
       {guide && (

@@ -20,6 +20,12 @@ export interface DayItem {
   vip?: boolean; // a VIP touch
   at?: string; // fixed time, "HH:MM" (a lunch, an appointment)
   watch?: string[]; // live signals that complete it
+  // Plan My Day (VIP-SUMMARY §3l): what the plan sends and how Pulse orders it.
+  ref?: string; // the vip_summary item id, or "hwc:hot|warm|cold"
+  contactId?: string;
+  link?: string;
+  urgency?: "alert" | "today" | "soon";
+  special?: boolean; // a special day (birthday, anniversary)
 }
 
 export interface Slot extends DayItem {

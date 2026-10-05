@@ -123,4 +123,6 @@ export interface BusinessGraph {
   today?: import("../day.ts").DayItem[];
   // ONE MOVE contact ids with a special day today, for every face view (gold glow).
   celebrate?: string[];
+  // The ONE GO weekly score and its minimum (100), for Plan My Day's "points still needed".
+  week?: { score: number; minimum: number };
 }

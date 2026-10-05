@@ -586,9 +586,10 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
   });
 
   // ---- the day and the timeline ------------------------------------------
+  // Everything due today (Your day shows the first 8; Plan My Day offers them all, §3l).
   const today: DayItem[] = tagged
     .filter(({ it }) => isToday(it))
-    .slice(0, 8)
+    .slice(0, 25)
     .map(({ it: i, p }) => {
       const kind = dayKind(i);
       return {
@@ -599,14 +600,38 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
         what: i.title,
         minutes: MINUTES[kind],
         vip: i.kind === "vip_touch" || i.kind === "birthday" || undefined,
+        ref: i.id,
+        contactId: typeof i.contact_id === "string" && UUID.test(i.contact_id) ? i.contact_id : undefined,
+        link: i.link || undefined,
+        urgency: i.urgency,
+        special: i.kind === "birthday" || (typeof i.contact_id === "string" && glow.has(i.contact_id)) || undefined,
       };
     });
+  // Hot, Warm and Cold not worked today pulse too (§3h.10), so the plan offers them.
+  if (found) {
+    for (const [cls, label] of [["hot", "Hot"], ["warm", "Warm"], ["cold", "Cold"]] as const) {
+      const box = env!.today_boxes?.find((b) => b.key === `${cls}_contact`);
+      if (!box || box.done) continue;
+      today.push({
+        id: `day:hwc:${cls}`,
+        nodeId: movePageId("/hot-warm-cold"),
+        product: "move",
+        kind: "other",
+        what: `Work your ${label} list`,
+        minutes: 10,
+        ref: `hwc:${cls}`,
+        link: moveMenuHref("/hot-warm-cold"),
+        urgency: "today",
+      });
+    }
+  }
   const dated = tagged
     .filter(({ it: i }) => i.due && nodes.some((n) => n.id === nodeId(i)))
     .map(({ it: i, p }) => ({ id: nodeId(i), product: productOf(i, p), at: `${i.due}T18:00:00.000Z`, what: i.title }));
 
   for (const n of nodes) if (n.contactId && glow.has(n.contactId)) n.celebrate = true;
-  return { nodes, edges, rootId: "one", changes: [], dated, today, celebrate: [...glow] };
+  const week = weekly?.value != null ? { score: weekly.value, minimum: 100 } : undefined;
+  return { nodes, edges, rootId: "one", changes: [], dated, today, celebrate: [...glow], week };
 }
 
 // "Birthday: Lena Brooks" -> the person "Lena Brooks", "Birthday · Tomorrow",
