@@ -112,7 +112,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     for (const [id, need] of needs) m.set(id, { ...need, leaf: !parents.has(id) });
     return m;
   }, [graph, needs]);
-  // Meet Pulse: the centre orb opens it; a signed-in agent sees it once on a first visit.
+  // The centre ONE orb plays the voiced film, What everything means (Parry, 5 Oct); Meet Pulse opens
+  // from the film, and a signed-in agent sees Meet Pulse once on a first visit.
   const [intro, setIntro] = useState(false);
   const [guide, setGuide] = useState(false); // What everything means
   useEffect(() => {
@@ -800,7 +801,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const clickNode = (id: string) => {
     if (drag.current.moved) return; // that was a drag, not a tap
     if (ask) return id === graph.rootId ? goHome() : goTo(id);
-    if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setIntro(true);
+    if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
   };
 
@@ -1816,7 +1817,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
           }}
         />
       )}
-      {guide && <SignalsFilm onClose={() => setGuide(false)} />}
+      {guide && (
+        <SignalsFilm
+          onClose={() => setGuide(false)}
+          onMeet={() => {
+            setGuide(false);
+            setIntro(true);
+          }}
+        />
+      )}
     </div>
   );
 }

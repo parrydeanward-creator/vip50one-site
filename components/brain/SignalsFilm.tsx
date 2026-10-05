@@ -5,8 +5,8 @@ import PulseMark from "./PulseMark.tsx";
 import { SIGNALS_FILM } from "@/lib/signalsFilm.ts";
 
 // What everything means, as a film (Parry, 5 Oct), played over the Brain from
-// Meet Pulse and the ? control. The same film plays live at /watch?signals=1.
-export default function SignalsFilm({ onClose }: { onClose: () => void }) {
+// the centre ONE orb, Meet Pulse and the ? control (with Parry's voice and music). The same film plays live at /watch?signals=1.
+export default function SignalsFilm({ onClose, onMeet }: { onClose: () => void; onMeet?: () => void }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     closeRef.current?.focus();
@@ -32,6 +32,11 @@ export default function SignalsFilm({ onClose }: { onClose: () => void }) {
         <p className="sf-note">
           Example agent; people and addresses are invented. <a href="/watch?signals=1">Play it step by step</a>
         </p>
+        {onMeet && (
+          <div className="pi-actions">
+            <button className="pi-btn" onClick={onMeet}>Meet Pulse: what it does for you</button>
+          </div>
+        )}
       </section>
     </div>
   );
