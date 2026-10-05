@@ -139,12 +139,14 @@ export function SignalDemo({ kind }: { kind: string }) {
     case "hwc":
       return (
         <>
+          <Rings x={40} r={16} color={YEL} />
           <Orb x={40} r={16} color={RED}><text x={40} y={64} textAnchor="middle" fontSize={9} fill="#fff">HOT</text></Orb>
-          <circle className="sg-glow" cx={40} cy={60} r={21} fill="none" stroke={GOLD2} strokeWidth={2} />
+          <circle cx={80} cy={60} r={21} fill="none" stroke={GREEN} strokeWidth={2.2} />
           <Orb x={80} r={16} color={YEL}><text x={80} y={64} textAnchor="middle" fontSize={9} fill="#fff">WARM</text></Orb>
+          <Rings x={120} r={16} color={YEL} />
           <Orb x={120} r={16} color={ICE}><text x={120} y={64} textAnchor="middle" fontSize={9} fill="#fff">COLD</text></Orb>
-          <circle cx={120} cy={60} r={19} fill="none" stroke={ICE} strokeWidth={2} strokeDasharray="2 3" />
-          <text x={80} y={104} textAnchor="middle" fontSize={10} fill="#a9b0bd">gold heartbeat · frost when overdue</text>
+          <text x={80} y={100} textAnchor="middle" fontSize={9} fill="#a9b0bd">0-3 mo · 3-12 mo · 12+ mo</text>
+          <text x={80} y={112} textAnchor="middle" fontSize={9} fill="#a9b0bd">pulses until worked today</text>
         </>
       );
     case "vip":

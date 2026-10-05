@@ -15,3 +15,12 @@ test("Touch Audit pulses only for touches due today or overdue, with who (Parry,
   ]);
   assert.equal(dueIn([{ ...today, contact_id: "nope" }] as never), undefined, "no real person, nothing to point at");
 });
+
+test("Hot/Warm/Cold pulses until today's three boxes are ticked (Parry, 5 Oct)", async () => {
+  const { hwcToday } = await import("../lib/live.ts");
+  const box = (key: string, done: boolean) => ({ key, label: key, done, points: 1 });
+  assert.deepEqual(hwcToday([box("hot_contact", true), box("warm_contact", false), box("cold_contact", false), box("call", false)]), { left: 2 });
+  assert.deepEqual(hwcToday([box("hot_contact", true), box("warm_contact", true), box("cold_contact", true)]), { left: 0 });
+  assert.equal(hwcToday([box("call", false)]), null, "no Hot/Warm/Cold boxes sent: no pulse");
+  assert.equal(hwcToday(null), null);
+});

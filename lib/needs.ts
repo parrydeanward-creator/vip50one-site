@@ -25,12 +25,25 @@ export function needsOf(nodes: readonly GraphNode[]): Map<string, Need> {
     if (n.locked || hasKids.has(n.id) || n.type === "core" || n.type === "product") continue;
     const level = n.status ? LEVEL[n.status] : undefined;
     if (!level) continue;
-    const weight = Math.max(1, n.dueContacts?.length ?? 0); // a page orb counts the people inside it
+    const weight = Math.max(1, n.needCount ?? n.dueContacts?.length ?? 0); // a page orb counts what is inside it
     const seen = new Set<string>();
     for (let id: string | null = n.id; id && byId.has(id) && !seen.has(id); id = byId.get(id)!.parentId) {
       seen.add(id);
       const cur = out.get(id);
       out.set(id, { count: (cur?.count ?? 0) + weight, level: cur?.level === "now" || level === "now" ? "now" : "today" });
+    }
+  }
+  // A node that knows it holds more than it draws lifts itself and every orb above it.
+  for (const n of nodes) {
+    const f = n.needFloor;
+    if (!f || n.locked) continue;
+    const extra = f.count - (out.get(n.id)?.count ?? 0);
+    if (extra <= 0) continue;
+    const seen = new Set<string>();
+    for (let id: string | null = n.id; id && byId.has(id) && !seen.has(id); id = byId.get(id)!.parentId) {
+      seen.add(id);
+      const cur = out.get(id);
+      out.set(id, { count: (cur?.count ?? 0) + extra, level: cur?.level === "now" || f.level === "now" ? "now" : "today" });
     }
   }
   return out;

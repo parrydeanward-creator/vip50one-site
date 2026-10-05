@@ -72,3 +72,11 @@ test("a page orb counts the people inside it (Touch Audit with 3 due today count
   assert.deepEqual(m.get("audit"), { count: 3, level: "today" });
   assert.deepEqual(m.get("one"), { count: 3, level: "today" });
 });
+
+test("a group that holds more than it draws counts them all (54 overdue, 40 sent as orbs)", () => {
+  const kids = Array.from({ length: 40 }, (_, i) => n(`t${i}`, "fu", { status: "action" }));
+  const m = needsOf([n("one", null, { type: "core" }), n("move", "one", { type: "product" }), n("fu", "move", { type: "category", status: "action", needFloor: { count: 54, level: "now" } }), ...kids]);
+  assert.deepEqual(m.get("fu"), { count: 54, level: "now" });
+  assert.deepEqual(m.get("move"), { count: 54, level: "now" });
+  assert.deepEqual(m.get("one"), { count: 54, level: "now" });
+});

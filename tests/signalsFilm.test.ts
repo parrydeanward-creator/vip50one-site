@@ -6,7 +6,7 @@ import { shownAt } from "../lib/watch.ts";
 
 test("every signal the Brain draws has its moment in the film", () => {
   const titles = SIGNAL_STEPS.map((s) => s.title).join(" | ");
-  for (const w of ["breathing", "red: right now", "yellow: today", "green ring: all good", "follow the pulse", "special day", "opportunity", "it changed", "flying into ONE", "along the lines", "how far along", "not in your package", "frost", "VIP-100", "Touches fill up", "gold badge"]) {
+  for (const w of ["breathing", "red: right now", "yellow: today", "green ring: all good", "follow the pulse", "special day", "opportunity", "it changed", "flying into ONE", "along the lines", "how far along", "not in your package", "pulse until you work them", "VIP-100", "Touches fill up", "gold badge"]) {
     assert.ok(titles.includes(w), `missing: ${w}`);
   }
   assert.ok(SIGNALS_MS > 60_000 && SIGNALS_MS < 120_000, "about a minute or so");

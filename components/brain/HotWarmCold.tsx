@@ -371,7 +371,8 @@ export default function HotWarmCold({
                 )}
                 {c.key === "warm" && <circle cx={0} cy={0} r={ORB + 26} fill="none" stroke="#ffd08a" strokeWidth={10} className="hw-shimmer" pointerEvents="none" />}
                 {c.key === "cold" && <circle cx={0} cy={0} r={ORB + 24} fill="none" stroke="#cfe6ff" strokeWidth={1.5} strokeDasharray="1 14 6 9" className="hw-frost" pointerEvents="none" />}
-                {n > 0 && <PulseRing r={ORB + 4} level={dueN > 0 ? "today" : "good"} />}
+                {/* A daily tracker step (Parry, 5 Oct): pulses until today's box for this class is ticked. */}
+                <PulseRing r={ORB + 4} level={lit ? "good" : "today"} />
                 <circle cx={0} cy={0} r={ORB} fill="url(#hw-glass)" stroke={c.color} strokeWidth={lit ? 5 : 2.5} className={flare ? "hw-flare" : undefined} />
                 {lit && <circle cx={0} cy={0} r={ORB + 12} fill="none" stroke={c.color} strokeWidth={2} strokeDasharray="4 6" className="hw-lit" />}
                 <text className="hw-n" x={0} y={-8} textAnchor="middle" style={undefined}>{n}</text>
