@@ -9,6 +9,8 @@ import type { Need } from "@/lib/needs.ts";
 
 // Follow the pulse: red is overdue or an alert, amber is due today.
 const NEED_COLOR = { now: STATUS.action.color, today: STATUS.attention.color } as const;
+// All good and in order: a still green ring, no pulse (Parry, 5 Oct).
+const GOOD = STATUS.healthy.color;
 export type SceneNeed = Need & { leaf: boolean };
 
 // Layers 3 and 4 on the GPU: draws what presentation placed, and eases every
@@ -360,7 +362,7 @@ export class BrainScene {
       t.position.set(bx, by);
       s.deco.addChild(d, t);
       d.label = "need";
-    } else if (n.status && !n.locked && !need && role !== "sibling" && role !== "ancestor") {
+    } else if (n.status && n.status !== "healthy" && !n.locked && !need && role !== "sibling" && role !== "ancestor") {
       const st = STATUS[n.status];
       const bx = Math.cos(-Math.PI / 4) * r, by = Math.sin(-Math.PI / 4) * r;
       const br = Math.max(5, r * 0.13);
@@ -613,11 +615,17 @@ export class BrainScene {
   // faster and red when it is overdue. Under reduced motion, one still ring.
   private drawNeeds() {
     const g = this.needG.clear();
-    if (!this.needs.size) return;
     const s = 1 / this.cam.scale;
     for (const sp of this.sprites.values()) {
       const need = this.needs.get(sp.id);
-      if (!need || sp.node.locked || sp.node.type === "core" || sp.cur.a < 0.05) continue;
+      if (sp.node.locked || sp.node.type === "core" || sp.cur.a < 0.05) continue;
+      if (!need) {
+        // Nothing here needs the agent: a still green ring. An orb marked for
+        // attention with nothing loaded under it keeps its dot instead.
+        const st = sp.node.status;
+        if (st !== "action" && st !== "attention") g.circle(sp.cur.x, sp.cur.y, sp.cur.r + 6).stroke({ width: 2.2 * s, color: GOOD, alpha: sp.cur.a * 0.85 });
+        continue;
+      }
       const c = NEED_COLOR[need.level];
       const a = sp.cur.a * (sp.role === "ancestor" || sp.role === "sibling" ? 0.6 : 1);
       const r = sp.cur.r;

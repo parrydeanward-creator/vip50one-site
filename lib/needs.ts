@@ -3,8 +3,9 @@ import type { GraphNode } from "./graph/types.ts";
 // Follow the pulse (Parry, 5 Oct): every orb with something the agent must do
 // pulses, and so does every orb above it, carrying how many are inside, so the
 // pulse leads from ONE MOVE to Contacts to the group to the person.
-// Red ("now") is overdue or an alert; amber ("today") is due today. Nothing
-// else pulses: opportunities and nice-to-dos keep the small dot.
+// Red ("now") is overdue or an alert: right now. Yellow ("today") needs
+// attention today. Nothing else pulses; an orb with nothing to do wears a still
+// green ring (scene.ts), and opportunities keep the small gold dot.
 
 export type NeedLevel = "now" | "today";
 export interface Need {

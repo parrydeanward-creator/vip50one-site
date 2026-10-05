@@ -10,7 +10,7 @@ export interface IntroItem {
 }
 
 export const LIVE: readonly IntroItem[] = [
-  { title: "Follow the pulse", line: "Anything that needs you pulses: red when it is overdue, amber when it is due today. Every orb above it pulses too, with a count, so you can follow it straight to the person." },
+  { title: "Follow the pulse", line: "Pulsing red needs you right now: overdue or urgent. Pulsing yellow needs your attention today. A still green ring means all is good and in order. Every orb above a pulse pulses too, with a count, so you can follow it straight to the person." },
   { title: "Who needs you today", line: "Pulse reads your VIP-50, your Hot, Warm and Cold lists and your whole database, and puts the right people in front of you." },
   { title: "Special days", line: "Birthdays, anniversaries and home anniversaries glow gold and come first, so you are the one who remembered." },
   { title: "Morning Pulse", line: "A short walk through your day: what changed, who needs you, and the one move that matters most." },
