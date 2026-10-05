@@ -1539,3 +1539,26 @@ a.link { display: block; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   .sg-ring, .sg-breathe, .sg-glow, .sg-blink, .sg-ping, .sg-fly, .sg-land, .sg-beat, .sg-arc { animation: none; }
 }
+
+/* What everything means film: a drawing beside the words for signals inside a page */
+.watch-demo { display: grid; grid-template-columns: 150px 1fr; gap: 16px; align-items: center; text-align: left; }
+.watch-demo .sg-demo { width: 150px; height: auto; background: radial-gradient(circle at 50% 50%, rgba(20, 30, 62, 0.9), rgba(5, 8, 22, 0.9)); border: 1px solid var(--line); border-radius: 14px; }
+@media (max-width: 719px) {
+  .watch-demo { grid-template-columns: 96px 1fr; gap: 10px; }
+  .watch-demo .sg-demo { width: 96px; }
+}
+.sf { width: min(1100px, 100%); }
+.sf-video { display: block; width: 100%; margin-top: 14px; border-radius: 14px; border: 1px solid var(--line); background: #050816; aspect-ratio: 16 / 9; }
+.sf-note { margin: 10px 0 0; font-size: 12px; color: var(--text-3); }
+.sf-note a { color: var(--gold-2); }
+.pi-film { display: flex; align-items: center; gap: 14px; width: 100%; margin-top: 16px; padding: 12px 16px; border-radius: 14px; border: 1px solid rgba(212, 175, 55, 0.5); background: linear-gradient(135deg, rgba(245, 197, 66, 0.12), rgba(212, 175, 55, 0.04)); cursor: pointer; text-align: left; color: var(--text); }
+.pi-film b { display: block; color: var(--gold-2); font-size: 15px; }
+.pi-film span span { font-size: 13px; color: var(--text-2); }
+.pi-play { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #0b0b0b; font-size: 16px; }
+.watch-card:has(.watch-demo) { width: min(760px, calc(100% - 32px)); }
+.watch-card .watch-demo { grid-template-columns: 220px 1fr; }
+.watch-card .watch-demo .sg-demo { width: 220px; }
+@media (max-width: 719px) {
+  .watch-card .watch-demo { grid-template-columns: 110px 1fr; }
+  .watch-card .watch-demo .sg-demo { width: 110px; }
+}

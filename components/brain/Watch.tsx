@@ -7,7 +7,10 @@ import { PRODUCT_COLOR, hex } from "@/lib/brain/theme.ts";
 import { SPOTS, WATCH_STEPS, graphAt, shownAt, watchGraph, watchPlaced } from "@/lib/watch.ts";
 import { FILM_SPOTS, FILM_STEPS, filmGraph } from "@/lib/film.ts";
 import { productFilm, type FilmProduct } from "@/lib/productFilms.ts";
-import type { BrainScene, SceneEdge } from "./scene.ts";
+import type { BrainScene, SceneEdge, SceneNeed } from "./scene.ts";
+import { SIGNAL_SPOTS, SIGNAL_STEPS, signalsGraph } from "@/lib/signalsFilm.ts";
+import { needsOf } from "@/lib/needs.ts";
+import { SignalDemoSvg } from "./SignalDemo.tsx";
 
 // Watch ONE Work: the scripted story, drawn by the same scene as the
 // dashboard. Captions carry the words; the canvas is decoration for screen
@@ -16,14 +19,14 @@ import type { BrainScene, SceneEdge } from "./scene.ts";
 const PHONE_QUERY = "(max-width: 719px)";
 const NOTE = "Example agent; people and addresses are invented. Coming: being connected now.";
 
-export default function Watch({ record = false, slow = 1, film = false, product }: { record?: boolean; slow?: number; film?: boolean; product?: FilmProduct }) {
+export default function Watch({ record = false, slow = 1, film = false, product, signals = false }: { record?: boolean; slow?: number; film?: boolean; product?: FilmProduct; signals?: boolean }) {
   // Which film: one product's, the long ONE film, or the short story.
   const pf = useMemo(() => (product ? productFilm(product) : null), [product]);
-  const STEPS = pf ? pf.steps : film ? FILM_STEPS : WATCH_STEPS;
-  const spots = pf ? pf.spots : film ? FILM_SPOTS : SPOTS;
+  const STEPS = pf ? pf.steps : signals ? SIGNAL_STEPS : film ? FILM_STEPS : WATCH_STEPS;
+  const spots = pf ? pf.spots : signals ? SIGNAL_SPOTS : film ? FILM_SPOTS : SPOTS;
   const center = pf ? pf.center : "one";
   const keep = pf ? pf.keep : undefined;
-  const base = useMemo(() => (pf ? pf.graph : film ? filmGraph() : watchGraph()), [pf, film]);
+  const base = useMemo(() => (pf ? pf.graph : signals ? signalsGraph() : film ? filmGraph() : watchGraph()), [pf, film, signals]);
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<BrainScene | null>(null);
   const [ready, setReady] = useState(false);
@@ -70,6 +73,17 @@ export default function Watch({ record = false, slow = 1, film = false, product 
       .filter((e) => shown.has(e.source) && shown.has(e.target))
       .map((e) => ({ source: e.source, target: e.target, kind: e.relationshipType === "belongs_to" ? "tree" : "link" }));
     scene.setScene(placed, byId, edges, center);
+    // Follow the pulse, counted from what is on screen (the signals film).
+    const needs = new Map<string, SceneNeed>();
+    if (step.needs) {
+      const on = graph.nodes.filter((n) => shown.has(n.id));
+      const parents = new Set(on.map((n) => n.parentId));
+      for (const [id, need] of needsOf(on)) needs.set(id, { ...need, leaf: !parents.has(id) });
+    }
+    scene.setNeeds(needs, !!step.needs);
+    const cues: ReturnType<typeof setTimeout>[] = [];
+    if (step.ping) cues.push(setTimeout(() => scene.ping(step.ping!), 700 * slow));
+    if (step.beat) cues.push(setTimeout(() => scene.beat(), 600 * slow), setTimeout(() => scene.beat(), 2600 * slow));
     const focus = new Set(step.focus);
     const b = bounds(placed.filter((p) => focus.has(p.id)), 60);
     b.minY -= 40; // glow and rings above the top node
@@ -81,9 +95,9 @@ export default function Watch({ record = false, slow = 1, film = false, product 
     scene.setCamera({ ...c, y: c.y - (top - bottom) / 2 / c.scale }, i > 0);
     if (step.flight) {
       const [from, to] = step.flight;
-      const t = setTimeout(() => scene.signal(from, to), 650 * slow);
-      return () => clearTimeout(t);
+      cues.push(setTimeout(() => scene.signal(from, to), 650 * slow));
     }
+    return () => cues.forEach(clearTimeout);
   }, [ready, i, phone, graph, byId, step, last, slow, STEPS, spots, center, keep]);
 
   // Advance.
@@ -105,7 +119,7 @@ export default function Watch({ record = false, slow = 1, film = false, product 
         <a className="brand" href="/dashboard" aria-label="VIP-50 ONE, your dashboard">
           VIP-50 <b>ONE</b>
         </a>
-        <span className="crumbs">Watch ONE Work</span>
+        <span className="crumbs">{signals ? "What everything means" : "Watch ONE Work"}</span>
         {!record && (
           <a className="watch-exit" href="/dashboard">
             Explore my business →
@@ -124,8 +138,20 @@ export default function Watch({ record = false, slow = 1, film = false, product 
                 {step.n && <span className="watch-n"> · {step.n[0]} of {step.n[1]}</span>}
                 {step.coming && <span className="watch-coming">Coming</span>}
               </p>
-              <p className="watch-title">{step.title}</p>
-              {step.line && <p className="watch-line">{step.line}</p>}
+              {step.demo ? (
+                <div className="watch-demo">
+                  <SignalDemoSvg kind={step.demo} label={step.title} />
+                  <div>
+                    <p className="watch-title">{step.title}</p>
+                    {step.line && <p className="watch-line">{step.line}</p>}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="watch-title">{step.title}</p>
+                  {step.line && <p className="watch-line">{step.line}</p>}
+                </>
+              )}
             </div>
           )}
           {ready && last && (

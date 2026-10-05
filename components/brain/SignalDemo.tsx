@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import PulseMark from "./PulseMark.tsx";
-import { GUIDE, GUIDE_TITLE, type DemoKind } from "@/lib/signalGuide.ts";
+import type { ReactNode } from "react";
 
-// "What everything means": a step-by-step walk through every signal the Brain
-// draws, each with a small live example. Opens from Meet Pulse and the "?"
-// control. Animations stop under reduced motion (globals.css).
+// Small drawings of the signals that live inside a page (Hot/Warm/Cold, VIP
+// rings, Touch Audit, Rolodex, Contacts) and of each orb signal, for the
+// "What everything means" film captions. Animations stop under reduced motion.
 
 const GOLD = "#d4af37", GOLD2 = "#f5c542", RED = "#e4574a", YEL = "#e5b83a", GREEN = "#3fbf7f", TEAL = "#2fb7a3", BLUE = "#4f7fe0", ICE = "#9fd3ff";
 
@@ -31,7 +29,7 @@ function Rings({ x = 80, y = 60, r = 22, color, fast }: { x?: number; y?: number
   );
 }
 
-function Demo({ kind }: { kind: DemoKind }) {
+export function SignalDemo({ kind }: { kind: string }) {
   switch (kind) {
     case "breathe":
       return (
@@ -199,62 +197,22 @@ function Demo({ kind }: { kind: DemoKind }) {
           <text x={98} y={46} textAnchor="middle" fontSize={11} fontWeight={800} fill="#070b18">6</text>
         </>
       );
+    default:
+      return null;
   }
 }
 
-export default function SignalGuide({ onClose }: { onClose: () => void }) {
-  const [i, setI] = useState(0);
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const step = GUIDE[i];
-  const last = i === GUIDE.length - 1;
-  useEffect(() => {
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowRight") setI((n) => Math.min(GUIDE.length - 1, n + 1));
-      else if (e.key === "ArrowLeft") setI((n) => Math.max(0, n - 1));
-      else return;
-      e.stopPropagation();
-      e.preventDefault();
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+export function SignalDemoSvg({ kind, label }: { kind: string; label: string }) {
   return (
-    <div className="pi-back" onClick={onClose}>
-      <section className="pi sg pop" role="dialog" aria-modal="true" aria-labelledby="sg-title" onClick={(e) => e.stopPropagation()}>
-        <button ref={closeRef} className="pi-close" onClick={onClose} aria-label="Close">×</button>
-        <header className="pi-head">
-          <PulseMark />
-          <h2 id="sg-title">{GUIDE_TITLE}</h2>
-          <p className="sg-chapter">{step.chapter} · {i + 1} of {GUIDE.length}</p>
-        </header>
-        <div className="sg-body" key={i} aria-live="polite">
-          <svg className="sg-demo pop" viewBox="0 0 160 120" role="img" aria-label={step.title}>
-            <defs>
-              <radialGradient id="sg-core">
-                <stop offset="0%" stopColor="#fff3c4" />
-                <stop offset="55%" stopColor={GOLD2} />
-                <stop offset="100%" stopColor="#8a6a12" />
-              </radialGradient>
-            </defs>
-            <Demo kind={step.demo} />
-          </svg>
-          <div>
-            <h3 className="sg-title">{step.title}</h3>
-            <p className="sg-line">{step.line}</p>
-          </div>
-        </div>
-        <div className="sg-dots" aria-hidden="true">
-          {GUIDE.map((s, n) => (
-            <button key={s.demo} tabIndex={-1} className={n === i ? "on" : ""} onClick={() => setI(n)} />
-          ))}
-        </div>
-        <div className="pi-actions sg-nav">
-          <button className="pi-btn" onClick={() => setI(i - 1)} disabled={i === 0}>Back</button>
-          <button className="pi-btn pi-primary" onClick={() => (last ? onClose() : setI(i + 1))}>{last ? "Done" : "Next"}</button>
-        </div>
-      </section>
-    </div>
+    <svg className="sg-demo" viewBox="0 0 160 120" role="img" aria-label={label}>
+      <defs>
+        <radialGradient id="sg-core">
+          <stop offset="0%" stopColor="#fff3c4" />
+          <stop offset="55%" stopColor={GOLD2} />
+          <stop offset="100%" stopColor="#8a6a12" />
+        </radialGradient>
+      </defs>
+      <SignalDemo kind={kind} />
+    </svg>
   );
 }

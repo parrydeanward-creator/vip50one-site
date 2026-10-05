@@ -11,6 +11,8 @@ import type { Placed } from "./brain/layout.ts";
 // GO, a Showly reaction reaching ONE) wait on the event contract, so those
 // steps carry `coming`.
 
+type Patch = { status?: NodeStatus; sub?: string; celebrate?: boolean; locked?: boolean };
+
 export interface WatchStep {
   id: string;
   show: string[]; // nodes that appear at this step (they stay)
@@ -23,7 +25,11 @@ export interface WatchStep {
   coming?: boolean;
   clear?: boolean; // take away everything but ONE and the five products first
   n?: [number, number]; // "2 of 6" in the caption
-  patch?: Record<string, { status?: NodeStatus; sub?: string }>; // nodes that change here (a task done)
+  patch?: Record<string, Patch>; // nodes that change here (a task done)
+  ping?: string[]; // rings that spread once from these nodes ("it changed")
+  beat?: boolean; // lights run out along every line from the middle
+  demo?: string; // a small drawing in the caption (SignalDemo), for signals drawn inside a page
+  needs?: boolean; // draw follow-the-pulse rings and counts for what is on screen
   ms: number;
 }
 
@@ -118,14 +124,14 @@ export function shownAt(i: number, steps: WatchStep[] = WATCH_STEPS, keep: strin
 // The graph as it stands at step i: every change earlier steps made (a task
 // turning done) applied, never mutating the base graph.
 export function graphAt(g: BusinessGraph, i: number, steps: WatchStep[] = WATCH_STEPS): BusinessGraph {
-  const patch = new Map<string, { status?: NodeStatus; sub?: string }>();
+  const patch = new Map<string, Patch>();
   for (const s of steps.slice(0, i + 1)) for (const [id, p] of Object.entries(s.patch ?? {})) patch.set(id, { ...patch.get(id), ...p });
   if (!patch.size) return g;
   return {
     ...g,
     nodes: g.nodes.map((n) => {
       const p = patch.get(n.id);
-      return p ? { ...n, status: p.status ?? n.status, secondaryLabel: p.sub ?? n.secondaryLabel } : n;
+      return p ? { ...n, status: p.status ?? n.status, secondaryLabel: p.sub ?? n.secondaryLabel, celebrate: p.celebrate ?? n.celebrate, locked: p.locked ?? n.locked } : n;
     }),
   };
 }
