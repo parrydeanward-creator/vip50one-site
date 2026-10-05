@@ -1,0 +1,92 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { firstPlan, fromDay, pointsLeft, putBody, readPlan, shift, suggest, timed, PLAN_MAX } from "../lib/plan.ts";
+import type { DayItem } from "../lib/day.ts";
+
+const d = (id: string, extra: Partial<DayItem> = {}): DayItem => ({
+  id: `day:${id}`,
+  nodeId: `live:${id}`,
+  product: "move",
+  kind: "call",
+  what: `Call ${id}`,
+  minutes: 10,
+  urgency: "today",
+  ...extra,
+});
+
+test("Pulse suggests: red first, then special days, then yellow; the products' order inside each", () => {
+  const out = suggest([d("a"), d("b", { urgency: "alert" }), d("c", { special: true }), d("e", { urgency: "soon" }), d("f", { urgency: "alert" })]);
+  assert.deepEqual(out.map((p) => p.ref), ["b", "f", "c", "a", "e"]);
+});
+
+test("the same thing twice is offered once", () => {
+  assert.equal(suggest([d("a"), d("a")]).length, 1);
+});
+
+test("a day item's ref is its summary item id; hwc keeps its own", () => {
+  assert.equal(fromDay(d("go:task:1")).ref, "go:task:1");
+  assert.equal(fromDay(d("x", { id: "day:hwc:hot", ref: "hwc:hot" })).ref, "hwc:hot");
+});
+
+test("the first plan keeps every red and special item and fills about three hours with the rest", () => {
+  const pool = suggest([d("r1", { urgency: "alert", minutes: 120 }), d("r2", { urgency: "alert", minutes: 90 }), d("y1", { minutes: 10 }), d("s1", { special: true, minutes: 5 })]);
+  assert.deepEqual(firstPlan(pool).map((p) => p.ref), ["r1", "r2", "s1"], "over budget: yellow waits in Pulse suggests");
+  assert.deepEqual(firstPlan(suggest([d("y1"), d("y2")])).map((p) => p.ref), ["y1", "y2"]);
+  assert.equal(firstPlan(suggest(Array.from({ length: 40 }, (_, i) => d(`r${i}`, { urgency: "alert", minutes: 1 })))).length, PLAN_MAX);
+});
+
+test("times follow the agent's order from the start time", () => {
+  const t = timed(suggest([d("a", { minutes: 10 }), d("b", { minutes: 30 })]), "07:45");
+  assert.deepEqual(t.map((x) => [x.start, x.end]), [["07:45", "07:55"], ["07:55", "08:25"]]);
+  assert.equal(timed(suggest([d("a")]), "nonsense")[0].start, "08:00");
+});
+
+test("move up and down; out of range changes nothing", () => {
+  assert.deepEqual(shift([1, 2, 3], 2, -1), [1, 3, 2]);
+  assert.deepEqual(shift([1, 2, 3], 0, -1), [1, 2, 3]);
+  assert.deepEqual(shift([1, 2, 3], 2, 1), [1, 2, 3]);
+});
+
+test("the §3l.2 body: only what MASTER keeps, https links only, titles cut, at most 25", () => {
+  const items = suggest([d("a", { link: "javascript:alert(1)", what: "x".repeat(200), contactId: "c1" })]);
+  const b = putBody({ start: "9:00", items });
+  assert.equal(b.start, "08:00", "a bad start time falls back");
+  assert.deepEqual(Object.keys(b.items[0]).sort(), ["at", "contact_id", "kind", "link", "minutes", "product", "ref", "title"]);
+  assert.equal(b.items[0].link, null);
+  assert.equal(b.items[0].title.length, 120);
+  assert.equal(b.items[0].contact_id, "c1");
+});
+
+test("reading §3l.1: checked, the Brain's own orb kept, unknown kinds become other", () => {
+  const p = readPlan(
+    { date: "2026-10-05", sent_at: "2026-10-05T14:00:00Z", start: "07:30", items: [{ ref: "a", product: "move", kind: "call", title: "Call a", contact_id: null, link: "https://move.vip50one.com/x", minutes: 10, done: true }, { ref: "b", product: "nope", kind: "dance", title: "B", minutes: -3 }, { title: "no ref" }] },
+    [{ ref: "a", nodeId: "live:a", urgency: "alert" }],
+  );
+  assert.ok(p);
+  assert.equal(p!.sentAt, "2026-10-05T14:00:00Z");
+  assert.equal(p!.start, "07:30");
+  assert.equal(p!.items.length, 2);
+  assert.deepEqual([p!.items[0].done, p!.items[0].nodeId, p!.items[0].urgency], [true, "live:a", "alert"]);
+  assert.deepEqual([p!.items[1].product, p!.items[1].kind, p!.items[1].minutes], ["move", "other", 10]);
+  assert.equal(readPlan({ items: [] }), null, "no date: not a plan");
+  assert.equal(readPlan(null), null);
+});
+
+test("points still needed for 100 this week", () => {
+  assert.equal(pointsLeft({ score: 62, minimum: 100 }), 38);
+  assert.equal(pointsLeft({ score: 130, minimum: 100 }), 0);
+  assert.equal(pointsLeft(undefined), null);
+});
+
+test("a fixed time keeps its time when the plan reaches it early; the agent's order stays", () => {
+  const t = timed(suggest([d("a", { minutes: 10 }), d("lunch", { minutes: 60, at: "12:30" }), d("b", { minutes: 10 })]), "08:00");
+  assert.deepEqual(t.map((x) => [x.ref, x.start, x.end]), [["a", "08:00", "08:10"], ["lunch", "12:30", "13:30"], ["b", "13:30", "13:40"]]);
+  const late = timed(suggest([d("a", { minutes: 300 }), d("lunch", { minutes: 60, at: "12:30" })]), "08:00");
+  assert.equal(late[1].start, "13:00", "running late: it starts when the one before ends");
+  assert.equal(putBody({ start: "08:00", items: suggest([d("lunch", { at: "12:30" })]) }).items[0].at, "12:30");
+});
+
+test("the first plan puts a fixed-time lunch where the day reaches it", () => {
+  const plan = firstPlan(suggest([d("lunch", { minutes: 60, at: "08:25", urgency: "alert" }), d("a"), d("b"), d("c")]));
+  assert.deepEqual(plan.map((p) => p.ref), ["a", "b", "lunch", "c"]);
+});
