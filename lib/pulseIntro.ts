@@ -17,11 +17,11 @@ export const LIVE: readonly IntroItem[] = [
   { title: "Ask Pulse", line: "Plain questions, straight answers from your own business. \"Who haven't I called in 60 days?\"" },
   { title: "Always the why", line: "Every suggestion shows its reason. You never have to guess why someone is in front of you." },
   { title: "Live numbers", line: "Your trackers, VIP touches and goals update within a minute as you work in ONE GO and ONE MOVE." },
+  { title: "Call Prep", line: "Tap Call and a ten-second card comes first: when you last spoke, their family, their favourites, what is coming up, and three things to ask." },
   { title: "Every person, every detail", line: "Open anyone in the middle of the screen: their family, favourites, history and every touch." },
 ];
 
 export const COMING: readonly IntroItem[] = [
-  { title: "Call Prep", line: "A ten-second card before every call: when you last spoke, their family, their favourites, what to ask." },
   { title: "Pulse Drafts", line: "Every text, email, video-text script and handwritten note written in your voice. You edit and send." },
   { title: "Talk, don't type", line: "After a call, just speak. Pulse files the notes and sets the follow-up." },
   { title: "Referral and life-event radar", line: "Who sends you business, who will, and the moments that matter in their lives." },

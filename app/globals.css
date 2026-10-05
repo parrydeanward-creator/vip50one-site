@@ -1587,3 +1587,15 @@ a.link { display: block; text-decoration: none; }
 .pr-glow.pr-now { animation-duration: 1.3s; }
 @keyframes pr-glow { 50% { opacity: 0.3; transform: scale(1.08); } }
 @media (prefers-reduced-motion: reduce) { .pr-ring, .pr-glow { animation: none; } .pr-ring.pr-late { display: none; } }
+
+/* Call Prep: the ten-second card before a call */
+.cp { width: min(720px, 100%); }
+.cp-pulse { margin: 8px 0 0; color: var(--gold-2); font-weight: 700; }
+.cp-wait { color: var(--text-2); margin: 18px 0; }
+.cp-ask { margin-top: 18px; padding: 14px 16px; border-radius: 14px; background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.35); }
+.cp-ask ol { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 6px; font-size: 16px; color: var(--text); }
+.cp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; margin-top: 16px; }
+.cp-block ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 14px; color: var(--text-2); }
+.cp h3 { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); margin: 0 0 6px; }
+@media (max-width: 719px) { .cp-grid { grid-template-columns: 1fr; } }
+.pi-btn { text-decoration: none; }
