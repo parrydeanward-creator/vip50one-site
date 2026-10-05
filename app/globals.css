@@ -1436,3 +1436,9 @@ a.link { display: block; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .fx-move { transition: none; } .fx-out, .fx-fade { animation: none; } }
 .rx-n-big { fill: #fff; font-size: 56px; font-weight: 700; pointer-events: none; }
 .hw-face-name { fill: rgba(232, 236, 248, 0.85); font-weight: 600; paint-order: stroke; stroke: #070b18; stroke-width: 4px; pointer-events: none; }
+
+/* Special day today (vip_summary.special_days): a soft gold glow around the face. */
+.sd-glow { transform-box: fill-box; transform-origin: center; filter: drop-shadow(0 0 8px rgba(245, 197, 66, 0.85)); animation: sd-glow 2.4s ease-in-out infinite; }
+@keyframes sd-glow { 0%, 100% { opacity: 0.95; transform: scale(1); } 50% { opacity: 0.55; transform: scale(1.06); } }
+.tg-face.sd { box-shadow: 0 0 0 2px #f5c542, 0 0 14px 2px rgba(245, 197, 66, 0.7); }
+@media (prefers-reduced-motion: reduce) { .sd-glow { animation: none; } }

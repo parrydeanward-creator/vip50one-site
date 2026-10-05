@@ -273,7 +273,7 @@ export class BrainScene {
   private style(s: Sprite, role: string) {
     const n = s.node;
     const photo = n.image ? this.photoFor(n.image) : null;
-    const key = `${n.type}|${n.status}|${n.locked}|${role}|${n.label}|${n.secondaryLabel}|${s.tgt.r}|${photo ? "p" : ""}`;
+    const key = `${n.type}|${n.status}|${n.locked}|${role}|${n.label}|${n.secondaryLabel}|${s.tgt.r}|${photo ? "p" : ""}|${n.celebrate ? "c" : ""}`;
     if (key === s.drawnKey) return;
     s.drawnKey = key;
     const r = s.tgt.r;
@@ -305,6 +305,15 @@ export class BrainScene {
     s.glow.width = s.glow.height = r * (n.type === "product" ? 3.6 : 3);
     s.glow.alpha = (n.type === "product" || role === "focus" ? 0.75 : 0.45) * lit;
     orbBody(b, r, color, lit);
+    // A special day today: the person glows gold, with a gold rim.
+    if (n.celebrate && !n.locked) {
+      s.glow.tint = GOLD;
+      s.glow.width = s.glow.height = r * 3.6;
+      s.glow.alpha = 0.9 * lit;
+      const rim = new Graphics();
+      rim.circle(0, 0, r + 5).stroke({ width: 3, color: GOLD, alpha: 0.95 });
+      s.deco.addChild(rim);
+    }
 
     // Progress arc for nodes whose headline number is "x / y" (e.g. 14 / 25).
     const ratio = /^\s*(\d+)\s*\/\s*(\d+)/.exec(n.stats?.[0]?.value ?? "");

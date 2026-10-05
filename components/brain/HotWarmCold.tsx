@@ -37,12 +37,15 @@ export default function HotWarmCold({
   onChanged,
   onBack,
   onClassic,
+  celebrate = [],
 }: {
   onUnavailable: () => void;
   onChanged: () => void;
   onBack: () => void;
   onClassic: () => void;
+  celebrate?: string[]; // contact ids with a special day today (gold glow)
 }) {
+  const glowing = new Set(celebrate);
   const [data, setData] = useState<Hwc | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [pick, setPick] = useState<string | null>(null);
@@ -424,6 +427,7 @@ export default function HotWarmCold({
                   </g>
                 )}
                 <circle cx={0} cy={0} r={f.r + 7} fill={c.color} opacity={0.08 + heat * 0.32} pointerEvents="none" />
+                {p.contactId && glowing.has(p.contactId) && <circle cx={0} cy={0} r={f.r + 12} fill="none" stroke="#f5c542" strokeWidth={4} className="sd-glow" pointerEvents="none" />}
                 {isPick && <circle cx={0} cy={0} r={f.r + 6} fill="none" stroke={GOLD} strokeWidth={3} className="hw-beat" pointerEvents="none" />}
                 <circle cx={0} cy={0} r={f.r} fill="#121a36" stroke={on ? "#fff" : c.color} strokeWidth={on ? 3 : 1.6} opacity={0.55 + heat * 0.45} />
                 {pic ? (

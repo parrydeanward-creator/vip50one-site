@@ -17,6 +17,8 @@ export function morningTop(ix: GraphIndex, n = TOUR_STOPS): string[] {
   const add = (id: string | undefined) => {
     if (id && ok.has(id) && !out.includes(id)) out.push(id);
   };
+  // A special day today comes first: the people glowing gold.
+  for (const node of ix.graph.nodes) if (node.celebrate && node.type === "person") add(node.id);
   for (const node of ix.graph.nodes) for (const r of node.recommendations ?? []) add(r.targetId);
   for (const r of rulesAnswer("What needs my attention today?", ix).results) add(r.id);
   return out.slice(0, n);

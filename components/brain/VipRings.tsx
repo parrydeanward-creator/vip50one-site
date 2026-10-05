@@ -52,13 +52,16 @@ export default function VipRings({
   onChanged,
   onBack,
   onClassic,
+  celebrate = [],
 }: {
   today: string;
   onUnavailable: () => void;
   onChanged: () => void;
   onBack: () => void;
   onClassic: () => void;
+  celebrate?: string[]; // contact ids with a special day today (gold glow)
 }) {
+  const glowing = new Set(celebrate);
   const [roster, setRoster] = useState<VipRoster | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -299,6 +302,7 @@ export default function VipRings({
         }}
       >
         <title>{`${p.name} · ${done}/${segs.length} this month · ${lastTouchLine(p, today)}`}</title>
+        {glowing.has(s.id) && <circle cx={s.x} cy={s.y} r={s.r + (big ? 13 : 10)} fill="none" stroke="#f5c542" strokeWidth={4} className="sd-glow" pointerEvents="none" />}
         <circle className="vr-glow" cx={s.x} cy={s.y} r={s.r * (big ? 1.9 : 1.6)} fill={`url(#vr-glow-${urg === "overdue" ? "red" : big ? "gold" : "teal"})`} />
         {segs.map((seg, i) => (
           <path key={seg.key} className={seg.done ? "vr-seg vr-seg-on" : "vr-seg"} d={segmentPath(s.x, s.y, s.r + (big ? 7 : 5), i, segs.length)} strokeWidth={big ? 3.6 : 2.6} />
