@@ -2,7 +2,6 @@
 
 import { CLASSIC_DASHBOARD_URL } from "@/lib/host.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import PersonPanel from "./PersonPanel.tsx";
 import VipRings from "./VipRings.tsx";
 import DailyTracker from "./DailyTracker.tsx";
@@ -57,21 +56,36 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // The graph changes while the page is open (live signals tick its numbers).
   const [graph, setGraph] = useState(initialGraph);
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
-  // Fresh numbers from the server (router.refresh) replace the graph. Without
+  // Fresh numbers from the server replace the graph. Without
   // this, a refresh after logging a call changed nothing on screen.
-  useEffect(() => {
-    if (!live) return;
-    // Swap the graph and, in the same render, move off an item that is gone
-    // (a follow-up just done). Rendering the new graph with the old focus
-    // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
-    const nix = indexGraph(initialGraph);
-    setGraph(initialGraph);
+  // Swap the graph and, in the same render, move off an item that is gone
+  // (a follow-up just done). Rendering the new graph with the old focus
+  // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
+  const swapGraph = useCallback((next: BusinessGraph) => {
+    const nix = indexGraph(next);
+    setGraph(next);
     setState((s) => {
       if (nix.byId.has(s.focusId)) return s;
-      const keep = [...lastPath.current].reverse().find((id) => nix.byId.has(id)) ?? initialGraph.rootId;
+      const keep = [...lastPath.current].reverse().find((id) => nix.byId.has(id)) ?? next.rootId;
       return nav.go(s, keep);
     });
-  }, [initialGraph, live]);
+  }, []);
+  useEffect(() => {
+    if (live) swapGraph(initialGraph);
+  }, [initialGraph, live, swapGraph]);
+  // Fresh numbers without re-rendering the route (Parry, 5 Oct: the screen blinked and went
+  // back to the dashboard every minute). Only the graph changes; the open page stays put.
+  const refreshLive = useCallback(async () => {
+    if (!live) return;
+    try {
+      const r = await fetch("/api/live", { cache: "no-store" });
+      if (!r.ok) return;
+      const j = (await r.json().catch(() => null)) as { graph?: BusinessGraph } | null;
+      if (j?.graph && Array.isArray(j.graph.nodes) && j.graph.rootId) swapGraph(j.graph);
+    } catch {
+      // offline or signed out: keep what is on screen
+    }
+  }, [live, swapGraph]);
   // ONE's morning note, written by the AI when it is available (rules otherwise).
   const [note, setNote] = useState<{ note: string; source: "ai" | "rules" } | null>(null);
   useEffect(() => {
@@ -127,7 +141,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const askInputRef = useRef<HTMLInputElement>(null);
   const askIds = useMemo(() => ask?.results.map((r) => r.id) ?? [], [ask]);
   // Morning fly-through: step 0 is ONE, then each of today's top three.
-  const router = useRouter();
   const [decided, setDecided] = useState<Record<string, string>>({});
   const [deciding, setDeciding] = useState(false);
   const [decideErr, setDecideErr] = useState<string | null>(null);
@@ -589,7 +602,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     const refresh = () => {
       if (document.visibilityState !== "visible" || Date.now() - last < 15_000) return;
       last = Date.now();
-      router.refresh();
+      refreshLive();
     };
     const t = setInterval(refresh, 60_000);
     document.addEventListener("visibilitychange", refresh);
@@ -599,7 +612,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       document.removeEventListener("visibilitychange", refresh);
       window.removeEventListener("focus", refresh);
     };
-  }, [live, router]);
+  }, [live, refreshLive]);
 
   const clearAsk = useCallback(() => {
     setAsk(null);
@@ -877,7 +890,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       setTimeout(() => {
         const up = n.parentId ? ix.byId.get(n.parentId)?.parentId ?? n.parentId : n.product;
         goTo(up ?? n.product);
-        router.refresh();
+        refreshLive();
       }, 1200);
     } catch (e) {
       setDecideErr(e instanceof Error ? e.message : "Something went wrong.");
@@ -1416,7 +1429,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               contactId={focus.contactId}
               taskId={focus.taskId}
               title={focus.label}
-              onChanged={() => router.refresh()}
+              onChanged={refreshLive}
               openContacts={() => goTo(movePageId("/contacts"))}
             />
           )}
@@ -1665,7 +1678,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               {vipNative && nativeKind === "audit" ? (
                 <TouchAudit
                   onUnavailable={vipUnavailable}
-                  onChanged={() => router.refresh()}
+                  onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
                   celebrate={graph.celebrate}
@@ -1673,7 +1686,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               ) : vipNative && nativeKind === "contacts" ? (
                 <Contacts
                   onUnavailable={vipUnavailable}
-                  onChanged={() => router.refresh()}
+                  onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
                   celebrate={graph.celebrate}
@@ -1681,7 +1694,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               ) : vipNative && nativeKind === "hwc" ? (
                 <HotWarmCold
                   onUnavailable={vipUnavailable}
-                  onChanged={() => router.refresh()}
+                  onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
                   celebrate={graph.celebrate}
@@ -1689,7 +1702,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               ) : vipNative && nativeKind === "profile" ? (
                 <MyProfile
                   onUnavailable={vipUnavailable}
-                  onChanged={() => router.refresh()}
+                  onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
                 />
@@ -1702,14 +1715,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               ) : vipNative && nativeKind === "weekly" ? (
                 <WeeklyTracker
                   onUnavailable={vipUnavailable}
-                  onChanged={() => router.refresh()}
+                  onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
                 />
               ) : vipNative && nativeKind === "daily" ? (
                 <DailyTracker
                   onUnavailable={vipUnavailable}
-                  onChanged={() => router.refresh()}
+                  onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
                 />
@@ -1717,7 +1730,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                 <VipRings
                   today={localDay(new Date())}
                   onUnavailable={vipUnavailable}
-                  onChanged={() => router.refresh()}
+                  onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
                   celebrate={graph.celebrate}
