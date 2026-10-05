@@ -4,6 +4,7 @@
 //   node scripts/record-watch.mjs [1920x1080] [slow] [ffmpeg path]
 //   FILM=1 node scripts/record-watch.mjs ...   (the long film, /watch?film=1)
 //   PRODUCT=go node scripts/record-watch.mjs ... (one product's film)
+//   SIGNALS=1 node scripts/record-watch.mjs ... (What everything means, /watch?signals=1)
 //
 // The story plays `slow` times slower (default 4) so a machine without a GPU
 // still draws every frame; the video is then sped back up to real time at
@@ -19,8 +20,9 @@ const slow = Number(process.argv[3] || 4);
 const ffmpeg = process.argv[4] || "ffmpeg";
 const film = process.env.FILM === "1";
 const product = process.env.PRODUCT;
+const signals = process.env.SIGNALS === "1";
 const page = process.env.PAGE; // e.g. /film/go
-const out = page ? `docs/${page.replace(/\W+/g, "-").replace(/^-|-$/g, "")}-phone-${w}x${h}.mp4` : product ? `docs/film-${product}-${w}x${h}.mp4` : `docs/watch-one-work${film ? "-film" : ""}-${w}x${h}.mp4`;
+const out = page ? `docs/${page.replace(/\W+/g, "-").replace(/^-|-$/g, "")}-phone-${w}x${h}.mp4` : product ? `docs/film-${product}-${w}x${h}.mp4` : signals ? `docs/film-signals-${w}x${h}.mp4` : `docs/watch-one-work${film ? "-film" : ""}-${w}x${h}.mp4`;
 const dir = mkdtempSync(join(tmpdir(), "watch-"));
 
 const b = await chromium.launch({
@@ -30,7 +32,7 @@ const b = await chromium.launch({
 const ctx = await b.newContext({ viewport: { width: w, height: h }, recordVideo: { dir, size: { width: w, height: h } } });
 const t0 = Date.now();
 const p = await ctx.newPage();
-await p.goto(page ? `http://localhost:3102${page}?record=1&slow=${slow}` : `http://localhost:3102/watch?record=1&slow=${slow}${film ? "&film=1" : ""}${product ? `&product=${product}` : ""}`, { waitUntil: "networkidle" });
+await p.goto(page ? `http://localhost:3102${page}?record=1&slow=${slow}` : `http://localhost:3102/watch?record=1&slow=${slow}${film ? "&film=1" : ""}${product ? `&product=${product}` : ""}${signals ? "&signals=1" : ""}`, { waitUntil: "networkidle" });
 await p.waitForSelector(".watch-card, .ga-cap", { timeout: 30000 });
 const start = (Date.now() - t0) / 1000 - 0.3;
 await p.waitForSelector(".watch-end, .ga-end", { timeout: 1200000 });

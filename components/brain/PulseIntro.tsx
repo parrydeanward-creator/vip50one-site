@@ -29,6 +29,13 @@ export default function PulseIntro({ pkg, total, onClose, onAsk, onMorning, onGu
           <h2 id="pi-title">Meet Pulse</h2>
           <p className="pi-lede">The intelligence inside ONE. It watches your whole business so you don&apos;t have to, and tells you the few things that matter most.</p>
           <p className={`pi-today ${total ? `pi-lvl-${total.level}` : ""}`}>{todayLine(total)}</p>
+          <button className="pi-film" onClick={onGuide}>
+            <span className="pi-play" aria-hidden="true">▶</span>
+            <span>
+              <b>Watch: what everything means</b>
+              <span>Every light, ring and colour in ONE, in about a minute.</span>
+            </span>
+          </button>
         </header>
         <div className="pi-cols">
           <div>
@@ -59,7 +66,6 @@ export default function PulseIntro({ pkg, total, onClose, onAsk, onMorning, onGu
             <PulseMark label={false} /> Ask Pulse
           </button>
           <button className="pi-btn" onClick={onMorning}>Start my Morning Pulse</button>
-          <button className="pi-btn pi-guide" onClick={onGuide}>What everything means</button>
         </div>
       </section>
     </div>

@@ -91,6 +91,7 @@ export class BrainScene {
   private pingG = new Graphics();
   private needG = new Graphics();
   private needs = new Map<string, SceneNeed>();
+  private needsOn = false; // the films that tell other stories draw no rings
   private focusId = "";
   private hoverId: string | null = null;
   private dimOthers: Set<string> | null = null;
@@ -211,9 +212,16 @@ export class BrainScene {
 
   // What needs the agent (lib/needs.ts). Orbs restyle only when their count or
   // colour changes; the rings are drawn every frame.
-  setNeeds(needs: Map<string, SceneNeed>) {
+  setNeeds(needs: Map<string, SceneNeed>, on = true) {
     this.needs = needs;
+    this.needsOn = on;
     for (const s of this.sprites.values()) this.style(s, s.role);
+    this.idleFor = 0;
+  }
+
+  // Send the heartbeat now (the films show it on cue).
+  beat() {
+    this.nextBeat = 0;
     this.idleFor = 0;
   }
 
@@ -615,6 +623,7 @@ export class BrainScene {
   // faster and red when it is overdue. Under reduced motion, one still ring.
   private drawNeeds() {
     const g = this.needG.clear();
+    if (!this.needsOn) return;
     const s = 1 / this.cam.scale;
     for (const sp of this.sprites.values()) {
       const need = this.needs.get(sp.id);
@@ -623,7 +632,7 @@ export class BrainScene {
         // Nothing here needs the agent: a still green ring. An orb marked for
         // attention with nothing loaded under it keeps its dot instead.
         const st = sp.node.status;
-        if (st !== "action" && st !== "attention") g.circle(sp.cur.x, sp.cur.y, sp.cur.r + 6).stroke({ width: 2.2 * s, color: GOOD, alpha: sp.cur.a * 0.85 });
+        if (st !== "action" && st !== "attention" && !sp.node.celebrate) g.circle(sp.cur.x, sp.cur.y, sp.cur.r + 6).stroke({ width: 2.2 * s, color: GOOD, alpha: sp.cur.a * 0.85 });
         continue;
       }
       const c = NEED_COLOR[need.level];
