@@ -66,6 +66,9 @@ export default function Contacts({
   const [person, setPerson] = useState<Person | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [openSec, setOpenSec] = useState<string | null>(null);
+  // The drill on the map: a person, then one of their sections in the middle, then one field.
+  const [focusSec, setFocusSec] = useState<string | null>(null);
+  const [focusFld, setFocusFld] = useState<string | null>(null);
   const [edit, setEdit] = useState<{ key: string; text: string } | null>(null);
   const [timeline, setTimeline] = useState<Timeline | null>(null);
   const [adding, setAdding] = useState<{ first_name: string; last_name: string; phone: string; email: string; tier: string } | null>(null);
@@ -125,6 +128,8 @@ export default function Contacts({
     const p = r?.status === 200 ? readPerson(r.body) : null;
     if (!p) return setNote(r?.status === 404 ? "That contact isn't there any more." : "ONE couldn't open that contact just now.");
     setPerson(p);
+    setFocusSec(null);
+    setFocusFld(null);
     setOpenSec(p.sections[0]?.key ?? null);
     cam.reset();
     drawerRef.current?.scrollTo({ top: 0 });
@@ -147,6 +152,8 @@ export default function Contacts({
   const back = () => {
     if (edit) return setEdit(null);
     if (adding) return setAdding(null);
+    if (focusFld) return setFocusFld(null);
+    if (focusSec) return setFocusSec(null);
     if (person) return setPerson(null);
     if (group) return openGroup(group);
     onBack();
@@ -232,15 +239,52 @@ export default function Contacts({
   }, [groups, group, people]);
   const byId = useMemo(() => new Map(people.map((p) => [p.id, p] as const)), [people]);
 
-  // A person in the middle, their sections round them.
-  const secSeats = useMemo(() => {
-    if (!person) return [];
-    const n = person.sections.length;
-    return person.sections.map((s, i) => {
-      const a = -Math.PI / 2 + (2 * Math.PI * i) / n;
-      return { s, x: C + SR * Math.cos(a), y: C + SR * Math.sin(a), a };
-    });
-  }, [person]);
+  // A person in the middle, their sections round them. Tap a section: it comes to the middle,
+  // the person and the other sections step back to the outer ring, and its fields fly out round
+  // it. Tap a field: it comes to the middle; a list (children, pets) opens into one orb each.
+  const drill = useMemo(() => {
+    if (!person) return null;
+    const secs = person.sections;
+    const sec = focusSec ? secs.find((s) => s.key === focusSec) ?? null : null;
+    const ring = (i: number, n: number, r: number, skipTop = false) => {
+      const a = skipTop ? -Math.PI / 2 + (2 * Math.PI * (i + 1)) / (n + 1) : -Math.PI / 2 + (2 * Math.PI * i) / n;
+      return { x: C + r * Math.cos(a), y: C + r * Math.sin(a), a };
+    };
+    const home = new Map(secs.map((s, i) => [s.key, ring(i, secs.length, SR)] as const));
+    const place = new Map<string, { x: number; y: number; k: number }>();
+    if (!sec) secs.forEach((s) => place.set(s.key, { ...home.get(s.key)!, k: 1 }));
+    else {
+      const others = secs.filter((s) => s.key !== sec.key);
+      others.forEach((s, i) => place.set(s.key, { ...ring(i, others.length, OR, true), k: 0.85 }));
+      // a field open: the section waits half way up, between the person and the field (a trail back)
+      place.set(sec.key, focusFld ? { x: C, y: C - OR * 0.7, k: 0.8 } : { x: C, y: C, k: 1.7 });
+    }
+    const face = sec ? { x: C, y: C - OR, k: 0.42 } : { x: C, y: C, k: 1 };
+    const fields = sec ? sec.fields : [];
+    const fr = Math.min(64, focusFace(fields.length) + 12);
+    const fieldSeats = sec && !focusFld ? ringRows(fields.map((f) => f.key), C, C, focusRings(110, fr), fr, 26) : [];
+    const fld = sec && focusFld ? fields.find((f) => f.key === focusFld) ?? null : null;
+    const items = fld && Array.isArray(fld.value) ? fld.value : [];
+    const ir = focusFace(items.length);
+    const itemSeats = items.length ? ringRows(items.map((_, i) => String(i)), C, C, focusRings(100, ir), ir, 26) : [];
+    return { home, place, face, sec, fields, fr, fieldSeats, fld, items, itemSeats };
+  }, [person, focusSec, focusFld]);
+
+  const focusSection = (key: string | null) => {
+    setFocusFld(null);
+    setEdit(null);
+    setFocusSec(key);
+    if (key) {
+      setOpenSec(key);
+      setTimeout(() => document.getElementById(`pc-sec-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    }
+    cam.reset();
+  };
+  const focusField = (f: Field) => {
+    setFocusFld(f.key);
+    setEdit(f.editable && f.type !== "list" ? { key: f.key, text: editText(f) } : null);
+    setTimeout(() => document.getElementById(`pc-f-${f.key}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+  };
 
   if (err) {
     return (
@@ -395,60 +439,170 @@ export default function Contacts({
             )}
           </g>
 
-          {/* one person: their face in the middle, their sections round them */}
-          {person && (
+          {/* one person, then a section, then a field: whatever is tapped comes to the middle */}
+          {person && drill && (
             <g key={`p-${person.id}`}>
-              <circle className="vr-track fx-fade" cx={C} cy={C} r={SR} />
-              {secSeats.map(({ s, x, y }, i) => {
+              <circle className="vr-track fx-move" cx={C} cy={C} r={drill.sec ? OR : SR} />
+              {!drill.sec &&
+                person.sections.map((s, i) => {
+                  const h = drill.home.get(s.key)!;
+                  return <line key={`sl-${s.key}`} className="fx-fade" x1={C} y1={C} x2={h.x} y2={h.y} stroke={sectionColor(s.key)} strokeOpacity={0.22} pointerEvents="none" style={{ animationDelay: `${i * 45 + 200}ms` }} />;
+                })}
+
+              {/* the sections: they fly out of the person once, then glide between places */}
+              {person.sections.map((s, i) => {
                 const col = sectionColor(s.key);
                 const gaps = gapsIn(s);
-                const on = openSec === s.key;
-                const vars = { "--fx": `${C}px`, "--fy": `${C}px`, "--tx": `${x}px`, "--ty": `${y}px`, animationDelay: `${i * 45}ms` } as React.CSSProperties;
-                const act = () => {
-                  setOpenSec(s.key);
-                  setEdit(null);
-                  document.getElementById(`pc-sec-${s.key}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-                };
-                return [
-                  <line key={`sl-${s.key}`} className="fx-fade" x1={C} y1={C} x2={x} y2={y} stroke={col} strokeOpacity={0.22} pointerEvents="none" style={{ animationDelay: `${i * 45 + 200}ms` }} />,
+                const h = drill.home.get(s.key)!;
+                const at = drill.place.get(s.key)!;
+                const centre = drill.sec?.key === s.key && !drill.fld;
+                const act = () => (centre ? focusSection(null) : drill.sec?.key === s.key ? setFocusFld(null) : focusSection(s.key));
+                const vars = { "--fx": `${C}px`, "--fy": `${C}px`, "--tx": `${h.x}px`, "--ty": `${h.y}px`, animationDelay: `${i * 45}ms` } as React.CSSProperties;
+                return (
+                  <g key={`sec-${s.key}`} className="fx-out" style={vars}>
+                    <g
+                      data-tap
+                      className="rx-biz fx-move"
+                      style={{ transform: `translate(${at.x - h.x}px, ${at.y - h.y}px) scale(${at.k})` }}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={drill.sec?.key === s.key}
+                      aria-label={centre ? `${s.label}: back to ${person.name}` : `${s.label}${s.summary ? `, ${s.summary}` : ""}${gaps ? `, ${gaps} to fill in` : ""}`}
+                      onClick={act}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          act();
+                        }
+                      }}
+                    >
+                      <circle r={84} fill={col} opacity={centre ? 0.18 : 0.1} pointerEvents="none" />
+                      <circle r={64} fill="url(#pc-glass)" stroke={drill.sec?.key === s.key ? "#fff" : col} strokeWidth={drill.sec?.key === s.key ? 3 : 2.2} />
+                      {twoLines(s.label).map((ln, k, all) => (
+                        <text key={k} y={(k - all.length / 2) * 17 + 4} textAnchor="middle" className="pc-sec-label" style={{ fill: col }}>{ln}</text>
+                      ))}
+                      <text y={twoLines(s.label).length > 1 ? 30 : 22} textAnchor="middle" className="pc-sec-sum">{centre ? "tap to go back" : s.summary ?? (gaps === s.fields.length ? "empty" : "")}</text>
+                      {gaps > 0 && !centre && (
+                        <g transform="translate(46,-46)" pointerEvents="none">
+                          <circle r={13} fill="#121a36" stroke={GOLD} strokeWidth={2} />
+                          <text dy="0.35em" textAnchor="middle" style={{ fill: GOLD, fontSize: 12, fontWeight: 800 }}>{gaps}</text>
+                        </g>
+                      )}
+                    </g>
+                  </g>
+                );
+              })}
+
+              {/* a section's fields, flying out of it */}
+              {drill.sec &&
+                drill.fieldSeats.map((seat, j) => {
+                  const f = drill.fields.find((x) => x.key === seat.id)!;
+                  const col = sectionColor(drill.sec!.key);
+                  const shown = showValue(f);
+                  const yes = f.type === "choice" && f.value === "Yes";
+                  const vars = { "--fx": `${C}px`, "--fy": `${C}px`, "--tx": `${seat.x}px`, "--ty": `${seat.y}px`, animationDelay: `${120 + j * 35}ms` } as React.CSSProperties;
+                  const r = seat.r;
+                  return [
+                    <line key={`fl-${drill.sec!.key}-${f.key}`} className="fx-fade" x1={C} y1={C} x2={seat.x} y2={seat.y} stroke={col} strokeOpacity={0.16} pointerEvents="none" style={{ animationDelay: `${j * 35 + 300}ms` }} />,
+                    <g
+                      key={`f-${drill.sec!.key}-${f.key}`}
+                      data-tap
+                      className="rx-biz fx-out"
+                      style={vars}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${f.label}: ${shown ?? "empty"}${f.editable ? "" : ", read only"}`}
+                      onClick={() => focusField(f)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          focusField(f);
+                        }
+                      }}
+                    >
+                      <title>{`${f.label}: ${shown ?? "empty"}`}</title>
+                      <circle r={r + 8} fill={yes ? TEAL : col} opacity={yes ? 0.22 : 0.08} pointerEvents="none" />
+                      <circle r={r} fill={yes ? "#0e2b2a" : "url(#pc-glass)"} stroke={shown == null ? GOLD : yes ? TEAL : col} strokeWidth={yes ? 3 : 1.8} strokeDasharray={shown == null ? "5 5" : undefined} opacity={f.editable || shown != null ? 1 : 0.6} />
+                      {fitLines(shown == null ? (f.editable ? "Add" : "—") : yes ? "✓" : shown, r).map((ln, k, all) => (
+                        <text key={k} y={(k - (all.length - 1) / 2) * r * 0.36} dy="0.35em" textAnchor="middle" className="pc-f-val" style={{ fontSize: yes ? r * 0.7 : Math.max(11, r * 0.28), fill: shown == null ? GOLD : yes ? "#8af0de" : "#eef1f8" }}>{ln}</text>
+                      ))}
+                      <text className="hw-face-name" y={r + Math.max(13, r * 0.3) + 4} textAnchor="middle" style={{ fontSize: Math.max(13, r * 0.3) }}>{f.label.length > 18 ? `${f.label.slice(0, 17)}…` : f.label}</text>
+                    </g>,
+                  ];
+                })}
+
+              {/* one field in the middle; a list opens into one orb each */}
+              {drill.fld && (
+                <g key={`fld-${drill.fld.key}`}>
                   <g
-                    key={`sec-${s.key}`}
                     data-tap
                     className="rx-biz fx-out"
-                    style={vars}
+                    style={{ "--fx": `${C}px`, "--fy": `${C}px`, "--tx": `${C}px`, "--ty": `${C}px` } as React.CSSProperties}
                     role="button"
                     tabIndex={0}
-                    aria-pressed={on}
-                    aria-label={`${s.label}${s.summary ? `, ${s.summary}` : ""}${gaps ? `, ${gaps} to fill in` : ""}`}
-                    onClick={act}
+                    aria-label={`${drill.fld.label}: back to ${drill.sec!.label}`}
+                    onClick={() => setFocusFld(null)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        act();
+                        setFocusFld(null);
                       }
                     }}
                   >
-                    <circle r={84} fill={col} opacity={0.1} pointerEvents="none" />
-                    <circle r={64} fill="url(#pc-glass)" stroke={on ? "#fff" : col} strokeWidth={on ? 3.5 : 2.2} />
-                    {twoLines(s.label).map((ln, k, all) => (
-                      <text key={k} y={(k - all.length / 2) * 17 + 4} textAnchor="middle" className="pc-sec-label" style={{ fill: col }}>{ln}</text>
-                    ))}
-                    <text y={twoLines(s.label).length > 1 ? 30 : 22} textAnchor="middle" className="pc-sec-sum">{s.summary ?? (gaps === s.fields.length ? "empty" : "")}</text>
-                    {gaps > 0 && (
-                      <g transform="translate(46,-46)" pointerEvents="none">
-                        <circle r={13} fill="#121a36" stroke={GOLD} strokeWidth={2} />
-                        <text dy="0.35em" textAnchor="middle" style={{ fill: GOLD, fontSize: 12, fontWeight: 800 }}>{gaps}</text>
-                      </g>
+                    <circle r={150} fill="url(#pc-core-glow)" pointerEvents="none" />
+                    <circle r={108} fill="url(#pc-glass)" stroke={showValue(drill.fld) == null ? GOLD : sectionColor(drill.sec!.key)} strokeWidth={4} strokeDasharray={showValue(drill.fld) == null ? "8 6" : undefined} />
+                    <text y={-56} textAnchor="middle" className="pc-sec-label" style={{ fill: sectionColor(drill.sec!.key), fontSize: 16 }}>{drill.fld.label.length > 20 ? `${drill.fld.label.slice(0, 19)}…` : drill.fld.label}</text>
+                    {drill.items.length ? (
+                      <text y={6} textAnchor="middle" className="rx-n-big" style={{ fontSize: 48 }}>{drill.items.length}</text>
+                    ) : (
+                      fitLines(showValue(drill.fld) ?? (drill.fld.editable ? "Add it in the card" : "Not filled in"), 108).map((ln, k, all) => (
+                        <text key={k} y={(k - (all.length - 1) / 2) * 30 + 8} dy="0.35em" textAnchor="middle" className="pc-f-val" style={{ fontSize: 24, fill: showValue(drill.fld!) == null ? GOLD : "#fff" }}>{ln}</text>
+                      ))
                     )}
-                  </g>,
-                ];
-              })}
-              <g className="fx-out" style={{ "--fx": `${C}px`, "--fy": `${C}px`, "--tx": `${C}px`, "--ty": `${C}px` } as React.CSSProperties} pointerEvents="none">
-                {glowing.has(person.id) && <circle r={128} fill="none" stroke={GOLD} strokeWidth={5} className="sd-glow" />}
-                <circle r={150} fill="url(#pc-core-glow)" />
-                <circle r={112} fill="#121a36" stroke={person.pulse ? GOLD : TEAL} strokeWidth={4} />
-                {faceOf(person, 112, `pc-big-${person.id}`)}
-                <text className="hw-face-name" y={146} textAnchor="middle" style={{ fontSize: 26 }}>{person.name}</text>
+                    <text y={80} textAnchor="middle" className="pc-sec-sum">tap to go back</text>
+                  </g>
+                  {drill.itemSeats.map((seat, j) => {
+                    const label = drill.items[Number(seat.id)];
+                    const vars = { "--fx": `${C}px`, "--fy": `${C}px`, "--tx": `${seat.x}px`, "--ty": `${seat.y}px`, animationDelay: `${150 + j * 40}ms` } as React.CSSProperties;
+                    const name = label.split(/ \(| born /)[0];
+                    const rest = label.slice(name.length).trim();
+                    return [
+                      <line key={`il-${j}`} className="fx-fade" x1={C} y1={C} x2={seat.x} y2={seat.y} stroke={sectionColor(drill.sec!.key)} strokeOpacity={0.2} pointerEvents="none" style={{ animationDelay: `${j * 40 + 300}ms` }} />,
+                      <g key={`it-${j}`} className="rx-biz fx-out" style={vars} pointerEvents="none">
+                        <circle r={seat.r} fill="#121a36" stroke={sectionColor(drill.sec!.key)} strokeWidth={2} />
+                        <text dy="0.35em" textAnchor="middle" className="vr-init vr-init-50" fontSize={seat.r * 0.62}>{initialsOf(name)}</text>
+                        <text className="hw-face-name" y={seat.r + 18} textAnchor="middle" style={{ fontSize: 15 }}>{name}</text>
+                        {rest && <text className="pc-sec-sum" y={seat.r + 36} textAnchor="middle" style={{ fontSize: 12 }}>{rest.replace(/^\(|\)$/g, "")}</text>}
+                      </g>,
+                    ];
+                  })}
+                </g>
+              )}
+
+              {/* the person: in the middle first, then up on the outer ring (tap to come back) */}
+              <g className="fx-out" style={{ "--fx": `${C}px`, "--fy": `${C}px`, "--tx": `${C}px`, "--ty": `${C}px` } as React.CSSProperties}>
+                <g
+                  data-tap
+                  className="rx-biz fx-move"
+                  style={{ transform: `translate(${drill.face.x - C}px, ${drill.face.y - C}px) scale(${drill.face.k})` }}
+                  role={drill.sec ? "button" : undefined}
+                  tabIndex={drill.sec ? 0 : -1}
+                  aria-label={drill.sec ? `Back to ${person.name}` : undefined}
+                  pointerEvents={drill.sec ? undefined : "none"}
+                  onClick={() => drill.sec && focusSection(null)}
+                  onKeyDown={(e) => {
+                    if (drill.sec && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      focusSection(null);
+                    }
+                  }}
+                >
+                  {glowing.has(person.id) && <circle r={128} fill="none" stroke={GOLD} strokeWidth={5} className="sd-glow" />}
+                  <circle r={150} fill="url(#pc-core-glow)" opacity={drill.sec ? 0.5 : 1} />
+                  <circle r={112} fill="#121a36" stroke={person.pulse ? GOLD : TEAL} strokeWidth={4} />
+                  {faceOf(person, 112, `pc-big-${person.id}`)}
+                  <text className="hw-face-name" y={146} textAnchor="middle" style={{ fontSize: drill.sec ? 40 : 26 }}>{drill.sec ? person.firstName ?? person.name : person.name}</text>
+                </g>
               </g>
             </g>
           )}
@@ -538,8 +692,11 @@ export default function Contacts({
                 s={s}
                 open={openSec === s.key}
                 onToggle={() => {
-                  setOpenSec(openSec === s.key ? null : s.key);
+                  const opening = openSec !== s.key;
+                  setOpenSec(opening ? s.key : null);
                   setEdit(null);
+                  setFocusFld(null);
+                  setFocusSec(opening ? s.key : null);
                 }}
                 edit={edit}
                 setEdit={setEdit}
@@ -610,6 +767,28 @@ export default function Contacts({
   );
 }
 
+/** A value inside an orb: up to three short lines, cut with an ellipsis. */
+function fitLines(text: string, r: number): string[] {
+  const per = Math.max(6, Math.floor(r / 6.2));
+  const words = text.replace(/\s+/g, " ").trim().split(" ");
+  const out: string[] = [];
+  let cur = "";
+  for (const w of words) {
+    if (!cur) cur = w;
+    else if ((cur + " " + w).length <= per) cur += " " + w;
+    else {
+      out.push(cur);
+      cur = w;
+    }
+    if (out.length === 3) break;
+  }
+  if (out.length < 3 && cur) out.push(cur);
+  const all = words.join(" ");
+  const lines = out.slice(0, 3).map((l) => (l.length > per ? `${l.slice(0, per - 1)}…` : l));
+  if (lines.join(" ").length < all.length && lines.length === 3 && !lines[2].endsWith("…")) lines[2] = `${lines[2].slice(0, per - 1)}…`;
+  return lines;
+}
+
 /** A section's name on its orb: at most two short lines. */
 function twoLines(label: string): string[] {
   if (label.length <= 12) return [label];
@@ -652,7 +831,7 @@ function SectionCard({
             const shown = showValue(f);
             const editing = edit?.key === f.key;
             return (
-              <div key={f.key} className={`pc-field${shown == null ? " gap" : ""}`}>
+              <div key={f.key} id={`pc-f-${f.key}`} className={`pc-field${shown == null ? " gap" : ""}`}>
                 <dt>{f.label}</dt>
                 <dd>
                   {editing ? (
