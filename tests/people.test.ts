@@ -117,3 +117,18 @@ test("tags: VIP tier and class first, else where they came from", () => {
   assert.equal(personTag({ tier: "vip50", cls: "hot", source: "Lofty" }), "VIP-50 · Hot");
   assert.equal(personTag({ tier: "contact", cls: null, source: "Open house" }), "Open house");
 });
+
+test("§3k.7: red or yellow from ONE MOVE, safe when it is not sent yet", () => {
+  const g = readGroups({ needs_you: 6, needs_now: 9, groups: [{ key: "vip50", label: "VIP-50", count: 49, needs_you: 4, needs_now: 1 }, { key: "lofty", label: "Lofty", count: 9, needs_you: 2 }] })!;
+  assert.equal(g.needsNow, 6, "never more than needs_you");
+  assert.equal(g.groups[0].needsNow, 1);
+  assert.equal(g.groups[1].needsNow, 0, "not sent yet: yellow only");
+  const p = readPage({ items: [
+    { id: ID, name: "Tom", pulse: { reason: "Follow-up 3 days late", urgency: "now" } },
+    { id: ID.replace("1111-4", "2222-4"), name: "Sue", pulse: { reason: "Birthday Thursday" } },
+    { id: ID.replace("1111-4", "3333-4"), name: "Amy", pulse: null },
+  ] })!;
+  assert.deepEqual(p.items.map((i) => i.urgency), ["now", "today", null]);
+  const one = readPerson({ id: ID, name: "Tom", pulse: { line: "Call Tom", urgency: "now" }, sections: [{ key: "contact", label: "Contact", fields: [] }] })!;
+  assert.equal(one.pulse?.urgency, "now");
+});

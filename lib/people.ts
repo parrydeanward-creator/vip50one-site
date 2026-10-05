@@ -9,9 +9,9 @@ import { faceUrl } from "./vips.ts";
 export const peopleUrl = `${MOVE_URL}/api/brain/people`;
 
 export type GroupKind = "tier" | "source";
-export interface PeopleGroup { key: string; label: string; kind: GroupKind; count: number; needsYou: number }
+export interface PeopleGroup { key: string; label: string; kind: GroupKind; count: number; needsYou: number; needsNow: number }
 export interface Gaps { vipNoBirthday: number; toSort: number; possibleDuplicates: number }
-export interface Groups { total: number; needsYou: number; groups: PeopleGroup[]; gaps: Gaps }
+export interface Groups { total: number; needsYou: number; needsNow: number; groups: PeopleGroup[]; gaps: Gaps }
 
 export interface PersonItem {
   id: string;
@@ -23,6 +23,7 @@ export interface PersonItem {
   source: string | null;
   lastTouchOn: string | null;
   pulse: string | null;
+  urgency: "now" | "today" | null; // §3k.7: red or yellow; a pulse with no urgency is today
 }
 export interface PeoplePage { total: number; items: PersonItem[]; next: string | null }
 
@@ -42,7 +43,7 @@ export interface Person {
   stage: string | null;
   tags: string[];
   source: string | null;
-  pulse: { line: string; nextStep: "call" | "text" | "card" | null } | null;
+  pulse: { line: string; nextStep: "call" | "text" | "card" | null; urgency: "now" | "today" } | null;
   sections: Section[];
   timelineCount: number;
 }
@@ -69,13 +70,15 @@ export function readGroups(j: unknown): Groups | null {
     const key = typeof r.key === "string" && KEY.test(r.key) ? r.key : null;
     const label = str(r.label, 40);
     if (!key || !label || groups.some((x) => x.key === key)) continue;
-    groups.push({ key, label, kind: r.kind === "source" ? "source" : "tier", count: num(r.count), needsYou: num(r.needs_you) });
+    const needsYou = num(r.needs_you);
+    groups.push({ key, label, kind: r.kind === "source" ? "source" : "tier", count: num(r.count), needsYou, needsNow: Math.min(needsYou, num(r.needs_now)) });
   }
   if (!groups.length) return null;
   const gp = (o.gaps && typeof o.gaps === "object" ? o.gaps : {}) as Record<string, unknown>;
   return {
     total: num(o.total),
     needsYou: num(o.needs_you),
+    needsNow: Math.min(num(o.needs_you), num(o.needs_now)), // §3k.7 (v1.19); 0 until ONE MOVE sends it
     groups,
     gaps: { vipNoBirthday: num(gp.vip_no_birthday), toSort: num(gp.to_sort), possibleDuplicates: num(gp.possible_duplicates) },
   };
@@ -86,7 +89,8 @@ function item(r: Record<string, unknown>): PersonItem | null {
   const id = typeof r.id === "string" && ID.test(r.id) ? r.id : null;
   const name = str(r.name, 120);
   if (!id || !name) return null;
-  const pulse = r.pulse && typeof r.pulse === "object" ? str((r.pulse as Record<string, unknown>).reason, 120) : null;
+  const pr = r.pulse && typeof r.pulse === "object" ? (r.pulse as Record<string, unknown>) : null;
+  const pulse = pr ? str(pr.reason, 120) : null;
   return {
     id,
     name,
@@ -97,6 +101,7 @@ function item(r: Record<string, unknown>): PersonItem | null {
     source: str(r.source_label, 80),
     lastTouchOn: typeof r.last_touch_on === "string" && /^\d{4}-\d{2}-\d{2}/.test(r.last_touch_on) ? r.last_touch_on.slice(0, 10) : null,
     pulse,
+    urgency: pulse ? (pr?.urgency === "now" ? "now" : "today") : null,
   };
 }
 
@@ -155,7 +160,7 @@ export function readPerson(j: unknown): Person | null {
     stage: str(o.stage, 60),
     tags: Array.isArray(o.tags) ? o.tags.filter((t): t is string => typeof t === "string" && !!t.trim()).slice(0, 30) : [],
     source: str(o.source_label, 80),
-    pulse: p && str(p.line, 200) ? { line: str(p.line, 200)!, nextStep: step === "call" || step === "text" || step === "card" ? step : null } : null,
+    pulse: p && str(p.line, 200) ? { line: str(p.line, 200)!, nextStep: step === "call" || step === "text" || step === "card" ? step : null, urgency: p.urgency === "now" ? "now" : "today" } : null,
     sections,
     timelineCount: num(o.timeline_count),
   };
