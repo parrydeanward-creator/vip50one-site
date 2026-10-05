@@ -1469,3 +1469,4 @@ a.link { display: block; text-decoration: none; }
 .pc-time small { grid-column: 2; color: rgba(220, 226, 240, 0.6); }
 .pc-sec-label { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; pointer-events: none; }
 .pc-sec-sum { fill: rgba(220, 226, 240, 0.7); font-size: 12px; pointer-events: none; }
+.pc-f-val { font-weight: 600; paint-order: stroke; stroke: #070b18; stroke-width: 3px; pointer-events: none; }
