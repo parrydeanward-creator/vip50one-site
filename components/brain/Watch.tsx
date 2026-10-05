@@ -52,6 +52,7 @@ export default function Watch({ record = false, slow = 1, film = false, product,
       await scene.init(hostRef.current, window.matchMedia("(prefers-reduced-motion: reduce)").matches);
       if (dead) return scene.destroy();
       scene.timeScale = 1 / slow;
+      if (signals) scene.boost = 2.6; // the film that teaches the signals plays them loud
       sceneRef.current = scene;
       setReady(true);
     })();
@@ -82,7 +83,7 @@ export default function Watch({ record = false, slow = 1, film = false, product,
     }
     scene.setNeeds(needs, !!step.needs);
     const cues: ReturnType<typeof setTimeout>[] = [];
-    if (step.ping) cues.push(setTimeout(() => scene.ping(step.ping!), 700 * slow));
+    if (step.ping) cues.push(setTimeout(() => scene.ping(step.ping!), 700 * slow), setTimeout(() => scene.ping(step.ping!), 2900 * slow));
     if (step.beat) cues.push(setTimeout(() => scene.beat(), 600 * slow), setTimeout(() => scene.beat(), 2600 * slow));
     const focus = new Set(step.focus);
     const b = bounds(placed.filter((p) => focus.has(p.id)), 60);
@@ -96,6 +97,7 @@ export default function Watch({ record = false, slow = 1, film = false, product,
     if (step.flight) {
       const [from, to] = step.flight;
       cues.push(setTimeout(() => scene.signal(from, to), 650 * slow));
+      if (signals && step.ms > 4800) cues.push(setTimeout(() => scene.signal(from, to), 3200 * slow));
     }
     return () => cues.forEach(clearTimeout);
   }, [ready, i, phone, graph, byId, step, last, slow, STEPS, spots, center, keep]);
