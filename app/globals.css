@@ -1442,3 +1442,30 @@ a.link { display: block; text-decoration: none; }
 @keyframes sd-glow { 0%, 100% { opacity: 0.95; transform: scale(1); } 50% { opacity: 0.55; transform: scale(1.06); } }
 .tg-face.sd { box-shadow: 0 0 0 2px #f5c542, 0 0 14px 2px rgba(245, 197, 66, 0.7); }
 @media (prefers-reduced-motion: reduce) { .sd-glow { animation: none; } }
+
+/* Contacts in ONE Brain (VIP-SUMMARY §3k) */
+.pc-search { position: sticky; top: -1px; z-index: 2; margin-bottom: 12px; background: #0b1020; box-shadow: 0 -12px 0 12px #0b1020, 0 10px 14px -4px #0b1020; }
+.pc-pulse { color: #f5c542; }
+.pc-pulse-line { margin: 6px 0 12px; padding: 10px 12px; border-left: 3px solid #f5c542; background: rgba(245, 197, 66, 0.08); border-radius: 8px; color: #f2e6c4; font-size: 14px; line-height: 1.45; }
+.pc-pulse-line b { color: #f5c542; letter-spacing: 0.12em; font-size: 11px; margin-right: 6px; }
+.pc-gaps { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
+.pc-card { border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; margin: 10px 0; background: rgba(255, 255, 255, 0.02); scroll-margin-top: 64px; }
+.pc-card-h { all: unset; box-sizing: border-box; cursor: pointer; display: flex; width: 100%; justify-content: space-between; align-items: baseline; gap: 10px; padding: 12px 14px; font-weight: 700; letter-spacing: 0.04em; }
+.pc-card-h small { color: rgba(220, 226, 240, 0.55); font-weight: 500; letter-spacing: 0; }
+.pc-card-h:focus-visible { outline: 2px solid #f5c542; border-radius: 12px; }
+.pc-fields { margin: 0; padding: 0 14px 12px; }
+.pc-field { display: grid; grid-template-columns: minmax(96px, 38%) 1fr; gap: 10px; padding: 7px 0; border-top: 1px solid rgba(255, 255, 255, 0.05); align-items: start; }
+.pc-field dt { color: rgba(220, 226, 240, 0.6); font-size: 13px; }
+.pc-field dd { margin: 0; min-width: 0; }
+.pc-field dd form { display: grid; gap: 8px; }
+.pc-field dd input, .pc-field dd textarea, .pc-field dd select { width: 100%; box-sizing: border-box; background: #0b1020; color: #fff; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 8px; padding: 8px 10px; font: inherit; }
+.pc-value { all: unset; cursor: pointer; color: #eef1f8; font-size: 14px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.pc-value:hover, .pc-value:focus-visible { color: #fff; text-decoration: underline dotted rgba(245, 197, 66, 0.7); }
+.pc-value.ro { cursor: default; text-decoration: none; }
+.pc-field.gap .pc-value em { color: #f5c542; font-style: normal; font-size: 13px; }
+.pc-time { list-style: none; margin: 0; padding: 0 14px 12px; }
+.pc-time li { display: grid; grid-template-columns: 88px 1fr; gap: 2px 10px; padding: 7px 0; border-top: 1px solid rgba(255, 255, 255, 0.05); font-size: 13px; }
+.pc-time time { color: rgba(220, 226, 240, 0.5); }
+.pc-time small { grid-column: 2; color: rgba(220, 226, 240, 0.6); }
+.pc-sec-label { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; pointer-events: none; }
+.pc-sec-sum { fill: rgba(220, 226, 240, 0.7); font-size: 12px; pointer-events: none; }
