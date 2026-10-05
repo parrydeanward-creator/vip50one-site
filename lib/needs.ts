@@ -25,11 +25,12 @@ export function needsOf(nodes: readonly GraphNode[]): Map<string, Need> {
     if (n.locked || hasKids.has(n.id) || n.type === "core" || n.type === "product") continue;
     const level = n.status ? LEVEL[n.status] : undefined;
     if (!level) continue;
+    const weight = Math.max(1, n.dueContacts?.length ?? 0); // a page orb counts the people inside it
     const seen = new Set<string>();
     for (let id: string | null = n.id; id && byId.has(id) && !seen.has(id); id = byId.get(id)!.parentId) {
       seen.add(id);
       const cur = out.get(id);
-      out.set(id, { count: (cur?.count ?? 0) + 1, level: cur?.level === "now" || level === "now" ? "now" : "today" });
+      out.set(id, { count: (cur?.count ?? 0) + weight, level: cur?.level === "now" || level === "now" ? "now" : "today" });
     }
   }
   return out;

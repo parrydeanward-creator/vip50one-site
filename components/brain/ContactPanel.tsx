@@ -13,6 +13,13 @@ import {
   type ContactCard,
   type TouchKind,
 } from "@/lib/contact.ts";
+import { LOGGABLE } from "@/lib/audit.ts";
+
+// A box the agent ticks by hand asks first, like Call and Text (Parry, 5 Oct:
+// "the checkbox is not checking when clicked"). Newsletter and mixer invite
+// tick themselves when one is actually sent; a ticked box is not unticked here.
+type Ask = { kind: string; question: string; label: string };
+const askFor = (kind: TouchKind): Ask => ({ kind, question: LOG_QUESTION[kind], label: kind });
 
 // VIP-SUMMARY §3c: the person in the right panel, with Call / Text / Email.
 // Tapping one opens the phone, messages or mail; the panel then asks once
@@ -21,7 +28,7 @@ import {
 export default function ContactPanel({ contactId, taskId, onLogged }: { contactId: string; taskId?: string; onLogged: () => void }) {
   const [card, setCard] = useState<ContactCard | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [ask, setAsk] = useState<TouchKind | null>(null);
+  const [ask, setAsk] = useState<Ask | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
 
@@ -43,7 +50,7 @@ export default function ContactPanel({ contactId, taskId, onLogged }: { contactI
     load();
   }, [load]);
 
-  const log = async (kind: TouchKind) => {
+  const log = async ({ kind, label }: Ask) => {
     setBusy(true);
     try {
       const r = await fetch(touchUrl, {
@@ -53,14 +60,14 @@ export default function ContactPanel({ contactId, taskId, onLogged }: { contactI
         body: JSON.stringify({
           contact_id: contactId,
           kind,
-          detail: `${kind === "call" ? "Called" : kind === "text" ? "Texted" : "Emailed"} from ONE Brain`,
+          detail: kind === "call" ? "Called from ONE Brain" : kind === "text" ? "Texted from ONE Brain" : kind === "email" ? "Emailed from ONE Brain" : `${label} logged from ONE Brain`,
           // §3c.3 (v1.5): close the follow-up this came from (vip50-web-crm#40, live).
           ...(taskId ? { task_id: taskId } : {}),
         }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.ok) throw new Error(j.error ?? "ONE MOVE didn't take that. Try again.");
-      setDone(kind === "email" ? "Email logged." : `${kind === "call" ? "Call" : "Text"} logged${j.completed_task ? ", task done" : ""}. Boxes ticked.`);
+      setDone(kind === "email" ? "Email logged." : kind === "call" || kind === "text" ? `${kind === "call" ? "Call" : "Text"} logged${j.completed_task ? ", task done" : ""}. Boxes ticked.` : `${label} logged. Box ticked.`);
       setAsk(null);
       await load();
       // Let "logged" show for a moment; then the Brain reloads and a closed
@@ -101,17 +108,17 @@ export default function ContactPanel({ contactId, taskId, onLogged }: { contactI
 
       <div className="cc-actions">
         {tel ? (
-          <a className="cc-btn" href={`tel:${tel}`} onClick={() => setAsk("call")}>Call</a>
+          <a className="cc-btn" href={`tel:${tel}`} onClick={() => setAsk(askFor("call"))}>Call</a>
         ) : (
           <span className="cc-btn off" aria-disabled="true">Call</span>
         )}
         {tel ? (
-          <a className="cc-btn" href={`sms:${tel}`} onClick={() => setAsk("text")}>Text</a>
+          <a className="cc-btn" href={`sms:${tel}`} onClick={() => setAsk(askFor("text"))}>Text</a>
         ) : (
           <span className="cc-btn off" aria-disabled="true">Text</span>
         )}
         {mail ? (
-          <a className="cc-btn" href={`mailto:${mail}`} onClick={() => setAsk("email")}>Email</a>
+          <a className="cc-btn" href={`mailto:${mail}`} onClick={() => setAsk(askFor("email"))}>Email</a>
         ) : (
           <span className="cc-btn off" aria-disabled="true">Email</span>
         )}
@@ -120,7 +127,7 @@ export default function ContactPanel({ contactId, taskId, onLogged }: { contactI
       {ask && (
         <div className="cc-ask pop" role="status">
           <p>
-            {LOG_QUESTION[ask]} with {first}?
+            {ask.question} with {first}?
           </p>
           <div>
             <button className="btn" disabled={busy} onClick={() => log(ask)}>Yes, log it</button>
@@ -135,19 +142,13 @@ export default function ContactPanel({ contactId, taskId, onLogged }: { contactI
         <h2>This month</h2>
         <ul>
           {MONTH_BOXES.map(([k, label]) => (
-            <li key={k} className={card.month?.[k] ? "on" : ""}>
-              <i aria-hidden="true">{card.month?.[k] ? "✓" : ""}</i>
-              {label}
-            </li>
+            <Box key={k} on={!!card.month?.[k]} label={label} kind={LOGGABLE[k]} busy={busy} onAsk={setAsk} />
           ))}
         </ul>
         <h2>This quarter</h2>
         <ul>
           {QUARTER_BOXES.map(([k, label]) => (
-            <li key={k} className={card.quarter?.[k] ? "on" : ""}>
-              <i aria-hidden="true">{card.quarter?.[k] ? "✓" : ""}</i>
-              {label}
-            </li>
+            <Box key={k} on={!!card.quarter?.[k]} label={label} kind={LOGGABLE[k]} busy={busy} onAsk={setAsk} />
           ))}
         </ul>
       </div>
@@ -167,5 +168,25 @@ export default function ContactPanel({ contactId, taskId, onLogged }: { contactI
       )}
       {card.source_label && <p className="cc-source">{card.source_label}</p>}
     </div>
+  );
+}
+
+function Box({ on, label, kind, busy, onAsk }: { on: boolean; label: string; kind?: string; busy: boolean; onAsk: (a: Ask) => void }) {
+  if (on || !kind) {
+    return (
+      <li className={on ? "on" : "auto"} title={on ? undefined : "Ticks itself when you send one"}>
+        <i aria-hidden="true">{on ? "✓" : ""}</i>
+        {label}
+        {!on && <small> · ticks when sent</small>}
+      </li>
+    );
+  }
+  return (
+    <li>
+      <button type="button" className="cc-box" disabled={busy} onClick={() => onAsk({ kind, label, question: `Log a ${label.toLowerCase()}` })} aria-label={`Log a ${label.toLowerCase()}`}>
+        <i aria-hidden="true" />
+        {label}
+      </button>
+    </li>
   );
 }

@@ -29,12 +29,14 @@ export default function TouchAudit({
   onBack,
   onClassic,
   celebrate = [],
+  due = [],
 }: {
   onUnavailable: () => void;
   onChanged: () => void;
   onBack: () => void;
   onClassic: () => void;
   celebrate?: string[]; // contact ids with a special day today (gold glow)
+  due?: { id: string; title: string; level: "now" | "today" }[]; // VIP touches due today: they pulse here
 }) {
   const glowing = new Set(celebrate);
   const [roster, setRoster] = useState<VipRoster | null>(null);
@@ -240,6 +242,23 @@ export default function TouchAudit({
   return (
     <div className="vr" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
       <div className="vr-stage">
+        {due.some((d) => byId.has(d.id)) && (
+          <div className="ta-due pop" role="group" aria-label="Touches due today">
+            <span className="ta-due-h">Pulse · due today</span>
+            {due
+              .filter((d) => byId.has(d.id))
+              .map((d) => {
+                const p = byId.get(d.id)!;
+                return (
+                  <button key={d.id + d.title} className={`ta-due-p ta-due-${d.level}`} onClick={() => tapPerson(p)} title={d.title}>
+                    <i aria-hidden="true" />
+                    {shortName(p)}
+                    <small>{d.title}</small>
+                  </button>
+                );
+              })}
+          </div>
+        )}
         <div className="ta-views" role="tablist" aria-label="Touch Audit view">
           <button role="tab" aria-selected={view === "ring"} className={view === "ring" ? "on" : ""} onClick={() => pickView("ring")}>Ring</button>
           <button role="tab" aria-selected={view === "grid"} className={view === "grid" ? "on" : ""} onClick={() => pickView("grid")}>Grid</button>
