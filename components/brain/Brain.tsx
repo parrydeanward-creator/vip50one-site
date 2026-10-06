@@ -161,7 +161,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const [phone, setPhone] = useState(false);
   const [ready, setReady] = useState(false);
   const [highlight, setHighlight] = useState<string[] | null>(null);
-  const [openWhy, setOpenWhy] = useState<number | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<BrainScene | null>(null);
   const btnRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -169,7 +168,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const leaderRef = useRef<SVGLineElement>(null);
   const peekRef = useRef<HTMLDivElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
-  const whyRef = useRef<HTMLDivElement>(null);
   const [peekId, setPeekId] = useState<string | null>(null);
   // The hover card waits a moment before closing, so the pointer can travel
   // onto it and click it (Parry, 3 Oct: it vanished on the way).
@@ -184,7 +182,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   };
   const peekIdRef = useRef<string | null>(null);
   peekIdRef.current = peekId;
-  const [orbWhy, setOrbWhy] = useState(false);
   const stateRef = useRef(state.focusId);
   stateRef.current = state.focusId;
   const drag = useRef({ down: false, moved: false, x: 0, y: 0, pointers: new Map<number, { x: number; y: number }>(), pinch: 0 });
@@ -195,7 +192,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const [asking, setAsking] = useState(false);
   const [askErr, setAskErr] = useState<string | null>(null);
   const [askOpen, setAskOpen] = useState(false);
-  const [askWhy, setAskWhy] = useState<string | null>(null);
   const askInputRef = useRef<HTMLInputElement>(null);
   const askIds = useMemo(() => ask?.results.map((r) => r.id) ?? [], [ask]);
   // Morning fly-through: step 0 is ONE, then each of today's top three.
@@ -413,7 +409,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
 
   useEffect(() => {
     drawerRef.current?.scrollTo({ top: 0 });
-    setOrbWhy(false);
     setPeekId(null);
   }, [state.focusId]);
 
@@ -659,11 +654,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     const pid = peekIdRef.current;
     place(peekRef.current, pid && pid !== stateRef.current ? pid : null, (p, w, h) => (p.x + p.r + 14 + w > right - 8 ? [p.x - p.r - 14 - w, p.y - h / 2] : [p.x + p.r + 14, p.y - h / 2]));
     place(chipsRef.current, stateRef.current, (p, w) => [p.x - w / 2, p.y + p.r + 14]);
-    place(whyRef.current, stateRef.current, (p, w, h) => {
-      const chipsW = chipsRef.current?.offsetWidth ?? 0;
-      const left = Math.min(p.x - p.r - 18, p.x - chipsW / 2 - 12) - w; // clear of the orb and its chips
-      return left > 8 ? [left, Math.min(p.y - h / 2, p.y + p.r + 6 - h)] : [p.x - w / 2, p.y + p.r + 64];
-    });
     // Rail lines: from each floating button to its orb.
     const hostRect = hostRef.current?.getBoundingClientRect();
     for (const [id, line] of railLineRefs.current) {
@@ -704,7 +694,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // ---- navigation ---------------------------------------------------------
   const goTo = useCallback((id: string) => {
     setHighlight(null);
-    setOpenWhy(null);
     setAsk(null);
     setTour(null);
     setWhen(0);
@@ -714,6 +703,18 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   useEffect(() => {
     if (focus.id !== state.focusId) goTo(focus.id);
   }, [focus.id, state.focusId, goTo]);
+  // "Go to" a person opens that person in Contacts (Parry, 6 Oct: "the go to that contact doesnt work
+  // to take you to that contact"); anything else moves the map there.
+  const [contactOpen, setContactOpen] = useState<{ id: string; k: number } | null>(null);
+  const goToNode = (id: string) => {
+    const n = ix.byId.get(id);
+    const page = movePageId("/contacts");
+    if (n?.contactId && ix.byId.has(page)) {
+      setContactOpen({ id: n.contactId, k: Date.now() });
+      return goTo(page);
+    }
+    goTo(id);
+  };
 
   // Live numbers (Parry, 4 Oct): re-read the agent's data every minute while
   // the Brain is open and visible, and on coming back to the tab, so a box
@@ -738,12 +739,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
 
   const clearAsk = useCallback(() => {
     setAsk(null);
-    setAskWhy(null);
     setAskErr(null);
   }, []);
   const goBack = useCallback(() => {
     setHighlight(null);
-    setOpenWhy(null);
     if (ask) return clearAsk(); // back from an answer is the map you were on
     // One step up the path at the top (Parry, 4 Oct), from what is on screen.
     setState((s) => nav.up(s, pathTo(ix, focusIdRef.current)));
@@ -804,9 +803,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         const a = (await r.json()) as AskAnswer & { error?: string };
         if (!r.ok || a.error) throw new Error(a.error ?? "no answer");
         setHighlight(null);
-        setOpenWhy(null);
-        setAskWhy(null);
-        setAsk(a);
+                setAsk(a);
       } catch {
         setAskErr("ONE couldn't answer that just now. Try again.");
       } finally {
@@ -907,20 +904,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const related = (ix.links.get(focus.id) ?? [])
     .map((e) => ix.byId.get(e.source === focus.id ? e.target : e.source))
     .filter((n): n is GraphNode => !!n);
-  const people = kids.filter((k) => k.type === "person").map((k) => k.id);
-  const recTargets = (focus.recommendations ?? []).map((r) => r.targetId).filter((id): id is string => !!id && ix.byId.has(id));
-  const showMeTargets = people.length ? people : recTargets;
-  // SHOW ME: light up the people ONE means. If they live one level down, go
-  // there first; nothing is hidden, everything else just fades.
-  const showMe = () => {
-    if (highlight) return setHighlight(null);
-    if (people.length) return setHighlight(people);
-    const parent = ix.byId.get(recTargets[0])?.parentId;
-    if (parent && parent !== state.focusId) goTo(parent);
-    setHighlight(recTargets);
-  };
   const peek = peekId ? ix.byId.get(peekId) ?? null : null;
-  const firstRec = focus.recommendations?.[0];
   const productHref = PRODUCT_HREF[focus.product];
   // Actions that live on the focused orb itself (and in the card as well).
   const orbActions: { label: string; run?: () => void; href?: string; primary?: boolean; pressed?: boolean }[] = [];
@@ -931,8 +915,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const moveQuiet = focus.product === "move";
   if (ask || moveQuiet) {
     // The answer panel carries the actions while ONE is answering.
-  } else if (firstRec) orbActions.push({ label: "Why?", run: () => setOrbWhy((w) => !w), primary: true, pressed: orbWhy });
-  if (!ask && !moveQuiet && showMeTargets.length) orbActions.push({ label: highlight ? "Show everything" : "Show me", run: showMe, pressed: !!highlight });
+  }
+  // No "Why?" or "Show me" (Parry, 6 Oct: "they really dont show you anything... the why button just
+  // repeats what it says above").
   if (!ask && !moveQuiet && focus.href && !focus.locked) orbActions.push({ label: `Open in ${productName(focus.product)} ↗`, href: focus.href });
   else if (!ask && !moveQuiet && productHref && focus.type !== "core" && !focus.locked && !isMoveGroup(focus.id)) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
   if (!ask && focus.locked) orbActions.push({ label: "Add with Complete", href: UPGRADE_URL });
@@ -1169,23 +1154,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                       {a.label}
                     </button>
                   ),
-                )}
-              </div>
-            )}
-
-            {!ask && orbWhy && firstRec && (
-              <div ref={whyRef} className="orb-why pop" role="dialog" aria-label="Why ONE surfaced this" style={{ visibility: "hidden" }}>
-                <p className="orb-why-state">Why ONE surfaced this</p>
-                <p className="orb-why-title">{firstRec.title}</p>
-                <ul>
-                  {firstRec.why.map((f) => (
-                    <li key={f}>{f}</li>
-                  ))}
-                </ul>
-                {firstRec.targetId && ix.byId.get(firstRec.targetId) && firstRec.targetId !== state.focusId && (
-                  <button className="link" onClick={() => goTo(firstRec.targetId!)}>
-                    Go to {cleanName(ix.byId.get(firstRec.targetId)!.label)} →
-                  </button>
                 )}
               </div>
             )}
@@ -1458,23 +1426,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                         <p className="rec-title">{n.label}</p>
                         {n.secondaryLabel && <p className="ask-sub">{n.secondaryLabel}</p>}
                         <div className="rec-actions">
-                          <button className="why" aria-expanded={askWhy === r.id} onClick={() => setAskWhy(askWhy === r.id ? null : r.id)}>
-                            Why?
-                          </button>
-                          <button className="link" onClick={() => goTo(n.id)}>
-                            Go to {cleanName(n.label)} →
+                          <button className="link" onClick={() => goToNode(n.id)}>
+                            {n.contactId ? `Open ${cleanName(n.label)}` : `Go to ${cleanName(n.label)}`} →
                           </button>
                         </div>
-                        {askWhy === r.id && (
-                          <div className="why-box pop">
-                            <p>Why ONE surfaced this</p>
-                            <ul>
-                              {r.reasons.map((f) => (
-                                <li key={f}>{f}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
                       </li>
                     );
                   })}
@@ -1708,11 +1663,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </div>
           ) : null}
 
-          {!moveQuiet && showMeTargets.length > 0 && (
-            <button className="btn btn-wide" aria-pressed={!!highlight} onClick={showMe}>
-              {highlight ? "Show everything" : "Show me →"}
-            </button>
-          )}
 
           {focus.recommendations && !moveQuiet && (
             <div className="d-recs">
@@ -1732,25 +1682,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                       <p className="rec-kicker">Recommended action</p>
                       <p className="rec-title">{r.title}</p>
                       <div className="rec-actions">
-                        <button className="why" aria-expanded={openWhy === i} onClick={() => setOpenWhy(openWhy === i ? null : i)}>
-                          Why?
-                        </button>
                         {target && (
-                          <button className="link" onClick={() => goTo(target.id)}>
-                            Go to {target.label.replace(/^(Call|Text|Face-to-face:|Send note to)\s*/i, "")} →
+                          <button className="link" onClick={() => goToNode(target.id)}>
+                            {target.contactId ? "Open" : "Go to"} {target.label.replace(/^(Call|Text|Face-to-face:|Send note to)\s*/i, "")} →
                           </button>
                         )}
                       </div>
-                      {openWhy === i && (
-                        <div className="why-box pop">
-                          <p>Why ONE surfaced this</p>
-                          <ul>
-                            {r.why.map((f) => (
-                              <li key={f}>{f}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
                     </li>
                   );
                 })}
@@ -1825,6 +1762,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                 />
               ) : vipNative && nativeKind === "contacts" ? (
                 <Contacts
+                  openId={contactOpen}
                   onUnavailable={vipUnavailable}
                   onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
