@@ -6,7 +6,10 @@ import type { ProductKey } from "./graph/types.ts";
 // saves it in MASTER, where ONE GO shows it as Today's plan. This file only orders, times and
 // checks; nothing here draws or sends.
 
-export const PLAN_MAX = 25;
+// "No more than 15 tasks will ever show at one time" (Parry, 6 Oct; CLAUDE.md §3): Pulse suggests, the
+// plan and the Day Clock all hold at most 15, the most urgent first.
+export const MAX_TASKS_SHOWN = 15;
+export const PLAN_MAX = MAX_TASKS_SHOWN;
 const MOVE_URL = "https://move.vip50one.com";
 export const planUrl = `${MOVE_URL}/api/brain/plan`;
 const KINDS: readonly DayKind[] = ["call", "text", "note", "approval", "meeting", "rating", "follow_up", "report", "other"];
@@ -54,8 +57,8 @@ export function fromDay(d: DayItem): PlanItem {
 
 const rank = (p: PlanItem) => (p.urgency === "alert" ? 0 : p.special ? 1 : p.urgency === "today" ? 2 : 3);
 
-/** Pulse suggests: everything pulsing today, red first, then special days, then yellow; the
- * products' own order kept inside each. */
+/** Pulse suggests: what is pulsing today, red first, then special days, then yellow; the products' own
+ * order kept inside each; at most 15 (the rest wait until these are done). */
 export function suggest(today: DayItem[]): PlanItem[] {
   const seen = new Set<string>();
   return today
@@ -63,7 +66,8 @@ export function suggest(today: DayItem[]): PlanItem[] {
     .filter((p) => (seen.has(p.ref) ? false : (seen.add(p.ref), true)))
     .map((p, n) => ({ p, n }))
     .sort((a, b) => rank(a.p) - rank(b.p) || a.n - b.n)
-    .map(({ p }) => p);
+    .map(({ p }) => p)
+    .slice(0, MAX_TASKS_SHOWN);
 }
 
 /** A first plan when the agent has none: Pulse's order, everything red and special, then yellow up to
