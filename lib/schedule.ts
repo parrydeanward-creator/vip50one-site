@@ -372,7 +372,7 @@ export function titleHue(title: string | null | undefined): Hue | null {
   if (!t.trim()) return null;
   if (/\b(show(ing)?s?|listing|open house|closing|inspection|appraisal|walk-?through|buyers?|sellers?|offer|cma|signing)\b/.test(t)) return "client";
   if (/\b(lunch|breakfast|brunch|dinner|coffee|drinks?|happy hour)\b/.test(t)) return "meal";
-  if (/\b(dr\.?|doctor|dentist|dental|gym|workout|school|kids?|pick ?up|drop ?off|haircut|church|vet|family|personal|therapy|physio)\b/.test(t)) return "personal";
+  if (/\b(dr\.?|doctor|dentist|dental|gym|workout|school|kids?|pick ?up|drop ?off|haircut|church|vet|family|personal|therapy|physio|nap|rest|break)\b/.test(t)) return "personal";
   if (/\b(meeting|meet|call|zoom|team|training|coaching|class|webinar|interview|1:1|one on one)\b/.test(t)) return "meeting";
   return null;
 }
