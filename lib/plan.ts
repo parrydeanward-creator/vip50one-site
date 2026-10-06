@@ -243,3 +243,49 @@ export function orbMark(p: PlanItem): string {
   const k: Partial<Record<string, string>> = { call: "☎", text: "✉", note: "✎", approval: "✓", meeting: "☕", rating: "★", follow_up: "↻", report: "▤" };
   return k[p.kind] ?? "•";
 }
+
+// ---- the plan on the map (Parry, 6 Oct: "why is the go orb not changing") ----
+
+export const PLAN_NODE = "go-plan";
+
+/** ONE GO's "Today's plan" orb: pulses until the day is planned, then shows how much is done (an arc
+ * and a count that pulses up to ONE GO and ONE), green when it is all done. Tapping it opens Plan My
+ * Day. No ONE GO orb (or ONE GO not in the package): the graph is unchanged. */
+export function withPlanNode<G extends { nodes: import("./graph/types.ts").GraphNode[]; edges: import("./graph/types.ts").GraphEdge[] }>(g: G, plan: { items: { done: boolean }[] } | null): G {
+  const go = g.nodes.find((n) => n.id === "go");
+  if (!go || go.locked) return g;
+  const nodes = g.nodes.filter((n) => n.id !== PLAN_NODE);
+  const edges = g.edges.filter((e) => e.target !== PLAN_NODE);
+  const total = plan?.items.length ?? 0;
+  const done = plan?.items.filter((i) => i.done).length ?? 0;
+  const left = total - done;
+  nodes.push(
+    total
+      ? {
+          id: PLAN_NODE,
+          type: "feature",
+          label: "Today's plan",
+          secondaryLabel: left ? `${done} of ${total} done` : "All done today",
+          parentId: "go",
+          product: "go",
+          importance: 1.05,
+          status: left ? "attention" : "healthy",
+          needCount: left || undefined,
+          stats: [{ label: "Today's plan", value: `${done} / ${total}` }],
+          summary: left ? `${left} still to do on today's plan. Tap to change the order or send it to your phone again.` : "Everything on today's plan is done.",
+        }
+      : {
+          id: PLAN_NODE,
+          type: "feature",
+          label: "Plan my day",
+          secondaryLabel: "Not planned yet",
+          parentId: "go",
+          product: "go",
+          importance: 1.05,
+          status: "attention",
+          summary: "Put today in your order and send it to ONE GO on your phone. Tap to plan.",
+        },
+  );
+  edges.push({ id: `go>${PLAN_NODE}`, source: "go", target: PLAN_NODE, relationshipType: "belongs_to", strength: 1 });
+  return { ...g, nodes, edges };
+}

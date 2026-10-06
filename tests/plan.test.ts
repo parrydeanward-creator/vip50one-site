@@ -123,3 +123,29 @@ test("orb marks: a person's initials, else the kind", () => {
   assert.equal(orbMark(fromDay(d("a", { what: "Call Jen Alvarez. Her birthday is tomorrow." }))), "JA");
   assert.equal(orbMark(fromDay(d("a", { what: "Clear the 4 overdue follow-ups.", kind: "follow_up" }))), "↻");
 });
+
+test("ONE GO's plan orb: pulses until planned, then counts what is left, green when done", async () => {
+  const { withPlanNode, PLAN_NODE } = await import("../lib/plan.ts");
+  const { needsOf } = await import("../lib/needs.ts");
+  const g: { rootId: string; nodes: import("../lib/graph/types.ts").GraphNode[]; edges: import("../lib/graph/types.ts").GraphEdge[] } = {
+    rootId: "one",
+    nodes: [
+      { id: "one", type: "core", label: "ONE", parentId: null, product: "one", importance: 1 },
+      { id: "go", type: "product", label: "ONE GO", parentId: "one", product: "go", importance: 1 },
+    ],
+    edges: [],
+  };
+  const none = withPlanNode(g, null);
+  assert.equal(none.nodes.find((n) => n.id === PLAN_NODE)?.label, "Plan my day");
+  assert.deepEqual(needsOf(none.nodes).get("go"), { count: 1, level: "today" }, "an unplanned day pulses ONE GO");
+  const some = withPlanNode(none, { items: [{ done: true }, { done: false }, { done: false }] });
+  const n = some.nodes.find((x) => x.id === PLAN_NODE)!;
+  assert.equal(some.nodes.filter((x) => x.id === PLAN_NODE).length, 1, "replaced, never doubled");
+  assert.deepEqual([n.label, n.secondaryLabel, n.stats?.[0].value], ["Today's plan", "1 of 3 done", "1 / 3"]);
+  assert.deepEqual(needsOf(some.nodes).get("one"), { count: 2, level: "today" });
+  const all = withPlanNode(some, { items: [{ done: true }] });
+  assert.equal(all.nodes.find((x) => x.id === PLAN_NODE)?.status, "healthy");
+  assert.equal(needsOf(all.nodes).has("go"), false);
+  const locked = withPlanNode({ ...g, nodes: g.nodes.map((x) => (x.id === "go" ? { ...x, locked: true } : x)) }, null);
+  assert.equal(locked.nodes.some((x) => x.id === PLAN_NODE), false);
+});

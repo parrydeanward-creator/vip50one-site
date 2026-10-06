@@ -334,13 +334,15 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
   add({
     id: "go",
     type: "product",
-    label: "ONE GO",
-    secondaryLabel: "Daily execution",
+    // ONE YOU (Parry, 6 Oct): on the desktop this orb is the agent's own place to plan and review;
+    // ONE GO stays the phone app, and Send to my phone still goes to ONE GO.
+    label: "ONE YOU",
+    secondaryLabel: "Your plan, your week, your goals",
     parentId: "one",
     product: "go",
     importance: 0.95,
     status: found ? worst(goItems) : undefined,
-    summary: found ? "Today's points, your VIP-50 touches, the weekly score and your goals." : "Daily execution: points, VIP-50 touches and the weekly score.",
+    summary: found ? "Plan your day and send it to ONE GO on your phone. Today's VIP touches, your weekly score and your goals." : "Plan your day, review your week and track your goals. Your plan goes to ONE GO on your phone.",
     stats: found
       ? [
           ofMax(daily) && { label: "Daily score", value: ofMax(daily)! },

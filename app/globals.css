@@ -1681,3 +1681,5 @@ a.link { display: block; text-decoration: none; }
 .pm-drawer .pm-list li { flex-wrap: wrap; row-gap: 4px; }
 .pm-drawer .pm-body { flex-basis: calc(100% - 90px); }
 .pm-drawer .pm-acts { width: 100%; justify-content: flex-end; }
+.pm-acts .pm-tick { color: var(--text-3); }
+.pm-acts .pm-tick.on { background: var(--gold-2); color: #14100a; border-color: var(--gold-2); }

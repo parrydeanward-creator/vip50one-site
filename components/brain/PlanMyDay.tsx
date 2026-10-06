@@ -44,6 +44,7 @@ export default function PlanMyDay({
   onClose,
   onGo,
   onSaved,
+  onTick,
 }: {
   today: DayItem[];
   week?: { score: number; minimum: number };
@@ -51,6 +52,7 @@ export default function PlanMyDay({
   onClose: () => void;
   onGo: (nodeId: string) => void;
   onSaved: (plan: Plan) => void;
+  onTick?: (ref: string, done: boolean) => void;
 }) {
   const date = useMemo(() => todayIn(), []);
   const pool = useMemo(() => suggest(today), [today]);
@@ -387,7 +389,7 @@ export default function PlanMyDay({
 
         <aside className="drawer vr-drawer pm-drawer" aria-label="Plan my day">
           <div className="d-head">
-            <span className="chip" style={{ color: GOLD, borderColor: GOLD }}>ONE GO</span>
+            <span className="chip" style={{ color: GOLD, borderColor: GOLD }}>ONE YOU</span>
           </div>
           <h1 className="d-title" id="pm-title">Plan my day</h1>
           <p className="d-sub">
@@ -420,6 +422,19 @@ export default function PlanMyDay({
                     </small>
                   </span>
                   <span className="pm-acts">
+                    {sentAt || onTick ? (
+                      <button
+                        className={`pm-tick${x.done ? " on" : ""}`}
+                        aria-pressed={x.done}
+                        onClick={() => {
+                          setItems((all) => all.map((p) => (p.ref === x.ref ? { ...p, done: !x.done } : p)));
+                          onTick?.(x.ref, !x.done);
+                        }}
+                        aria-label={x.done ? `Done: ${x.title}. Tap to undo.` : `Mark done: ${x.title}`}
+                      >
+                        ✓
+                      </button>
+                    ) : null}
                     <button onClick={() => move(x.ref, -1)} disabled={i === 0} aria-label={`Move up: ${x.title}`}>↑</button>
                     <button onClick={() => move(x.ref, 1)} disabled={i === slots.length - 1} aria-label={`Move down: ${x.title}`}>↓</button>
                     {x.nodeId && <button onClick={() => onGo(x.nodeId!)} aria-label={`Show on the map: ${x.title}`}>→</button>}
