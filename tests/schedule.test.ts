@@ -203,3 +203,22 @@ test("the 12-hour face: morning on the inner ring, afternoon on the outer, noon 
   assert.equal(soundsLikeDay("Hey Pulse I have a dr apt from 8-9, plan around that"), true);
   assert.equal(soundsLikeDay("Who should I call today?"), false);
 });
+
+test("ONE MOVE's live day: told appointments, drives and other calendars come back as busy", async () => {
+  const { readDay } = await import("../lib/schedule.ts");
+  const d = readDay({
+    date: "2026-10-06",
+    hours: { start: "08:00", end: "17:30" },
+    busy: [
+      { start: "08:00", end: "09:00", source: "fixed", title: "Doctor's appointment" },
+      { start: "09:00", end: "09:30", source: "travel", title: "Drive to the office" },
+      { start: "15:00", end: "16:00", source: "calendar", title: null },
+    ],
+    blocks: [],
+    load: { planned_min: 0, free_min: 300 },
+    approved_at: null,
+  });
+  assert.deepEqual(d!.busy.map((b) => b.source), ["fixed", "travel", "calendar"]);
+  assert.equal(d!.busy[2].title, null, "other calendars stay busy-only");
+  assert.equal(d!.approvedAt, null);
+});

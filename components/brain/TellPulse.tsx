@@ -47,13 +47,15 @@ export default function TellPulse({ day, live, initial, onNote }: { day: Day; li
   }, [initial]);
 
   const finish = (d: { text: string; items: Told[]; answers: Answers }, spoken: boolean) => {
-    day.tell(d);
+    const saving = day.tell(d);
     setDraft(null);
     setOpen(false);
     const drives = toldBusy(d.items, d.answers, day.hours.start).filter((b) => b.source === "travel").length;
     const words = `Done. Your day is planned around ${d.items.length} ${d.items.length === 1 ? "appointment" : "appointments"}${drives ? ` and ${drives} ${drives === 1 ? "drive" : "drives"}` : ""}, with your work in the gaps.`;
-    onNote(`${words}${live ? "" : " Example agent: in your account it goes to your calendar too."}`);
     if (spoken) say(words);
+    if (!live) return onNote(`${words} Example agent: in your account it goes to your calendar too.`);
+    onNote(words);
+    void saving.then((n) => n && onNote(`${words} ${n}`));
   };
 
   const ask = (d: { text: string; items: Told[]; answers: Answers }, spoken: boolean) => {
