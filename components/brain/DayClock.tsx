@@ -3,23 +3,28 @@
 import { useEffect, useRef, useState } from "react";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import { chimeOn, setChime, unlockChime } from "@/lib/chime.ts";
-import { angleOf, clock12, hm, nextLine, readBlock, timeAtPoint, toMin, toTime, type Block, type Busy } from "@/lib/schedule.ts";
+import { clock12, hm, nextLine, readBlock, toMin, toTime, type Block, type Busy } from "@/lib/schedule.ts";
+import { faceAngle, faceArcs, faceTimeAt } from "@/lib/overview.ts";
+import TellPulse from "./TellPulse.tsx";
 import type { Day } from "./useDay.ts";
 
 // The Day Clock (VIP-SUMMARY §3o.9; Parry, 6 Oct: "make this super smart so that the plan my day actually
-// makes sense and they will do it. not just look good"). The working day once round a clock face: busy
-// times grey, Pulse's plan gold in the free gaps, a moving now hand. Tap a gap or type a block in plain
-// words; Looks good keeps the day and sends it to ONE GO.
+// makes sense and they will do it. not just look good"). A real 12-hour clock with the morning on the inner
+// ring and the afternoon on the outer ring ("have a morning and afternoon on the same clock"): appointments
+// grey, drives dashed, Pulse's plan gold in the free gaps, the hour hand on now. Tell Pulse the day, tap a
+// gap or type a block; Looks good keeps the day and sends it to ONE GO.
 
 const SIZE = 1000;
 const C = SIZE / 2;
-const R = 318;
-const W = 46;
+const R_AM = 238;
+const R_PM = 330;
+const W = 70;
 const CORE = 150;
+const ringR = (pm: boolean) => (pm ? R_PM : R_AM);
 const GOLD = "#f5c542";
 
 const KIND_MARK: Record<Block["kind"], string> = { power_hour: "☎", texts: "✉", notes: "✎", approvals: "✓", in_person: "☕", task: "•", custom: "◆" };
-const BUSY_WORD: Record<Busy["source"], string> = { calendar: "Busy", one_event: "Event", time_block: "Block", open_house: "Open house", showing: "Showing", listing_appointment: "Listing appointment", fixed: "Fixed" };
+const BUSY_WORD: Record<Busy["source"], string> = { calendar: "Busy", one_event: "Event", time_block: "Block", open_house: "Open house", showing: "Showing", listing_appointment: "Listing appointment", fixed: "Appointment", travel: "Drive" };
 
 const polar = (a: number, r: number) => ({ x: C + r * Math.sin(a), y: C - r * Math.cos(a) });
 function arc(a1: number, a2: number, r: number): string {
@@ -31,14 +36,25 @@ const range = (s: string, e: string) => `${clock12(s).replace(/(am|pm)$/, toMin(
 // A few words that fit on an arc, cut at a word.
 function short(t: string, n = 18): string {
   if (t.length <= n) return t;
-  const cut = t.slice(0, n + 1).replace(/\s+\S*$/, "");
+  const cut = t.slice(0, n + 1).replace(/\s+\S*$/, "").replace(/\s+(with|to|at|the|and|for|on|of|a)$/i, "");
   return cut || t.slice(0, n);
 }
-const BUSY_SHORT: Record<Busy["source"], string> = { calendar: "Busy", one_event: "Event", time_block: "Block", open_house: "Open house", showing: "Showing", listing_appointment: "Listing appt", fixed: "Fixed" };
+const BUSY_SHORT: Record<Busy["source"], string> = { calendar: "Busy", one_event: "Event", time_block: "Block", open_house: "Open house", showing: "Showing", listing_appointment: "Listing appt", fixed: "Appointment", travel: "Drive" };
+// What sits on an arc: the agent's own words for what they told Pulse, short kinds for the rest.
+const busyLabel = (b: Busy) => (b.source === "travel" ? "Drive" : b.source === "calendar" || b.source === "time_block" || b.source === "fixed" ? short(b.title ?? BUSY_SHORT[b.source], 16) : BUSY_SHORT[b.source]);
+// An arc as a path for text: clockwise on the top half, reversed on the bottom so words read upright.
+function textArc(a1: number, a2: number, r: number): string {
+  const mid = (a1 + a2) / 2;
+  const flip = mid > Math.PI / 2 && mid < (3 * Math.PI) / 2;
+  const [f, t] = flip ? [a2, a1] : [a1, a2];
+  const p1 = polar(f, r), p2 = polar(t, r);
+  return `M ${p1.x} ${p1.y} A ${r} ${r} 0 ${Math.abs(a2 - a1) > Math.PI ? 1 : 0} ${flip ? 0 : 1} ${p2.x} ${p2.y}`;
+}
+const fits = (label: string, a1: number, a2: number, r: number) => (a2 - a1) * r > label.length * 7 + 8;
 const BLOCK_SHORT: Partial<Record<Block["kind"], string>> = { power_hour: "Power Hour", texts: "Texts", notes: "Notes", approvals: "Approvals" };
 const REPEAT_WORD = { none: "today only", weekdays: "every weekday", daily: "every day" } as const;
 
-export default function DayClock({ day, live, onClose, onTick, onClassic }: { day: Day; live: boolean; onClose: () => void; onTick: (refs: string[], done: boolean) => void; onClassic: () => void }) {
+export default function DayClock({ day, live, tellText, onClose, onTick, onClassic }: { day: Day; live: boolean; tellText?: string; onClose: () => void; onTick: (refs: string[], done: boolean) => void; onClassic: () => void }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -67,8 +83,9 @@ export default function DayClock({ day, live, onClose, onTick, onClassic }: { da
   const { hours, busy: taken, plan, approvedAt } = day;
   const now = day.now ?? hours.start;
   const blocks = plan.blocks;
-  const span = toMin(hours.end) - toMin(hours.start);
-  const nowIn = toMin(now) >= toMin(hours.start) && toMin(now) <= toMin(hours.end);
+  const nowPm = toMin(now) >= 720;
+  const drives = taken.filter((b) => b.source === "travel").length;
+  const appts = taken.length - drives;
   const line = nextLine(blocks, now);
   const doneN = blocks.filter((b) => b.done).length;
   const free = Math.max(0, plan.freeMin - plan.plannedMin);
@@ -84,7 +101,7 @@ export default function DayClock({ day, live, onClose, onTick, onClassic }: { da
     const m = cam.svgRef.current?.getScreenCTM();
     if (!m) return;
     const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
-    const start = timeAtPoint(p.x, p.y, C, C, hours);
+    const start = faceTimeAt(p.x, p.y, C, C, (R_AM + R_PM) / 2);
     setDraft({ title: "", start, end: toTime(toMin(start) + 30), repeat: "none" });
     setMiss(false);
     setTimeout(() => inputRef.current?.focus(), 0);
@@ -104,12 +121,8 @@ export default function DayClock({ day, live, onClose, onTick, onClassic }: { da
   };
   const tick = (b: Block) => onTick(b.refs, !b.done);
 
-  // Hour marks round the face.
-  const marks: { a: number; label: string; major: boolean }[] = [];
-  for (let m = Math.ceil(toMin(hours.start) / 60) * 60; m <= toMin(hours.end); m += 60) {
-    const h = m / 60;
-    marks.push({ a: angleOf(m, hours), label: h === 12 ? "12pm" : String(h % 12 || 12), major: h % 3 === 0 });
-  }
+  // A clock face: twelve hours round, 12 at the top.
+  const marks = Array.from({ length: 12 }, (_, h) => ({ a: (h / 12) * Math.PI * 2, label: String(h || 12), major: h % 3 === 0 }));
   const rows: { busy?: Busy; block?: Block; at: number }[] = [...taken.map((b) => ({ busy: b, at: toMin(b.start) })), ...blocks.map((b) => ({ block: b, at: toMin(b.start) }))].sort((x, y) => x.at - y.at);
 
   return (
@@ -133,40 +146,50 @@ export default function DayClock({ day, live, onClose, onTick, onClassic }: { da
               </linearGradient>
             </defs>
 
-            <circle cx={C} cy={C} r={R + 120} fill="url(#dc-glow)" opacity={0.35} />
-            {/* the free track: tap a gap to add a block there */}
-            <circle data-tap className="dc-track" cx={C} cy={C} r={R} strokeWidth={W} onClick={tapGap} role="button" aria-label="Tap a free time to add a block" />
+            <circle cx={C} cy={C} r={R_PM + 130} fill="url(#dc-glow)" opacity={0.35} />
+            {/* the two rings, morning inside and afternoon outside; tap a gap to add a block there */}
+            {[false, true].map((pm) => (
+              <circle key={`track-${pm}`} data-tap className="dc-track" cx={C} cy={C} r={ringR(pm)} strokeWidth={W} onClick={tapGap} role="button" aria-label={`${pm ? "Afternoon" : "Morning"}: tap a free time to add a block`} />
+            ))}
+            {faceArcs(hours.start, hours.end).map((x, i) => (
+              <path key={`hours-${i}`} className="dc-hours" d={arc(x.a1, x.a2, ringR(x.pm))} strokeWidth={W} pointerEvents="none" />
+            ))}
             {marks.map((k) => {
-              const a = polar(k.a, R + W / 2 + 4);
-              const b = polar(k.a, R + W / 2 + (k.major ? 18 : 11));
-              const t = polar(k.a, R + W / 2 + 38);
+              const a = polar(k.a, R_AM - W / 2);
+              const b = polar(k.a, R_PM + W / 2 + (k.major ? 14 : 8));
+              const t = polar(k.a, R_PM + W / 2 + 34);
               return (
-                <g key={k.a} className="dc-mark">
+                <g key={k.a} className="dc-mark" pointerEvents="none">
                   <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} className={k.major ? "major" : ""} />
                   <text x={t.x} y={t.y} dy="0.35em" textAnchor="middle">{k.label}</text>
                 </g>
               );
             })}
-            <text className="dc-ends" x={C} y={C - R - W / 2 - 66} textAnchor="middle">{`START ${clock12(hours.start).toUpperCase()} · END ${clock12(hours.end).toUpperCase()}`}</text>
 
-            {taken.map((b, i) => {
-              const a1 = angleOf(b.start, hours), a2 = angleOf(b.end, hours);
-              const mid = polar((a1 + a2) / 2, R - W / 2 - 26);
-              return (
-                <g key={`busy-${i}`} className="dc-busy">
-                  <path d={arc(a1, a2, R)} strokeWidth={W} />
-                  <title>{`${range(b.start, b.end)} ${b.title ?? BUSY_WORD[b.source]}`}</title>
-                  <text x={mid.x} y={mid.y} dy="0.35em" textAnchor="middle">{b.source === "calendar" || b.source === "time_block" ? short(b.title ?? BUSY_SHORT[b.source]) : BUSY_SHORT[b.source]}</text>
-                </g>
-              );
-            })}
+            {taken.map((b, i) =>
+              faceArcs(b.start, b.end).map((x, j) => {
+                const r = ringR(x.pm);
+                const label = busyLabel(b);
+                const id = `dc-tb-${i}-${j}`;
+                return (
+                  <g key={id} className={`dc-busy${b.source === "travel" ? " dc-drive" : ""}${b.source === "fixed" ? " dc-told" : ""}`}>
+                    <path d={arc(x.a1 + 0.003, x.a2 - 0.003, r)} strokeWidth={b.source === "travel" ? W * 0.42 : W} />
+                    <title>{`${range(b.start, b.end)} ${b.title ?? BUSY_WORD[b.source]}`}</title>
+                    {fits(label, x.a1, x.a2, r) && (
+                      <>
+                        <path id={id} d={textArc(x.a1, x.a2, r)} fill="none" stroke="none" />
+                        <text dy="0.35em" pointerEvents="none">
+                          <textPath href={`#${id}`} startOffset="50%" textAnchor="middle">{label}</textPath>
+                        </text>
+                      </>
+                    )}
+                  </g>
+                );
+              }),
+            )}
             {blocks.map((b) => {
-              const a1 = angleOf(b.start, hours), a2 = angleOf(b.end, hours);
-              const mid = (a1 + a2) / 2;
-              const m = polar(mid, R);
-              const long = toMin(b.end) - toMin(b.start) >= 25;
-              const lab = polar(mid, R - W / 2 - 26);
               const isNow = !b.done && toMin(b.start) <= toMin(now) && toMin(now) < toMin(b.end);
+              const label = b.done ? "Done" : BLOCK_SHORT[b.kind] ?? short(b.title, 16);
               return (
                 <g
                   key={b.id}
@@ -182,16 +205,33 @@ export default function DayClock({ day, live, onClose, onTick, onClassic }: { da
                     setPick((x) => (x === b.id ? null : b.id));
                   }}
                 >
-                  <path d={arc(a1 + 0.004, a2 - 0.004, R)} strokeWidth={W} stroke={b.done ? "url(#dc-gold)" : undefined} />
-                  <text className="dc-icon" x={m.x} y={m.y} dy="0.36em" textAnchor="middle">{b.done ? "✓" : KIND_MARK[b.kind]}</text>
-                  {long && <text className="dc-label" x={lab.x} y={lab.y} dy="0.35em" textAnchor="middle">{BLOCK_SHORT[b.kind] ?? short(b.title)}</text>}
+                  {faceArcs(b.start, b.end).map((x, j) => {
+                    const r = ringR(x.pm);
+                    const id = `dc-bl-${b.id.replace(/[^a-z0-9]/gi, "")}-${j}`;
+                    const m = polar((x.a1 + x.a2) / 2, r);
+                    return (
+                      <g key={id}>
+                        <path d={arc(x.a1 + 0.004, x.a2 - 0.004, r)} strokeWidth={W} stroke={b.done ? "url(#dc-gold)" : undefined} />
+                        {fits(label, x.a1, x.a2, r) ? (
+                          <>
+                            <path id={id} d={textArc(x.a1, x.a2, r)} fill="none" stroke="none" />
+                            <text className="dc-label" dy="0.35em" pointerEvents="none">
+                              <textPath href={`#${id}`} startOffset="50%" textAnchor="middle">{label}</textPath>
+                            </text>
+                          </>
+                        ) : (
+                          <text className="dc-icon" x={m.x} y={m.y} dy="0.36em" textAnchor="middle">{b.done ? "✓" : KIND_MARK[b.kind]}</text>
+                        )}
+                      </g>
+                    );
+                  })}
                 </g>
               );
             })}
 
-            {nowIn && (() => {
-              const a = angleOf(now, hours);
-              const tip = polar(a, R + W / 2 + 8);
+            {day.now && (() => {
+              const a = faceAngle(toMin(now));
+              const tip = polar(a, ringR(nowPm) + W / 2 + 6);
               const base = polar(a, CORE + 6);
               return (
                 <g className="dc-hand" pointerEvents="none">
@@ -206,6 +246,7 @@ export default function DayClock({ day, live, onClose, onTick, onClassic }: { da
             <text className="dc-core-small" x={C} y={C + 10} textAnchor="middle">OF WORK</text>
             <text className="dc-core-free" x={C} y={C + 44} textAnchor="middle">{`${hm(free)} free · ${doneN}/${blocks.length} done`}</text>
             <text className="dc-core-now" x={C} y={C + 74} textAnchor="middle">{clock12(now)}</text>
+            <text className="dc-ring-tag" x={C} y={C + 106} textAnchor="middle">AM INSIDE · PM OUTSIDE</text>
           </svg>
 
           {(picked || note) && (
@@ -239,11 +280,16 @@ export default function DayClock({ day, live, onClose, onTick, onClassic }: { da
           </div>
           <h1 className="d-title" id="dc-title">Your day</h1>
           <p className="d-sub">
-            {hm(plan.plannedMin)} of work · {hm(free)} free{taken.length ? ` · ${taken.length} ${taken.length === 1 ? "appointment" : "appointments"}` : ""}
+            {hm(plan.plannedMin)} of work · {hm(free)} free
+            {appts ? ` · ${appts} ${appts === 1 ? "appointment" : "appointments"}` : ""}
+            {drives ? ` · ${drives} ${drives === 1 ? "drive" : "drives"}` : ""}
           </p>
           {line && <p className="pi-today pi-lvl-today dc-next">{line}</p>}
+
+          <TellPulse day={day} live={live} initial={tellText} onNote={setNote} />
+
           <p className="d-sum">
-            Pulse planned round your calendar: calls in a Power Hour when people pick up, texts and notes in one sitting each, never more than 85% of your free time.
+            Pulse plans round your appointments and drives: calls in a Power Hour when people pick up, texts and notes in one sitting each, never more than 85% of your free time.
           </p>
 
           {approvedAt ? (
@@ -305,7 +351,9 @@ export default function DayClock({ day, live, onClose, onTick, onClassic }: { da
                     <i className="pm-dot" style={{ background: "rgba(160,175,210,0.5)" }} aria-hidden="true" />
                     <span className="pm-body">
                       <b>{r.busy.title ?? BUSY_WORD[r.busy.source]}</b>
-                      <small>{range(r.busy.start, r.busy.end)} · {BUSY_WORD[r.busy.source]} · Pulse keeps 10 minutes clear either side</small>
+                      <small>
+                        {range(r.busy.start, r.busy.end)} · {r.busy.source === "travel" ? "Drive time Pulse added" : r.busy.source === "fixed" ? "You told Pulse" : `${BUSY_WORD[r.busy.source]} · Pulse keeps 10 minutes clear either side`}
+                      </small>
                     </span>
                   </li>
                 ) : r.block ? (

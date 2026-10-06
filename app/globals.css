@@ -1748,3 +1748,43 @@ a.link { display: block; text-decoration: none; }
 @keyframes dc-ring { 50% { box-shadow: 0 0 0 6px rgba(245, 197, 66, 0.25); background: rgba(245, 197, 66, 0.22); } }
 @media (max-width: 699px) { .next-pill { max-width: 46vw; font-size: 12px; } }
 @media (prefers-reduced-motion: reduce) { .dc-block.now path, .next-pill.ringing { animation: none; } }
+
+/* The 12-hour face: morning inside, afternoon outside */
+.dc-track { stroke: rgba(160, 175, 210, 0.05); }
+.dc-hours { fill: none; stroke: rgba(160, 175, 210, 0.1); }
+.dc-ring-tag { fill: rgba(255, 233, 168, 0.45); font-size: 9.5px; letter-spacing: 0.14em; pointer-events: none; }
+.dc-busy text { font-size: 13px; font-weight: 600; }
+.dc-told path:first-child { stroke: rgba(170, 182, 210, 0.55); }
+.dc-told text { fill: #fff; }
+.dc-drive path:first-child { stroke: rgba(47, 183, 163, 0.55); }
+.dc-drive text { fill: #d5fff7; font-size: 11px; }
+.dc-label { font-size: 14px; font-weight: 700; fill: #14100a; }
+.dc-block.done .dc-label { fill: #14100a; }
+
+/* Tell Pulse your day */
+.tp { margin: 14px 0 6px; padding: 14px; border: 1px solid rgba(245, 197, 66, 0.4); border-radius: 14px; background: linear-gradient(180deg, rgba(245, 197, 66, 0.08), rgba(245, 197, 66, 0.02)); }
+.tp h2 { margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+.tp-say { position: relative; display: flex; gap: 8px; align-items: flex-start; }
+.tp-say textarea, .tp-say input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(5, 8, 22, 0.6); color: var(--text); font: inherit; font-size: 14px; line-height: 1.45; resize: vertical; }
+.tp-say textarea:focus, .tp-say input:focus { outline: none; border-color: rgba(245, 197, 66, 0.7); }
+.tp-mic { flex-shrink: 0; width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(245, 197, 66, 0.6); background: rgba(245, 197, 66, 0.1); color: #ffe9a8; display: grid; place-items: center; cursor: pointer; }
+.tp-mic:hover { background: rgba(245, 197, 66, 0.2); }
+.tp-mic.on { background: #e4574a; border-color: #e4574a; color: #fff; animation: tp-listen 1.2s ease-in-out infinite; }
+.tp-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.tp-go { margin: 0; flex: 1; }
+.tp-hint { color: var(--text-2); font-size: 13px; margin: 8px 0 0; }
+.tp-k { margin: 0 0 6px; color: var(--gold-2); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; }
+.tp-heard { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.tp-heard li { display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 7px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); }
+.tp-heard b { color: #ffe9a8; font-weight: 600; white-space: nowrap; }
+.tp-heard button { margin-left: auto; background: none; border: 0; color: var(--text-2); cursor: pointer; font-size: 16px; }
+.tp-where { font-style: normal; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--text-2); white-space: nowrap; }
+.tp-out { border-color: rgba(229, 184, 58, 0.6); color: #ffe9a8; }
+.tp-unsure { border-color: rgba(228, 87, 74, 0.6); color: #f0a58f; }
+.tp-q { padding: 12px; border-radius: 12px; border: 1px solid rgba(245, 197, 66, 0.55); background: rgba(10, 15, 32, 0.8); }
+.tp-q > p { margin: 0 0 10px; font-weight: 600; color: #fff; display: flex; gap: 8px; align-items: flex-start; line-height: 1.4; }
+.tp-opts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.tp-reply { align-items: center; }
+.tp-done p { margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--text); line-height: 1.45; }
+@keyframes tp-listen { 50% { box-shadow: 0 0 0 8px rgba(228, 87, 74, 0.25); } }
+@media (prefers-reduced-motion: reduce) { .tp-mic.on { animation: none; } }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DayItem } from "@/lib/day.ts";
 import { todayIn } from "@/lib/hwc.ts";
 import { planUrl, putBody, suggest, type Plan, type PlanItem } from "@/lib/plan.ts";
+import { toldBusy, type Answers, type Told } from "@/lib/overview.ts";
 import { buildDay, customItem, customKey, customsOn, dayPutBody, dayUrl, denverNow, readDay, toMin, type Block, type Busy, type Custom, type DayPlan } from "@/lib/schedule.ts";
 
 // The day as Pulse plans it (VIP-SUMMARY §3o), shared by the Day Clock and the Brain's Next line and
@@ -17,6 +18,14 @@ const DEMO_BUSY: Busy[] = [
   { start: "14:00", end: "14:45", title: "Showing with the Parks", source: "showing" },
 ];
 const approvedKey = (date: string) => `one.dayplan.${date}`;
+const toldKey = (date: string) => `one.told.${date}`;
+
+/** What the agent told Pulse about their day (Tell Pulse your day), with their answers to its questions. */
+export interface TellState {
+  text: string;
+  items: Told[];
+  answers: Answers;
+}
 
 type Stored = Custom & { date: string };
 const readLocal = <T,>(key: string, fallback: T): T => {
@@ -37,6 +46,8 @@ export interface Day {
   approvedAt: string | null;
   fromMove: boolean;
   customs: Custom[];
+  told: TellState | null;
+  tell: (t: TellState | null) => void;
   addBlock: (c: Omit<Custom, "id">) => Promise<string>;
   removeBlock: (id: string) => void;
   approve: () => Promise<string>;
@@ -59,8 +70,11 @@ export function useDay({ today, planned, live, doneRefs, onPlan }: { today: DayI
   const [stored, setStored] = useState<Stored[]>([]);
   const [approved, setApproved] = useState<{ at: string; blocks: Block[]; freeMin?: number; plannedMin?: number } | null>(null);
   const [move, setMove] = useState<ReturnType<typeof readDay>>(null);
+  const [told, setTold] = useState<TellState | null>(null);
   useEffect(() => {
     setStored(readLocal<Stored[]>(customKey, []));
+    const t = readLocal<TellState | null>(toldKey(date), null);
+    if (t && Array.isArray(t.items)) setTold(t);
     const a = readLocal<{ at: string; blocks: Block[]; freeMin?: number; plannedMin?: number } | null>(approvedKey(date), null);
     if (a && Array.isArray(a.blocks)) setApproved(a);
     if (!live) return;
@@ -71,8 +85,22 @@ export function useDay({ today, planned, live, doneRefs, onPlan }: { today: DayI
   }, [date, live]);
 
   const customs = useMemo(() => customsOn(stored, date), [stored, date]);
-  const hours = move?.hours ?? HOURS;
-  const busy = useMemo(() => (move ? move.busy : live ? [] : DEMO_BUSY), [move, live]);
+  // The agent's own account of the day comes first: it widens the working hours to fit, replaces the
+  // example agent's made-up appointments, and stands in for a calendar time at the same start.
+  const baseHours = move?.hours ?? HOURS;
+  const hours = useMemo(() => {
+    if (!told?.items.length) return baseHours;
+    const s = Math.min(toMin(baseHours.start), ...told.items.map((t) => toMin(t.start)));
+    const e = Math.max(toMin(baseHours.end), ...told.items.map((t) => toMin(t.end)));
+    const hm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    return { start: hm(s), end: hm(e) };
+  }, [baseHours, told]);
+  const busy = useMemo(() => {
+    const cal = move ? move.busy : live ? [] : told?.items.length ? [] : DEMO_BUSY;
+    if (!told?.items.length) return cal;
+    const mine = toldBusy(told.items, told.answers, hours.start);
+    return [...cal.filter((b) => !told.items.some((t) => t.start === b.start)), ...mine].sort((a, b) => toMin(a.start) - toMin(b.start));
+  }, [move, live, told, hours.start]);
   const isDone = useCallback((b: Block) => b.done || (b.refs.length > 0 && b.refs.every((r) => doneRefs.has(r))), [doneRefs]);
 
   const plan = useMemo<DayPlan>(() => {
@@ -86,11 +114,13 @@ export function useDay({ today, planned, live, doneRefs, onPlan }: { today: DayI
       return { blocks, later: [], plannedMin: fromMove ? work : approved?.plannedMin ?? work, freeMin: fromMove ? Math.max(work, toMin(hours.end) - toMin(hours.start) - taken) : approved?.freeMin ?? work };
     }
     const base: PlanItem[] = planned?.items.length ? planned.items.filter((p) => !p.ref.startsWith("blk:")) : suggest(today);
-    const items = [...base, ...customs.map(customItem)].map((p) => ({ ...p, done: p.done || doneRefs.has(p.ref) }));
+    // a fixed-time item the agent has since told Pulse about (the same lunch) is planned once, as told
+    const toldAt = (p: PlanItem) => !!p.at && !!told?.items.some((t) => toMin(t.start) <= toMin(p.at!) && toMin(p.at!) < toMin(t.end));
+    const items = [...base, ...customs.map(customItem)].filter((p) => !toldAt(p)).map((p) => ({ ...p, done: p.done || doneRefs.has(p.ref) }));
     const notBefore = from && (live || toMin(from) < toMin(hours.end) - 60) ? from : undefined;
     const out = buildDay({ hours, busy, items, notBefore });
     return { ...out, blocks: out.blocks.map((b) => ({ ...b, done: isDone(b) })) };
-  }, [move, approved, busy, hours, planned, today, customs, doneRefs, from, isDone]);
+  }, [move, approved, busy, hours, planned, today, customs, doneRefs, from, isDone, told, live]);
 
   const saveStored = (next: Stored[]) => {
     setStored(next);
@@ -103,6 +133,20 @@ export function useDay({ today, planned, live, doneRefs, onPlan }: { today: DayI
     try {
       localStorage.removeItem(approvedKey(date));
     } catch {}
+  };
+
+  const tell = (t: TellState | null) => {
+    setTold(t);
+    unapprove();
+    try {
+      if (t) localStorage.setItem(toldKey(date), JSON.stringify(t));
+      else localStorage.removeItem(toldKey(date));
+    } catch {}
+    if (!live || !t) return;
+    // the appointments and drives go to the calendar of record (§3o.14); MASTER skips any that match a
+    // calendar time already there
+    const blocks = toldBusy(t.items, t.answers, hours.start).map((b) => ({ start: b.start, end: b.end, kind: b.source === "travel" ? "travel" : "appointment", title: b.title }));
+    fetch(`${dayUrl}/told`, { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date, text: t.text.slice(0, 600), blocks }) }).catch(() => {});
   };
 
   const addBlock = async (c: Omit<Custom, "id">): Promise<string> => {
@@ -150,5 +194,5 @@ export function useDay({ today, planned, live, doneRefs, onPlan }: { today: DayI
     return "Kept on this computer. Your phone and calendar get it once ONE GO's update is live.";
   };
 
-  return { date, now, hours, busy, plan, approvedAt: (move?.approvedAt ?? approved?.at) || null, fromMove: !!move, customs, addBlock, removeBlock, approve, replan: unapprove };
+  return { date, now, hours, busy, plan, approvedAt: (move?.approvedAt ?? approved?.at) || null, fromMove: !!move, customs, told, tell, addBlock, removeBlock, approve, replan: unapprove };
 }

@@ -37,6 +37,7 @@ import DayClock from "./DayClock.tsx";
 import { useDay } from "./useDay.ts";
 import { chimeOn, dueChimes, notify, playChime, unlockChime } from "@/lib/chime.ts";
 import { nextLine, toMin, toTime } from "@/lib/schedule.ts";
+import { soundsLikeDay } from "@/lib/overview.ts";
 import CommitmentsView from "./CommitmentsView.tsx";
 import { WEEK_NODE, commitmentsUrl, demoCommitments, readCommitments, withWeekNode, type Commitments } from "@/lib/commitments.ts";
 import { PLAN_NODE, planKey, planUrl, readPlan, timed, withPlanNode, type Plan } from "@/lib/plan.ts";
@@ -267,6 +268,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   }, [commitments]);
   // The Day Clock (§3o.9): the day planned round the calendar; Your day lists its blocks in time order.
   const [clockOpen, setClockOpen] = useState(false);
+  const [tellText, setTellText] = useState<string | undefined>(undefined);
   const doneRefs = useMemo(() => new Set([...dayDone].map((id) => id.replace(/^day:/, ""))), [dayDone]);
   const theDay = useDay({ today: graph.today ?? [], planned, live, doneRefs, onPlan: setPlanned });
   const slots = useMemo(() => {
@@ -851,6 +853,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     async (q: string) => {
       const question = q.trim();
       if (!question || asking) return;
+      // "Hey Pulse, I have a doctor's appointment 8 to 9... plan around that": the Day Clock takes it
+      if (soundsLikeDay(question)) {
+        setAskOpen(false);
+        setTellText(question);
+        setClockOpen(true);
+        return;
+      }
       setTour(null);
       setWhen(0);
       setAskText(question);
@@ -1938,7 +1947,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         <DayClock
           day={theDay}
           live={live}
-          onClose={() => setClockOpen(false)}
+          tellText={tellText}
+          onClose={() => {
+            setClockOpen(false);
+            setTellText(undefined);
+          }}
           onTick={(refs, on) => refs.forEach((r) => tickDay(`day:${r}`, on))}
           onClassic={() => {
             setClockOpen(false);
