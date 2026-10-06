@@ -149,3 +149,16 @@ test("ONE GO's plan orb: pulses until planned, then counts what is left, green w
   const locked = withPlanNode({ ...g, nodes: g.nodes.map((x) => (x.id === "go" ? { ...x, locked: true } : x)) }, null);
   assert.equal(locked.nodes.some((x) => x.id === PLAN_NODE), false);
 });
+
+test("the demo's ONE YOU holds only the agent's own pieces; the films keep the whole ONE GO app", async () => {
+  const { demoGraph, oneYouView } = await import("../lib/graph/demo.ts");
+  const full = demoGraph("complete");
+  const g = oneYouView(full);
+  const under = (id: string) => g.nodes.filter((n) => n.parentId === id).map((n) => n.id).sort();
+  assert.deepEqual(under("go"), ["go-challenge", "go-score", "go-today"]);
+  assert.ok(!g.nodes.some((n) => n.id === "go-daily" || n.id === "dt-video"), "tracker copies are gone, with everything inside them");
+  assert.ok(g.edges.every((e) => g.nodes.some((n) => n.id === e.source) && g.nodes.some((n) => n.id === e.target)), "no edge points at a removed orb");
+  assert.ok((g.today ?? []).every((d) => g.nodes.some((n) => n.id === d.nodeId)), "every item of the day still opens a real orb");
+  assert.ok(full.nodes.some((n) => n.id === "go-daily"), "the full demo is untouched");
+  assert.ok(g.nodes.some((n) => n.id === "move" ) && g.nodes.length < full.nodes.length);
+});
