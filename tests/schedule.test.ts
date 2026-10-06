@@ -222,3 +222,21 @@ test("ONE MOVE's live day: told appointments, drives and other calendars come ba
   assert.equal(d!.busy[2].title, null, "other calendars stay busy-only");
   assert.equal(d!.approvedAt, null);
 });
+
+test("telling Pulse more later: adds, moves and cancels, and keeps what was not mentioned", async () => {
+  const { readOverview, mergeTold, carryAnswers } = await import("../lib/overview.ts");
+  const morning = readOverview("doctor 8 to 9, meeting with Aaron at 11, lunch at 12:30");
+  const added = mergeTold(morning, "I also have a showing at 3");
+  assert.deepEqual(added.map((t) => [t.title, t.start]), [["Doctor's appointment", "08:00"], ["Meeting with Aaron", "11:00"], ["Lunch", "12:30"], ["Showing", "15:00"]]);
+  assert.equal(added[3].id, "t4", "a new id, never one already used");
+  const moved = mergeTold(added, "move my meeting with Aaron to 1:30 for an hour");
+  assert.deepEqual(moved.find((t) => t.title === "Meeting with Aaron")!.start, "13:30");
+  const both = mergeTold(morning, "I also have a showing at 3, and the lunch is cancelled");
+  assert.deepEqual(both.map((t) => t.title), ["Doctor's appointment", "Meeting with Aaron", "Showing"], "one sentence can add one and cancel another");
+  const cancelled = mergeTold(moved, "the lunch is cancelled");
+  assert.ok(!cancelled.some((t) => t.title === "Lunch"));
+  assert.equal(cancelled.length, 3);
+  const answers = carryAnswers(morning, { t1: { after: { to: "office" as const, min: 30 } }, t2: { where: "out" as const } }, moved);
+  assert.deepEqual(answers.t1, { after: { to: "office", min: 30 } }, "the doctor's drive answer stays");
+  assert.deepEqual(answers.t2, { where: "out" }, "Aaron moved, and still out of the office");
+});

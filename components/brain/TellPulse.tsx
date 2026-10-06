@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import PulseMark from "./PulseMark.tsx";
 import { useVoice, say } from "./useVoice.ts";
-import { checkTold, nextQuestion, readOverview, readReply, toldBusy, type Answer, type Answers, type Told } from "@/lib/overview.ts";
+import { carryAnswers, checkTold, mergeTold, nextQuestion, readOverview, readReply, toldBusy, type Answer, type Answers, type Told } from "@/lib/overview.ts";
 import { clock12, toMin } from "@/lib/schedule.ts";
 import type { Day } from "./useDay.ts";
 
@@ -24,6 +24,9 @@ export default function TellPulse({ day, live, initial, onNote }: { day: Day; li
   const [reply, setReply] = useState("");
   const [talking, setTalking] = useState(false); // the agent used the mic: Pulse answers out loud
   const [open, setOpen] = useState(!day.told);
+  // Adding to or changing the day already told (Parry, 6 Oct: "later in the day if I need to add or adjust then
+  // pulse will act accordingly"): what was told stays unless the agent changes or cancels it.
+  const [adding, setAdding] = useState(false);
   const q = draft ? nextQuestion(draft.items, draft.answers) : null;
   const qRef = useRef(q);
   qRef.current = q;
@@ -70,20 +73,24 @@ export default function TellPulse({ day, live, initial, onNote }: { day: Day; li
     setTalking(spoken);
     setReading(true);
     setMiss(null);
+    const before = adding && day.told ? day.told : null;
     let items: Told[] | null = null;
     try {
-      const r = await fetch("/api/day/read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: words.slice(0, 600), demo: !live }) });
+      const r = await fetch("/api/day/read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: words.slice(0, 600), current: before?.items, demo: !live }) });
       items = r.ok ? checkTold(((await r.json()) as { items?: unknown }).items) : null;
     } catch {}
-    items ??= readOverview(words);
+    items ??= before ? mergeTold(before.items, words) : readOverview(words);
     setReading(false);
-    if (!items.length) {
+    if (!items.length && !before) {
       const m = "Pulse didn't hear a time. Try \"Doctor 8 to 9, lunch at 12:30\".";
       setMiss(m);
       if (spoken) say(m);
       return;
     }
-    const d = { text: words, items, answers: {} };
+    const d = before
+      ? { text: `${before.text}\n${words}`.slice(-600), items, answers: carryAnswers(before.items, before.answers, items) }
+      : { text: words, items, answers: {} };
+    setAdding(false);
     setDraft(d);
     ask(d, spoken);
   };
@@ -114,7 +121,7 @@ export default function TellPulse({ day, live, initial, onNote }: { day: Day; li
         </p>
         <div className="tp-row">
           <button className="vr-btn" onClick={() => (setDraft({ ...day.told! }), setText(day.told!.text), setOpen(true))}>Change</button>
-          <button className="vr-btn" onClick={() => (setOpen(true), setText(""))}>Tell Pulse again</button>
+          <button className="vr-btn" onClick={() => (setAdding(true), setOpen(true), setText(""))}>Add or change</button>
           <button className="vr-btn" onClick={() => (day.tell(null), setOpen(true))}>Clear</button>
         </div>
       </div>
@@ -124,7 +131,7 @@ export default function TellPulse({ day, live, initial, onNote }: { day: Day; li
   return (
     <div className="tp">
       <h2>
-        <PulseMark label={false} /> Tell Pulse your day
+        <PulseMark label={false} /> {adding ? "Add to or change your day" : "Tell Pulse your day"}
       </h2>
       {!draft && (
         <>
@@ -133,13 +140,13 @@ export default function TellPulse({ day, live, initial, onNote }: { day: Day; li
               value={voice.listening ? voice.heard || text : text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), read(text, false))}
-              placeholder={EXAMPLE}
+              placeholder={adding ? "I also have a showing at 3, and move my meeting with Aaron to 1:30" : EXAMPLE}
               rows={4}
               maxLength={600}
               aria-label="Tell Pulse your day"
             />
             {voice.can && (
-              <button className={`tp-mic${voice.listening ? " on" : ""}`} onClick={() => (voice.listening ? voice.stop() : voice.listen())} aria-pressed={voice.listening} aria-label={voice.listening ? "Stop listening" : "Talk to Pulse"}>
+              <button className={`tp-mic${voice.listening ? " on" : ""}`} onClick={() => (voice.listening ? voice.stop() : voice.listen(true))} aria-pressed={voice.listening} aria-label={voice.listening ? "Done talking" : "Talk to Pulse"}>
                 <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                   <rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor" />
                   <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" />
@@ -157,7 +164,7 @@ export default function TellPulse({ day, live, initial, onNote }: { day: Day; li
               </button>
             )}
           </div>
-          {voice.listening && <p className="tp-hint">Listening… say your appointments and times.</p>}
+          {voice.listening && <p className="tp-hint">Listening. Tell Pulse your whole day, then tap the mic when you're done.</p>}
           {voice.error && <p className="dc-miss">{voice.error}</p>}
         </>
       )}

@@ -68,7 +68,8 @@ export function tidyTitle(raw: string): string {
     .replace(/\bmtg\b/gi, "meeting")
     .replace(/\b(hey|hi|ok|okay)\b,?\s*pulse,?/gi, " ")
     .replace(/\bpulse,?\s/gi, " ")
-    .replace(/\b(i have|i've got|i got|i've|ive got|there is|there's|i am|i'm|we have|got)\b/gi, " ")
+    .replace(/\b(i|we)\s+(also\s+|now\s+|still\s+)?(have|got|need)\b/gi, " ")
+    .replace(/\b(i've got|i've|ive got|there is|there's|i am|i'm|got|also|now|add|added|new)\b/gi, " ")
     .replace(/\b(this|tomorrow|today'?s?)\s+(morning|afternoon|evening)\b/gi, " ")
     .replace(/\b(today|tonight)\b/gi, " ")
     .replace(/\b(from|form|until|till|at|for|starting|lasting|long)\s*$/gi, " ")
@@ -268,4 +269,53 @@ export function faceTimeAt(x: number, y: number, cx: number, cy: number, split: 
   const pm = Math.hypot(x - cx, y - cy) > split;
   const m = Math.round(((a / (Math.PI * 2)) * 720) / 15) * 15;
   return toTime(Math.min(1425, (m % 720) + (pm ? 720 : 0)));
+}
+
+// ---- telling Pulse more later in the day (Parry, 6 Oct: "later in the day if I need to add or adjust then
+// pulse will act accordingly") -------------------------------------------------------------------------
+
+const STOP = new Set(["appointment", "appt", "apt", "meeting", "with", "the", "my", "a", "an", "at", "to", "for", "and", "of", "in", "on"]);
+/** The words that name a thing ("Meeting with Aaron" -> aaron), for matching what the agent tells Pulse later. */
+export function keyWords(title: string): string[] {
+  return title
+    .toLowerCase()
+    .replace(/'s\b/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 2 && !STOP.has(w));
+}
+const same = (a: Told, b: Told) => {
+  const ka = keyWords(a.title), kb = new Set(keyWords(b.title));
+  return ka.length > 0 && ka.some((w) => kb.has(w));
+};
+const CANCEL = /\b(cancel+ed|cancel|no longer|not happening|called off|remove|delete|drop|skip|scratch)\b/i;
+
+/** The day after the agent tells Pulse more: a new time for something already told moves it, a cancelled one
+ * goes, anything else is added. What was told before and not mentioned stays. Pulse on the server does the
+ * same with any wording; this is the local reading. */
+export function mergeTold(current: Told[], text: string): Told[] {
+  const out = current.map((t) => ({ ...t }));
+  // cancellations: "cancel the meeting with Aaron", "lunch is cancelled"
+  for (const clause of text.split(/[.;!?\n,]+|\s+and\s+/i)) {
+    if (!CANCEL.test(clause)) continue;
+    const words = new Set(keyWords(clause));
+    for (let i = out.length - 1; i >= 0; i--) if (keyWords(out[i].title).some((w) => words.has(w))) out.splice(i, 1);
+  }
+  let n = Math.max(0, ...current.map((t) => Number(t.id.replace(/\D/g, "")) || 0));
+  for (const t of readOverview(text.split(/[.;!?\n,]+|\s+and\s+/i).filter((c) => !CANCEL.test(c)).join(". "))) {
+    const k = out.findIndex((x) => same(x, t));
+    if (k >= 0) out[k] = { ...out[k], start: t.start, end: t.end };
+    else out.push({ ...t, id: `t${++n}` });
+  }
+  return out.sort((a, b) => toMin(a.start) - toMin(b.start));
+}
+
+/** Answers already given stay with the same appointment (matched by id, else by name); a moved appointment
+ * keeps where it is and the drive after it. */
+export function carryAnswers(prev: Told[], answers: Answers, next: Told[]): Answers {
+  const out: Answers = {};
+  for (const t of next) {
+    const old = prev.find((p) => p.id === t.id && same(p, t)) ?? prev.find((p) => same(p, t));
+    if (old && answers[old.id]) out[t.id] = answers[old.id];
+  }
+  return out;
 }

@@ -39,32 +39,57 @@ export function useVoice(onFinal: (text: string) => void) {
     return () => rec.current?.stop();
   }, []);
 
-  const stop = useCallback(() => rec.current?.stop(), []);
-  const listen = useCallback(() => {
-    const r = recognizer();
-    if (!r) return;
+  // Long telling (the whole day): keeps listening through pauses until the agent taps the mic again (Parry,
+  // 6 Oct: "as soon as I have said one thing it cuts me off"). Browsers end a recognition after a silence,
+  // so it starts again and keeps what was said, for up to three minutes. Short answers stop at the pause.
+  const keep = useRef(false);
+  const stop = useCallback(() => {
+    keep.current = false;
     rec.current?.stop();
-    rec.current = r;
-    r.lang = "en-US";
-    r.continuous = false;
-    r.interimResults = true;
-    let text = "";
+  }, []);
+  const listen = useCallback((long = false) => {
+    if (!recognizer()) return;
+    rec.current?.stop();
+    keep.current = long;
+    const until = Date.now() + 3 * 60_000;
+    let said = "";
     setHeard("");
     setError(null);
-    r.onresult = (e) => {
-      let all = "";
-      for (let i = 0; i < e.results.length; i++) all += e.results[i][0].transcript;
-      text = all;
-      setHeard(all);
-    };
-    r.onerror = (e) => setError(e.error === "not-allowed" ? "Allow the microphone for this site to talk to Pulse." : e.error === "no-speech" ? "Pulse didn't hear anything. Tap the mic and talk." : null);
-    r.onend = () => {
-      setListening(false);
-      if (text.trim()) finalRef.current(text.trim());
+    const start = () => {
+      const r = recognizer()!;
+      rec.current = r;
+      r.lang = "en-US";
+      r.continuous = long;
+      r.interimResults = true;
+      let part = "";
+      r.onresult = (e) => {
+        let all = "";
+        for (let i = 0; i < e.results.length; i++) all += e.results[i][0].transcript;
+        part = all;
+        setHeard(`${said} ${part}`.trim());
+      };
+      r.onerror = (e) => {
+        if (e.error === "not-allowed") {
+          keep.current = false;
+          setError("Allow the microphone for this site to talk to Pulse.");
+        } else if (e.error === "no-speech" && !long) setError("Pulse didn't hear anything. Tap the mic and talk.");
+      };
+      r.onend = () => {
+        said = `${said} ${part}`.trim();
+        if (keep.current && Date.now() < until) {
+          try {
+            return start();
+          } catch {}
+        }
+        keep.current = false;
+        setListening(false);
+        if (said) finalRef.current(said);
+      };
+      r.start();
     };
     setListening(true);
     try {
-      r.start();
+      start();
     } catch {
       setListening(false);
     }
