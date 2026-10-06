@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { firstPlan, fromDay, pointsLeft, putBody, readPlan, shift, suggest, timed, PLAN_MAX } from "../lib/plan.ts";
+import { dropIndex, firstPlan, fromDay, orbMark, placeAt, planSeats, pointsLeft, putBody, readPlan, shift, suggest, timed, PLAN_MAX } from "../lib/plan.ts";
 import type { DayItem } from "../lib/day.ts";
 
 const d = (id: string, extra: Partial<DayItem> = {}): DayItem => ({
@@ -89,4 +89,37 @@ test("a fixed time keeps its time when the plan reaches it early; the agent's or
 test("the first plan puts a fixed-time lunch where the day reaches it", () => {
   const plan = firstPlan(suggest([d("lunch", { minutes: 60, at: "08:25", urgency: "alert" }), d("a"), d("b"), d("c")]));
   assert.deepEqual(plan.map((p) => p.ref), ["a", "b", "lunch", "c"]);
+});
+
+test("the orb ring: first at the top, clockwise; a short plan is an arc over the top", () => {
+  const items = suggest([d("a"), d("b"), d("c")]);
+  const s = planSeats(items, 500, 500, 300);
+  assert.equal(s.length, 3);
+  assert.ok(Math.abs(s[1].x - 500) < 1e-9 && s[1].y < 500, "the middle one at the top");
+  assert.ok(s[0].x < 500 && s[2].x > 500, "left to right, clockwise");
+  const eight = planSeats(suggest(Array.from({ length: 8 }, (_, i) => d(`x${i}`))), 500, 500, 300);
+  assert.ok(Math.abs(eight[0].x - 500) < 1e-9 && eight[0].y === 200, "a full ring starts at the top");
+});
+
+test("dropping an orb: its place round the ring, or off the plan", () => {
+  // 8 items, 45 degrees apart from the top
+  assert.equal(dropIndex(500, 200, 500, 500, 300, 8, 110), 0, "on the first seat: first");
+  assert.equal(dropIndex(500, 800, 500, 500, 300, 8, 110), 4, "on the fifth seat: fifth");
+  assert.equal(dropIndex(500 + 300 * Math.sin(Math.PI / 8), 500 - 300 * Math.cos(Math.PI / 8), 500, 500, 300, 8, 110), 1, "between the first two: second");
+  assert.equal(dropIndex(500, 500, 500, 500, 300, 8, 110), null, "in the core");
+  assert.equal(dropIndex(500, 50, 500, 500, 300, 8, 110), null, "far outside: taken off");
+});
+
+test("place an orb: move within the plan, or insert from Pulse suggests", () => {
+  const [a, b, c] = suggest([d("a"), d("b"), d("c")]);
+  assert.deepEqual(placeAt([a, b, c], a, 1).map((p) => p.ref), ["b", "a", "c"], "dropped on the second seat: second");
+  assert.deepEqual(placeAt([a, b, c], a, 9).map((p) => p.ref), ["b", "c", "a"]);
+  assert.deepEqual(placeAt([a, b, c], c, 0).map((p) => p.ref), ["c", "a", "b"]);
+  const [x] = suggest([d("x")]);
+  assert.deepEqual(placeAt([a, b], x, 1).map((p) => p.ref), ["a", "x", "b"]);
+});
+
+test("orb marks: a person's initials, else the kind", () => {
+  assert.equal(orbMark(fromDay(d("a", { what: "Call Jen Alvarez. Her birthday is tomorrow." }))), "JA");
+  assert.equal(orbMark(fromDay(d("a", { what: "Clear the 4 overdue follow-ups.", kind: "follow_up" }))), "↻");
 });
