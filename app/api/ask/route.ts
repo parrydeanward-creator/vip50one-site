@@ -1,6 +1,6 @@
 import { MAX_QUESTION } from "@/lib/ask.ts";
 import { askOne } from "@/lib/askAI.ts";
-import { demoGraph } from "@/lib/graph/demo.ts";
+import { demoGraph, oneYouView } from "@/lib/graph/demo.ts";
 import { indexGraph } from "@/lib/graph/model.ts";
 import { PACKAGE_LABEL } from "@/lib/products.ts";
 import type { PackageId } from "@/lib/types.ts";
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   const p = typeof body?.package === "string" ? body.package : "";
   const pkg: PackageId = p in PACKAGE_LABEL ? (p as PackageId) : "complete";
   if (body?.demo === true) {
-    const answer = await askOne(question, indexGraph(demoGraph(pkg)), `demo|${pkg}`);
+    const answer = await askOne(question, indexGraph(oneYouView(demoGraph(pkg))), `demo|${pkg}`);
     return Response.json(answer, { headers: { "Cache-Control": "no-store" } });
   }
   const live = await signedInBundle(bearerOf(req));

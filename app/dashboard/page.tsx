@@ -1,5 +1,5 @@
 import Brain from "@/components/brain/Brain.tsx";
-import { demoGraph } from "@/lib/graph/demo.ts";
+import { demoGraph, oneYouView } from "@/lib/graph/demo.ts";
 import { JOIN_URL } from "@/lib/master.ts";
 import { PACKAGE_LABEL } from "@/lib/products.ts";
 import { signedInBundle } from "@/lib/server/live.ts";
@@ -19,7 +19,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   if (sp.demo === "1") {
     const p = typeof sp.package === "string" ? sp.package : "";
     const pkg: PackageId = p in PACKAGE_LABEL ? (p as PackageId) : "complete";
-    return <Brain graph={demoGraph(pkg)} pkg={pkg} />;
+    return <Brain graph={oneYouView(demoGraph(pkg))} pkg={pkg} />;
   }
   const live = await signedInBundle();
   if (!live) redirect("/login");

@@ -140,3 +140,27 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
 
   return { nodes, edges, rootId: "one", changes, dated, today, week: { score: 62, minimum: 100 } };
 }
+
+// ONE YOU on the demo dashboard (Parry, 6 Oct): the desktop orb holds the agent's own pieces (today's
+// VIP-50 work, the scoreboard, the 90-Day Challenge, and Today's plan), never copies of what ONE MOVE
+// already has (trackers, contacts, tasks, calendar, Hot/Warm/Cold, Rolodex) or the phone's own corners
+// (Lounge, Tools). The product films keep the full ONE GO tree: they show the phone app.
+const ONE_YOU_KEEPS = new Set(["go-today", "go-score", "go-challenge"]);
+
+export function oneYouView(g: BusinessGraph): BusinessGraph {
+  const kids = new Map<string, string[]>();
+  for (const n of g.nodes) if (n.parentId) kids.set(n.parentId, [...(kids.get(n.parentId) ?? []), n.id]);
+  const gone = new Set<string>();
+  const drop = (id: string) => {
+    gone.add(id);
+    for (const k of kids.get(id) ?? []) drop(k);
+  };
+  for (const id of kids.get("go") ?? []) if (!ONE_YOU_KEEPS.has(id) && id !== "go-plan") drop(id);
+  const nodes = g.nodes.filter((n) => !gone.has(n.id));
+  const edges = g.edges.filter((e) => !gone.has(e.source) && !gone.has(e.target));
+  // what today holds still points somewhere real: work from a dropped corner opens Today
+  const today = g.today?.map((d) => (gone.has(d.nodeId) ? { ...d, nodeId: "go-today" } : d));
+  const changes = g.changes?.filter((c) => !gone.has(c.id));
+  const dated = g.dated?.filter((d) => !gone.has(d.id));
+  return { ...g, nodes, edges, today, changes, dated };
+}
