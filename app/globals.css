@@ -1704,3 +1704,47 @@ a.link { display: block; text-decoration: none; }
 .cm-results button.on.partly { background: #e5b83a; border-color: #e5b83a; color: #1a1305; }
 .cm-results button.on.missed { background: #e4574a; border-color: #e4574a; color: #1a0705; }
 .cm-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+/* The Day Clock (§3o.9) */
+.dc-track { fill: none; stroke: rgba(160, 175, 210, 0.07); cursor: copy; }
+.dc-track:hover { stroke: rgba(245, 197, 66, 0.1); }
+.dc-mark line { stroke: rgba(255, 233, 168, 0.35); stroke-width: 1.5; }
+.dc-mark line.major { stroke: rgba(255, 233, 168, 0.7); stroke-width: 2.5; }
+.dc-mark text { fill: rgba(255, 233, 168, 0.75); font-size: 17px; font-weight: 600; }
+.dc-ends { fill: rgba(255, 233, 168, 0.5); font-size: 12px; letter-spacing: 0.16em; }
+.dc-busy path { fill: none; stroke: rgba(150, 160, 185, 0.35); stroke-linecap: butt; }
+.dc-busy text { fill: rgba(200, 208, 225, 0.75); font-size: 13px; pointer-events: none; }
+.dc-block { cursor: pointer; outline: none; }
+.dc-block path { fill: none; stroke: rgba(245, 197, 66, 0.55); stroke-linecap: butt; transition: stroke 120ms, filter 120ms; }
+.dc-block.done path { stroke: url(#dc-gold); }
+.dc-block:hover path, .dc-block:focus-visible path { stroke: #ffd86a; filter: brightness(1.2); }
+.dc-block.picked path { stroke: #fff3cc; }
+.dc-block.now path { stroke: #ffd86a; filter: drop-shadow(0 0 10px rgba(255, 216, 106, 0.8)); animation: dc-glow 2.4s ease-in-out infinite; }
+.dc-icon { fill: #14100a; font-size: 18px; font-weight: 700; pointer-events: none; }
+.dc-label { fill: #ffe9a8; font-size: 13px; font-weight: 600; pointer-events: none; }
+.dc-hand line { stroke: #fff; stroke-width: 3; stroke-linecap: round; }
+.dc-hand circle { fill: #ffd86a; stroke: #fff; stroke-width: 2; }
+.dc-core-big { fill: #fff; font-size: 46px; font-weight: 700; }
+.dc-core-small { fill: #ffe9a8; font-size: 14px; letter-spacing: 0.18em; }
+.dc-core-free { fill: rgba(255, 233, 168, 0.8); font-size: 15px; }
+.dc-core-now { fill: rgba(255, 255, 255, 0.55); font-size: 14px; letter-spacing: 0.08em; }
+.dc-next { font-weight: 600; }
+.dc-approved { display: flex; align-items: center; gap: 12px; justify-content: space-between; color: var(--text-2); font-size: 14px; }
+.dc-add { display: flex; gap: 8px; }
+.dc-add input, .dc-title-in { flex: 1; min-width: 0; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); font: inherit; font-size: 14px; }
+.dc-miss { color: #f0a58f; font-size: 13px; }
+.dc-confirm { margin-top: 10px; padding: 12px; border: 1px solid rgba(245, 197, 66, 0.4); border-radius: 12px; background: rgba(245, 197, 66, 0.06); }
+.dc-confirm p { display: grid; gap: 8px; margin: 0 0 10px; }
+.dc-confirm input[type="time"], .dc-confirm select { padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); font: inherit; font-size: 13px; color-scheme: dark; }
+.dc-confirm small { color: var(--text-2); font-size: 12px; }
+.dc-title-in { width: 100%; box-sizing: border-box; }
+.dc-row-busy { opacity: 0.65; }
+.dc-switch { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--text-2); margin-bottom: 10px; }
+.dc-switch input { accent-color: var(--gold-2); margin-top: 3px; }
+.next-pill { margin-left: auto; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(245, 197, 66, 0.5); background: rgba(245, 197, 66, 0.08); color: #ffe9a8; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; max-width: 42vw; overflow: hidden; text-overflow: ellipsis; }
+.next-pill:hover { border-color: #ffd86a; color: #fff; }
+.next-pill.ringing { animation: dc-ring 1.2s ease-in-out 6; border-color: #ffd86a; }
+@keyframes dc-glow { 50% { filter: drop-shadow(0 0 18px rgba(255, 216, 106, 1)); } }
+@keyframes dc-ring { 50% { box-shadow: 0 0 0 6px rgba(245, 197, 66, 0.25); background: rgba(245, 197, 66, 0.22); } }
+@media (max-width: 699px) { .next-pill { max-width: 46vw; font-size: 12px; } }
+@media (prefers-reduced-motion: reduce) { .dc-block.now path, .next-pill.ringing { animation: none; } }

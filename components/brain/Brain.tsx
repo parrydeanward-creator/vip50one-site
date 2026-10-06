@@ -27,12 +27,16 @@ import { changesSince, firstVisitToday, morningTop, orbsToPing, sinceLabel } fro
 import type { ChangeNote } from "@/lib/graph/types.ts";
 import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib/signals.ts";
 import { RANGE, dayLabel, inWindow, offsetLabel, windowTitle } from "@/lib/timeline.ts";
-import { clock, completedBy, duration, isEvening, planDay, recap } from "@/lib/day.ts";
+import { clock, completedBy, duration, isEvening, planDay, recap, type DayItem, type Slot } from "@/lib/day.ts";
 import { localDay } from "@/lib/morning.ts";
 import PulseMark from "./PulseMark.tsx";
 import PulseIntro from "./PulseIntro.tsx";
 import SignalsFilm, { ONE_FILM } from "./SignalsFilm.tsx";
 import PlanMyDay from "./PlanMyDay.tsx";
+import DayClock from "./DayClock.tsx";
+import { useDay } from "./useDay.ts";
+import { chimeOn, dueChimes, notify, playChime, unlockChime } from "@/lib/chime.ts";
+import { nextLine, toMin, toTime } from "@/lib/schedule.ts";
 import CommitmentsView from "./CommitmentsView.tsx";
 import { WEEK_NODE, commitmentsUrl, demoCommitments, readCommitments, withWeekNode, type Commitments } from "@/lib/commitments.ts";
 import { PLAN_NODE, planKey, planUrl, readPlan, timed, withPlanNode, type Plan } from "@/lib/plan.ts";
@@ -261,7 +265,37 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     commitRef.current = commitments;
     setGraph((g) => withWeekNode(g, commitments, denverHour()));
   }, [commitments]);
+  // The Day Clock (§3o.9): the day planned round the calendar; Your day lists its blocks in time order.
+  const [clockOpen, setClockOpen] = useState(false);
+  const doneRefs = useMemo(() => new Set([...dayDone].map((id) => id.replace(/^day:/, ""))), [dayDone]);
+  const theDay = useDay({ today: graph.today ?? [], planned, live, doneRefs, onPlan: setPlanned });
   const slots = useMemo(() => {
+    if (theDay.plan.blocks.length) {
+      const byRef = new Map<string, DayItem>((graph.today ?? []).map((d) => [d.ref ?? d.id.replace(/^day:/, ""), d]));
+      const plannedBy = new Map((planned?.items ?? []).map((p) => [p.ref, p]));
+      const out: Slot[] = [];
+      for (const b of theDay.plan.blocks) {
+        let t = toMin(b.start);
+        for (const r of b.refs) {
+          const d = byRef.get(r);
+          const p = plannedBy.get(r);
+          const minutes = d?.minutes ?? p?.minutes ?? Math.max(5, toMin(b.end) - toMin(b.start));
+          out.push({
+            id: `day:${r}`,
+            nodeId: d?.nodeId && ix.byId.has(d.nodeId) ? d.nodeId : p?.nodeId && ix.byId.has(p.nodeId) ? p.nodeId : (d?.product ?? p?.product) === "go" || r.startsWith("blk:") ? "go" : "move",
+            product: d?.product ?? p?.product ?? "go",
+            kind: d?.kind ?? p?.kind ?? "other",
+            what: d?.what ?? p?.title ?? b.title,
+            minutes,
+            start: toTime(t),
+            end: toTime(t + minutes),
+            done: dayDone.has(`day:${r}`) || !!p?.done,
+          });
+          t += minutes;
+        }
+      }
+      return out;
+    }
     if (!planned?.items.length) return planDay((graph.today ?? []).slice(0, 8), dayDone);
     return timed(planned.items, planned.start).map((p) => ({
       id: `day:${p.ref}`,
@@ -274,7 +308,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       end: p.end,
       done: p.done || dayDone.has(`day:${p.ref}`),
     }));
-  }, [graph.today, dayDone, planned, ix]);
+  }, [graph.today, dayDone, planned, ix, theDay.plan.blocks]);
   const day = useMemo(() => recap(slots), [slots]);
   const dayIds = useMemo(() => [...new Set(slots.map((x) => x.nodeId))], [slots]);
   const dayView = dayMap && !tour && !ask && !timeline;
@@ -545,6 +579,35 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (live)
       fetch(`${planUrl}/done`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ref, done: on }) }).catch(() => {});
   };
+
+  // The Day Clock (§3o.9): the day planned round the calendar. The Next line and the chimes follow it
+  // while the dashboard is open (§3o.11).
+  const next = theDay.now ? nextLine(theDay.plan.blocks, theDay.now) : null;
+  const [ringing, setRinging] = useState(false);
+  const rung = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      rung.current = new Set(JSON.parse(sessionStorage.getItem("one.rung") ?? "[]"));
+    } catch {}
+    const unlock = () => unlockChime();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    return () => window.removeEventListener("pointerdown", unlock);
+  }, []);
+  useEffect(() => {
+    if (!theDay.now) return;
+    const due = dueChimes(theDay.plan.blocks, toMin(theDay.now), rung.current);
+    if (!due.length) return;
+    for (const d of due) rung.current.add(d.key);
+    try {
+      sessionStorage.setItem("one.rung", JSON.stringify([...rung.current]));
+    } catch {}
+    if (chimeOn()) playChime(false);
+    const b = theDay.plan.blocks.find((x) => due[0].key.startsWith(`${x.id}:`));
+    if (b) notify(due[0].kind === "soon" ? `${b.title} in 5 minutes.` : `Time for ${b.title}.`);
+    setRinging(true);
+    const t = setTimeout(() => setRinging(false), 8000);
+    return () => clearTimeout(t);
+  }, [theDay.now, theDay.plan.blocks]);
 
   // Timeline: ring each item as it comes into view while dragging.
   const shownOnTimeline = useRef(new Set<string>());
@@ -892,7 +955,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const clickNode = (id: string) => {
     if (drag.current.moved) return; // that was a drag, not a tap
     if (ask) return id === graph.rootId ? goHome() : goTo(id);
-    if (id === PLAN_NODE) return setPlanOpen(true);
+    if (id === PLAN_NODE) return setClockOpen(true);
     if (id === WEEK_NODE) return setCmOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
@@ -1029,6 +1092,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </span>
           ))}
         </nav>
+        {next && (
+          <button className={`next-pill${ringing ? " ringing" : ""}`} onClick={() => setClockOpen(true)} title="Your day" aria-live="polite">
+            {next}
+          </button>
+        )}
         {live && (
           <nav className="dash-switch" aria-label="Dashboard version">
             <span aria-current="page">ONE Brain</span>
@@ -1541,11 +1609,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
           )}
 
           {(focus.type === "core" || focus.id === "go") && !tour && (
-            <button className="pi-film pm-open" onClick={() => setPlanOpen(true)}>
+            <button className="pi-film pm-open" onClick={() => setClockOpen(true)}>
               <span className="pi-play" aria-hidden="true">☰</span>
               <span>
-                <b>{planned?.items.length ? "Change my plan" : "Plan my day"}</b>
-                <span>{planned?.items.length ? "Your day is planned. Reorder it and send it to your phone again." : "Put today in your order and send it to ONE GO on your phone."}</span>
+                <b>{theDay.approvedAt ? "Your day" : "Plan my day"}</b>
+                <span>{theDay.approvedAt ? next ?? "Your day is planned." : "Pulse planned today round your calendar. Look it over and tap Looks good."}</span>
               </span>
             </button>
           )}
@@ -1865,6 +1933,18 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       {oneFilm && <SignalsFilm film={ONE_FILM} onClose={() => setOneFilm(false)} />}
       {cmOpen && commitments && (
         <CommitmentsView initial={commitments} live={live} hour={denverHour()} onClose={() => setCmOpen(false)} onChanged={setCommitments} />
+      )}
+      {clockOpen && (
+        <DayClock
+          day={theDay}
+          live={live}
+          onClose={() => setClockOpen(false)}
+          onTick={(refs, on) => refs.forEach((r) => tickDay(`day:${r}`, on))}
+          onClassic={() => {
+            setClockOpen(false);
+            setPlanOpen(true);
+          }}
+        />
       )}
       {planOpen && (
         <PlanMyDay
