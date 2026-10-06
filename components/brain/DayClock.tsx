@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import { chimeOn, setChime, unlockChime } from "@/lib/chime.ts";
-import { clock12, hm, nextLine, readBlock, toMin, toTime, type Block, type Busy } from "@/lib/schedule.ts";
+import { blockHue, busyHue, clock12, hm, HUE, nextLine, readBlock, toMin, toTime, type Block, type Busy, type Hue } from "@/lib/schedule.ts";
 import { faceAngle, faceArcs, faceTimeAt } from "@/lib/overview.ts";
 import TellPulse from "./TellPulse.tsx";
 import type { Day } from "./useDay.ts";
@@ -94,6 +94,21 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
   const doneN = blocks.filter((b) => b.done).length;
   const free = Math.max(0, plan.freeMin - plan.plannedMin);
   const picked = blocks.find((b) => b.id === pick);
+  const hues = [...new Set<Hue>([...blocks.map((b) => blockHue(b.kind)), ...taken.map(busyHue)])];
+  // Every orb (Parry, 6 Oct, hard rule): the block tapped comes to the middle and opens in the side panel.
+  const choose = (b: (typeof blocks)[number]) => {
+    if (pick === b.id) {
+      setPick(null);
+      return cam.reset();
+    }
+    setPick(b.id);
+    const x = faceArcs(b.start, b.end)[0];
+    if (x) {
+      const m = polar((x.a1 + x.a2) / 2, ringR(x.pm));
+      cam.centreOn(m.x, m.y);
+    }
+    setTimeout(() => document.getElementById(`dc-row-${b.id}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
+  };
   const customIds = new Set(day.customs.map((c) => `blk:${c.id}`));
 
   const read = () => {
@@ -176,7 +191,7 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
                 const label = busyLabel(b);
                 const id = `dc-tb-${i}-${j}`;
                 return (
-                  <g key={id} className={`dc-busy${b.source === "travel" ? " dc-drive" : ""}${b.source === "fixed" ? " dc-told" : ""}`}>
+                  <g key={id} className={`dc-busy${b.source === "travel" ? " dc-drive" : ""}${b.source === "fixed" ? " dc-told" : ""}`} style={{ "--hue": HUE[busyHue(b)].color } as React.CSSProperties}>
                     <path d={arc(x.a1 + 0.003, x.a2 - 0.003, r)} strokeWidth={b.source === "travel" ? W * 0.42 : W} />
                     <title>{`${range(b.start, b.end)} ${b.title ?? BUSY_WORD[b.source]}`}</title>
                     {fits(label, x.a1, x.a2, r) && (
@@ -199,14 +214,15 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
                   key={b.id}
                   data-tap
                   className={`dc-block${b.done ? " done" : ""}${pick === b.id ? " picked" : ""}${isNow ? " now" : ""}`}
+                  style={{ "--hue": HUE[blockHue(b.kind)].color } as React.CSSProperties}
                   role="button"
                   tabIndex={0}
                   aria-label={`${range(b.start, b.end)}: ${b.title}${b.done ? ", done" : ""}`}
-                  onClick={() => setPick((x) => (x === b.id ? null : b.id))}
+                  onClick={() => choose(b)}
                   onKeyDown={(e) => {
                     if (e.key !== "Enter" && e.key !== " ") return;
                     e.preventDefault();
-                    setPick((x) => (x === b.id ? null : b.id));
+                    choose(b);
                   }}
                 >
                   {faceArcs(b.start, b.end).map((x, j) => {
@@ -215,7 +231,7 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
                     const m = polar((x.a1 + x.a2) / 2, r);
                     return (
                       <g key={id}>
-                        <path d={arc(x.a1 + 0.004, x.a2 - 0.004, r)} strokeWidth={W} stroke={b.done ? "url(#dc-gold)" : undefined} />
+                        <path d={arc(x.a1 + 0.004, x.a2 - 0.004, r)} strokeWidth={W} />
                         {fits(label, x.a1, x.a2, r) ? (
                           <>
                             <path id={id} d={textArc(x.a1, x.a2, r)} fill="none" stroke="none" />
@@ -346,13 +362,23 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
           )}
 
           <h2>The plan</h2>
+          {hues.length > 1 && (
+            <ul className="dc-legend" aria-label="What the colours mean">
+              {hues.map((h) => (
+                <li key={h}>
+                  <i style={{ background: HUE[h].color }} aria-hidden="true" />
+                  {HUE[h].word}
+                </li>
+              ))}
+            </ul>
+          )}
           {rows.length ? (
             <ol className="pm-list pm-compact dc-list">
               {rows.map((r, i) =>
                 r.busy ? (
                   <li key={`b${i}`} className="dc-row-busy">
                     <span className="pm-time">{clock12(r.busy.start)}</span>
-                    <i className="pm-dot" style={{ background: "rgba(160,175,210,0.5)" }} aria-hidden="true" />
+                    <i className="pm-dot" style={{ background: HUE[busyHue(r.busy)].color }} aria-hidden="true" />
                     <span className="pm-body">
                       <b>{r.busy.title ?? BUSY_WORD[r.busy.source]}</b>
                       <small>
@@ -361,9 +387,9 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
                     </span>
                   </li>
                 ) : r.block ? (
-                  <li key={r.block.id} className={`${r.block.done ? "is-done" : ""}${pick === r.block.id ? " picked" : ""}`}>
+                  <li key={r.block.id} id={`dc-row-${r.block.id}`} className={`${r.block.done ? "is-done" : ""}${pick === r.block.id ? " picked" : ""}`}>
                     <span className="pm-time">{clock12(r.block.start)}</span>
-                    <i className="pm-dot" style={{ background: GOLD }} aria-hidden="true" />
+                    <i className="pm-dot" style={{ background: HUE[blockHue(r.block.kind)].color }} aria-hidden="true" />
                     <span className="pm-body">
                       <b>{r.block.title}</b>
                       <small>{range(r.block.start, r.block.end)} · {r.block.why}</small>

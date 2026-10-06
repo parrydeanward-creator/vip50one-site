@@ -8,7 +8,8 @@ import { KIND_LABEL, progressWords, reached, resultWord, type Item, type Result 
 
 // The Coach view (VIP-SUMMARY §3n.4, §3n.7): the agents you coach round you, each orb's gold ring their keep
 // rate (8 weeks), pulsing red when they are late setting or checking in, yellow when it is due today. Tap an
-// agent for their week, weekend, results and notes. Read only: a coach never sets or marks for them.
+// agent and they come to the middle, the others and the team round them, with their week, weekend, results
+// and notes in the side panel (Parry, 6 Oct, the rule for every orb). Read only: a coach never sets or marks.
 
 const SIZE = 1000;
 const C = SIZE / 2;
@@ -69,12 +70,29 @@ export default function CoachView({ agents, hour, demo, onClose }: { agents: Coa
   const team = teamKeepRate(agents);
   const late = order.filter((a) => attention(a, hour).level === "now").length;
   const n = order.length;
-  const r = Math.max(34, Math.min(62, 420 / Math.max(n, 4)));
-  const seats = order.map((a, k) => {
-    const ang = (k / n) * Math.PI * 2;
-    return { a, x: C + RING * Math.sin(ang), y: C - RING * Math.cos(ang) };
-  });
   const sel = order.find((a) => a.id === pick);
+  // The one picked sits in the middle; everyone else, and the team, go round them.
+  const round = sel ? order.filter((a) => a.id !== sel.id) : order;
+  const m = round.length + (sel ? 1 : 0);
+  const r = Math.max(34, Math.min(62, 420 / Math.max(m, 4)));
+  const seatAt = (k: number) => {
+    const ang = (k / Math.max(m, 1)) * Math.PI * 2;
+    return { x: C + RING * Math.sin(ang), y: C - RING * Math.cos(ang) };
+  };
+  const teamSeat = sel ? seatAt(0) : null;
+  const seats = round.map((a, k) => ({ a, ...seatAt(k + (sel ? 1 : 0)) }));
+  const open = (id: string | null) => {
+    setPick(id);
+    cam.reset();
+  };
+  const tap = (go: () => void) => ({
+    onClick: go,
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      go();
+    },
+  });
 
   return (
     <div className="pm-full pop" role="dialog" aria-modal="true" aria-labelledby="cv-title">
@@ -92,10 +110,38 @@ export default function CoachView({ agents, hour, demo, onClose }: { agents: Coa
             {seats.map(({ a, x, y }) => (
               <line key={`l-${a.id}`} className="vr-link" x1={C} y1={C} x2={x} y2={y} />
             ))}
-            <circle cx={C} cy={C} r={CORE} fill="url(#cv-glass)" stroke="#ffd86a" strokeWidth={3} />
-            <text className="dt-score" x={C} y={C - 4} textAnchor="middle">{team == null ? n : `${Math.round(team * 100)}%`}</text>
-            <text className="dt-score-sub" x={C} y={C + 26} textAnchor="middle">{team == null ? (n === 1 ? "AGENT" : "AGENTS") : "TEAM KEEP RATE"}</text>
-            {late > 0 && <text className="pm-core-end" x={C} y={C + 50} textAnchor="middle">{`${late} late`}</text>}
+            {teamSeat && <line className="vr-link" x1={C} y1={C} x2={teamSeat.x} y2={teamSeat.y} />}
+            {sel ? (
+              (() => {
+                const st = attention(sel, hour);
+                const rate = sel.c.keepRate8w;
+                return (
+                  <g className="pm-orb picked" aria-label={`${sel.name}, in the middle`}>
+                    {st.level ? <PulseRing r={CORE} level={st.level} x={C} y={C} /> : null}
+                    <circle cx={C} cy={C} r={CORE} fill="url(#cv-glass)" stroke={st.level === "now" ? PULSE_COLOR.now : st.level === "today" ? PULSE_COLOR.today : "#ffd86a"} strokeWidth={3} />
+                    {rate != null && <path d={arc(C, C, CORE + 9, rate)} fill="none" stroke={GOLD} strokeWidth={6} strokeLinecap="round" />}
+                    <text className="pm-mark" x={C} y={C - 18} dy="0.36em" textAnchor="middle" fontSize={54}>{initials(sel.name)}</text>
+                    <text className="dt-score-sub" x={C} y={C + 30} textAnchor="middle">{sel.name.split(/\s+/)[0].toUpperCase()}</text>
+                    <text className="pm-core-end" x={C} y={C + 54} textAnchor="middle">{rate == null ? "No history yet" : `${Math.round(rate * 100)}% kept`}</text>
+                  </g>
+                );
+              })()
+            ) : (
+              <>
+                <circle cx={C} cy={C} r={CORE} fill="url(#cv-glass)" stroke="#ffd86a" strokeWidth={3} />
+                <text className="dt-score" x={C} y={C - 4} textAnchor="middle">{team == null ? n : `${Math.round(team * 100)}%`}</text>
+                <text className="dt-score-sub" x={C} y={C + 26} textAnchor="middle">{team == null ? (n === 1 ? "AGENT" : "AGENTS") : "TEAM KEEP RATE"}</text>
+                {late > 0 && <text className="pm-core-end" x={C} y={C + 50} textAnchor="middle">{`${late} late`}</text>}
+              </>
+            )}
+            {teamSeat && (
+              <g data-tap className="pm-orb pm-plan" role="button" tabIndex={0} aria-label={`Your team: ${n} agents, keeps ${pct(team)}. Back to everyone.`} {...tap(() => open(null))}>
+                <circle className="pm-disc" cx={teamSeat.x} cy={teamSeat.y} r={r} fill="url(#cv-glass)" stroke="#ffd86a" strokeWidth={2.5} />
+                <text className="pm-mark" x={teamSeat.x} y={teamSeat.y} dy="0.36em" textAnchor="middle" fontSize={Math.max(13, r * 0.4)}>{team == null ? n : `${Math.round(team * 100)}%`}</text>
+                <text className="pm-name-l" x={teamSeat.x} y={teamSeat.y + r + 24} textAnchor="middle">Team</text>
+                <text className="pm-time-l" x={teamSeat.x} y={teamSeat.y + r + 42} textAnchor="middle">{late ? `${late} late` : `${n} agents`}</text>
+              </g>
+            )}
 
             {seats.map(({ a, x, y }) => {
               const at = attention(a, hour);
@@ -109,12 +155,7 @@ export default function CoachView({ agents, hour, demo, onClose }: { agents: Coa
                   role="button"
                   tabIndex={0}
                   aria-label={`${a.name}: ${at.words}. Keeps ${pct(rate)}.`}
-                  onClick={() => setPick((p) => (p === a.id ? null : a.id))}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Enter" && e.key !== " ") return;
-                    e.preventDefault();
-                    setPick((p) => (p === a.id ? null : a.id));
-                  }}
+                  {...tap(() => open(a.id))}
                 >
                   {at.level ? <PulseRing r={r} level={at.level} x={x} y={y} /> : null}
                   <circle className="pm-disc" cx={x} cy={y} r={r} fill="url(#cv-glass)" stroke={at.level === "now" ? PULSE_COLOR.now : at.level === "today" ? PULSE_COLOR.today : allOn ? "#3fbf7f" : "rgba(160,175,210,0.45)"} strokeWidth={2.5} />
@@ -130,7 +171,7 @@ export default function CoachView({ agents, hour, demo, onClose }: { agents: Coa
             <button ref={closeRef} onClick={onClose} aria-label="Back to the Brain">←</button>
             <button className="zoom-btn" onClick={() => cam.zoomAt(1.25)} aria-label="Zoom in">+</button>
             <button className="zoom-btn" onClick={() => cam.zoomAt(0.8)} aria-label="Zoom out">−</button>
-            <button onClick={cam.reset} aria-label="Centre on your team">◎</button>
+            <button onClick={cam.reset} aria-label="Back to the middle">◎</button>
           </div>
         </div>
 
@@ -158,7 +199,7 @@ export default function CoachView({ agents, hour, demo, onClose }: { agents: Coa
                   <ul className="pm-list pm-compact">{sel.c.weekend.items.map((i) => <ItemRow key={i.id} i={i} />)}</ul>
                 </>
               ) : null}
-              <button className="vr-classic" onClick={() => setPick(null)}>All agents</button>
+              <button className="vr-classic" onClick={() => open(null)}>All agents</button>
             </>
           ) : (
             <>
@@ -178,7 +219,7 @@ export default function CoachView({ agents, hour, demo, onClose }: { agents: Coa
                         <small>{at.words} · keeps {pct(a.c.keepRate8w)}</small>
                       </span>
                       <span className="pm-acts">
-                        <button onClick={() => setPick(a.id)} aria-label={`Open ${a.name}`}>→</button>
+                        <button onClick={() => open(a.id)} aria-label={`Open ${a.name}`}>→</button>
                       </span>
                     </li>
                   );

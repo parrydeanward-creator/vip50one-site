@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Zoom and pan for a full-window SVG view, the way the Brain map moves:
 // two-finger swipe or pinch zooms around the fingers, dragging the
@@ -10,6 +10,7 @@ export function useSvgCamera(size: number) {
   const c0 = { x: size / 2, y: size / 2, s: 1 };
   const [cam, setCam] = useState(c0);
   const svgRef = useRef<SVGSVGElement>(null);
+  const anim = useRef(0);
   const g = useRef({ pointers: new Map<number, { x: number; y: number }>(), pinch: 0, pan: false, lx: 0, ly: 0 });
 
   const toSvg = (e: { clientX: number; clientY: number }) => {
@@ -18,20 +19,42 @@ export function useSvgCamera(size: number) {
     const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
     return { x: pt.x, y: pt.y };
   };
-  const zoomAt = (factor: number, at?: { x: number; y: number }) =>
+  const zoomAt = (factor: number, at?: { x: number; y: number }) => {
+    cancelAnimationFrame(anim.current);
     setCam((c) => {
       const s2 = Math.min(4, Math.max(0.6, c.s * factor));
       const k = c.s / s2;
       const p = at ?? { x: c.x, y: c.y };
       return { s: s2, x: p.x - (p.x - c.x) * k, y: p.y - (p.y - c.y) * k };
     });
-  const reset = () => setCam(c0);
+  };
+  // Every orb, every view (Parry, 6 Oct, hard rule): the orb clicked glides to the middle and opens in the
+  // side panel. centreOn eases the camera there; reset eases back to the whole view.
+  const now = useRef(cam);
+  now.current = cam;
+  useEffect(() => () => cancelAnimationFrame(anim.current), []);
+  const glide = (to: { x: number; y: number; s: number }) => {
+    cancelAnimationFrame(anim.current);
+    if (typeof window === "undefined" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return setCam(to);
+    const from = now.current;
+    const t0 = performance.now();
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / 420);
+      const e = 1 - Math.pow(1 - k, 3);
+      setCam({ x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e, s: from.s + (to.s - from.s) * e });
+      if (k < 1) anim.current = requestAnimationFrame(step);
+    };
+    anim.current = requestAnimationFrame(step);
+  };
+  const reset = () => glide(c0);
+  const centreOn = (x: number, y: number, zoom = 1.25) => glide({ x, y, s: Math.max(now.current.s, zoom) });
   const viewBox = `${cam.x - size / (2 * cam.s)} ${cam.y - size / (2 * cam.s)} ${size / cam.s} ${size / cam.s}`;
 
   const handlers = {
     onWheel: (e: React.WheelEvent) => zoomAt(Math.exp(-e.deltaY * 0.0015), toSvg(e)),
     onPointerDown: (e: React.PointerEvent) => {
       if ((e.target as Element).closest?.("[data-tap]")) return;
+      cancelAnimationFrame(anim.current);
       const s = g.current;
       s.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
@@ -69,5 +92,5 @@ export function useSvgCamera(size: number) {
       if (!s.pointers.size) s.pan = false;
     },
   };
-  return { svgRef, viewBox, zoomAt, reset, handlers: { ...handlers, onPointerCancel: handlers.onPointerUp } };
+  return { svgRef, viewBox, zoomAt, reset, centreOn, handlers: { ...handlers, onPointerCancel: handlers.onPointerUp } };
 }

@@ -427,12 +427,16 @@ export default function HotWarmCold({
                   setNote(null);
                   setAsking(null);
                   setPick(on ? null : p.id);
+                  if (on) cam.reset();
+                  else cam.centreOn(f.x, f.y);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     setAsking(null);
                     setPick(on ? null : p.id);
+                    if (on) cam.reset();
+                    else cam.centreOn(f.x, f.y);
                   }
                 }}
               >

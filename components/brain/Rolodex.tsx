@@ -215,7 +215,7 @@ export default function Rolodex({
     post("add", { key: b.key }, `${b.name} is in your Rolodex now.`);
   };
 
-  const bizOrb = (b: Biz, s: { r: number }, col: string, style: React.CSSProperties, cut: number, key: string) => {
+  const bizOrb = (b: Biz, s: { r: number; x?: number; y?: number }, col: string, style: React.CSSProperties, cut: number, key: string) => {
     const id = idOf(b);
     const on = pick === id;
     const count = b.kind === "community" ? b.recommended_by.length : 0;
@@ -233,12 +233,16 @@ export default function Rolodex({
           setNote(null);
           setEdit(null);
           setPick(on ? null : id);
+          if (on) cam.reset();
+          else if (s.x != null && s.y != null) cam.centreOn(s.x, s.y);
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
             setEdit(null);
             setPick(on ? null : id);
+            if (on) cam.reset();
+            else if (s.x != null && s.y != null) cam.centreOn(s.x, s.y);
           }
         }}
       >

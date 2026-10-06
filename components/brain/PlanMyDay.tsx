@@ -182,6 +182,17 @@ export default function PlanMyDay({
     edit(items.filter((p) => p.ref !== ref));
     setPick((x) => (x === ref ? null : x));
   };
+  // Every orb (Parry, 6 Oct, hard rule): the one tapped comes to the middle and opens in the side panel.
+  const choose = (ref: string) => {
+    if (pick === ref) {
+      setPick(null);
+      return cam.reset();
+    }
+    setPick(ref);
+    const s = seats.find((x) => x.ref === ref);
+    if (s) cam.centreOn(s.x, s.y);
+    setTimeout(() => document.getElementById(`pm-row-${ref}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
+  };
   const move = (ref: string, dir: -1 | 1) => edit(shift(items, items.findIndex((p) => p.ref === ref), dir));
   const drop = () => {
     if (!drag) return;
@@ -189,7 +200,7 @@ export default function PlanMyDay({
     setDrag(null);
     if (!d.moved) {
       if (d.from === "pool") add(d.ref);
-      else setPick((x) => (x === d.ref ? null : d.ref));
+      else choose(d.ref);
       return;
     }
     const item = byRef.get(d.ref);
@@ -242,7 +253,7 @@ export default function PlanMyDay({
           if (e.key !== "Enter" && e.key !== " ") return;
           e.preventDefault();
           if (kind === "pool") add(p.ref);
-          else setPick((x) => (x === p.ref ? null : p.ref));
+          else choose(p.ref);
         }}
       >
         {p.special ? <circle className="pm-gold-glow" cx={s.x} cy={s.y} r={s.r * 1.9} fill="url(#pm-special)" /> : level && !p.done && kind === "plan" ? <PulseRing r={s.r} level={level} x={s.x} y={s.y} /> : null}
@@ -414,7 +425,7 @@ export default function PlanMyDay({
           {slots.length ? (
             <ol className="pm-list pm-compact">
               {slots.map((x, i) => (
-                <li key={x.ref} className={`${x.done ? "is-done" : ""}${pick === x.ref ? " picked" : ""}`}>
+                <li key={x.ref} id={`pm-row-${x.ref}`} className={`${x.done ? "is-done" : ""}${pick === x.ref ? " picked" : ""}`}>
                   <span className="pm-time">{clock(x.start)}</span>
                   <i className={dot(x)} style={{ background: dotColor(x) }} aria-hidden="true" />
                   <span className="pm-body">
