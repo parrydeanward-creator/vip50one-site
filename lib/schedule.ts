@@ -10,7 +10,7 @@ export interface Busy {
   start: string; // "HH:MM"
   end: string;
   title: string | null; // null when the agent keeps calendar titles private (§3o.1)
-  source: "calendar" | "one_event" | "time_block" | "open_house" | "showing" | "listing_appointment" | "fixed";
+  source: "calendar" | "one_event" | "time_block" | "open_house" | "showing" | "listing_appointment" | "fixed" | "travel";
 }
 
 export type BlockKind = "power_hour" | "texts" | "notes" | "approvals" | "in_person" | "task" | "custom";
@@ -57,7 +57,7 @@ export function freeGaps(hours: DayInput["hours"], busy: Busy[], notBefore?: str
   const hi = toMin(hours.end);
   const taken = busy
     .map((b) => {
-      const pad = b.source === "time_block" || b.source === "fixed" ? 0 : BUFFER;
+      const pad = b.source === "time_block" || b.source === "fixed" || b.source === "travel" ? 0 : BUFFER;
       return [toMin(b.start) - pad, toMin(b.end) + pad] as [number, number];
     })
     .sort((a, b) => a[0] - b[0]);
@@ -240,7 +240,7 @@ export function readBlock(text: string): { title: string; start: string; end: st
 const MOVE_URL = "https://move.vip50one.com";
 export const dayUrl = `${MOVE_URL}/api/brain/day`;
 const KIND_OK: readonly BlockKind[] = ["power_hour", "texts", "notes", "approvals", "in_person", "task", "custom"];
-const SOURCES: readonly Busy["source"][] = ["calendar", "one_event", "time_block", "open_house", "showing", "listing_appointment", "fixed"];
+const SOURCES: readonly Busy["source"][] = ["calendar", "one_event", "time_block", "open_house", "showing", "listing_appointment", "fixed", "travel"];
 const isHM = (t: unknown): t is string => typeof t === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
 
 export interface DayFromMove {

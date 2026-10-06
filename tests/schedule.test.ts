@@ -141,3 +141,65 @@ test("the why stays true: approvals that cannot land before noon do not claim to
   const early = buildDay({ hours: { start: "08:00", end: "17:00" }, busy: [], items: [a] });
   assert.equal(early.blocks[0].why, "Before posting time, so nothing waits on you.");
 });
+
+test("Tell Pulse your day: Parry's own words read into three appointments", async () => {
+  const { readOverview } = await import("../lib/overview.ts");
+  const t = readOverview("Hey Pulse I have a dr apt this morning form 8:00-9:00. I have a one hour meeting with aaron at 11:00 and a lunch apt at 12:30. plan my other duties or tasks around that schedule.");
+  assert.deepEqual(t.map((x) => [x.title, x.start, x.end, x.where]), [
+    ["Doctor's appointment", "08:00", "09:00", "out"],
+    ["Meeting with Aaron", "11:00", "12:00", "unsure"],
+    ["Lunch", "12:30", "13:30", "out"],
+  ]);
+  assert.deepEqual(readOverview("Plan my day around my calls please"), [], "no time: nothing to plan round");
+  assert.deepEqual(readOverview("showing at 2 and a zoom at 4:30 for half an hour").map((x) => [x.start, x.end, x.where]), [["14:00", "14:45", "out"], ["16:30", "17:00", "phone"]]);
+});
+
+test("Pulse asks only what it cannot know, one question at a time", async () => {
+  const { readOverview, nextQuestion } = await import("../lib/overview.ts");
+  const t = readOverview("doctor 8 to 9, meeting with Aaron at 11, lunch at 12:30");
+  const q1 = nextQuestion(t, {})!;
+  assert.equal(q1.text, "Where are you headed after the doctor, and how long is the drive?");
+  const q2 = nextQuestion(t, { t1: { after: { to: "office", min: 30 } } })!;
+  assert.equal(q2.kind, "where", "the meeting: office or out?");
+  const q3 = nextQuestion(t, { t1: { after: { to: "office", min: 30 } }, t2: { where: "out" } })!;
+  assert.equal(q3.options[0].label, "Straight to lunch · 15 min", "half an hour to lunch: going straight comes first");
+  assert.equal(nextQuestion(t, { t1: { after: { to: "office", min: 30 } }, t2: { where: "office" }, t3: { after: { to: "office", min: 15 } } }), null, "a meeting at the office needs no drive");
+});
+
+test("the drives go round the appointments: 8-9 doctor, 9-9:30 drive to the office", async () => {
+  const { readOverview, toldBusy } = await import("../lib/overview.ts");
+  const t = readOverview("doctor 8 to 9, meeting with Aaron at 11, lunch at 12:30");
+  const b = toldBusy(t, { t1: { after: { to: "office", min: 30 } }, t2: { where: "out", after: { to: "next", min: 15 } }, t3: { after: { to: "office", min: 15 } } }, "08:00");
+  assert.deepEqual(b.map((x) => [x.start, x.end, x.title]), [
+    ["08:00", "09:00", "Doctor's appointment"],
+    ["09:00", "09:30", "Drive to the office"],
+    ["10:45", "11:00", "Drive to meeting with Aaron"],
+    ["11:00", "12:00", "Meeting with Aaron"],
+    ["12:00", "12:15", "Drive to lunch"],
+    ["12:30", "13:30", "Lunch"],
+    ["13:30", "13:45", "Drive to the office"],
+  ]);
+});
+
+test("answers in the agent's own words", async () => {
+  const { readReply } = await import("../lib/overview.ts");
+  const after = { id: "t1", kind: "after" as const, text: "", options: [] };
+  assert.deepEqual(readReply(after, "back to the office, about 30 minutes"), { after: { to: "office", min: 30 } });
+  assert.deepEqual(readReply(after, "straight to lunch, fifteen"), null, "words for numbers it cannot read: it asks again");
+  assert.deepEqual(readReply(after, "home, half an hour"), { after: { to: "home", min: 30 } });
+  assert.deepEqual(readReply(after, "I'm done for the day"), { after: { to: "done", min: 0 } });
+  assert.deepEqual(readReply({ ...after, kind: "where" }, "it's on zoom"), { where: "phone" });
+});
+
+test("the 12-hour face: morning on the inner ring, afternoon on the outer, noon splits", async () => {
+  const { faceArcs, faceTimeAt, soundsLikeDay } = await import("../lib/overview.ts");
+  const lunch = faceArcs("11:30", "12:30");
+  assert.equal(lunch.length, 2);
+  assert.deepEqual(lunch.map((x) => x.pm), [false, true]);
+  assert.ok(Math.abs(lunch[1].a1) < 1e-9, "the afternoon half starts at the top");
+  assert.ok(Math.abs(faceArcs("15:00", "16:00")[0].a1 - Math.PI / 2) < 1e-9, "3 o'clock is to the right");
+  assert.equal(faceTimeAt(500, 800, 500, 500, 280), "18:00", "bottom of the outer ring: 6pm");
+  assert.equal(faceTimeAt(500, 750, 500, 500, 280), "06:00", "bottom of the inner ring: 6am");
+  assert.equal(soundsLikeDay("Hey Pulse I have a dr apt from 8-9, plan around that"), true);
+  assert.equal(soundsLikeDay("Who should I call today?"), false);
+});
