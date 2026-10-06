@@ -262,3 +262,29 @@ function dedupe(a: string[]) {
 function clip(t: string, n: number) {
   return t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t;
 }
+
+/** What ONE GO opens for each result (VIP-SUMMARY §3m): its title, the reasons, and where it leads:
+ * the vip_summary item id (`ref`), the ONE MOVE contact, or the item's own https link. */
+export interface AskItem {
+  title: string;
+  reasons: string[];
+  ref: string | null;
+  contact_id: string | null;
+  link: string | null;
+}
+
+export function askItems(ix: GraphIndex, a: AskAnswer): AskItem[] {
+  return a.results.flatMap((r) => {
+    const n = ix.byId.get(r.id);
+    if (!n) return [];
+    return [
+      {
+        title: n.label,
+        reasons: r.reasons.slice(0, 3),
+        ref: n.id.startsWith("live:") ? n.id.slice(5) : null,
+        contact_id: n.contactId ?? null,
+        link: n.href && /^https:\/\//.test(n.href) ? n.href : null,
+      },
+    ];
+  });
+}

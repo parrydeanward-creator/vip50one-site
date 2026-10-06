@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies, headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { cookieDomainFor } from "../host.ts";
 import { MASTER_PUBLISHABLE_KEY, MASTER_URL } from "../master.ts";
 import { firstNameOf, initials, isMember, packageOf, safeImage } from "../live.ts";
@@ -32,6 +33,15 @@ export async function masterClient() {
   });
 }
 
+// ONE GO asks Pulse with its own MASTER session (VIP-SUMMARY §3m): a phone has no browser cookie, so
+// it sends `Authorization: Bearer <access token>`. Same MASTER, same checks, same row-level rules.
+export function bearerClient(token: string) {
+  return createClient(MASTER_URL, MASTER_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
 export interface SignedIn {
   email: string;
   firstName: string;
@@ -49,17 +59,17 @@ export interface Identity {
 }
 
 /** Who is signed in, or null. */
-export async function identity(): Promise<Identity | null> {
-  const sb = await masterClient();
-  const { data } = await sb.auth.getClaims();
+export async function identity(token?: string): Promise<Identity | null> {
+  const sb = token ? bearerClient(token) : await masterClient();
+  const { data } = await sb.auth.getClaims(token);
   const c = data?.claims as { sub?: string; email?: string } | undefined;
   if (!c?.sub || !c.email) return null;
   return { id: c.sub, email: c.email.trim().toLowerCase() };
 }
 
 /** The agent's own profile row, shaped for ONE. */
-export async function profileOf(who: Identity): Promise<SignedIn> {
-  const sb = await masterClient();
+export async function profileOf(who: Identity, token?: string): Promise<SignedIn> {
+  const sb = token ? bearerClient(token) : await masterClient();
   const email = who.email;
   // Own row only (RLS: user_id = auth.uid()); only the columns ONE needs.
   const { data: p } = await sb
