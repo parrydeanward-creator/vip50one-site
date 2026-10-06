@@ -1,0 +1,143 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { batches, buildDay, freeGaps, nextLine, readBlock, toMin } from "../lib/schedule.ts";
+import type { PlanItem } from "../lib/plan.ts";
+
+const it = (ref: string, x: Partial<PlanItem> = {}): PlanItem => ({ ref, product: "move", kind: "call", title: `Call ${ref}`, contactId: null, link: null, minutes: 10, done: false, urgency: "today", ...x });
+const hours = { start: "08:00", end: "17:00" };
+
+test("free time: working hours minus appointments, with 10 minutes either side, and never the past", () => {
+  const g = freeGaps(hours, [{ start: "10:00", end: "11:00", title: null, source: "calendar" }], "08:30");
+  assert.deepEqual(g, [[toMin("08:30"), toMin("09:50")], [toMin("11:10"), toMin("17:00")]]);
+  const own = freeGaps(hours, [{ start: "12:00", end: "13:00", title: "Gym", source: "time_block" }]);
+  assert.deepEqual(own[0], [toMin("08:00"), toMin("12:00")], "no buffer round the agent's own blocks");
+});
+
+test("calls batch into Power Hours of up to 60 minutes, overdue first", () => {
+  const calls = Array.from({ length: 8 }, (_, k) => it(`c${k}`, { urgency: k === 7 ? "alert" : "today" }));
+  const g = batches(calls, [toMin("09:00"), toMin("11:00")]);
+  assert.deepEqual(g.map((x) => [x.kind, x.items.length]), [["power_hour", 6], ["power_hour", 2]]);
+  assert.equal(g[0].items[0].ref, "c7", "the overdue call leads");
+  assert.match(g[0].why, /overdue/);
+});
+
+test("texts, notes and approvals each get one block", () => {
+  const g = batches([it("t1", { kind: "text" }), it("t2", { kind: "text" }), it("n1", { kind: "note", minutes: 5 }), it("a1", { kind: "approval", minutes: 15 })], [540, 660]);
+  assert.deepEqual(g.map((x) => x.kind).sort(), ["approvals", "notes", "texts"]);
+  assert.equal(g.find((x) => x.kind === "texts")!.minutes, 20);
+});
+
+test("the day: Power Hour in the calling window, around the listing appointment, fixed lunch kept", () => {
+  const d = buildDay({
+    hours,
+    busy: [{ start: "09:30", end: "10:30", title: null, source: "listing_appointment" }],
+    items: [it("c1"), it("c2"), it("c3"), it("t1", { kind: "text" }), it("lunch", { kind: "meeting", title: "Lunch with Marcus", minutes: 60, at: "12:30" })],
+    bestCalls: { start: "09:00", end: "11:00" },
+  });
+  const ph = d.blocks.find((b) => b.kind === "power_hour")!;
+  assert.ok(toMin(ph.end) <= toMin("09:20") || toMin(ph.start) >= toMin("10:40"), "never inside the appointment or its buffer");
+  assert.ok(toMin(ph.start) >= toMin("09:00") && toMin(ph.start) <= toMin("11:00"), "in the calling window");
+  assert.ok(d.blocks.some((b) => b.start === "12:30" && b.refs[0] === "lunch"), "the fixed lunch keeps its time");
+  assert.equal(d.later.length, 0);
+});
+
+test("honest load: never more than 85% of the free time; the rest moves to tomorrow with a reason", () => {
+  const many = Array.from({ length: 30 }, (_, k) => it(`x${k}`, { kind: "other", title: `Task ${k}`, minutes: 30 }));
+  const d = buildDay({ hours: { start: "09:00", end: "12:00" }, busy: [], items: many });
+  assert.ok(d.plannedMin <= d.freeMin * 0.85);
+  assert.ok(d.later.length > 0);
+  assert.match(d.later[0].why, /full|gap/);
+});
+
+test("Now and Next", () => {
+  const blocks = [
+    { id: "a", start: "09:00", end: "10:00", kind: "power_hour" as const, title: "Power Hour: 6 calls", refs: [], why: "", done: false },
+    { id: "b", start: "13:00", end: "13:20", kind: "texts" as const, title: "Texts", refs: [], why: "", done: false },
+  ];
+  assert.equal(nextLine(blocks, "09:15"), "Now: Power Hour: 6 calls (until 10:00am)");
+  assert.equal(nextLine(blocks, "12:48"), "Next: Texts in 12 min");
+  assert.equal(nextLine(blocks, "11:00"), "Next: Texts at 1:00pm");
+  assert.equal(nextLine(blocks, "14:00"), null);
+});
+
+test("a block in plain words", () => {
+  assert.deepEqual(readBlock("Gym 6 to 7 every weekday"), { title: "Gym", start: "06:00", end: "07:00", repeat: "weekdays" });
+  assert.deepEqual(readBlock("Lunch with Marcus 12:30"), { title: "Lunch with Marcus", start: "12:30", end: "13:30", repeat: "none" });
+  assert.deepEqual(readBlock("School pickup 3:15-3:45 every day"), { title: "School pickup", start: "15:15", end: "15:45", repeat: "daily" });
+  assert.deepEqual(readBlock("Team meeting 9am-10am"), { title: "Team meeting", start: "09:00", end: "10:00", repeat: "none" });
+  assert.equal(readBlock("call mom"), null);
+});
+
+test("the chime rings five minutes before and at the start, once each, never for done blocks", async () => {
+  const { dueChimes } = await import("../lib/chime.ts");
+  const b = [{ id: "a", start: "09:00", done: false }, { id: "b", start: "09:03", done: true }];
+  assert.deepEqual(dueChimes(b, 8 * 60 + 56, new Set()).map((x) => x.key), ["a:soon"]);
+  assert.deepEqual(dueChimes(b, 8 * 60 + 57, new Set(["a:soon"])), []);
+  assert.deepEqual(dueChimes(b, 9 * 60, new Set(["a:soon"])).map((x) => x.key), ["a:start"]);
+});
+
+test("reading §3o.2: checked rows only, titles kept private when null, sorted", async () => {
+  const { readDay } = await import("../lib/schedule.ts");
+  const d = readDay({
+    date: "2026-10-06",
+    hours: { start: "07:30", end: "18:00" },
+    busy: [{ start: "10:00", end: "11:00", source: "calendar", title: null }, { start: "12:00", end: "11:00" }, { start: "14:00", end: "14:45", source: "showing", title: "Showing" }],
+    blocks: [{ id: "b2", start: "13:00", end: "13:20", kind: "texts", title: "Texts", refs: ["x"], why: "One sitting.", done: false, moved_from: "09:00" }, { id: "b1", start: "08:00", end: "09:00", kind: "dance", title: "Calls", refs: [1, "a"] }, { id: "bad" }],
+    approved_at: null,
+  });
+  assert.ok(d);
+  assert.deepEqual(d!.hours, { start: "07:30", end: "18:00" });
+  assert.equal(d!.busy.length, 2, "an end before its start is dropped");
+  assert.equal(d!.busy[0].title, null);
+  assert.deepEqual(d!.blocks.map((b) => b.id), ["b1", "b2"]);
+  assert.equal(d!.blocks[0].kind, "task", "an unknown kind is a task");
+  assert.deepEqual(d!.blocks[0].refs, ["a"]);
+  assert.equal(d!.blocks[1].movedFrom, "09:00");
+  assert.equal(readDay({ hours: {} }), null);
+  assert.deepEqual(readDay({ date: "2026-10-06", hours: { start: "18:00", end: "08:00" } })!.hours, { start: "08:00", end: "17:30" }, "nonsense hours fall back");
+});
+
+test("the agent's own blocks: one-offs on their day, weekday ones Monday to Friday from the day set", async () => {
+  const { customsOn } = await import("../lib/schedule.ts");
+  const all = [
+    { id: "1", title: "Lunch", start: "12:30", end: "13:30", repeat: "none" as const, date: "2026-10-06" },
+    { id: "2", title: "Gym", start: "06:00", end: "07:00", repeat: "weekdays" as const, date: "2026-10-06" },
+    { id: "3", title: "Walk", start: "18:00", end: "18:30", repeat: "daily" as const, date: "2026-10-07" },
+  ];
+  assert.deepEqual(customsOn(all, "2026-10-06").map((c) => c.id), ["1", "2"]);
+  assert.deepEqual(customsOn(all, "2026-10-10").map((c) => c.id), ["3"], "Saturday: no gym");
+  assert.deepEqual(customsOn(all, "2026-10-05").map((c) => c.id), [], "nothing before it was set");
+});
+
+test("a block the agent adds is planned round, like an appointment", async () => {
+  const { buildDay, customItem } = await import("../lib/schedule.ts");
+  const lunch = customItem({ id: "l", title: "Lunch with Marcus", start: "12:30", end: "13:30", repeat: "none" });
+  assert.equal(lunch.minutes, 60);
+  const out = buildDay({ hours: { start: "12:00", end: "14:00" }, busy: [], items: [lunch, { ...lunch, ref: "t", at: null, title: "Write the CMA", kind: "other", minutes: 45 }] });
+  const lb = out.blocks.find((b) => b.refs[0] === "blk:l")!;
+  assert.deepEqual([lb.start, lb.end], ["12:30", "13:30"]);
+  assert.ok(out.later.some((x) => x.item.ref === "t"), "45 minutes does not fit in the half hours round lunch");
+});
+
+test("the clock face: the working day once round, a tap reads to the quarter hour", async () => {
+  const { angleOf, timeAtPoint, hm, dayPutBody } = await import("../lib/schedule.ts");
+  const hours = { start: "08:00", end: "18:00" };
+  assert.equal(angleOf("08:00", hours), 0);
+  assert.ok(Math.abs(angleOf("13:00", hours) - Math.PI) < 1e-9, "half the day is the bottom");
+  assert.equal(timeAtPoint(500, 800, 500, 500, hours), "13:00");
+  assert.equal(timeAtPoint(800, 500, 500, 500, hours), "10:30", "a quarter round");
+  assert.equal(hm(210), "3h 30m");
+  assert.equal(hm(45), "45m");
+  assert.equal(hm(120), "2h");
+  const b = dayPutBody("2026-10-06", [{ id: "x", start: "08:00", end: "09:00", kind: "power_hour", title: "P", refs: ["a"], why: "w", done: false }]);
+  assert.deepEqual(Object.keys(b.blocks[0]).sort(), ["end", "kind", "refs", "start", "title"]);
+});
+
+test("the why stays true: approvals that cannot land before noon do not claim to", async () => {
+  const { buildDay } = await import("../lib/schedule.ts");
+  const a = { ref: "ap", product: "marquee" as const, kind: "approval" as const, title: "Approve 5 posts", contactId: null, link: null, minutes: 15, done: false };
+  const late = buildDay({ hours: { start: "08:00", end: "17:00" }, busy: [], items: [a], notBefore: "12:30" });
+  assert.equal(late.blocks[0].why, "Posts wait on your approval: first free time today.");
+  const early = buildDay({ hours: { start: "08:00", end: "17:00" }, busy: [], items: [a] });
+  assert.equal(early.blocks[0].why, "Before posting time, so nothing waits on you.");
+});
