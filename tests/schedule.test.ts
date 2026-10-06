@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { batches, blockHue, buildDay, busyHue, freeGaps, HUE, nextLine, readBlock, toMin } from "../lib/schedule.ts";
+import { batches, blockHue, buildDay, busyHue, categoryHue, readDay, freeGaps, HUE, nextLine, readBlock, toMin } from "../lib/schedule.ts";
 import type { PlanItem } from "../lib/plan.ts";
 
 const it = (ref: string, x: Partial<PlanItem> = {}): PlanItem => ({ ref, product: "move", kind: "call", title: `Call ${ref}`, contactId: null, link: null, minutes: 10, done: false, urgency: "today", ...x });
@@ -77,7 +77,7 @@ test("the chime rings five minutes before and at the start, once each, never for
 });
 
 test("reading §3o.2: checked rows only, titles kept private when null, sorted", async () => {
-  const { readDay } = await import("../lib/schedule.ts");
+
   const d = readDay({
     date: "2026-10-06",
     hours: { start: "07:30", end: "18:00" },
@@ -205,7 +205,7 @@ test("the 12-hour face: morning on the inner ring, afternoon on the outer, noon 
 });
 
 test("ONE MOVE's live day: told appointments, drives and other calendars come back as busy", async () => {
-  const { readDay } = await import("../lib/schedule.ts");
+
   const d = readDay({
     date: "2026-10-06",
     hours: { start: "08:00", end: "17:30" },
@@ -254,4 +254,20 @@ test("colour by kind: work by block kind, appointments by their words", () => {
   assert.equal(busyHue({ source: "fixed", title: "Luxury Agency" }), "meeting");
   assert.equal(busyHue({ source: "calendar", title: null }), "busy");
   for (const h of Object.values(HUE)) assert.match(h.color, /^#[0-9a-f]{6}$/);
+});
+
+test("colour by MOVE/GO category first, then the words", () => {
+  assert.equal(categoryHue("revenue"), "calls");
+  assert.equal(categoryHue("Travel"), "drive");
+  assert.equal(categoryHue("nope"), null);
+  assert.equal(busyHue({ source: "time_block", title: "Client & Pipeline Work", category: "clients" }), "client");
+  assert.equal(busyHue({ source: "time_block", title: "Admin & CRM Update", category: "admin" }), "tasks");
+  assert.equal(busyHue({ source: "time_block", title: "Lunch", category: "personal" }), "meal");
+  assert.equal(busyHue({ source: "time_block", title: "exercise", category: "personal" }), "personal");
+  assert.equal(busyHue({ source: "fixed", title: "Team meeting", category: "Appointment" }), "meeting");
+});
+
+test("the day from MOVE keeps each busy item's category", () => {
+  const d = readDay({ date: "2026-10-06", busy: [{ start: "09:00", end: "10:00", title: "Calls (2)", source: "time_block", category: "revenue" }] });
+  assert.equal(d?.busy[0].category, "revenue");
 });

@@ -11,6 +11,7 @@ export interface Busy {
   end: string;
   title: string | null; // null when the agent keeps calendar titles private (§3o.1)
   source: "calendar" | "one_event" | "time_block" | "open_house" | "showing" | "listing_appointment" | "fixed" | "travel";
+  category?: string | null; // ONE MOVE / ONE GO category (§3o.1 v1.27 "Colours"), so the colour matches theirs
 }
 
 export type BlockKind = "power_hour" | "texts" | "notes" | "approvals" | "in_person" | "task" | "custom";
@@ -261,7 +262,13 @@ export function readDay(j: unknown): DayFromMove | null {
   const busy: Busy[] = [];
   for (const b of Array.isArray(r.busy) ? (r.busy as Record<string, unknown>[]) : []) {
     if (!b || !isHM(b.start) || !isHM(b.end) || b.end <= b.start) continue;
-    busy.push({ start: b.start, end: b.end, title: typeof b.title === "string" && b.title.trim() ? b.title.slice(0, 80) : null, source: SOURCES.includes(b.source as Busy["source"]) ? (b.source as Busy["source"]) : "calendar" });
+    busy.push({
+      start: b.start,
+      end: b.end,
+      title: typeof b.title === "string" && b.title.trim() ? b.title.slice(0, 80) : null,
+      source: SOURCES.includes(b.source as Busy["source"]) ? (b.source as Busy["source"]) : "calendar",
+      category: typeof b.category === "string" && b.category.trim() ? b.category.trim().slice(0, 40) : null,
+    });
   }
   const blocks: DayFromMove["blocks"] = [];
   for (const b of Array.isArray(r.blocks) ? (r.blocks as Record<string, unknown>[]) : []) {
@@ -370,8 +377,22 @@ export function titleHue(title: string | null | undefined): Hue | null {
   return null;
 }
 
-export function busyHue(b: Pick<Busy, "source" | "title">): Hue {
+/** ONE MOVE and ONE GO categories (§3o.1 v1.27 table). A category says what an item is before its words do. */
+const CATEGORY_HUE: Record<string, Hue> = {
+  revenue: "calls", calls: "calls", texts: "texts", notes: "notes", approvals: "approvals",
+  face_to_face: "people", "face-to-face": "people", drop_by: "people",
+  admin: "tasks", task: "tasks", tasks: "tasks",
+  clients: "client", client: "client", showing: "client", listing: "client", open_house: "client",
+  team: "meeting", business: "meeting", meeting: "meeting",
+  meal: "meal", personal: "personal", travel: "drive",
+};
+export const categoryHue = (c: string | null | undefined): Hue | null => (c ? CATEGORY_HUE[c.trim().toLowerCase().replace(/\s+/g, "_")] ?? null : null);
+
+export function busyHue(b: Pick<Busy, "source" | "title"> & { category?: string | null }): Hue {
   if (b.source === "travel") return "drive";
   if (b.source === "showing" || b.source === "open_house" || b.source === "listing_appointment") return "client";
+  const c = categoryHue(b.category);
+  // A personal category still reads as a meal when the words say lunch ("Lunch" is filed under personal).
+  if (c && !(c === "personal" && titleHue(b.title) === "meal")) return c;
   return titleHue(b.title) ?? (b.source === "fixed" || b.source === "one_event" ? "meeting" : "busy");
 }
