@@ -262,7 +262,7 @@ test("colour by MOVE/GO category first, then the words", () => {
   assert.equal(categoryHue("nope"), null);
   assert.equal(busyHue({ source: "time_block", title: "Client & Pipeline Work", category: "clients" }), "client");
   assert.equal(busyHue({ source: "time_block", title: "Admin & CRM Update", category: "admin" }), "tasks");
-  assert.equal(busyHue({ source: "time_block", title: "Lunch", category: "personal" }), "meal");
+  assert.equal(busyHue({ source: "time_block", title: "Lunch", category: "personal" }), "personal"); // as MASTER calendar_color decides
   assert.equal(busyHue({ source: "time_block", title: "exercise", category: "personal" }), "personal");
   assert.equal(busyHue({ source: "fixed", title: "Team meeting", category: "Appointment" }), "meeting");
 });
@@ -270,4 +270,12 @@ test("colour by MOVE/GO category first, then the words", () => {
 test("the day from MOVE keeps each busy item's category", () => {
   const d = readDay({ date: "2026-10-06", busy: [{ start: "09:00", end: "10:00", title: "Calls (2)", source: "time_block", category: "revenue" }] });
   assert.equal(d?.busy[0].category, "revenue");
+});
+
+test("a colour key from MASTER's day feed is final, so all three apps match", () => {
+  assert.equal(busyHue({ source: "time_block", title: "Lunch", category: "personal" }), "personal"); // as MASTER calendar_color decides
+  assert.equal(busyHue({ source: "time_block", title: "Lunch", category: "meal" }), "meal");
+  assert.equal(busyHue({ source: "time_block", title: "Coffee with Jen", category: "people" }), "people");
+  assert.equal(busyHue({ source: "fixed", title: "Anything", category: "busy" }), "busy");
+  assert.equal(busyHue({ source: "time_block", title: "Drive", category: "drive" }), "drive");
 });

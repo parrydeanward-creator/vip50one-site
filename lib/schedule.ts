@@ -387,12 +387,14 @@ const CATEGORY_HUE: Record<string, Hue> = {
   meal: "meal", personal: "personal", travel: "drive",
 };
 export const categoryHue = (c: string | null | undefined): Hue | null => (c ? CATEGORY_HUE[c.trim().toLowerCase().replace(/\s+/g, "_")] ?? null : null);
+// The day feed sends MASTER's own decision as a colour key (`calendar_color`, vip50-web-crm#83); it is final.
+const isHue = (c: string | null | undefined): c is Hue => !!c && Object.prototype.hasOwnProperty.call(HUE, c);
 
 export function busyHue(b: Pick<Busy, "source" | "title"> & { category?: string | null }): Hue {
   if (b.source === "travel") return "drive";
   if (b.source === "showing" || b.source === "open_house" || b.source === "listing_appointment") return "client";
+  if (isHue(b.category)) return b.category;
   const c = categoryHue(b.category);
-  // A personal category still reads as a meal when the words say lunch ("Lunch" is filed under personal).
-  if (c && !(c === "personal" && titleHue(b.title) === "meal")) return c;
+  if (c) return c;
   return titleHue(b.title) ?? (b.source === "fixed" || b.source === "one_event" ? "meeting" : "busy");
 }
