@@ -39,6 +39,8 @@ import { chimeOn, dueChimes, notify, playChime, unlockChime } from "@/lib/chime.
 import { nextLine, toMin, toTime } from "@/lib/schedule.ts";
 import { soundsLikeDay } from "@/lib/overview.ts";
 import CommitmentsView from "./CommitmentsView.tsx";
+import CoachView from "./CoachView.tsx";
+import { COACH_NODE, coachedUrl, demoCoached, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
 import { WEEK_NODE, commitmentsUrl, demoCommitments, readCommitments, withWeekNode, type Commitments } from "@/lib/commitments.ts";
 import { PLAN_NODE, planKey, planUrl, readPlan, timed, withPlanNode, type Plan } from "@/lib/plan.ts";
 import { todayIn } from "@/lib/hwc.ts";
@@ -78,6 +80,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const plannedRef = useRef<Plan | null>(null);
   // ONE YOU's "This week" orb follows the agent's commitments (Parry, 6 Oct; VIP-SUMMARY §3n).
   const commitRef = useRef<Commitments | null>(null);
+  // ONE YOU's Coaching orb, for coaches only (§3n.4).
+  const coachRef = useRef<Coached[] | null>(null);
   const [graph, setGraph] = useState(() => withPlanNode(initialGraph, null));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
@@ -86,7 +90,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour());
+    const next = withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour());
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -266,6 +270,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     commitRef.current = commitments;
     setGraph((g) => withWeekNode(g, commitments, denverHour()));
   }, [commitments]);
+  const [coached, setCoached] = useState<Coached[] | null>(null);
+  const [coachOpen, setCoachOpen] = useState(false);
+  useEffect(() => {
+    if (!live) return setCoached(demoCoached(todayIn()));
+    fetch(coachedUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null)) // 403 for anyone who coaches nobody: no Coaching orb
+      .then((j) => setCoached(j ? readCoached(j, todayIn()) : null))
+      .catch(() => {});
+  }, [live]);
+  useEffect(() => {
+    coachRef.current = coached;
+    setGraph((g) => withCoachNode(g, coached, denverHour()));
+  }, [coached]);
   // The Day Clock (§3o.9): the day planned round the calendar; Your day lists its blocks in time order.
   const [clockOpen, setClockOpen] = useState(false);
   const [tellText, setTellText] = useState<string | undefined>(undefined);
@@ -966,6 +983,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (ask) return id === graph.rootId ? goHome() : goTo(id);
     if (id === PLAN_NODE) return setClockOpen(true);
     if (id === WEEK_NODE) return setCmOpen(true);
+    if (id === COACH_NODE) return setCoachOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
   };
@@ -1617,6 +1635,16 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </div>
           )}
 
+          {focus.id === COACH_NODE && !tour && (
+            <button className="pi-film pm-open" onClick={() => setCoachOpen(true)}>
+              <span className="pi-play" aria-hidden="true">☰</span>
+              <span>
+                <b>Open coaching</b>
+                <span>Each agent you coach: their week, their check-ins and how many they keep.</span>
+              </span>
+            </button>
+          )}
+
           {(focus.type === "core" || focus.id === "go") && !tour && (
             <button className="pi-film pm-open" onClick={() => setClockOpen(true)}>
               <span className="pi-play" aria-hidden="true">☰</span>
@@ -1940,6 +1968,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         />
       )}
       {oneFilm && <SignalsFilm film={ONE_FILM} onClose={() => setOneFilm(false)} />}
+      {coachOpen && coached?.length ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} /> : null}
       {cmOpen && commitments && (
         <CommitmentsView initial={commitments} live={live} hour={denverHour()} onClose={() => setCmOpen(false)} onChanged={setCommitments} />
       )}
