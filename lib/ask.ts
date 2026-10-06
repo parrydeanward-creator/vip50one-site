@@ -283,7 +283,8 @@ export function askItems(ix: GraphIndex, a: AskAnswer): AskItem[] {
         reasons: r.reasons.slice(0, 3),
         ref: n.id.startsWith("live:") ? n.id.slice(5) : null,
         contact_id: n.contactId ?? null,
-        link: n.href && /^https:\/\//.test(n.href) ? n.href : null,
+        // a person opens their own contact, never a general page
+        link: n.contactId ? `https://move.vip50one.com/contacts/${n.contactId}` : n.href && /^https:\/\//.test(n.href) ? n.href : null,
       },
     ];
   });

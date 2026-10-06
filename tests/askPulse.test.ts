@@ -36,6 +36,6 @@ test("§3m items: what the phone can open for each result, only real nodes", () 
     ],
   });
   assert.equal(items.length, 2, "an id that is not in the graph is dropped");
-  assert.deepEqual(items[0], { title: "Sarah Mitchell", reasons: ["Follow-up 3 days late.", "On your VIP-50.", "Birthday soon."], ref: "go:task:11111111-1111-4111-8111-111111111111", contact_id: "22222222-2222-4222-8222-222222222222", link: "https://move.vip50one.com/contacts?id=2" });
+  assert.deepEqual(items[0], { title: "Sarah Mitchell", reasons: ["Follow-up 3 days late.", "On your VIP-50.", "Birthday soon."], ref: "go:task:11111111-1111-4111-8111-111111111111", contact_id: "22222222-2222-4222-8222-222222222222", link: "https://move.vip50one.com/contacts/22222222-2222-4222-8222-222222222222" }, "a person links to their own contact (Parry, 6 Oct), not the item's general page");
   assert.deepEqual(items[1], { title: "ONE MOVE", reasons: [], ref: null, contact_id: null, link: null }, "only https links");
 });

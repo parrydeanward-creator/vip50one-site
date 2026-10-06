@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
@@ -35,7 +36,11 @@ Rules:
 const cache = new Map<string, AskAnswer>();
 
 export async function askOne(question: string, ix: GraphIndex, cacheKey: string): Promise<AskAnswer> {
-  const key = `${cacheKey}|${question.trim().toLowerCase()}`;
+  // The answer is kept only while the agent's data is the same (Parry, 6 Oct: "pulse needs to see everything
+  // and recognize that I already did what it suggested"): a touch logged or a task done changes the graph,
+  // so the next ask is answered fresh.
+  const graph = describeGraph(ix);
+  const key = `${cacheKey}|${question.trim().toLowerCase()}|${createHash("sha256").update(graph).digest("hex").slice(0, 16)}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
@@ -50,7 +55,7 @@ export async function askOne(question: string, ix: GraphIndex, cacheKey: string)
       fallbacks: "default",
       output_config: { effort: "low", format: betaZodOutputFormat(AnswerSchema) },
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: `Question: ${question}\n\n${describeGraph(ix)}` }],
+      messages: [{ role: "user", content: `Question: ${question}\n\n${graph}` }],
     });
     const parsed = response.parsed_output;
     if (response.stop_reason === "refusal" || !parsed) {
