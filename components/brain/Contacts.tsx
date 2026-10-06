@@ -49,7 +49,9 @@ export default function Contacts({
   onBack,
   onClassic,
   celebrate = [],
+  openId = null,
 }: {
+  openId?: { id: string; k: number } | null; // open this person on arrival ("Go to" elsewhere in the Brain)
   onUnavailable: () => void;
   onChanged: () => void;
   onBack: () => void;
@@ -137,6 +139,10 @@ export default function Contacts({
     cam.reset();
     drawerRef.current?.scrollTo({ top: 0 });
   }, [cam]);
+  useEffect(() => {
+    if (openId) openPerson(openId.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId]);
 
   const openGroup = (key: string) => {
     setPerson(null);
