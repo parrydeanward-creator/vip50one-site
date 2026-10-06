@@ -19,6 +19,13 @@ test("Pulse suggests: red first, then special days, then yellow; the products' o
   assert.deepEqual(out.map((p) => p.ref), ["b", "f", "c", "a", "e"]);
 });
 
+test("never more than 15 tasks shown at once (Parry, 6 Oct): the 15 most urgent", () => {
+  const many = [...Array.from({ length: 20 }, (_, i) => d(`y${i}`)), ...Array.from({ length: 5 }, (_, i) => d(`r${i}`, { urgency: "alert" }))];
+  const s = suggest(many);
+  assert.equal(s.length, 15);
+  assert.deepEqual(s.slice(0, 5).map((p) => p.ref), ["r0", "r1", "r2", "r3", "r4"], "every red one is kept");
+});
+
 test("the same thing twice is offered once", () => {
   assert.equal(suggest([d("a"), d("a")]).length, 1);
 });
@@ -47,7 +54,7 @@ test("move up and down; out of range changes nothing", () => {
   assert.deepEqual(shift([1, 2, 3], 2, 1), [1, 2, 3]);
 });
 
-test("the §3l.2 body: only what MASTER keeps, https links only, titles cut, at most 25", () => {
+test("the §3l.2 body: only what MASTER keeps, https links only, titles cut, at most 15", () => {
   const items = suggest([d("a", { link: "javascript:alert(1)", what: "x".repeat(200), contactId: "c1" })]);
   const b = putBody({ start: "9:00", items });
   assert.equal(b.start, "08:00", "a bad start time falls back");
