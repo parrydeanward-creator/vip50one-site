@@ -39,7 +39,11 @@ import { chimeOn, dueChimes, notify, playChime, unlockChime } from "@/lib/chime.
 import { nextLine, toMin, toTime } from "@/lib/schedule.ts";
 import { soundsLikeDay } from "@/lib/overview.ts";
 import CommitmentsView from "./CommitmentsView.tsx";
+import ReviewView from "./ReviewView.tsx";
 import CoachView from "./CoachView.tsx";
+import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
+import { dailyUrl, readDaily } from "@/lib/daily.ts";
+import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
 import { COACH_NODE, coachedUrl, demoCoached, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
 import { WEEK_NODE, commitmentsUrl, demoCommitments, readCommitments, withWeekNode, type Commitments } from "@/lib/commitments.ts";
 import { PLAN_NODE, planKey, planUrl, readPlan, timed, withPlanNode, type Plan } from "@/lib/plan.ts";
@@ -82,6 +86,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const commitRef = useRef<Commitments | null>(null);
   // ONE YOU's Coaching orb, for coaches only (§3n.4).
   const coachRef = useRef<Coached[] | null>(null);
+  // ONE YOU's Weekly Review orb (PULSE-ROADMAP "ONE YOU"): pulses when part of the week needs the agent.
+  const reviewRef = useRef<Review | null>(null);
   const [graph, setGraph] = useState(() => withPlanNode(initialGraph, null));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
@@ -90,7 +96,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour());
+    const next = withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -283,6 +289,31 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     coachRef.current = coached;
     setGraph((g) => withCoachNode(g, coached, denverHour()));
   }, [coached]);
+  // Weekly Review: the week's score (ONE MOVE's daily feed), the VIP-50 roster, commitments and goals.
+  const [weekScore, setWeekScore] = useState<{ score: number; minimum: number } | null>(null);
+  const [roster, setRoster] = useState<VipRoster | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  useEffect(() => {
+    if (!live) {
+      setWeekScore({ score: 82, minimum: 100 });
+      setRoster(demoRoster());
+      return;
+    }
+    const get = (u: string) => fetch(u, { credentials: "include", cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    get(dailyUrl).then((j) => setWeekScore(readDaily(j)?.week ?? null));
+    get(vipsUrl).then((j) => setRoster(j ? readRoster(j) : null));
+  }, [live]);
+  // Keyed by content: adding the review orb changes graph.nodes, and must not rebuild the review again.
+  const goalKey = JSON.stringify(goalsFromGraph(graph.nodes));
+  const goalNodes = useMemo(() => JSON.parse(goalKey) as ReturnType<typeof goalsFromGraph>, [goalKey]);
+  const theReview = useMemo(
+    () => (weekScore || roster || commitments || goalNodes.length ? buildReview({ today: todayIn(), week: weekScore, roster, commitments, goals: goalNodes }) : null),
+    [weekScore, roster, commitments, goalNodes],
+  );
+  useEffect(() => {
+    reviewRef.current = theReview;
+    setGraph((g) => withReviewNode(g, theReview));
+  }, [theReview]);
   // The Day Clock (§3o.9): the day planned round the calendar; Your day lists its blocks in time order.
   const [clockOpen, setClockOpen] = useState(false);
   const [tellText, setTellText] = useState<string | undefined>(undefined);
@@ -984,6 +1015,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === PLAN_NODE) return setClockOpen(true);
     if (id === WEEK_NODE) return setCmOpen(true);
     if (id === COACH_NODE) return setCoachOpen(true);
+    if (id === REVIEW_NODE) return setReviewOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
   };
@@ -1635,6 +1667,16 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </div>
           )}
 
+          {focus.id === REVIEW_NODE && theReview && !tour && (
+            <button className="pi-film pm-open" onClick={() => setReviewOpen(true)}>
+              <span className="pi-play" aria-hidden="true">☰</span>
+              <span>
+                <b>Open Weekly Review</b>
+                <span>Your score, VIP touches, who you haven&apos;t reached, commitments, goals, and three things for next week.</span>
+              </span>
+            </button>
+          )}
+
           {focus.id === COACH_NODE && !tour && (
             <button className="pi-film pm-open" onClick={() => setCoachOpen(true)}>
               <span className="pi-play" aria-hidden="true">☰</span>
@@ -1968,6 +2010,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         />
       )}
       {oneFilm && <SignalsFilm film={ONE_FILM} onClose={() => setOneFilm(false)} />}
+      {reviewOpen && theReview ? <ReviewView review={theReview} week={weekScore} demo={!live} onClose={() => setReviewOpen(false)} /> : null}
       {coachOpen && coached?.length ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} /> : null}
       {cmOpen && commitments && (
         <CommitmentsView initial={commitments} live={live} hour={denverHour()} onClose={() => setCmOpen(false)} onChanged={setCommitments} />
