@@ -47,7 +47,7 @@ export interface Day {
   fromMove: boolean;
   customs: Custom[];
   told: TellState | null;
-  tell: (t: TellState | null) => void;
+  tell: (t: TellState | null) => Promise<string | null>; // a note for the agent when the save goes somewhere other than their calendar
   addBlock: (c: Omit<Custom, "id">) => Promise<string>;
   removeBlock: (id: string) => void;
   approve: () => Promise<string>;
@@ -71,17 +71,22 @@ export function useDay({ today, planned, live, doneRefs, onPlan }: { today: DayI
   const [approved, setApproved] = useState<{ at: string; blocks: Block[]; freeMin?: number; plannedMin?: number } | null>(null);
   const [move, setMove] = useState<ReturnType<typeof readDay>>(null);
   const [told, setTold] = useState<TellState | null>(null);
+  // ONE MOVE's day (§3o.2): working hours, busy times from the calendar of record and the agent's other
+  // calendars, and what they told Pulse, saved. Until it answers, the Brain plans the day itself.
+  const loadDay = useCallback(() => {
+    fetch(`${dayUrl}?date=${date}`, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setMove(readDay(j)))
+      .catch(() => {});
+  }, [date]);
   useEffect(() => {
     setStored(readLocal<Stored[]>(customKey, []));
     const t = readLocal<TellState | null>(toldKey(date), null);
     if (t && Array.isArray(t.items)) setTold(t);
     const a = readLocal<{ at: string; blocks: Block[]; freeMin?: number; plannedMin?: number } | null>(approvedKey(date), null);
     if (a && Array.isArray(a.blocks)) setApproved(a);
-    if (!live) return;
-    fetch(`${dayUrl}?date=${date}`, { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => setMove(readDay(j)))
-      .catch(() => {}); // ONE MOVE's day route is not live yet: the Brain plans the day itself
+    if (live) loadDay();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, live]);
 
   const customs = useMemo(() => customsOn(stored, date), [stored, date]);
@@ -98,8 +103,11 @@ export function useDay({ today, planned, live, doneRefs, onPlan }: { today: DayI
   const busy = useMemo(() => {
     const cal = move ? move.busy : live ? [] : told?.items.length ? [] : DEMO_BUSY;
     if (!told?.items.length) return cal;
+    // what this browser holds of the told day wins over ONE MOVE's saved copy of it (the same blocks), so
+    // nothing shows twice; another device's told day still shows from ONE MOVE
+    const fromMove = cal.filter((b) => b.source !== "fixed" && b.source !== "travel");
     const mine = toldBusy(told.items, told.answers, hours.start);
-    return [...cal.filter((b) => !told.items.some((t) => t.start === b.start)), ...mine].sort((a, b) => toMin(a.start) - toMin(b.start));
+    return [...fromMove.filter((b) => !told.items.some((t) => t.start === b.start)), ...mine].sort((a, b) => toMin(a.start) - toMin(b.start));
   }, [move, live, told, hours.start]);
   const isDone = useCallback((b: Block) => b.done || (b.refs.length > 0 && b.refs.every((r) => doneRefs.has(r))), [doneRefs]);
 
@@ -135,18 +143,27 @@ export function useDay({ today, planned, live, doneRefs, onPlan }: { today: DayI
     } catch {}
   };
 
-  const tell = (t: TellState | null) => {
+  const tell = async (t: TellState | null): Promise<string | null> => {
     setTold(t);
     unapprove();
     try {
       if (t) localStorage.setItem(toldKey(date), JSON.stringify(t));
       else localStorage.removeItem(toldKey(date));
     } catch {}
-    if (!live || !t) return;
+    if (!live) return null;
     // the appointments and drives go to the calendar of record (§3o.14); MASTER skips any that match a
-    // calendar time already there
-    const blocks = toldBusy(t.items, t.answers, hours.start).map((b) => ({ start: b.start, end: b.end, kind: b.source === "travel" ? "travel" : "appointment", title: b.title }));
-    fetch(`${dayUrl}/told`, { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date, text: t.text.slice(0, 600), blocks }) }).catch(() => {});
+    // calendar time already there. Clearing sends no blocks, which clears that day's told blocks.
+    const blocks = t ? toldBusy(t.items, t.answers, hours.start).map((b) => ({ start: b.start, end: b.end, kind: b.source === "travel" ? "travel" : "appointment", title: b.title })) : [];
+    try {
+      const r = await fetch(`${dayUrl}/told`, { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date, text: (t?.text ?? "").slice(0, 600), blocks }) });
+      const j = (await r.json().catch(() => null)) as { ok?: boolean; skipped?: unknown[] } | null;
+      if (!r.ok || !j?.ok) return "Kept on this computer. ONE didn't save it to your calendar this time; it tries again when you change your day.";
+      loadDay();
+      const skipped = Array.isArray(j.skipped) ? j.skipped.length : 0;
+      return t ? `Saved to your calendar${skipped ? ` (${skipped} already there)` : ""}.` : null;
+    } catch {
+      return "Kept on this computer. ONE couldn't reach your calendar; it tries again when you change your day.";
+    }
   };
 
   const addBlock = async (c: Omit<Custom, "id">): Promise<string> => {
