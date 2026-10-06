@@ -337,3 +337,41 @@ export function hm(min: number): string {
 export function denverNow(now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-GB", { timeZone: "America/Denver", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(now);
 }
+
+// Colour by kind (Parry, 6 Oct: "color code items being added to the calendar so it is not so boring"). Every
+// item on the Day Clock takes the colour of what it is, the same in the plan list beside it: the work Pulse
+// plans in bright colours with dark words, the appointments and drives in deeper ones with white words.
+export type Hue = "calls" | "texts" | "notes" | "approvals" | "people" | "tasks" | "client" | "meeting" | "meal" | "personal" | "drive" | "busy";
+export const HUE: Record<Hue, { color: string; word: string }> = {
+  calls: { color: "#f5c542", word: "Calls" },
+  texts: { color: "#f28bc0", word: "Texts" },
+  notes: { color: "#b79cff", word: "Notes" },
+  approvals: { color: "#ff9f5a", word: "Approvals" },
+  people: { color: "#5fd39a", word: "Face to face" },
+  tasks: { color: "#6cc4ff", word: "Tasks" },
+  client: { color: "#2f9e6a", word: "Clients" },
+  meeting: { color: "#4a76d9", word: "Meetings" },
+  meal: { color: "#d9694a", word: "Meals" },
+  personal: { color: "#8a5cc9", word: "Personal" },
+  drive: { color: "#2fb7a3", word: "Drives" },
+  busy: { color: "#6b7590", word: "Busy" },
+};
+const BLOCK_HUE: Record<BlockKind, Hue> = { power_hour: "calls", texts: "texts", notes: "notes", approvals: "approvals", in_person: "people", task: "tasks", custom: "tasks" };
+export const blockHue = (kind: BlockKind): Hue => BLOCK_HUE[kind] ?? "tasks";
+
+/** What an appointment is, from its words: client business, a meal, something personal, or a meeting. */
+export function titleHue(title: string | null | undefined): Hue | null {
+  const t = (title ?? "").toLowerCase();
+  if (!t.trim()) return null;
+  if (/\b(show(ing)?s?|listing|open house|closing|inspection|appraisal|walk-?through|buyers?|sellers?|offer|cma|signing)\b/.test(t)) return "client";
+  if (/\b(lunch|breakfast|brunch|dinner|coffee|drinks?|happy hour)\b/.test(t)) return "meal";
+  if (/\b(dr\.?|doctor|dentist|dental|gym|workout|school|kids?|pick ?up|drop ?off|haircut|church|vet|family|personal|therapy|physio)\b/.test(t)) return "personal";
+  if (/\b(meeting|meet|call|zoom|team|training|coaching|class|webinar|interview|1:1|one on one)\b/.test(t)) return "meeting";
+  return null;
+}
+
+export function busyHue(b: Pick<Busy, "source" | "title">): Hue {
+  if (b.source === "travel") return "drive";
+  if (b.source === "showing" || b.source === "open_house" || b.source === "listing_appointment") return "client";
+  return titleHue(b.title) ?? (b.source === "fixed" || b.source === "one_event" ? "meeting" : "busy");
+}

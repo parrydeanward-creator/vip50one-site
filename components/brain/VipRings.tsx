@@ -182,6 +182,11 @@ export default function VipRings({
     setSelected(id);
     if (hit.ring === "vip50") setPick50((v) => (v === id ? null : id));
     else setPick100((v) => (v === id ? null : id));
+    // Every orb (Parry, 6 Oct, hard rule): the one tapped comes to the middle and opens in the side panel.
+    const was = hit.ring === "vip50" ? pick50 : pick100;
+    const seat = (hit.ring === "vip50" ? inner : outer).find((x) => x.id === id);
+    if (was === id || !seat) setCam({ x: C, y: C, s: 1 });
+    else setCam((c) => ({ x: seat.x, y: seat.y, s: Math.max(c.s, 1.25) }));
   };
 
   const onDown = (id: string) => (e: React.PointerEvent) => {

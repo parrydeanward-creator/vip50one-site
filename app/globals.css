@@ -1744,7 +1744,7 @@ a.link { display: block; text-decoration: none; }
 .next-pill { margin-left: auto; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(245, 197, 66, 0.5); background: rgba(245, 197, 66, 0.08); color: #ffe9a8; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; max-width: 42vw; overflow: hidden; text-overflow: ellipsis; }
 .next-pill:hover { border-color: #ffd86a; color: #fff; }
 .next-pill.ringing { animation: dc-ring 1.2s ease-in-out 6; border-color: #ffd86a; }
-@keyframes dc-glow { 50% { filter: drop-shadow(0 0 18px rgba(255, 216, 106, 1)); } }
+@keyframes dc-glow { 50% { filter: drop-shadow(0 0 18px var(--hue, #ffd86a)); } }
 @keyframes dc-ring { 50% { box-shadow: 0 0 0 6px rgba(245, 197, 66, 0.25); background: rgba(245, 197, 66, 0.22); } }
 @media (max-width: 699px) { .next-pill { max-width: 46vw; font-size: 12px; } }
 @media (prefers-reduced-motion: reduce) { .dc-block.now path, .next-pill.ringing { animation: none; } }
@@ -1760,6 +1760,20 @@ a.link { display: block; text-decoration: none; }
 .dc-drive text { fill: #d5fff7; font-size: 11px; }
 .dc-label { font-size: 14px; font-weight: 700; fill: #14100a; }
 .dc-block.done .dc-label { fill: #14100a; }
+
+/* Colour by kind (Parry, 6 Oct): each item in its own colour, set per item as --hue */
+.dc-block path { stroke: var(--hue, #f5c542); stroke-opacity: 0.88; transition: stroke-opacity 120ms, filter 120ms; }
+.dc-block:hover path, .dc-block:focus-visible path { stroke: var(--hue, #f5c542); stroke-opacity: 1; filter: brightness(1.15); }
+.dc-block.picked path { stroke: var(--hue, #f5c542); stroke-opacity: 1; filter: drop-shadow(0 0 0 #fff) drop-shadow(0 0 8px rgba(255, 255, 255, 0.75)); }
+.dc-block.now path { stroke: var(--hue, #f5c542); stroke-opacity: 1; filter: drop-shadow(0 0 10px var(--hue, #ffd86a)); }
+.dc-block.done path { stroke: var(--hue, #f5c542); stroke-opacity: 0.4; }
+.dc-block.done .dc-label, .dc-block.done .dc-icon { fill: #fff; }
+.dc-busy path:first-child, .dc-told path:first-child, .dc-drive path:first-child { stroke: var(--hue, #6b7590); stroke-opacity: 0.85; }
+.dc-busy text, .dc-told text { fill: #fff; }
+.dc-drive text { fill: #eafffb; }
+.dc-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 10px; padding: 0; list-style: none; color: var(--text-2); font-size: 12px; }
+.dc-legend li { display: flex; align-items: center; gap: 6px; }
+.dc-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
 /* Tell Pulse your day */
 .tp { margin: 14px 0 6px; padding: 14px; border: 1px solid rgba(245, 197, 66, 0.4); border-radius: 14px; background: linear-gradient(180deg, rgba(245, 197, 66, 0.08), rgba(245, 197, 66, 0.02)); }

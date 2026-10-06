@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { batches, buildDay, freeGaps, nextLine, readBlock, toMin } from "../lib/schedule.ts";
+import { batches, blockHue, buildDay, busyHue, freeGaps, HUE, nextLine, readBlock, toMin } from "../lib/schedule.ts";
 import type { PlanItem } from "../lib/plan.ts";
 
 const it = (ref: string, x: Partial<PlanItem> = {}): PlanItem => ({ ref, product: "move", kind: "call", title: `Call ${ref}`, contactId: null, link: null, minutes: 10, done: false, urgency: "today", ...x });
@@ -239,4 +239,19 @@ test("telling Pulse more later: adds, moves and cancels, and keeps what was not 
   const answers = carryAnswers(morning, { t1: { after: { to: "office" as const, min: 30 } }, t2: { where: "out" as const } }, moved);
   assert.deepEqual(answers.t1, { after: { to: "office", min: 30 } }, "the doctor's drive answer stays");
   assert.deepEqual(answers.t2, { where: "out" }, "Aaron moved, and still out of the office");
+});
+
+test("colour by kind: work by block kind, appointments by their words", () => {
+  assert.equal(blockHue("power_hour"), "calls");
+  assert.equal(blockHue("texts"), "texts");
+  assert.equal(blockHue("custom"), "tasks");
+  assert.equal(busyHue({ source: "travel", title: "Drive" }), "drive");
+  assert.equal(busyHue({ source: "showing", title: null }), "client");
+  assert.equal(busyHue({ source: "fixed", title: "Lunch with Matt" }), "meal");
+  assert.equal(busyHue({ source: "fixed", title: "Doctor" }), "personal");
+  assert.equal(busyHue({ source: "fixed", title: "Team meeting" }), "meeting");
+  assert.equal(busyHue({ source: "fixed", title: "Showing at 1482 Maple" }), "client");
+  assert.equal(busyHue({ source: "fixed", title: "Luxury Agency" }), "meeting");
+  assert.equal(busyHue({ source: "calendar", title: null }), "busy");
+  for (const h of Object.values(HUE)) assert.match(h.color, /^#[0-9a-f]{6}$/);
 });
