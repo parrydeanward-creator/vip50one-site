@@ -67,6 +67,10 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
   const [chime, setChimeState] = useState(true);
   const [askNotice, setAskNotice] = useState(false);
 
+  // The dashboard re-renders while this is open (the clock, live signals): a new onClose each time must
+  // not re-run this, or the cursor jumps to the close button mid-typing and the next key closes the view.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     setChimeState(chimeOn());
     setAskNotice(typeof Notification !== "undefined" && Notification.permission === "default");
@@ -74,11 +78,11 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.stopPropagation();
-      onClose();
+      onCloseRef.current();
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+  }, []);
 
   const { hours, busy: taken, plan, approvedAt } = day;
   const now = day.now ?? hours.start;

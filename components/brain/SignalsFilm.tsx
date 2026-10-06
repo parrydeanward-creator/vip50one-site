@@ -13,16 +13,20 @@ const SIGNALS = { title: "What everything means", src: SIGNALS_FILM.src, poster:
 
 export default function SignalsFilm({ onClose, onMeet, film = SIGNALS }: { onClose: () => void; onMeet?: () => void; film?: typeof SIGNALS }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  // The dashboard re-renders while this is open (the clock, live signals): a new onClose each time must
+  // not re-run this, or the cursor jumps to the close button mid-typing and the next key closes the view.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.stopPropagation();
-      onClose();
+      onCloseRef.current();
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+  }, []);
   return (
     <div className="pi-back" onClick={onClose}>
       <section className="pi sf pop" role="dialog" aria-modal="true" aria-labelledby="sf-title" onClick={(e) => e.stopPropagation()}>

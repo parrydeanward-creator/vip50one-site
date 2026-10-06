@@ -87,16 +87,20 @@ export default function CommitmentsView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
+  // The dashboard re-renders while this is open (the clock, live signals): a new onClose each time must
+  // not re-run this, or the cursor jumps to the close button mid-typing and the next key closes the view.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.stopPropagation();
-      onClose();
+      onCloseRef.current();
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+  }, []);
 
   const save = (next: Commitments) => {
     setC(next);
