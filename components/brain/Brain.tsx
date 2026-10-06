@@ -33,7 +33,7 @@ import PulseMark from "./PulseMark.tsx";
 import PulseIntro from "./PulseIntro.tsx";
 import SignalsFilm, { ONE_FILM } from "./SignalsFilm.tsx";
 import PlanMyDay from "./PlanMyDay.tsx";
-import { planKey, planUrl, readPlan, timed, type Plan } from "@/lib/plan.ts";
+import { PLAN_NODE, planKey, planUrl, readPlan, timed, withPlanNode, type Plan } from "@/lib/plan.ts";
 import { todayIn } from "@/lib/hwc.ts";
 import { needWords, needsOf, type Need } from "@/lib/needs.ts";
 import { SEEN_KEY } from "@/lib/pulseIntro.ts";
@@ -62,14 +62,17 @@ const DEMO_AGENT: BrainAgent = { firstName: "Sarah", initials: "SB", label: "Sar
 export default function Brain({ graph: initialGraph, pkg = "complete", agent = DEMO_AGENT, live = false }: { graph: BusinessGraph; pkg?: string; agent?: BrainAgent; live?: boolean }) {
   const hello = `${greeting()}, ${agent.firstName}.`;
   // The graph changes while the page is open (live signals tick its numbers).
-  const [graph, setGraph] = useState(initialGraph);
+  // ONE GO's Today's plan orb follows the plan (Parry, 6 Oct: "shouldnt there be a plan my day orb off of go").
+  const plannedRef = useRef<Plan | null>(null);
+  const [graph, setGraph] = useState(() => withPlanNode(initialGraph, null));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
   // this, a refresh after logging a call changed nothing on screen.
   // Swap the graph and, in the same render, move off an item that is gone
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
-  const swapGraph = useCallback((next: BusinessGraph) => {
+  const swapGraph = useCallback((fresh: BusinessGraph) => {
+    const next = withPlanNode(fresh, plannedRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -90,6 +93,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       if (!r.ok) return;
       const j = (await r.json().catch(() => null)) as { graph?: BusinessGraph } | null;
       if (j?.graph && Array.isArray(j.graph.nodes) && j.graph.rootId) swapGraph(j.graph);
+      // ticks made on the phone (or done by the real call, text or task) come back with the plan
+      fetch(planUrl, { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((pj) => {
+          const p = readPlan(pj, plannedRef.current?.items ?? []);
+          if (p && p.sentAt && p.date === todayIn()) setPlanned(p);
+        })
+        .catch(() => {});
     } catch {
       // offline or signed out: keep what is on screen
     }
@@ -221,6 +232,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // Plan My Day (§3l): once the agent has planned today, Your day is that plan, in their order.
   const [planOpen, setPlanOpen] = useState(false);
   const [planned, setPlanned] = useState<Plan | null>(null);
+  useEffect(() => {
+    plannedRef.current = planned;
+    setGraph((g) => withPlanNode(g, planned));
+  }, [planned]);
   const slots = useMemo(() => {
     if (!planned?.items.length) return planDay((graph.today ?? []).slice(0, 8), dayDone);
     return timed(planned.items, planned.start).map((p) => ({
@@ -851,6 +866,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const clickNode = (id: string) => {
     if (drag.current.moved) return; // that was a drag, not a tap
     if (ask) return id === graph.rootId ? goHome() : goTo(id);
+    if (id === PLAN_NODE) return setPlanOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
   };
@@ -1483,7 +1499,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         <aside ref={drawerRef} key={state.focusId} className="drawer pop" aria-label={`${focus.label} details`} aria-live="polite">
           <div className="d-head">
             <span className="chip" style={{ color: hex(PRODUCT_COLOR[focus.product]), borderColor: hex(PRODUCT_COLOR[focus.product]) }}>
-              {productName(focus.product)}
+              {/* ONE YOU is the desktop orb and its groups; a single task or person still says where it came from */}
+              {focus.product === "go" && ["product", "feature", "category", "goal"].includes(focus.type) ? "ONE YOU" : productName(focus.product)}
             </span>
             {focus.status && !focus.locked && (
               <span className="state" style={{ color: hex(STATUS[focus.status].color) }}>
@@ -1889,6 +1906,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             goTo(id);
           }}
           onSaved={setPlanned}
+          onTick={(ref, on) => tickDay(`day:${ref}`, on)}
         />
       )}
       {guide && (

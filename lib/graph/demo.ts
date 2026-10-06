@@ -56,8 +56,8 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
   });
 
   const products: N[] = [
-    { id: "go", type: "product", label: "ONE GO", secondaryLabel: "Daily execution", parentId: "one", product: "go", importance: 0.95, status: "attention",
-      summary: "What needs to happen today, and whether you are on pace: points, VIP-50 tasks, the weekly score, the leaderboard and the 90-Day Challenge.",
+    { id: "go", type: "product", label: "ONE YOU", secondaryLabel: "Your plan, your week, your goals", parentId: "one", product: "go", importance: 0.95, status: "attention",
+      summary: "Plan your day and send it to ONE GO on your phone. Whether you are on pace: points, VIP-50 tasks, the weekly score, the leaderboard and the 90-Day Challenge.",
       stats: [{ label: "Daily score", value: "14 / 26" }, { label: "Weekly score", value: "95 / 100" }, { label: "Streak", value: "12 days" }, { label: "Leaderboard", value: "#2" }],
       pace: { headline: "Current pace: 22 / 26", detail: "4 high-value actions could close the gap." } },
     { id: "move", type: "product", label: "ONE MOVE", secondaryLabel: "Relationship intelligence", parentId: "one", product: "move", importance: 0.9, status: "action",

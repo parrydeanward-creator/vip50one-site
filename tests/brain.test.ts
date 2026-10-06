@@ -25,7 +25,7 @@ test("level 1 is ONE and the five products", () => {
   assert.equal(vs.focus.id, "one");
   assert.deepEqual(
     vs.nodes.filter((v) => v.role === "child").map((v) => v.node.label).sort(),
-    ["MARQUEE", "ONE GO", "ONE MOVE", "ONE OPEN", "SHOWLY"],
+    ["MARQUEE", "ONE MOVE", "ONE OPEN", "ONE YOU", "SHOWLY"],
   );
 });
 
