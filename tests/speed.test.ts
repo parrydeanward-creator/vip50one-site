@@ -21,7 +21,7 @@ test("visitors without a session skip the MASTER check; clients are sent to the 
 });
 
 test("the signed-in check verifies the token locally rather than asking MASTER every time", () => {
-  assert.match(read("lib/server/auth.ts"), /auth\.getClaims\(\)/);
+  assert.match(read("lib/server/auth.ts"), /auth\.getClaims\((token)?\)/); // ONE GO's bearer token is checked the same way (§3m)
   assert.doesNotMatch(read("lib/server/auth.ts"), /auth\.getUser\(\)/);
   assert.match(read("middleware.ts"), /auth\.getClaims\(\)/);
 });
@@ -30,9 +30,10 @@ test("profile and summary are asked for at the same time", () => {
   const live = read("lib/server/live.ts");
   const i = live.indexOf("export async function signedInBundle");
   const body = live.slice(i);
-  assert.ok(body.indexOf("masterSummary(who.email)") < body.indexOf("await profileOf(who)"));
+  assert.ok(body.indexOf("masterSummary(who.email)") < body.indexOf("await profileOf(who"));
+  assert.ok(body.indexOf("await profileOf(who") > 0);
   for (const f of ["app/dashboard/page.tsx", "app/api/note/route.ts", "app/api/ask/route.ts"]) {
-    assert.match(read(f), /signedInBundle\(\)/, f);
+    assert.match(read(f), /signedInBundle\((bearerOf\(req\))?\)/, f);
   }
 });
 

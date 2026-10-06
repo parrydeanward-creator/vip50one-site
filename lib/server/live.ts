@@ -36,11 +36,11 @@ export async function liveBundle(me: SignedIn, pending?: Promise<SummaryResult>)
  * summary) made at the same time. Null when nobody is signed in; `bundle` is
  * null for a signed-in account without a ONE package.
  */
-export async function signedInBundle() {
-  const who = await identity();
+export async function signedInBundle(token?: string) {
+  const who = await identity(token);
   if (!who) return null;
   const pending = masterSummary(who.email);
-  const me = await profileOf(who);
+  const me = await profileOf(who, token);
   if (!me.member) return { me, bundle: null };
   return { me, bundle: await liveBundle(me, pending) };
 }
