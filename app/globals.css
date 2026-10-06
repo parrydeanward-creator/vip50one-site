@@ -1683,3 +1683,24 @@ a.link { display: block; text-decoration: none; }
 .pm-drawer .pm-acts { width: 100%; justify-content: flex-end; }
 .pm-acts .pm-tick { color: var(--text-3); }
 .pm-acts .pm-tick.on { background: var(--gold-2); color: #14100a; border-color: var(--gold-2); }
+
+/* Commitments in ONE YOU (VIP-SUMMARY §3n) */
+.cm-orb-n { fill: #fff3cc; font-size: 20px; font-weight: 800; pointer-events: none; }
+.cm-orb-k { fill: rgba(255, 233, 168, 0.75); font-size: 10px; letter-spacing: 0.12em; pointer-events: none; }
+.cm-due { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; margin-left: 10px; }
+.cm-form { display: grid; gap: 12px; }
+.cm-row { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.03); }
+.cm-row input, .cm-row select, .cm-check input { width: 100%; min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); font: inherit; font-size: 14px; color-scheme: dark; }
+.cm-row-2 { display: flex; gap: 6px; }
+.cm-row-2 select { flex: 1; }
+.cm-row-2 input { width: 76px; flex: none; }
+.cm-x { min-width: 40px; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--text); cursor: pointer; }
+.cm-check { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
+.cm-check b { font-size: 14px; }
+.cm-check small { color: var(--text-3); font-size: 12px; }
+.cm-results { display: flex; gap: 6px; }
+.cm-results button { flex: 1; min-height: 38px; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--text); font-weight: 700; cursor: pointer; }
+.cm-results button.on.kept { background: #3fbf7f; border-color: #3fbf7f; color: #06150d; }
+.cm-results button.on.partly { background: #e5b83a; border-color: #e5b83a; color: #1a1305; }
+.cm-results button.on.missed { background: #e4574a; border-color: #e4574a; color: #1a0705; }
+.cm-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }

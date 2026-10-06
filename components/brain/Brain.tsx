@@ -33,6 +33,8 @@ import PulseMark from "./PulseMark.tsx";
 import PulseIntro from "./PulseIntro.tsx";
 import SignalsFilm, { ONE_FILM } from "./SignalsFilm.tsx";
 import PlanMyDay from "./PlanMyDay.tsx";
+import CommitmentsView from "./CommitmentsView.tsx";
+import { WEEK_NODE, commitmentsUrl, demoCommitments, readCommitments, withWeekNode, type Commitments } from "@/lib/commitments.ts";
 import { PLAN_NODE, planKey, planUrl, readPlan, timed, withPlanNode, type Plan } from "@/lib/plan.ts";
 import { todayIn } from "@/lib/hwc.ts";
 import { needWords, needsOf, type Need } from "@/lib/needs.ts";
@@ -59,11 +61,18 @@ export interface BrainAgent {
 // The made-up agent the demo, films and screenshots use.
 const DEMO_AGENT: BrainAgent = { firstName: "Sarah", initials: "SB", label: "Sarah Bennett, ONE Complete, founding member" };
 
+// The hour in the agent's time zone (Mountain), for the commitment pulses (§3n.1).
+function denverHour(now = new Date()): number {
+  return Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", hour: "numeric", hourCycle: "h23" }).format(now));
+}
+
 export default function Brain({ graph: initialGraph, pkg = "complete", agent = DEMO_AGENT, live = false }: { graph: BusinessGraph; pkg?: string; agent?: BrainAgent; live?: boolean }) {
   const hello = `${greeting()}, ${agent.firstName}.`;
   // The graph changes while the page is open (live signals tick its numbers).
   // ONE GO's Today's plan orb follows the plan (Parry, 6 Oct: "shouldnt there be a plan my day orb off of go").
   const plannedRef = useRef<Plan | null>(null);
+  // ONE YOU's "This week" orb follows the agent's commitments (Parry, 6 Oct; VIP-SUMMARY §3n).
+  const commitRef = useRef<Commitments | null>(null);
   const [graph, setGraph] = useState(() => withPlanNode(initialGraph, null));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
@@ -72,7 +81,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withPlanNode(fresh, plannedRef.current);
+    const next = withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour());
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -99,6 +108,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         .then((pj) => {
           const p = readPlan(pj, plannedRef.current?.items ?? []);
           if (p && p.sentAt && p.date === todayIn()) setPlanned(p);
+        })
+        .catch(() => {});
+      fetch(commitmentsUrl, { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((cj) => {
+          const cm = readCommitments(cj);
+          if (cm) setCommitments(cm);
         })
         .catch(() => {});
     } catch {
@@ -236,6 +252,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     plannedRef.current = planned;
     setGraph((g) => withPlanNode(g, planned));
   }, [planned]);
+  const [commitments, setCommitments] = useState<Commitments | null>(null);
+  const [cmOpen, setCmOpen] = useState(false);
+  useEffect(() => {
+    if (!live) return setCommitments(demoCommitments(todayIn()));
+    fetch(commitmentsUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setCommitments(readCommitments(j)))
+      .catch(() => {}); // not live yet: no "This week" orb
+  }, [live]);
+  useEffect(() => {
+    commitRef.current = commitments;
+    setGraph((g) => withWeekNode(g, commitments, denverHour()));
+  }, [commitments]);
   const slots = useMemo(() => {
     if (!planned?.items.length) return planDay((graph.today ?? []).slice(0, 8), dayDone);
     return timed(planned.items, planned.start).map((p) => ({
@@ -867,6 +896,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (drag.current.moved) return; // that was a drag, not a tap
     if (ask) return id === graph.rootId ? goHome() : goTo(id);
     if (id === PLAN_NODE) return setPlanOpen(true);
+    if (id === WEEK_NODE) return setCmOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
   };
@@ -1895,6 +1925,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         />
       )}
       {oneFilm && <SignalsFilm film={ONE_FILM} onClose={() => setOneFilm(false)} />}
+      {cmOpen && commitments && (
+        <CommitmentsView initial={commitments} live={live} hour={denverHour()} onClose={() => setCmOpen(false)} onChanged={setCommitments} />
+      )}
       {planOpen && (
         <PlanMyDay
           today={graph.today ?? []}
