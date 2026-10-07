@@ -104,8 +104,11 @@ export function run(series: number[], dir: -1 | 1): number {
   return n;
 }
 
-/** The weekly read (§3q). `last` is the most recent full week; the current, unfinished week is left out. */
-export function pulseRead(h: History, c: Commitments | null, today: string): Read | null {
+/** The weekly read (§3q). `last` is the most recent full week; the current, unfinished week is left out. With
+ *  `who`, it is a coach's read of an agent they coach (§3n.4), in the third person. */
+export function pulseRead(h: History, c: Commitments | null, today: string, who?: string): Read | null {
+  const your = who ? "their" : "your";
+  const Your = who ? "Their" : "Your";
   const full = h.weeks.filter((w) => addDays(w.start, 7) <= today);
   if (!full.length) return null;
   const last = full[full.length - 1];
@@ -120,7 +123,7 @@ export function pulseRead(h: History, c: Commitments | null, today: string): Rea
     for (let i = full.length - 1; i >= 0 && full[i].score != null && full[i].score! >= full[i].minimum; i--) n++;
     return n;
   })();
-  let headline = "Your week, read by Pulse";
+  let headline = who ? `${who}'s week, read by Pulse` : "Your week, read by Pulse";
   if (last.score != null) {
     const beaten = [...prev].reverse().find((w) => w.score != null && w.score >= last.score!);
     const best = prev.length && !beaten ? `Best week in ${full.length} weeks` : beaten && prev.indexOf(beaten) < prev.length - 1 ? `Best week since ${monthDay(beaten.start)}` : null;
@@ -144,7 +147,7 @@ export function pulseRead(h: History, c: Commitments | null, today: string): Rea
   const touchRows = TOUCHES.filter((k) => full.some((w) => w.counts[k] > 0)).map((k) => {
     const s = series(k);
     const avg = s.slice(0, -1).reduce((t, x) => t + x, 0) / Math.max(1, s.length - 1);
-    return { text: `${cap(TOUCH_WORD[k][1])}: ${last.counts[k]} last week`, sub: s.length > 1 ? `Your ${s.length - 1}-week average is ${Math.round(avg * 10) / 10}` : undefined };
+    return { text: `${cap(TOUCH_WORD[k][1])}: ${last.counts[k]} last week`, sub: s.length > 1 ? `${Your} ${s.length - 1}-week average is ${Math.round(avg * 10) / 10}` : undefined };
   });
   const drop = falling[0];
   parts.push({
@@ -170,10 +173,10 @@ export function pulseRead(h: History, c: Commitments | null, today: string): Rea
     const gap = best.avg - quiet.avg;
     parts.push({
       key: "days",
-      title: "Your week's shape",
+      title: `${Your} week's shape`,
       big: DAY[best.dow].slice(0, 3),
-      line: gap >= 5 ? `${DAY[best.dow]} is your best day; ${DAY[quiet.dow]} goes quiet` : `Even across the week: ${DAY[best.dow]} just ahead`,
-      rows: [...h.weekdays].sort((a, b) => a.dow - b.dow).map((d) => ({ text: `${DAY[d.dow]}: ${Math.round(d.avg)} points`, sub: d.dow === best.dow ? "Your best day" : d.dow === quiet.dow && gap >= 5 ? "Your quiet day" : undefined })),
+      line: gap >= 5 ? `${DAY[best.dow]} is ${your} best day; ${DAY[quiet.dow]} goes quiet` : `Even across the week: ${DAY[best.dow]} just ahead`,
+      rows: [...h.weekdays].sort((a, b) => a.dow - b.dow).map((d) => ({ text: `${DAY[d.dow]}: ${Math.round(d.avg)} points`, sub: d.dow === best.dow ? `${Your} best day` : d.dow === quiet.dow && gap >= 5 ? `${Your} quiet day` : undefined })),
       level: gap >= 10 ? "today" : null,
       good: gap < 10,
     });
@@ -184,7 +187,7 @@ export function pulseRead(h: History, c: Commitments | null, today: string): Rea
   const weak = habitDays.filter((x) => x.n <= 2);
   parts.push({
     key: "habits",
-    title: "Your habits",
+    title: `${Your} habits`,
     big: `${Math.round((habitDays.reduce((t, x) => t + x.n, 0) / (HABITS.length * 7)) * 100)}%`,
     line: weak.length ? `${weak.map((x) => HABIT_WORD[x.k]).join(", ")}: two days or fewer` : "Every habit on most days",
     rows: habitDays.map((x) => ({ text: `${HABIT_WORD[x.k]}: ${x.n} of 7 days` })),
@@ -202,7 +205,7 @@ export function pulseRead(h: History, c: Commitments | null, today: string): Rea
       big: c.keepRate8w != null ? `${Math.round(c.keepRate8w * 100)}%` : `${lw!.kept}/${n}`,
       line: lw && n ? `Last week ${lw.kept} kept, ${lw.partly} partly, ${lw.missed} missed` : "No week checked in yet",
       rows: [
-        c.keepRate8w != null ? { text: `You keep ${Math.round(c.keepRate8w * 100)}% of what you commit to`, sub: "Over the last 8 weeks." } : { text: "No keep rate yet" },
+        c.keepRate8w != null ? { text: who ? `${who} keeps ${Math.round(c.keepRate8w * 100)}% of what they commit to` : `You keep ${Math.round(c.keepRate8w * 100)}% of what you commit to`, sub: "Over the last 8 weeks." } : { text: "No keep rate yet" },
         c.streak ? { text: `${c.streak}-week check-in streak` } : { text: "No check-in streak yet" },
       ],
       level: lw && lw.missed > lw.kept ? "today" : null,
@@ -215,7 +218,7 @@ export function pulseRead(h: History, c: Commitments | null, today: string): Rea
   if (pick && COMMIT_KIND[pick]) {
     const avg = Math.max(...full.map((w) => w.counts[pick]));
     const target = Math.max(pick === "face_to_face" || pick === "drop_by" ? 2 : 3, Math.min(avg, pick === "call" ? 25 : 10));
-    focus = { text: `${target} ${plural(pick, target)} next week`, kind: COMMIT_KIND[pick]!, target, why: drop ? `${cap(TOUCH_WORD[pick][1])} have dropped ${WORDS[drop.n] ?? drop.n} weeks running; your best week had ${avg}.` : `No ${TOUCH_WORD[pick][1]} in two weeks.` };
+    focus = { text: `${target} ${plural(pick, target)} next week`, kind: COMMIT_KIND[pick]!, target, why: drop ? `${cap(TOUCH_WORD[pick][1])} have dropped ${WORDS[drop.n] ?? drop.n} weeks running; ${your} best week had ${avg}.` : `No ${TOUCH_WORD[pick][1]} in two weeks.` };
   } else if (last.score != null && last.score < last.minimum) {
     focus = { text: `Reach ${last.minimum} next week`, kind: "yes_no", target: null, why: `Last week ended at ${last.score}.` };
   }
@@ -247,14 +250,17 @@ export function withPulseCoachNode<G extends { nodes: GraphNode[]; edges: GraphE
 }
 
 /** The example agent's eight weeks, so the sales demo shows a read. */
-export function demoHistory(today: string): History {
+export function demoHistory(today: string, seed = 0): History {
+  // seed > 0: an example agent you coach, a little different from the example you (each one its own shape).
+  const k = 1 - (seed % 5) * 0.09;
+  const n = (x: number) => Math.round(x * k);
   const monday = addDays(today, -((new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7));
   const f2f = [4, 3, 4, 3, 3, 2, 1, 0];
   const weeks: Week[] = Array.from({ length: 8 }, (_, i) => ({
     start: addDays(monday, -7 * (8 - i)),
-    score: [96, 104, 110, 98, 112, 105, 118, 92][i],
+    score: n([96, 104, 110, 98, 112, 105, 118, 92][i]),
     minimum: 100,
-    counts: { call: [18, 20, 22, 19, 24, 21, 25, 17][i], video_text: [8, 9, 7, 10, 9, 11, 12, 9][i], text: 6, social: [5, 4, 6, 5, 6, 5, 7, 4][i], handwritten_note: [2, 3, 2, 2, 3, 1, 2, 1][i], face_to_face: f2f[i], drop_by: [1, 1, 2, 1, 1, 0, 1, 0][i], newsletter: 1, mixer: i % 2 },
+    counts: { call: n([18, 20, 22, 19, 24, 21, 25, 17][i]), video_text: [8, 9, 7, 10, 9, 11, 12, 9][i], text: 6, social: [5, 4, 6, 5, 6, 5, 7, 4][i], handwritten_note: [2, 3, 2, 2, 3, 1, 2, 1][i], face_to_face: f2f[i], drop_by: [1, 1, 2, 1, 1, 0, 1, 0][i], newsletter: 1, mixer: i % 2 },
     habits: { made_bed: 6, affirmations: 4, gratitudes: 5, exercise: [4, 3, 4, 3, 2, 3, 2, 2][i], positive_reading: [3, 2, 3, 2, 2, 1, 2, 1][i] },
     hwc: { hot: 4, warm: 3, cold: 2 },
   }));

@@ -358,6 +358,30 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       .catch(() => {});
   }, [live]);
   const thePulseRead = useMemo(() => (history ? pulseRead(history, commitments, todayIn()) : null), [history, commitments]);
+  // A coach's Pulse read of one agent they coach (§3n.4, §3q): their eight weeks, in the third person. MASTER answers
+  // only for an agent linked to this coach (coach_links); the example agents use example weeks.
+  const [agentRead, setAgentRead] = useState<{ who: string; read: PulseRead } | null>(null);
+  const readAgent = useCallback(
+    async (a: Coached): Promise<string | null> => {
+      const first = a.name.split(/\s+/)[0];
+      const today = todayIn();
+      let h: History | null = null;
+      if (!live) h = demoHistory(today, (coached ?? []).findIndex((x) => x.id === a.id) + 1);
+      else {
+        try {
+          const r = await fetch(historyUrl(8, a.id), { credentials: "include", cache: "no-store" });
+          h = r.ok ? readHistory(await r.json()) : null;
+        } catch {
+          h = null;
+        }
+      }
+      const read = h ? pulseRead(h, a.c, today, first) : null;
+      if (!read) return `No finished week for ${first} yet, so Pulse has nothing to read.`;
+      setAgentRead({ who: first, read });
+      return null;
+    },
+    [live, coached],
+  );
   useEffect(() => {
     pcRef.current = thePulseRead;
     setGraph((g) => withPulseCoachNode(g, thePulseRead));
@@ -2120,7 +2144,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         <PowerHourView calls={calls} session={session} live={live} onSession={savePower} onTick={(ref, on) => tickDay(`day:${ref}`, on)} onClose={() => setPowerOpen(false)} />
       ) : null}
       {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} demo={!live} onAssume={saveAssume} onClose={() => setIncomeOpen(false)} /> : null}
-      {coachOpen && coached?.length ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} /> : null}
+      {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} /> : null}
+      {agentRead ? <PulseCoachView read={agentRead.read} who={agentRead.who} demo={!live} onClose={() => setAgentRead(null)} /> : null}
       {cmOpen && commitments && (
         <CommitmentsView initial={commitments} live={live} hour={denverHour()} onClose={() => setCmOpen(false)} onChanged={setCommitments} />
       )}

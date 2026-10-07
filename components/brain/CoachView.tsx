@@ -49,12 +49,13 @@ function ItemRow({ i }: { i: Item }) {
   );
 }
 
-export default function CoachView({ agents, hour, demo, onClose }: { agents: Coached[]; hour: number; demo: boolean; onClose: () => void }) {
+export default function CoachView({ agents, hour, demo, onClose, onPulse }: { agents: Coached[]; hour: number; demo: boolean; onClose: () => void; onPulse?: (a: Coached) => Promise<string | null> }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const [pick, setPick] = useState<string | null>(null);
+  const [pulseNote, setPulseNote] = useState<string | null>(null);
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -83,6 +84,7 @@ export default function CoachView({ agents, hour, demo, onClose }: { agents: Coa
   const seats = round.map((a, k) => ({ a, ...seatAt(k + (sel ? 1 : 0)) }));
   const open = (id: string | null) => {
     setPick(id);
+    setPulseNote(null);
     cam.reset();
   };
   const tap = (go: () => void) => ({
@@ -199,6 +201,14 @@ export default function CoachView({ agents, hour, demo, onClose }: { agents: Coa
                   <ul className="pm-list pm-compact">{sel.c.weekend.items.map((i) => <ItemRow key={i.id} i={i} />)}</ul>
                 </>
               ) : null}
+              {onPulse ? (
+                <div className="decide-btns">
+                  <button type="button" className="chip-btn primary" onClick={() => onPulse(sel).then(setPulseNote)}>
+                    Pulse&apos;s read of {sel.name.split(/\s+/)[0]}&apos;s last 8 weeks
+                  </button>
+                </div>
+              ) : null}
+              {pulseNote ? <p className="pm-empty">{pulseNote}</p> : null}
               <button className="vr-classic" onClick={() => open(null)}>All agents</button>
             </>
           ) : (
