@@ -111,6 +111,7 @@ export interface Assist {
   lines: string[];
   action?: { label: string; block: { title: string; start: string; end: string; date: string } }; // one tap adds it to the agent's own plan
   ask?: boolean; // "How did it go?": a note box
+  appt?: { start: string; title: string }; // the appointment a "How did it go?" note is filed on (§3o.3 v1.37)
 }
 
 const APPT: readonly Busy["source"][] = ["calendar", "one_event", "open_house", "showing", "listing_appointment", "fixed"];
@@ -178,6 +179,7 @@ export function assistNow(input: {
       title: `How did ${a.title} go?`,
       lines: ["A line or two for your notes. Nothing is sent."],
       ask: true,
+      appt: { start: a.start, title: a.title! },
       action: { label: "Thank-you text tomorrow 9:00", block: { title: `Thank-you text: ${a.title}`.slice(0, 80), start: "09:00", end: "09:15", date: tomorrow } },
     });
   }

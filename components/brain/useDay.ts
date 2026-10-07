@@ -189,10 +189,8 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
     saveStored([...stored, { ...c, id, date: on }]);
     if (on === date) unapprove();
     if (!live) return "Added. Example agent: in your account it goes on your calendar too.";
-    // another day's block stays on this computer until ONE MOVE's block route takes a date (asked, §3o.3)
-    if (on !== date) return "Added to that day's plan on this computer.";
     try {
-      const r = await fetch(`${dayUrl}/block`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `${c.title} ${c.start} to ${c.end}${c.repeat === "weekdays" ? " every weekday" : c.repeat === "daily" ? " every day" : ""}`, confirmed: { title: c.title, start: c.start, end: c.end, repeat: c.repeat } }) });
+      const r = await fetch(`${dayUrl}/block`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `${c.title} ${c.start} to ${c.end}${c.repeat === "weekdays" ? " every weekday" : c.repeat === "daily" ? " every day" : ""}`, confirmed: { title: c.title, start: c.start, end: c.end, repeat: c.repeat }, date: on }) });
       return r.ok ? "Added, and on your calendar." : "Added on this computer. It reaches your calendar once ONE GO's calendar update is live.";
     } catch {
       return "Added on this computer. It reaches your calendar once ONE GO's calendar update is live.";

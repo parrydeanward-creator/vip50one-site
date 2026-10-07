@@ -58,6 +58,7 @@ test("assistNow: how did it go, once, with a thank-you block tomorrow", () => {
   const busy: Busy[] = [{ start: "10:00", end: "11:00", title: "Coffee with Marcus", source: "fixed" }];
   const a = assistNow({ date: "2026-10-07", now: "11:30", hours, busy, blocks: [], later: [] }).find((x) => x.kind === "howgo")!;
   assert.equal(a.title, "How did Coffee with Marcus go?");
+  assert.deepEqual(a.appt, { start: "10:00", title: "Coffee with Marcus" }, "the note is filed on this appointment");
   assert.deepEqual(a.action!.block, { title: "Thank-you text: Coffee with Marcus", start: "09:00", end: "09:15", date: "2026-10-08" });
   assert.equal(assistNow({ date: "2026-10-07", now: "11:30", hours, busy, blocks: [], later: [], answered: new Set([a.key]) }).filter((x) => x.kind === "howgo").length, 0);
 });
