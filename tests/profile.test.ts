@@ -44,3 +44,20 @@ test("a long bio and title are kept in full, up to ONE MOVE's limits (bio 1000, 
   assert.equal(FIELDS.find((f) => f.key === "bio")!.max, 1000);
   assert.equal(FIELDS.find((f) => f.key === "title")!.max, 120);
 });
+
+test("§3j.4: privacy and the agent's own answers, hidden until ONE MOVE sends them", async () => {
+  const { ABOUT, aboutChanges } = await import("../lib/profile.ts");
+  const before = readProfile({ email: "a@b.co", full_name: "Parry Ward" })!;
+  assert.equal(before.share_contact_info, null, "no switch until the route sends it");
+  assert.equal(before.about, null);
+  const p = readProfile({ email: "a@b.co", full_name: "Parry Ward", share_contact_info: false, about: { favorite_treat: "Peanut M&Ms", hometown_city: null, junk: "x" } })!;
+  assert.equal(p.share_contact_info, false);
+  assert.equal(p.about!.favorite_treat, "Peanut M&Ms");
+  assert.equal(p.about!.hometown_city, "");
+  assert.ok(!("junk" in p.about!), "only the 13 columns");
+  assert.equal(ABOUT.length, 13);
+  assert.deepEqual(ABOUT.map(([l]) => l).slice(0, 4), ["Hobbies / Interests", "Favorite Restaurant", "Favorite Store", "Morning Drink"]);
+  const draft = { ...p.about!, favorite_treat: "", dream_vacation: " Bora Bora " };
+  assert.deepEqual(aboutChanges(p.about, draft), { favorite_treat: null, dream_vacation: "Bora Bora" });
+  assert.equal(aboutChanges(p.about, p.about), null);
+});

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CONNECTIONS, FIELDS, TIME_ZONES, UPLOAD_MAX, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, type Profile } from "@/lib/profile.ts";
+import { ABOUT, ABOUT_MAX, CONNECTIONS, FIELDS, TIME_ZONES, UPLOAD_MAX, aboutChanges, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, type Profile } from "@/lib/profile.ts";
 
 /** Draw the photo at most 1200px on the long side as a JPEG, so it fits ONE MOVE's 4 MB limit. */
 async function shrink(file: File): Promise<Blob> {
@@ -79,7 +79,8 @@ export default function MyProfile({
     if (!saved || !draft || busy) return;
     const bad = problem(draft);
     if (bad) return setNote({ ok: false, text: bad });
-    const body = changes(saved, draft);
+    const about = aboutChanges(saved.about, draft.about);
+    const body = { ...changes(saved, draft), ...(about ? { about } : {}) };
     if (!Object.keys(body).length) return setNote({ ok: true, text: "Nothing to save." });
     setBusy(true);
     setNote(null);
@@ -88,6 +89,24 @@ export default function MyProfile({
       setSaved(p);
       setDraft(p);
       setNote({ ok: true, text: "Saved. Every ONE product shows this now." });
+      onChanged();
+    } catch (e) {
+      setNote({ ok: false, text: e instanceof Error ? e.message : "That didn't save. Nothing was changed." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Privacy (§3j.4, PROFILE.md §2): saved the moment it is switched, off by default, the agent's own choice.
+  const setShare = async (on: boolean) => {
+    if (!saved || busy) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      const p = await answer(await fetch(profileUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ share_contact_info: on }) }));
+      setSaved(p);
+      setDraft((d) => (d ? { ...d, share_contact_info: p.share_contact_info } : p));
+      setNote({ ok: true, text: on ? "Members of VIP-50 can now see your phone and email." : "Your phone and email are hidden from members." });
       onChanged();
     } catch (e) {
       setNote({ ok: false, text: e instanceof Error ? e.message : "That didn't save. Nothing was changed." });
@@ -142,7 +161,7 @@ export default function MyProfile({
   }
 
   const shown = pending?.preview ?? (saved.photo_url ? `${saved.photo_url}${saved.photo_url.includes("?") ? "&" : "?"}v=${saved.photo_version ?? ""}` : null);
-  const dirty = Object.keys(changes(saved, draft)).length > 0;
+  const dirty = Object.keys(changes(saved, draft)).length > 0 || !!aboutChanges(saved.about, draft.about);
   const initials = (draft.full_name || saved.email).split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
   return (
@@ -186,6 +205,18 @@ export default function MyProfile({
               {f.hint && <small>{f.hint}</small>}
             </label>
           ))}
+          {draft.about && (
+            <fieldset className="pf-about">
+              <legend>Tell Us About You</legend>
+              <small>Shown on your member card in the Lounge, so other agents get to know you.</small>
+              {ABOUT.map(([label, k]) => (
+                <label key={k} className="pf-field">
+                  <span>{label}</span>
+                  <input value={draft.about![k]} maxLength={ABOUT_MAX} onChange={(e) => setDraft({ ...draft, about: { ...draft.about!, [k]: e.target.value } })} />
+                </label>
+              ))}
+            </fieldset>
+          )}
           <div className="pf-actions">
             <button type="submit" className="chip-btn primary" disabled={busy || !dirty}>{busy ? "Saving…" : "Save"}</button>
             {dirty && <button type="button" className="chip-btn" onClick={() => setDraft(saved)} disabled={busy}>Undo changes</button>}
@@ -195,6 +226,16 @@ export default function MyProfile({
       </div>
 
       <aside className="pf-col pf-side" aria-label="Connections and settings">
+        {saved.share_contact_info !== null && (
+          <section className="pf-privacy" aria-label="Privacy">
+            <h2>Privacy</h2>
+            <label className="dc-switch">
+              <input type="checkbox" checked={!!saved.share_contact_info} disabled={busy} onChange={(e) => setShare(e.target.checked)} />
+              Show my phone and email to members
+            </label>
+            <small className="pf-sub">Off unless you switch it on. When it is off, your member card in the Lounge shows no phone, email or Call button.</small>
+          </section>
+        )}
         <h2>Connections and settings</h2>
         <p className="pf-sub">Settings that belong to one product stay in that product.</p>
         {CONNECTIONS.map((c) => (
