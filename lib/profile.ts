@@ -17,12 +17,35 @@ export interface Profile {
   bio: string;
   photo_url: string | null;
   photo_version: string | null;
+  // VIP-SUMMARY §3j.4 (v1.39): null until ONE MOVE's route sends them, and then the Brain hides them.
+  share_contact_info: boolean | null; // "Show my phone and email to members" (PROFILE.md §2, off by default)
+  about: Record<AboutKey, string> | null; // the agent's own "Tell Us About You" answers
 }
+
+// "Tell Us About You" (Parry, 5 Oct: settled, do not change): ONE GO's words and order (VIP50-app#72), the
+// same MASTER user_profiles columns as the contact twins.
+export const ABOUT = [
+  ["Hobbies / Interests", "hobbies_interests"],
+  ["Favorite Restaurant", "favorite_restaurant_bar"],
+  ["Favorite Store", "favorite_store"],
+  ["Morning Drink", "morning_drink"],
+  ["Coffee Preference", "morning_drink_prep"],
+  ["Favorite Sport", "favorite_sports_team"],
+  ["Favorite Drink", "favorite_adult_beverage"],
+  ["Favorite Candy", "favorite_treat"],
+  ["Hometown", "hometown_city"],
+  ["Favorite Color", "favorite_color"],
+  ["Dream Vacation", "dream_vacation"],
+  ["Favorite Movie", "favorite_movie_book"],
+  ["How Can I Serve You", "how_can_i_serve_you"],
+] as const;
+export type AboutKey = (typeof ABOUT)[number][1];
+export const ABOUT_MAX = 200;
 
 export const profileUrl = `${MOVE_URL}/api/brain/profile`;
 export const photoUrl = `${profileUrl}/photo`;
 
-export type Field = Exclude<keyof Profile, "email" | "photo_url" | "photo_version">;
+export type Field = Exclude<keyof Profile, "email" | "photo_url" | "photo_version" | "share_contact_info" | "about">;
 export const FIELDS: { key: Field; label: string; max: number; long?: boolean; hint?: string }[] = [
   { key: "full_name", label: "Full name", max: 120, hint: "On packets, flyers and recaps." },
   { key: "preferred_name", label: "Preferred first name", max: 60, hint: "How ONE greets you." },
@@ -68,7 +91,26 @@ export function readProfile(raw: unknown): Profile | null {
     bio: s(r.bio, LIMIT("bio")),
     photo_url: photo,
     photo_version: typeof r.photo_version === "string" ? r.photo_version : null,
+    share_contact_info: typeof r.share_contact_info === "boolean" ? r.share_contact_info : null,
+    about: readAbout(r.about),
   };
+}
+
+function readAbout(v: unknown): Profile["about"] {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const r = v as Record<string, unknown>;
+  return Object.fromEntries(ABOUT.map(([, k]) => [k, s(r[k], ABOUT_MAX)])) as Record<AboutKey, string>;
+}
+
+/** The answers that changed, trimmed (blank clears); null when none did. */
+export function aboutChanges(before: Profile["about"], draft: Profile["about"]): Partial<Record<AboutKey, string | null>> | null {
+  if (!before || !draft) return null;
+  const out: Partial<Record<AboutKey, string | null>> = {};
+  for (const [, k] of ABOUT) {
+    const a = before[k].trim(), b = draft[k].trim();
+    if (a !== b) out[k] = b || null;
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 /** Only the fields that changed, trimmed; nothing when nothing changed. */
