@@ -55,7 +55,7 @@ export interface Day {
   approve: () => Promise<string>;
   replan: () => void;
   moved: string | null; // "Moved Power Hour to 2:30pm." (§3o.6), null when nothing moved
-  carry: () => string; // day's end: what is left goes to tomorrow's plan, in one tap
+  carry: () => Promise<string>; // day's end: what is left goes to tomorrow's plan, in one tap
 }
 
 export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: { today: DayItem[]; planned: Plan | null; live: boolean; doneRefs: Set<string>; onPlan: (p: Plan) => void; extra?: PlanItem[] }): Day {
@@ -230,7 +230,7 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
   };
 
   // Day's end: everything not done (blocks and "Moves to tomorrow") goes to tomorrow's plan, in one tap.
-  const carry = (): string => {
+  const carry = async (): Promise<string> => {
     const byRef = new Map<string, PlanItem>([...(planned?.items ?? []), ...suggest(today), ...extra, ...carried].map((p) => [p.ref, p]));
     const left: PlanItem[] = [];
     for (const b of shown.blocks.filter((x) => !x.done && x.kind !== "custom"))
@@ -243,7 +243,16 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
     try {
       localStorage.setItem(carryKey(addDays(date, 1)), JSON.stringify(uniq));
     } catch {}
-    return uniq.length ? `${uniq.length} ${uniq.length === 1 ? "thing goes" : "things go"} to tomorrow's plan.` : "Nothing left to move.";
+    if (!uniq.length) return "Nothing left to move.";
+    const said = `${uniq.length} ${uniq.length === 1 ? "thing goes" : "things go"} to tomorrow's plan`;
+    if (!live) return `${said}. Example agent: in your account ONE GO has them in the morning.`;
+    // §3l v1.38: tomorrow's plan in ONE MOVE, so the 7:00 build and ONE GO have them too
+    try {
+      const r = await fetch(planUrl, { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...putBody({ start: hours.start, items: uniq }), date: addDays(date, 1) }) });
+      return r.ok ? `${said}, and to ONE GO.` : `${said} on this computer. ONE MOVE didn't take it this time.`;
+    } catch {
+      return `${said} on this computer. ONE couldn't reach ONE MOVE.`;
+    }
   };
 
   return { date, now, hours, busy, plan: shown, moved: slid?.note ?? null, carry, approvedAt: (move?.approvedAt ?? approved?.at) || null, fromMove: !!move, customs, told, tell, addBlock, removeBlock, approve, replan: unapprove };
