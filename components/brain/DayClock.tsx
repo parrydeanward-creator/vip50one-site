@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import { chimeOn, setChime, unlockChime } from "@/lib/chime.ts";
-import { blockHue, busyHue, clock12, hm, HUE, nextLine, readBlock, toMin, toTime, type Block, type Busy, type Hue } from "@/lib/schedule.ts";
+import { blockHue, busyHue, clock12, dayUrl, hm, HUE, nextLine, readBlock, toMin, toTime, type Block, type Busy, type Hue } from "@/lib/schedule.ts";
 import { faceAngle, faceArcs, faceTimeAt } from "@/lib/overview.ts";
 import TellPulse from "./TellPulse.tsx";
 import PulseMark from "./PulseMark.tsx";
@@ -122,6 +122,19 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
     setBusy(false);
     remember(c.key, `added: ${b.title}`);
     setNote(b.date === day.date ? msg : `${msg.replace(/\.$/, "")} (${new Date(`${b.date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" })}).`);
+  };
+  // "How did it go?" (§3o.13): the agent's own note, filed on the appointment in ONE MOVE (§3o.3 v1.37).
+  const saveNote = async (c: Assist) => {
+    const text = (howText[c.key] ?? "").trim();
+    if (!text) return;
+    remember(c.key, text);
+    if (!live || !c.appt) return setNote(live ? "Saved." : "Saved. Example agent: in your account it is filed on the appointment.");
+    try {
+      const r = await fetch(`${dayUrl}/note`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: day.date, start: c.appt.start, title: c.appt.title, note: text }) });
+      setNote(r.ok ? "Saved on the appointment in ONE MOVE." : "Kept on this computer. ONE MOVE didn't take it this time.");
+    } catch {
+      setNote("Kept on this computer. ONE couldn't reach ONE MOVE.");
+    }
   };
   const dayEnd = day.now != null && toMin(now) >= toMin(hours.end) - 30;
   const doneN = blocks.filter((b) => b.done).length;
@@ -363,7 +376,7 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
                   )}
                   <div className="decide-btns">
                     {c.ask && (
-                      <button className="chip-btn" disabled={!(howText[c.key] ?? "").trim()} onClick={() => remember(c.key, (howText[c.key] ?? "").trim())}>
+                      <button className="chip-btn" disabled={!(howText[c.key] ?? "").trim()} onClick={() => saveNote(c)}>
                         Save the note
                       </button>
                     )}
