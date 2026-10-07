@@ -41,9 +41,11 @@ import { soundsLikeDay } from "@/lib/overview.ts";
 import CommitmentsView from "./CommitmentsView.tsx";
 import ReviewView from "./ReviewView.tsx";
 import IncomeMapView from "./IncomeMapView.tsx";
+import PulseCoachView from "./PulseCoachView.tsx";
 import PowerHourView from "./PowerHourView.tsx";
 import CoachView from "./CoachView.tsx";
 import { commitmentWork } from "@/lib/assist.ts";
+import { PULSE_COACH_NODE, demoHistory, historyUrl, pulseRead, readHistory, withPulseCoachNode, type History, type Read as PulseRead } from "@/lib/pulseCoach.ts";
 import { POWER_NODE, lineUp, newSession, powerKey, readSession, withPowerNode, type Call, type Session as PowerSession } from "@/lib/powerHour.ts";
 import { ASSUME_DEFAULT, INCOME_NODE, goalFacts, incomeKey, incomeMap, readAssume, withIncomeNode, type Assume, type IncomeMap } from "@/lib/goals.ts";
 import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
@@ -95,6 +97,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const reviewRef = useRef<Review | null>(null);
   // ONE YOU's Income Map orb: the income goal worked back to the week.
   const incomeRef = useRef<IncomeMap | null>(null);
+  // ONE YOU's Pulse Coach orb (§3q): the weekly read on the agent's own numbers.
+  const pcRef = useRef<PulseRead | null>(null);
   // ONE YOU's Power Hour orb: today's calls lined up.
   const powerRef = useRef<{ calls: Call[]; session: PowerSession | null } | null>(null);
   const [graph, setGraph] = useState(() => withPlanNode(initialGraph, null));
@@ -105,7 +109,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null);
+    const next = withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -343,6 +347,21 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     incomeRef.current = theIncome;
     setGraph((g) => withIncomeNode(g, theIncome));
   }, [theIncome]);
+  // Pulse Coach (§3q): eight weeks of the agent's own numbers from ONE MOVE; the example agent's until it answers.
+  const [history, setHistory] = useState<History | null>(null);
+  const [pcOpen, setPcOpen] = useState(false);
+  useEffect(() => {
+    if (!live) return setHistory(demoHistory(todayIn()));
+    fetch(historyUrl(8), { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setHistory(j ? readHistory(j) : null))
+      .catch(() => {});
+  }, [live]);
+  const thePulseRead = useMemo(() => (history ? pulseRead(history, commitments, todayIn()) : null), [history, commitments]);
+  useEffect(() => {
+    pcRef.current = thePulseRead;
+    setGraph((g) => withPulseCoachNode(g, thePulseRead));
+  }, [thePulseRead]);
   // Power Hour: today's calls, most urgent first, then the VIP-50 with no call this month.
   const [powerOpen, setPowerOpen] = useState(false);
   const callsKey = JSON.stringify(lineUp(graph.today ?? [], roster));
@@ -1070,6 +1089,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === REVIEW_NODE) return setReviewOpen(true);
     if (id === INCOME_NODE) return setIncomeOpen(true);
     if (id === POWER_NODE) return setPowerOpen(true);
+    if (id === PULSE_COACH_NODE) return setPcOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
   };
@@ -1731,6 +1751,16 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </button>
           )}
 
+          {focus.id === PULSE_COACH_NODE && thePulseRead && !tour && (
+            <button className="pi-film pm-open" onClick={() => setPcOpen(true)}>
+              <span className="pi-play" aria-hidden="true">♥</span>
+              <span>
+                <b>Open Pulse Coach</b>
+                <span>Your week read by Pulse: what&apos;s rising, what&apos;s slipping, your best day, your habits, and one focus.</span>
+              </span>
+            </button>
+          )}
+
           {focus.id === POWER_NODE && !tour && (
             <button className="pi-film pm-open" onClick={() => setPowerOpen(true)}>
               <span className="pi-play" aria-hidden="true">☎</span>
@@ -2085,6 +2115,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       )}
       {oneFilm && <SignalsFilm film={ONE_FILM} onClose={() => setOneFilm(false)} />}
       {reviewOpen && theReview ? <ReviewView review={theReview} week={weekScore} demo={!live} onClose={() => setReviewOpen(false)} /> : null}
+      {pcOpen && thePulseRead ? <PulseCoachView read={thePulseRead} demo={!live} onClose={() => setPcOpen(false)} /> : null}
       {powerOpen ? (
         <PowerHourView calls={calls} session={session} live={live} onSession={savePower} onTick={(ref, on) => tickDay(`day:${ref}`, on)} onClose={() => setPowerOpen(false)} />
       ) : null}
