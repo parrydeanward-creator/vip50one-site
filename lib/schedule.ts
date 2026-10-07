@@ -242,6 +242,8 @@ const MOVE_URL = "https://move.vip50one.com";
 export const dayUrl = `${MOVE_URL}/api/brain/day`;
 const KIND_OK: readonly BlockKind[] = ["power_hour", "texts", "notes", "approvals", "in_person", "task", "custom"];
 const SOURCES: readonly Busy["source"][] = ["calendar", "one_event", "time_block", "open_house", "showing", "listing_appointment", "fixed", "travel"];
+// ONE MOVE's names for two kinds (vip50-web-crm#90): the same blocks, so the same colours.
+const MOVE_KIND: Record<string, BlockKind> = { face_to_face: "in_person", tasks: "task" };
 const isHM = (t: unknown): t is string => typeof t === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
 
 export interface DayFromMove {
@@ -277,7 +279,7 @@ export function readDay(j: unknown): DayFromMove | null {
       id: b.id,
       start: b.start,
       end: b.end,
-      kind: KIND_OK.includes(b.kind as BlockKind) ? (b.kind as BlockKind) : "task",
+      kind: KIND_OK.includes(b.kind as BlockKind) ? (b.kind as BlockKind) : MOVE_KIND[b.kind as string] ?? "task",
       title: b.title.slice(0, 120),
       refs: Array.isArray(b.refs) ? (b.refs as unknown[]).filter((x): x is string => typeof x === "string") : [],
       why: typeof b.why === "string" ? b.why.slice(0, 160) : "",

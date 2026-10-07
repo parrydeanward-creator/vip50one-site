@@ -279,3 +279,12 @@ test("a colour key from MASTER's day feed is final, so all three apps match", ()
   assert.equal(busyHue({ source: "fixed", title: "Anything", category: "busy" }), "busy");
   assert.equal(busyHue({ source: "time_block", title: "Drive", category: "drive" }), "drive");
 });
+
+test("readDay: ONE MOVE's face_to_face and tasks blocks keep their colours", async () => {
+  const { readDay, blockHue } = await import("../lib/schedule.ts");
+  const d = readDay({ date: "2026-10-07", blocks: [
+    { id: "a", start: "09:00", end: "10:00", kind: "face_to_face", title: "Coffee" },
+    { id: "b", start: "10:00", end: "10:30", kind: "tasks", title: "Admin" },
+  ] })!;
+  assert.deepEqual(d.blocks.map((b) => blockHue(b.kind)), ["people", "tasks"]);
+});
