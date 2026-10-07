@@ -1802,3 +1802,12 @@ a.link { display: block; text-decoration: none; }
 .tp-done p { margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--text); line-height: 1.45; }
 @keyframes tp-listen { 50% { box-shadow: 0 0 0 8px rgba(228, 87, 74, 0.25); } }
 @media (prefers-reduced-motion: reduce) { .tp-mic.on { animation: none; } }
+
+/* Income Map: the number behind a part, the agent's own */
+.im-knob { margin: 18px 0 4px; padding: 14px; border: 1px solid rgba(245, 197, 66, 0.35); border-radius: 12px; display: grid; gap: 8px; }
+.im-knob label { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; }
+.im-in { display: inline-flex; align-items: center; gap: 4px; }
+.im-in i { font-style: normal; color: var(--text-2); }
+.im-in input { width: 96px; padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.06); color: inherit; font: inherit; text-align: right; }
+.im-knob small { color: var(--text-2); }
+.im-knob .vr-btn { justify-self: start; }

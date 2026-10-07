@@ -142,10 +142,10 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
 }
 
 // ONE YOU on the demo dashboard (Parry, 6 Oct): the desktop orb holds the agent's own pieces (today's
-// VIP-50 work, the scoreboard, the 90-Day Challenge, and Today's plan), never copies of what ONE MOVE
+// VIP-50 work, the scoreboard, the 90-Day Challenge, goals, and Today's plan), never copies of what ONE MOVE
 // already has (trackers, contacts, tasks, calendar, Hot/Warm/Cold, Rolodex) or the phone's own corners
 // (Lounge, Tools). The product films keep the full ONE GO tree: they show the phone app.
-const ONE_YOU_KEEPS = new Set(["go-today", "go-score", "go-challenge"]);
+const ONE_YOU_KEEPS = new Set(["go-today", "go-score", "go-challenge", "go-goals"]);
 
 export function oneYouView(g: BusinessGraph): BusinessGraph {
   const kids = new Map<string, string[]>();
