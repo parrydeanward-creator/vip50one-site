@@ -1811,3 +1811,12 @@ a.link { display: block; text-decoration: none; }
 .im-in input { width: 96px; padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.06); color: inherit; font: inherit; text-align: right; }
 .im-knob small { color: var(--text-2); }
 .im-knob .vr-btn { justify-self: start; }
+
+/* Power Hour: length, the call now, how it went */
+.ph-start { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 6px; }
+.ph-start > span { color: var(--text-2); font-size: 13px; margin-right: 4px; }
+.ph-start .vr-btn.on { border-color: #f5c542; color: #f5c542; }
+.ph-start .pm-send { flex-basis: 100%; margin-top: 6px; }
+.ph-call { margin: 16px 0 4px; padding: 14px; border: 1px solid rgba(245, 197, 66, 0.35); border-radius: 12px; }
+.ph-call h2 { margin-top: 0; }
+.ph-outcomes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }

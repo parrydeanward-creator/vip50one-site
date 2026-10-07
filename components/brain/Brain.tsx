@@ -41,7 +41,9 @@ import { soundsLikeDay } from "@/lib/overview.ts";
 import CommitmentsView from "./CommitmentsView.tsx";
 import ReviewView from "./ReviewView.tsx";
 import IncomeMapView from "./IncomeMapView.tsx";
+import PowerHourView from "./PowerHourView.tsx";
 import CoachView from "./CoachView.tsx";
+import { POWER_NODE, lineUp, newSession, powerKey, readSession, withPowerNode, type Call, type Session as PowerSession } from "@/lib/powerHour.ts";
 import { ASSUME_DEFAULT, INCOME_NODE, goalFacts, incomeKey, incomeMap, readAssume, withIncomeNode, type Assume, type IncomeMap } from "@/lib/goals.ts";
 import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
 import { dailyUrl, readDaily } from "@/lib/daily.ts";
@@ -92,6 +94,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const reviewRef = useRef<Review | null>(null);
   // ONE YOU's Income Map orb: the income goal worked back to the week.
   const incomeRef = useRef<IncomeMap | null>(null);
+  // ONE YOU's Power Hour orb: today's calls lined up.
+  const powerRef = useRef<{ calls: Call[]; session: PowerSession | null } | null>(null);
   const [graph, setGraph] = useState(() => withPlanNode(initialGraph, null));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
@@ -100,7 +104,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current);
+    const next = withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -338,6 +342,27 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     incomeRef.current = theIncome;
     setGraph((g) => withIncomeNode(g, theIncome));
   }, [theIncome]);
+  // Power Hour: today's calls, most urgent first, then the VIP-50 with no call this month.
+  const [powerOpen, setPowerOpen] = useState(false);
+  const callsKey = JSON.stringify(lineUp(graph.today ?? [], roster));
+  const calls = useMemo(() => JSON.parse(callsKey) as Call[], [callsKey]);
+  const [power, setPower] = useState<PowerSession | null>(null);
+  useEffect(() => {
+    try {
+      setPower(readSession(JSON.parse(localStorage.getItem(powerKey(todayIn())) ?? "null"), todayIn()));
+    } catch {}
+  }, []);
+  const session = power ?? newSession(todayIn(), calls);
+  const savePower = (s: PowerSession) => {
+    setPower(s);
+    try {
+      localStorage.setItem(powerKey(s.date), JSON.stringify(s));
+    } catch {}
+  };
+  useEffect(() => {
+    powerRef.current = { calls, session: power };
+    setGraph((g) => withPowerNode(g, calls, power));
+  }, [calls, power]);
   // The Day Clock (§3o.9): the day planned round the calendar; Your day lists its blocks in time order.
   const [clockOpen, setClockOpen] = useState(false);
   const [tellText, setTellText] = useState<string | undefined>(undefined);
@@ -1041,6 +1066,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === COACH_NODE) return setCoachOpen(true);
     if (id === REVIEW_NODE) return setReviewOpen(true);
     if (id === INCOME_NODE) return setIncomeOpen(true);
+    if (id === POWER_NODE) return setPowerOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
   };
@@ -1702,6 +1728,16 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </button>
           )}
 
+          {focus.id === POWER_NODE && !tour && (
+            <button className="pi-film pm-open" onClick={() => setPowerOpen(true)}>
+              <span className="pi-play" aria-hidden="true">☎</span>
+              <span>
+                <b>Start a Power Hour</b>
+                <span>Your top calls lined up with Call Prep, a countdown, then what got done.</span>
+              </span>
+            </button>
+          )}
+
           {focus.id === INCOME_NODE && theIncome && !tour && (
             <button className="pi-film pm-open" onClick={() => setIncomeOpen(true)}>
               <span className="pi-play" aria-hidden="true">$</span>
@@ -2046,6 +2082,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       )}
       {oneFilm && <SignalsFilm film={ONE_FILM} onClose={() => setOneFilm(false)} />}
       {reviewOpen && theReview ? <ReviewView review={theReview} week={weekScore} demo={!live} onClose={() => setReviewOpen(false)} /> : null}
+      {powerOpen ? (
+        <PowerHourView calls={calls} session={session} live={live} onSession={savePower} onTick={(ref, on) => tickDay(`day:${ref}`, on)} onClose={() => setPowerOpen(false)} />
+      ) : null}
       {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} demo={!live} onAssume={saveAssume} onClose={() => setIncomeOpen(false)} /> : null}
       {coachOpen && coached?.length ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} /> : null}
       {cmOpen && commitments && (
