@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { PULSE_COLOR } from "./PulseRing.tsx";
 import PulseRing from "./PulseRing.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
+import { nextCommitKey } from "@/lib/pulseCoach.ts";
 import {
   KIND_LABEL,
   KIND_SHORT,
@@ -78,7 +79,14 @@ export default function CommitmentsView({
   useEffect(() => {
     if (mode.kind === "set") {
       const cur = (mode.period === "week" ? c.week : c.weekend)?.items ?? [];
-      setDrafts(cur.length ? cur.map((i) => ({ text: i.text, kind: i.kind, target: i.target })) : mode.period === "week" ? starters({ vipsUntouched: 12, faceToFaceLastWeek: 0, overdueFollowUps: 1 }) : [{ text: "", kind: "yes_no", target: null }]);
+      // Pulse Coach's focus, when the agent chose it (§3q.3), goes first in the week's starters
+      let chosen: Draft | null = null;
+      try {
+        const j = JSON.parse(localStorage.getItem(nextCommitKey) ?? "null");
+        if (j && typeof j.text === "string" && typeof j.kind === "string") chosen = { text: j.text.slice(0, 140), kind: j.kind, target: typeof j.target === "number" ? j.target : null };
+      } catch {}
+      const weekStart = starters({ vipsUntouched: 12, faceToFaceLastWeek: 0, overdueFollowUps: 1 });
+      setDrafts(cur.length ? cur.map((i) => ({ text: i.text, kind: i.kind, target: i.target })) : mode.period === "week" ? (chosen ? [chosen, ...weekStart.filter((d) => d.kind !== chosen!.kind)].slice(0, 3) : weekStart) : [{ text: "", kind: "yes_no", target: null }]);
     }
     if (mode.kind === "check") {
       const cur = (mode.period === "week" ? c.week : c.weekend)?.items ?? [];
@@ -133,6 +141,11 @@ export default function CommitmentsView({
   const doSet = (period: Period) => {
     const b = setBody(period, drafts);
     if ("error" in b) return setNote(b.error);
+    // the focus Pulse Coach suggested has been used (or set aside): it is not suggested again
+    if (period === "week")
+      try {
+        localStorage.removeItem(nextCommitKey);
+      } catch {}
     post("set", b, () => {
       const items: Item[] = b.items.map((d, k) => ({ id: `local-${period}-${k}`, text: d.text, kind: d.kind, target: d.target, count: d.kind === "yes_no" ? null : 0, result: null, note: null }));
       const ps = { id: `local-${period}`, starts: c.today, setAt: new Date().toISOString(), checkedAt: null, items };
