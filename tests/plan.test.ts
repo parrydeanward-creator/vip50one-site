@@ -162,7 +162,9 @@ test("the demo's ONE YOU holds only the agent's own pieces; the films keep the w
   const full = demoGraph("complete");
   const g = oneYouView(full);
   const under = (id: string) => g.nodes.filter((n) => n.parentId === id).map((n) => n.id).sort();
-  assert.deepEqual(under("go"), ["go-challenge", "go-score", "go-today"]);
+  // Goals with pace belong to ONE YOU (PULSE-ROADMAP, Parry approved 6 Oct), so the demo keeps them too.
+  assert.deepEqual(under("go"), ["go-challenge", "go-goals", "go-score", "go-today"]);
+  assert.deepEqual(g.nodes.filter((n) => n.parentId === "go-goals").map((n) => n.id).sort(), ["go-closings_goal", "go-gci_goal", "go-referrals_goal"]);
   assert.ok(!g.nodes.some((n) => n.id === "go-daily" || n.id === "dt-video"), "tracker copies are gone, with everything inside them");
   assert.ok(g.edges.every((e) => g.nodes.some((n) => n.id === e.source) && g.nodes.some((n) => n.id === e.target)), "no edge points at a removed orb");
   assert.ok((g.today ?? []).every((d) => g.nodes.some((n) => n.id === d.nodeId)), "every item of the day still opens a real orb");

@@ -1,3 +1,5 @@
+import { addGoals, demoGoals } from "../goals.ts";
+import { todayIn } from "../hwc.ts";
 import type { GraphEdge, GraphNode, NodeStatus, NodeType, ProductKey, Recommendation, Stat } from "./types.ts";
 
 // ONE GO in depth, modelled on the live phone app (VIP50-app, read 29 Sep):
@@ -325,4 +327,7 @@ export function addGo(add: Add, link: Link) {
   link("cal-oh", "open", "scheduled_for");
   link("mc-oh", "open", "related_to");
   link("wk-oh", "open", "related_to");
+  // Goals with pace (PULSE-ROADMAP "ONE YOU"): the example agent's goal year, the same orbs as a real one.
+  const today = todayIn();
+  addGoals(add, demoGoals(today), today);
 }

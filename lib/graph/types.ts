@@ -85,6 +85,8 @@ export interface GraphNode {
   taskId?: string;
   // The Trackers group: today's daily tracker boxes (VIP-SUMMARY v1.6).
   boxes?: { label: string; done: boolean; points: number }[];
+  // A goal orb's facts (closings, referrals, GCI this goal year), for its pace and the Income Map.
+  goal?: import("../goals.ts").GoalFacts;
 }
 
 export interface GraphEdge {

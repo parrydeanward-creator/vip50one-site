@@ -1,4 +1,5 @@
 import { celebrateIds, withSpecialDays } from "./specialDays.ts";
+import { addGoals, type GoalKey } from "./goals.ts";
 import { includes } from "./products.ts";
 import { MOVE_BOTTOM, MOVE_GROUPS, moveGroupId, moveMenuHref, movePageId } from "./moveMenu.ts";
 import type { DayItem, DayKind } from "./day.ts";
@@ -365,34 +366,11 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
       summary: goItems.length ? "The VIP-50 touches ONE GO scheduled for today." : "No VIP-50 touches are left for today.",
     });
     goItems.forEach((it, k) => itemNode(add, it, "go-today", "go", 1 - k * 0.03));
-    if (goals.length) {
-      add({
-        id: "go-goals",
-        type: "category",
-        label: "Goals",
-        secondaryLabel: goals.some((g) => g.max != null) ? "This goal year" : "No goals set yet",
-        parentId: "go",
-        product: "go",
-        importance: 0.9,
-        summary: goals.some((g) => g.max != null)
-          ? `Your goal year runs from ${longDate(goals[0].from) ?? "your start date"} to ${longDate(goals[0].to) ?? "a year later"}.`
-          : "Set closings, referrals and GCI goals in ONE GO to see your pace here.",
-      });
-      goals.forEach((g, k) =>
-        add({
-          id: `go-${g.key}`,
-          type: "goal",
-          label: g.label.replace(" this goal year", ""),
-          secondaryLabel: g.max != null ? `${fmt(g.key, g.value ?? 0)} of ${fmt(g.key, g.max)}` : g.value ? `${fmt(g.key, g.value)} so far` : "No goal set",
-          parentId: "go-goals",
-          product: "go",
-          importance: 1 - k * 0.05,
-          status: g.max == null ? undefined : g.pace != null && g.value != null && g.value >= g.pace ? "healthy" : "attention",
-          stats: [{ label: g.label, value: ofMax(g) ?? "0" }],
-          pace: g.max != null && g.pace != null ? { headline: `On pace for this point in the year: ${fmt(g.key, g.pace)}` } : undefined,
-        }),
-      );
-    }
+    addGoals(
+      add,
+      goals.map((g) => ({ key: g.key as GoalKey, label: g.label, value: g.value, max: g.max ?? null, pace: g.pace ?? null, from: g.from, to: g.to })),
+      o.today,
+    );
   }
 
   // ---- ONE MOVE -----------------------------------------------------------

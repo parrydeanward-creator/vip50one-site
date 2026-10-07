@@ -40,7 +40,9 @@ import { nextLine, toMin, toTime } from "@/lib/schedule.ts";
 import { soundsLikeDay } from "@/lib/overview.ts";
 import CommitmentsView from "./CommitmentsView.tsx";
 import ReviewView from "./ReviewView.tsx";
+import IncomeMapView from "./IncomeMapView.tsx";
 import CoachView from "./CoachView.tsx";
+import { ASSUME_DEFAULT, INCOME_NODE, goalFacts, incomeKey, incomeMap, readAssume, withIncomeNode, type Assume, type IncomeMap } from "@/lib/goals.ts";
 import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
 import { dailyUrl, readDaily } from "@/lib/daily.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
@@ -88,6 +90,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const coachRef = useRef<Coached[] | null>(null);
   // ONE YOU's Weekly Review orb (PULSE-ROADMAP "ONE YOU"): pulses when part of the week needs the agent.
   const reviewRef = useRef<Review | null>(null);
+  // ONE YOU's Income Map orb: the income goal worked back to the week.
+  const incomeRef = useRef<IncomeMap | null>(null);
   const [graph, setGraph] = useState(() => withPlanNode(initialGraph, null));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
@@ -96,7 +100,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current);
+    const next = withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -314,6 +318,26 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     reviewRef.current = theReview;
     setGraph((g) => withReviewNode(g, theReview));
   }, [theReview]);
+  // The Income Map: the goal orbs' facts and the agent's own numbers (kept in this browser).
+  const [assume, setAssume] = useState<Assume>(ASSUME_DEFAULT);
+  const [incomeOpen, setIncomeOpen] = useState(false);
+  useEffect(() => {
+    try {
+      setAssume(readAssume(JSON.parse(localStorage.getItem(incomeKey) ?? "null")));
+    } catch {}
+  }, []);
+  const saveAssume = (a: Assume) => {
+    setAssume(a);
+    try {
+      localStorage.setItem(incomeKey, JSON.stringify(a));
+    } catch {}
+  };
+  const factsKey = JSON.stringify(goalFacts(graph.nodes));
+  const theIncome = useMemo(() => incomeMap(JSON.parse(factsKey), assume, todayIn()), [factsKey, assume]);
+  useEffect(() => {
+    incomeRef.current = theIncome;
+    setGraph((g) => withIncomeNode(g, theIncome));
+  }, [theIncome]);
   // The Day Clock (§3o.9): the day planned round the calendar; Your day lists its blocks in time order.
   const [clockOpen, setClockOpen] = useState(false);
   const [tellText, setTellText] = useState<string | undefined>(undefined);
@@ -1016,6 +1040,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === WEEK_NODE) return setCmOpen(true);
     if (id === COACH_NODE) return setCoachOpen(true);
     if (id === REVIEW_NODE) return setReviewOpen(true);
+    if (id === INCOME_NODE) return setIncomeOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
   };
@@ -1677,6 +1702,16 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </button>
           )}
 
+          {focus.id === INCOME_NODE && theIncome && !tour && (
+            <button className="pi-film pm-open" onClick={() => setIncomeOpen(true)}>
+              <span className="pi-play" aria-hidden="true">$</span>
+              <span>
+                <b>Open the Income Map</b>
+                <span>Your income goal worked back to closings, referrals, conversations and touches a week.</span>
+              </span>
+            </button>
+          )}
+
           {focus.id === COACH_NODE && !tour && (
             <button className="pi-film pm-open" onClick={() => setCoachOpen(true)}>
               <span className="pi-play" aria-hidden="true">☰</span>
@@ -2011,6 +2046,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       )}
       {oneFilm && <SignalsFilm film={ONE_FILM} onClose={() => setOneFilm(false)} />}
       {reviewOpen && theReview ? <ReviewView review={theReview} week={weekScore} demo={!live} onClose={() => setReviewOpen(false)} /> : null}
+      {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} demo={!live} onAssume={saveAssume} onClose={() => setIncomeOpen(false)} /> : null}
       {coachOpen && coached?.length ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} /> : null}
       {cmOpen && commitments && (
         <CommitmentsView initial={commitments} live={live} hour={denverHour()} onClose={() => setCmOpen(false)} onChanged={setCommitments} />
