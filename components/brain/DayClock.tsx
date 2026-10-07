@@ -513,7 +513,7 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
           )}
 
           {dayEnd && (
-            <button className="vr-btn dc-carry" onClick={() => setNote(day.carry())}>
+            <button className="vr-btn dc-carry" onClick={async () => setNote(await day.carry())}>
               Move what&apos;s left to tomorrow
             </button>
           )}
