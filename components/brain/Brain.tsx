@@ -43,6 +43,7 @@ import ReviewView from "./ReviewView.tsx";
 import IncomeMapView from "./IncomeMapView.tsx";
 import PowerHourView from "./PowerHourView.tsx";
 import CoachView from "./CoachView.tsx";
+import { commitmentWork } from "@/lib/assist.ts";
 import { POWER_NODE, lineUp, newSession, powerKey, readSession, withPowerNode, type Call, type Session as PowerSession } from "@/lib/powerHour.ts";
 import { ASSUME_DEFAULT, INCOME_NODE, goalFacts, incomeKey, incomeMap, readAssume, withIncomeNode, type Assume, type IncomeMap } from "@/lib/goals.ts";
 import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
@@ -367,7 +368,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const [clockOpen, setClockOpen] = useState(false);
   const [tellText, setTellText] = useState<string | undefined>(undefined);
   const doneRefs = useMemo(() => new Set([...dayDone].map((id) => id.replace(/^day:/, ""))), [dayDone]);
-  const theDay = useDay({ today: graph.today ?? [], planned, live, doneRefs, onPlan: setPlanned });
+  // the week's commitments become today's work (§3o.7)
+  const commitWork = useMemo(() => commitmentWork(commitments, todayIn()), [commitments]);
+  const theDay = useDay({ today: graph.today ?? [], planned, live, doneRefs, onPlan: setPlanned, extra: commitWork });
   const slots = useMemo(() => {
     if (theDay.plan.blocks.length) {
       const byRef = new Map<string, DayItem>((graph.today ?? []).map((d) => [d.ref ?? d.id.replace(/^day:/, ""), d]));
@@ -2095,6 +2098,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
           day={theDay}
           live={live}
           tellText={tellText}
+          dated={graph.dated}
+          vipsNoVideo={roster ? roster.vip50.filter((p) => !p.month?.video_text).length : undefined}
+          commitments={commitments}
           onClose={() => {
             setClockOpen(false);
             setTellText(undefined);
