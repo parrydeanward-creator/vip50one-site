@@ -1820,3 +1820,14 @@ a.link { display: block; text-decoration: none; }
 .ph-call { margin: 16px 0 4px; padding: 14px; border: 1px solid rgba(245, 197, 66, 0.35); border-radius: 12px; }
 .ph-call h2 { margin-top: 0; }
 .ph-outcomes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+/* Day Clock: blocks that moved, and Pulse as a personal assistant (§3o.6, §3o.13) */
+.dc-moved { margin: 6px 0 0; font-size: 13px; color: #ffd86a; }
+.as-cards { margin: 14px 0 6px; display: grid; gap: 10px; }
+.as-cards h2 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.as-card { display: grid; gap: 4px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(245, 197, 66, 0.3); background: rgba(245, 197, 66, 0.05); }
+.as-card small { color: var(--text-2); }
+.as-card.as-leave, .as-card.as-prep { border-color: rgba(245, 197, 66, 0.7); }
+.as-card textarea { margin-top: 6px; width: 100%; padding: 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.05); color: inherit; font: inherit; resize: vertical; }
+.as-card .decide-btns { margin-top: 6px; flex-wrap: wrap; }
+.dc-carry { margin-top: 10px; }

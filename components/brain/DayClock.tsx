@@ -6,6 +6,10 @@ import { chimeOn, setChime, unlockChime } from "@/lib/chime.ts";
 import { blockHue, busyHue, clock12, hm, HUE, nextLine, readBlock, toMin, toTime, type Block, type Busy, type Hue } from "@/lib/schedule.ts";
 import { faceAngle, faceArcs, faceTimeAt } from "@/lib/overview.ts";
 import TellPulse from "./TellPulse.tsx";
+import PulseMark from "./PulseMark.tsx";
+import { assistNow, type Assist } from "@/lib/assist.ts";
+import type { Commitments } from "@/lib/commitments.ts";
+import type { DatedNote } from "@/lib/graph/types.ts";
 import type { Day } from "./useDay.ts";
 
 // The Day Clock (VIP-SUMMARY §3o.9; Parry, 6 Oct: "make this super smart so that the plan my day actually
@@ -54,7 +58,7 @@ const fits = (label: string, a1: number, a2: number, r: number) => (a2 - a1) * r
 const BLOCK_SHORT: Partial<Record<Block["kind"], string>> = { power_hour: "Power Hour", texts: "Texts", notes: "Notes", approvals: "Approvals" };
 const REPEAT_WORD = { none: "today only", weekdays: "every weekday", daily: "every day" } as const;
 
-export default function DayClock({ day, live, tellText, onClose, onTick, onClassic }: { day: Day; live: boolean; tellText?: string; onClose: () => void; onTick: (refs: string[], done: boolean) => void; onClassic: () => void }) {
+export default function DayClock({ day, live, tellText, onClose, onTick, onClassic, dated, vipsNoVideo, commitments }: { day: Day; live: boolean; tellText?: string; onClose: () => void; onTick: (refs: string[], done: boolean) => void; onClassic: () => void; dated?: DatedNote[]; vipsNoVideo?: number; commitments?: Commitments | null }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,6 +70,22 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
   const [busy, setBusy] = useState(false);
   const [chime, setChimeState] = useState(true);
   const [askNotice, setAskNotice] = useState(false);
+  // Pulse as a personal assistant (§3o.13): what the agent answered or added today, kept in this browser.
+  const assistKey = `one.assist.${day.date}`;
+  const [answered, setAnswered] = useState<Record<string, string>>({});
+  const [howText, setHowText] = useState<Record<string, string>>({});
+  useEffect(() => {
+    try {
+      setAnswered(JSON.parse(localStorage.getItem(assistKey) ?? "{}") ?? {});
+    } catch {}
+  }, [assistKey]);
+  const remember = (key: string, note: string) => {
+    const next = { ...answered, [key]: note };
+    setAnswered(next);
+    try {
+      localStorage.setItem(assistKey, JSON.stringify(next));
+    } catch {}
+  };
 
   // The dashboard re-renders while this is open (the clock, live signals): a new onClose each time must
   // not re-run this, or the cursor jumps to the close button mid-typing and the next key closes the view.
@@ -91,6 +111,19 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
   const drives = taken.filter((b) => b.source === "travel").length;
   const appts = taken.length - drives;
   const line = nextLine(blocks, now);
+  const cards: Assist[] = day.now
+    ? assistNow({ date: day.date, now, hours, busy: taken, blocks, later: plan.later.map((l) => ({ title: l.item.title })), dated, vipsNoVideo, answered: new Set(Object.keys(answered)), commitments }).filter((c) => !answered[c.key])
+    : [];
+  const doCard = async (c: Assist) => {
+    if (!c.action) return;
+    setBusy(true);
+    const b = c.action.block;
+    const msg = await day.addBlock({ title: b.title, start: b.start, end: b.end, repeat: "none" }, b.date);
+    setBusy(false);
+    remember(c.key, `added: ${b.title}`);
+    setNote(b.date === day.date ? msg : `${msg.replace(/\.$/, "")} (${new Date(`${b.date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" })}).`);
+  };
+  const dayEnd = day.now != null && toMin(now) >= toMin(hours.end) - 30;
   const doneN = blocks.filter((b) => b.done).length;
   const free = Math.max(0, plan.freeMin - plan.plannedMin);
   const picked = blocks.find((b) => b.id === pick);
@@ -305,6 +338,47 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
             {drives ? ` · ${drives} ${drives === 1 ? "drive" : "drives"}` : ""}
           </p>
           {line && <p className="pi-today pi-lvl-today dc-next">{line}</p>}
+          {day.moved && <p className="dc-moved" role="status">{day.moved}</p>}
+
+          {cards.length > 0 && (
+            <section className="as-cards" aria-label="Pulse, your assistant">
+              <h2>
+                <PulseMark label={false} /> Pulse, your assistant
+              </h2>
+              {cards.map((c) => (
+                <div key={c.key} className={`as-card as-${c.kind}`}>
+                  <b>{c.title}</b>
+                  {c.lines.map((l) => (
+                    <small key={l}>{l}</small>
+                  ))}
+                  {c.ask && (
+                    <textarea
+                      value={howText[c.key] ?? ""}
+                      onChange={(e) => setHowText({ ...howText, [c.key]: e.target.value })}
+                      placeholder="Went well. They want to list in spring."
+                      aria-label={c.title}
+                      maxLength={400}
+                      rows={2}
+                    />
+                  )}
+                  <div className="decide-btns">
+                    {c.ask && (
+                      <button className="chip-btn" disabled={!(howText[c.key] ?? "").trim()} onClick={() => remember(c.key, (howText[c.key] ?? "").trim())}>
+                        Save the note
+                      </button>
+                    )}
+                    {c.action && (
+                      <button className="chip-btn primary" disabled={busy} onClick={() => doCard(c)}>
+                        {c.action.label}
+                      </button>
+                    )}
+                    <button className="chip-btn ghost" onClick={() => remember(c.key, "dismissed")}>Not now</button>
+                  </div>
+                </div>
+              ))}
+              <p className="pm-promise">Pulse only changes your own plan, and shows you first. It never contacts anyone.</p>
+            </section>
+          )}
 
           <TellPulse day={day} live={live} initial={tellText} onNote={setNote} />
 
@@ -423,6 +497,12 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
                 ))}
               </ul>
             </>
+          )}
+
+          {dayEnd && (
+            <button className="vr-btn dc-carry" onClick={() => setNote(day.carry())}>
+              Move what&apos;s left to tomorrow
+            </button>
           )}
 
           <h2>Chimes</h2>

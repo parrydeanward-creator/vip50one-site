@@ -5,6 +5,7 @@ import type { DayItem } from "@/lib/day.ts";
 import { todayIn } from "@/lib/hwc.ts";
 import { planUrl, putBody, suggest, type Plan, type PlanItem } from "@/lib/plan.ts";
 import { toldBusy, type Answers, type Told } from "@/lib/overview.ts";
+import { addDays, slide } from "@/lib/assist.ts";
 import { buildDay, customItem, customKey, customsOn, dayPutBody, dayUrl, denverNow, readDay, toMin, type Block, type Busy, type Custom, type DayPlan } from "@/lib/schedule.ts";
 
 // The day as Pulse plans it (VIP-SUMMARY §3o), shared by the Day Clock and the Brain's Next line and
@@ -19,6 +20,7 @@ const DEMO_BUSY: Busy[] = [
 ];
 const approvedKey = (date: string) => `one.dayplan.${date}`;
 const toldKey = (date: string) => `one.told.${date}`;
+const carryKey = (date: string) => `one.carry.${date}`;
 
 /** What the agent told Pulse about their day (Tell Pulse your day), with their answers to its questions. */
 export interface TellState {
@@ -48,13 +50,15 @@ export interface Day {
   customs: Custom[];
   told: TellState | null;
   tell: (t: TellState | null) => Promise<string | null>; // a note for the agent when the save goes somewhere other than their calendar
-  addBlock: (c: Omit<Custom, "id">) => Promise<string>;
+  addBlock: (c: Omit<Custom, "id">, on?: string) => Promise<string>;
   removeBlock: (id: string) => void;
   approve: () => Promise<string>;
   replan: () => void;
+  moved: string | null; // "Moved Power Hour to 2:30pm." (§3o.6), null when nothing moved
+  carry: () => string; // day's end: what is left goes to tomorrow's plan, in one tap
 }
 
-export function useDay({ today, planned, live, doneRefs, onPlan }: { today: DayItem[]; planned: Plan | null; live: boolean; doneRefs: Set<string>; onPlan: (p: Plan) => void }): Day {
+export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: { today: DayItem[]; planned: Plan | null; live: boolean; doneRefs: Set<string>; onPlan: (p: Plan) => void; extra?: PlanItem[] }): Day {
   const date = useMemo(() => todayIn(), []);
   // The clock starts in the browser (the server's minute may differ). Planning starts from the time the
   // agent opened the page, so the plan stays put while they look at it; the example agent after hours
@@ -71,6 +75,8 @@ export function useDay({ today, planned, live, doneRefs, onPlan }: { today: DayI
   const [approved, setApproved] = useState<{ at: string; blocks: Block[]; freeMin?: number; plannedMin?: number } | null>(null);
   const [move, setMove] = useState<ReturnType<typeof readDay>>(null);
   const [told, setTold] = useState<TellState | null>(null);
+  // Yesterday's leftovers, carried in one tap at the end of that day (§3o.6 "At day's end").
+  const [carried, setCarried] = useState<PlanItem[]>([]);
   // ONE MOVE's day (§3o.2): working hours, busy times from the calendar of record and the agent's other
   // calendars, and what they told Pulse, saved. Until it answers, the Brain plans the day itself.
   const loadDay = useCallback(() => {
@@ -85,6 +91,8 @@ export function useDay({ today, planned, live, doneRefs, onPlan }: { today: DayI
     if (t && Array.isArray(t.items)) setTold(t);
     const a = readLocal<{ at: string; blocks: Block[]; freeMin?: number; plannedMin?: number } | null>(approvedKey(date), null);
     if (a && Array.isArray(a.blocks)) setApproved(a);
+    const c = readLocal<PlanItem[]>(carryKey(date), []);
+    if (Array.isArray(c)) setCarried(c.filter((p) => p && typeof p.ref === "string" && typeof p.title === "string").map((p) => ({ ...p, at: null, done: false })));
     if (live) loadDay();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, live]);
@@ -124,11 +132,21 @@ export function useDay({ today, planned, live, doneRefs, onPlan }: { today: DayI
     const base: PlanItem[] = planned?.items.length ? planned.items.filter((p) => !p.ref.startsWith("blk:")) : suggest(today);
     // a fixed-time item the agent has since told Pulse about (the same lunch) is planned once, as told
     const toldAt = (p: PlanItem) => !!p.at && !!told?.items.some((t) => toMin(t.start) <= toMin(p.at!) && toMin(p.at!) < toMin(t.end));
-    const items = [...base, ...customs.map(customItem)].filter((p) => !toldAt(p)).map((p) => ({ ...p, done: p.done || doneRefs.has(p.ref) }));
+    // the week's commitments (§3o.7) and yesterday's leftovers join today's work, each once
+    const refs = new Set(base.map((p) => p.ref));
+    const more = [...extra, ...carried].filter((p) => !refs.has(p.ref) && (refs.add(p.ref), true));
+    const items = [...base, ...more, ...customs.map(customItem)].filter((p) => !toldAt(p)).map((p) => ({ ...p, done: p.done || doneRefs.has(p.ref) }));
     const notBefore = from && (live || toMin(from) < toMin(hours.end) - 60) ? from : undefined;
     const out = buildDay({ hours, busy, items, notBefore });
     return { ...out, blocks: out.blocks.map((b) => ({ ...b, done: isDone(b) })) };
-  }, [move, approved, busy, hours, planned, today, customs, doneRefs, from, isDone, told, live]);
+  }, [move, approved, busy, hours, planned, today, customs, doneRefs, from, isDone, told, live, extra, carried]);
+  // Missed blocks move by themselves (§3o.6): a block not ticked by its end slides to the next free gap
+  // today, and the agent is told; fixed ones never move; what can't fit goes to "Moves to tomorrow".
+  const slid = useMemo(() => (now ? slide(plan.blocks, busy, hours, now) : null), [plan.blocks, busy, hours, now]);
+  const shown = useMemo<DayPlan>(
+    () => (slid && slid.note ? { ...plan, blocks: slid.blocks, later: [...plan.later, ...slid.tomorrow.map((b) => ({ item: { ref: b.refs[0] ?? b.id, product: "go" as const, kind: "other" as const, title: b.title, contactId: null, link: null, minutes: toMin(b.end) - toMin(b.start), done: false }, why: "Missed today, and no free gap left." }))] } : plan),
+    [plan, slid],
+  );
 
   const saveStored = (next: Stored[]) => {
     setStored(next);
@@ -166,11 +184,13 @@ export function useDay({ today, planned, live, doneRefs, onPlan }: { today: DayI
     }
   };
 
-  const addBlock = async (c: Omit<Custom, "id">): Promise<string> => {
+  const addBlock = async (c: Omit<Custom, "id">, on: string = date): Promise<string> => {
     const id = `${Date.now().toString(36)}`;
-    saveStored([...stored, { ...c, id, date }]);
-    unapprove();
+    saveStored([...stored, { ...c, id, date: on }]);
+    if (on === date) unapprove();
     if (!live) return "Added. Example agent: in your account it goes on your calendar too.";
+    // another day's block stays on this computer until ONE MOVE's block route takes a date (asked, §3o.3)
+    if (on !== date) return "Added to that day's plan on this computer.";
     try {
       const r = await fetch(`${dayUrl}/block`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `${c.title} ${c.start} to ${c.end}${c.repeat === "weekdays" ? " every weekday" : c.repeat === "daily" ? " every day" : ""}`, confirmed: { title: c.title, start: c.start, end: c.end, repeat: c.repeat } }) });
       return r.ok ? "Added, and on your calendar." : "Added on this computer. It reaches your calendar once ONE GO's calendar update is live.";
@@ -211,5 +231,22 @@ export function useDay({ today, planned, live, doneRefs, onPlan }: { today: DayI
     return "Kept on this computer. Your phone and calendar get it once ONE GO's update is live.";
   };
 
-  return { date, now, hours, busy, plan, approvedAt: (move?.approvedAt ?? approved?.at) || null, fromMove: !!move, customs, told, tell, addBlock, removeBlock, approve, replan: unapprove };
+  // Day's end: everything not done (blocks and "Moves to tomorrow") goes to tomorrow's plan, in one tap.
+  const carry = (): string => {
+    const byRef = new Map<string, PlanItem>([...(planned?.items ?? []), ...suggest(today), ...extra, ...carried].map((p) => [p.ref, p]));
+    const left: PlanItem[] = [];
+    for (const b of shown.blocks.filter((x) => !x.done && x.kind !== "custom"))
+      for (const r of b.refs) {
+        const p = byRef.get(r);
+        if (p && !doneRefs.has(r) && !r.startsWith("cm:")) left.push({ ...p, at: null, done: false });
+      }
+    for (const l of shown.later) if (!l.item.ref.startsWith("cm:")) left.push({ ...l.item, at: null, done: false });
+    const uniq = [...new Map(left.map((p) => [p.ref, p])).values()].slice(0, 15);
+    try {
+      localStorage.setItem(carryKey(addDays(date, 1)), JSON.stringify(uniq));
+    } catch {}
+    return uniq.length ? `${uniq.length} ${uniq.length === 1 ? "thing goes" : "things go"} to tomorrow's plan.` : "Nothing left to move.";
+  };
+
+  return { date, now, hours, busy, plan: shown, moved: slid?.note ?? null, carry, approvedAt: (move?.approvedAt ?? approved?.at) || null, fromMove: !!move, customs, told, tell, addBlock, removeBlock, approve, replan: unapprove };
 }
