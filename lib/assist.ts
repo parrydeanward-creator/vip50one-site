@@ -127,7 +127,8 @@ function prepLines(b: Busy): string[] {
   return ["What it's for, and what you want from it."];
 }
 
-const isMeet = (b: Busy) => APPT.includes(b.source) && !!b.title;
+// a drive or commute the agent typed as an appointment ("Drive home.") gets no prep and no "How did it go?"
+const isMeet = (b: Busy) => APPT.includes(b.source) && !!b.title && !/^\s*(drive|driving|commute|travel)\b/i.test(b.title);
 
 /** The cards for right now, most pressing first. `answered` holds the "How did it go?" keys already done. */
 export function assistNow(input: {
@@ -243,7 +244,9 @@ export function assistNow(input: {
     });
   }
   const order: AssistKind[] = ["leave", "prep", "howgo", "gap", "ahead", "wrap", "week"];
-  return out.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
+  // one card per key: the same appointment twice (two calendars) must not leave a card "Not now" can't clear
+  const seen = new Set<string>();
+  return out.filter((c) => !seen.has(c.key) && (seen.add(c.key), true)).sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
 }
 
 const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1);

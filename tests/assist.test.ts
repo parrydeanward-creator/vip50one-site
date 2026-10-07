@@ -79,3 +79,13 @@ test("assistNow: the day's wrap near the end of the day", () => {
   const w = a.find((x) => x.kind === "wrap")!;
   assert.deepEqual(w.lines, ["1 of 2 blocks done.", "Left: Texts."]);
 });
+
+test("assistNow: one card per appointment, and none for a drive typed as an appointment", () => {
+  const busy: Busy[] = [
+    { start: "16:00", end: "17:00", title: "Coffee with Marcus", source: "fixed" },
+    { start: "16:00", end: "17:00", title: "Coffee with Marcus", source: "calendar" },
+    { start: "17:30", end: "18:00", title: "Drive home.", source: "one_event" },
+  ];
+  const a = assistNow({ date: "2026-10-07", now: "18:10", hours, busy, blocks: [], later: [] }).filter((x) => x.kind === "howgo");
+  assert.deepEqual(a.map((x) => x.title), ["How did Coffee with Marcus go?"]);
+});

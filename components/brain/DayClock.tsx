@@ -376,16 +376,16 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
                   )}
                   <div className="decide-btns">
                     {c.ask && (
-                      <button className="chip-btn" disabled={!(howText[c.key] ?? "").trim()} onClick={() => saveNote(c)}>
+                      <button type="button" className="chip-btn" disabled={!(howText[c.key] ?? "").trim()} onClick={() => saveNote(c)}>
                         Save the note
                       </button>
                     )}
                     {c.action && (
-                      <button className="chip-btn primary" disabled={busy} onClick={() => doCard(c)}>
+                      <button type="button" className="chip-btn primary" disabled={busy} onClick={() => doCard(c)}>
                         {c.action.label}
                       </button>
                     )}
-                    <button className="chip-btn ghost" onClick={() => remember(c.key, "dismissed")}>Not now</button>
+                    <button type="button" className="chip-btn ghost" onClick={() => remember(c.key, "dismissed")}>Not now</button>
                   </div>
                 </div>
               ))}
