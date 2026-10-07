@@ -57,3 +57,21 @@ test("withPulseCoachNode: one orb under ONE YOU, yellow when part of the read ne
   assert.match(n[0].secondaryLabel!, /^Focus: /);
   assert.equal(withPulseCoachNode(base, null).nodes.length, 1);
 });
+
+test("pulseRead for a coach: the agent's weeks in the third person, never 'you'", () => {
+  const c = { keepRate8w: 0.6, streak: 2, lastWeek: { kept: 3, partly: 1, missed: 1 } } as Parameters<typeof pulseRead>[1];
+  const r = pulseRead(demoHistory(today, 1), c, today, "Jen")!;
+  assert.match(r.focus!.why, /their best week had/);
+  assert.equal(r.parts.find((p) => p.key === "days")!.title, "Their week's shape");
+  assert.match(r.parts.find((p) => p.key === "days")!.line, / is their best day/);
+  assert.equal(r.parts.find((p) => p.key === "habits")!.title, "Their habits");
+  assert.equal(r.parts.find((p) => p.key === "keep")!.rows[0].text, "Jen keeps 60% of what they commit to");
+  const words = JSON.stringify(r);
+  assert.doesNotMatch(words, /\b[Yy]ou(r)?\b/);
+});
+
+test("demoHistory: each example agent you coach has their own numbers", () => {
+  const a = demoHistory(today, 1), b = demoHistory(today, 2);
+  assert.notDeepEqual(a.weeks.map((w) => w.score), b.weeks.map((w) => w.score));
+  assert.deepEqual(demoHistory(today).weeks.map((w) => w.score), demoHistory(today, 0).weeks.map((w) => w.score));
+});
