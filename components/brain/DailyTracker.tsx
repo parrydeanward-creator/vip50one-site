@@ -181,7 +181,7 @@ export default function DailyTracker({
                 onPointerEnter={() => setHover(s.key)}
                 onPointerLeave={() => setHover((h) => (h === s.key ? null : h))}
               >
-                <title>{`${b.label} · ${b.points} ${b.points === 1 ? "pt" : "pts"}`}</title>
+                <desc>{`${b.label} · ${b.points} ${b.points === 1 ? "pt" : "pts"}`}</desc>
                 {b.done && <circle cx={s.x} cy={s.y} r={s.r * 1.8} fill="url(#dt-box-glow)" />}
                 <circle className="dt-box-disc" cx={s.x} cy={s.y} r={s.r} fill={b.done ? "url(#dt-box-on)" : "url(#dt-glass)"} stroke={b.done ? GOLD : "rgba(160,175,210,0.35)"} strokeWidth={2} />
                 <ellipse cx={s.x} cy={s.y - s.r * 0.5} rx={s.r * 0.55} ry={s.r * 0.22} fill="#fff" fillOpacity={0.07} />

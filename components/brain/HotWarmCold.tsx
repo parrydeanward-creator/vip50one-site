@@ -440,7 +440,7 @@ export default function HotWarmCold({
                   }
                 }}
               >
-                <title>{p.name}</title>
+                <desc>{p.name}</desc>
                 {tr && (
                   <g className={`hw-trail hw-trail-${tr}`} pointerEvents="none">
                     {[1, 2, 3].map((k) => (

@@ -206,22 +206,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const btnRefs = useRef(new Map<string, HTMLButtonElement>());
   const drawerRef = useRef<HTMLElement>(null);
   const leaderRef = useRef<SVGLineElement>(null);
-  const peekRef = useRef<HTMLDivElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
-  const [peekId, setPeekId] = useState<string | null>(null);
-  // The hover card waits a moment before closing, so the pointer can travel
-  // onto it and click it (Parry, 3 Oct: it vanished on the way).
-  const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showPeek = (id: string) => {
-    if (peekTimer.current) clearTimeout(peekTimer.current);
-    setPeekId(id);
-  };
-  const hidePeekSoon = () => {
-    if (peekTimer.current) clearTimeout(peekTimer.current);
-    peekTimer.current = setTimeout(() => setPeekId(null), 350);
-  };
-  const peekIdRef = useRef<string | null>(null);
-  peekIdRef.current = peekId;
   const stateRef = useRef(state.focusId);
   stateRef.current = state.focusId;
   const drag = useRef({ down: false, moved: false, x: 0, y: 0, pointers: new Map<number, { x: number; y: number }>(), pinch: 0 });
@@ -748,7 +733,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
 
   useEffect(() => {
     drawerRef.current?.scrollTo({ top: 0 });
-    setPeekId(null);
   }, [state.focusId]);
 
   useEffect(() => {
@@ -1000,13 +984,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       el.style.width = el.style.height = `${size}px`;
       el.style.transform = `translate(${p.x - size / 2}px, ${p.y - size / 2}px)`;
     }
-    // Things anchored to orbs: the hover preview, the focused orb's action
+    // Things anchored to orbs (no hover card: Parry, 8 Oct, removed them): the focused orb's action
     // chips, and its WHY box. Placed in screen space every frame.
     const vp = s.viewport;
     // The side panel sits over the right of the map: cards stop at its left edge.
-    const peekHost = peekRef.current?.offsetParent as HTMLElement | null;
+    const cardHost = chipsRef.current?.offsetParent as HTMLElement | null;
     const dr = drawerRef.current?.getBoundingClientRect();
-    const hr = peekHost?.getBoundingClientRect();
+    const hr = cardHost?.getBoundingClientRect();
     const right = dr && hr && dr.width > 0 && dr.left > hr.left ? Math.min(vp.width, dr.left - hr.left) : vp.width;
     const place = (el: HTMLElement | null, id: string | null, fn: (p: { x: number; y: number; r: number }, w: number, h: number) => [number, number]) => {
       if (!el) return;
@@ -1019,8 +1003,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       el.style.visibility = "visible";
       el.style.transform = `translate(${Math.round(Math.min(Math.max(8, x), right - el.offsetWidth - 8))}px, ${Math.round(Math.min(Math.max(8, y), vp.height - el.offsetHeight - 8))}px)`;
     };
-    const pid = peekIdRef.current;
-    place(peekRef.current, pid && pid !== stateRef.current ? pid : null, (p, w, h) => (p.x + p.r + 14 + w > right - 8 ? [p.x - p.r - 14 - w, p.y - h / 2] : [p.x + p.r + 14, p.y - h / 2]));
     place(chipsRef.current, stateRef.current, (p, w) => [p.x - w / 2, p.y + p.r + 14]);
     // Rail lines: from each floating button to its orb.
     const hostRect = hostRef.current?.getBoundingClientRect();
@@ -1288,7 +1270,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const related = (ix.links.get(focus.id) ?? [])
     .map((e) => ix.byId.get(e.source === focus.id ? e.target : e.source))
     .filter((n): n is GraphNode => !!n);
-  const peek = peekId ? ix.byId.get(peekId) ?? null : null;
   const productHref = PRODUCT_HREF[focus.product];
   // Actions that live on the focused orb itself (and in the card as well).
   const orbActions: { label: string; run?: () => void; href?: string; primary?: boolean; pressed?: boolean }[] = [];
@@ -1474,62 +1455,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                   aria-label={nodeLabel(v.node, v.role, v.hasChildren, needs.get(v.node.id))}
                   aria-current={v.role === "focus" ? "true" : undefined}
                   onClick={() => clickNode(v.node.id)}
-                  onPointerEnter={(e) => {
-                    sceneRef.current?.setHover(v.node.id);
-                    if (e.pointerType === "mouse" && !isMovePage(v.node.id)) showPeek(v.node.id);
-                  }}
-                  onPointerLeave={() => {
-                    sceneRef.current?.setHover(null);
-                    hidePeekSoon();
-                  }}
-                  onFocus={() => {
-                    sceneRef.current?.setHover(v.node.id);
-                    if (!isMovePage(v.node.id)) setPeekId(v.node.id);
-                  }}
-                  onBlur={() => {
-                    sceneRef.current?.setHover(null);
-                    setPeekId(null);
-                  }}
+                  onPointerEnter={() => sceneRef.current?.setHover(v.node.id)}
+                  onPointerLeave={() => sceneRef.current?.setHover(null)}
+                  onFocus={() => sceneRef.current?.setHover(v.node.id)}
+                  onBlur={() => sceneRef.current?.setHover(null)}
                 />
               ))}
             </div>
-            {peek && (
-              <div
-                ref={peekRef}
-                className="peek"
-                style={{ visibility: "hidden" }}
-                aria-hidden="true"
-                onPointerEnter={() => showPeek(peek.id)}
-                onPointerLeave={hidePeekSoon}
-                onClick={() => {
-                  setPeekId(null);
-                  clickNode(peek.id);
-                }}
-              >
-                <p className="peek-kicker" style={{ color: hex(PRODUCT_COLOR[peek.product]) }}>
-                  {productName(peek.product)}
-                  {peek.status && !peek.locked && (
-                    <span style={{ color: hex(STATUS[peek.status].color) }}> · {STATUS[peek.status].label}</span>
-                  )}
-                </p>
-                <p className="peek-title">{peek.label}</p>
-                {peek.locked ? (
-                  <p className="peek-sub">Included in ONE Complete</p>
-                ) : peek.stats?.[0] ? (
-                  <p className="peek-stat">
-                    <b>{peek.stats[0].value}</b> {peek.stats[0].label}
-                  </p>
-                ) : (
-                  peek.secondaryLabel && <p className="peek-sub">{peek.secondaryLabel}</p>
-                )}
-                {ask && ask.results.find((r) => r.id === peek.id) ? (
-                  <p className="peek-sum">{clip(ask.results.find((r) => r.id === peek.id)!.reasons[0] ?? "", 110)}</p>
-                ) : (
-                  peek.summary && !peek.locked && <p className="peek-sum">{clip(peek.summary, 110)}</p>
-                )}
-                <p className="peek-hint">{inBrainPage(peek.id) ? "Click to open it here" : childrenOf(ix, peek.id).length ? "Click to open" : "Click for details"}</p>
-              </div>
-            )}
 
             {ready && (orbActions.length > 0) && (
               <div ref={chipsRef} key={`chips-${state.focusId}`} className="chips pop" role="group" aria-label={`${focus.label} actions`} style={{ visibility: "hidden" }}>

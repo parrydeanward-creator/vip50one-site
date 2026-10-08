@@ -239,7 +239,7 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
                 return (
                   <g key={id} className={`dc-busy${b.source === "travel" ? " dc-drive" : ""}${b.source === "fixed" ? " dc-told" : ""}`} style={{ "--hue": HUE[busyHue(b)].color } as React.CSSProperties}>
                     <path d={arc(x.a1 + 0.003, x.a2 - 0.003, r)} strokeWidth={b.source === "travel" ? W * 0.42 : W} />
-                    <title>{`${range(b.start, b.end)} ${b.title ?? BUSY_WORD[b.source]}`}</title>
+                    <desc>{`${range(b.start, b.end)} ${b.title ?? BUSY_WORD[b.source]}`}</desc>
                     {fits(label, x.a1, x.a2, r) && (
                       <>
                         <path id={id} d={textArc(x.a1, x.a2, r)} fill="none" stroke="none" />

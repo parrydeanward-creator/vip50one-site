@@ -394,7 +394,7 @@ export default function Contacts({
                     }
                   }}
                 >
-                  <title>{p.pulse ? `${p.name} · ${p.pulse}` : p.name}</title>
+                  <desc>{p.pulse ? `${p.name} · ${p.pulse}` : p.name}</desc>
                   {glowing.has(p.id) && <circle r={s.r + 10} fill="none" stroke={GOLD} strokeWidth={4} className="sd-glow" pointerEvents="none" />}
                   <PulseRing r={s.r} level={p.pulse ? p.urgency ?? "today" : "good"} />
                   <circle r={s.r} fill="#121a36" stroke={col} strokeWidth={1.8} />
@@ -531,7 +531,7 @@ export default function Contacts({
                         }
                       }}
                     >
-                      <title>{`${f.label}: ${shown ?? "empty"}`}</title>
+                      <desc>{`${f.label}: ${shown ?? "empty"}`}</desc>
                       <circle r={r + 8} fill={yes ? TEAL : col} opacity={yes ? 0.22 : 0.08} pointerEvents="none" />
                       <circle r={r} fill={yes ? "#0e2b2a" : "url(#pc-glass)"} stroke={shown == null ? GOLD : yes ? TEAL : col} strokeWidth={yes ? 3 : 1.8} strokeDasharray={shown == null ? "5 5" : undefined} opacity={f.editable || shown != null ? 1 : 0.6} />
                       {fitLines(shown == null ? (f.editable ? "Add" : "—") : yes ? "✓" : shown, r).map((ln, k, all) => (
@@ -635,8 +635,10 @@ export default function Contacts({
       </div>
 
       <aside ref={drawerRef} className="drawer vr-drawer" aria-label="My Contacts">
-        <input className="rx-search pc-search" type="search" placeholder="Search name, phone, email, address, notes…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search your contacts" />
-        {found ? (
+        <input className="rx-search pc-search" type="search" placeholder="Search name, phone, email, address, notes…" value={q} onChange={(e) => { setQ(e.target.value); if (person) { setPerson(null); setFocusSec(null); setFocusFld(null); } }} aria-label="Search your contacts" />
+        {/* An open person always owns the panel (Parry, 8 Oct, on Jen Wright: a search left the results list here
+            while her sections opened only on the map). Typing a new search closes the person. */}
+        {found && !person ? (
           <>
             <h2>{found.length ? `${found.length}${found.length === 50 ? "+" : ""} found` : "No one found"}</h2>
             <ul className="ta-list">{found.map(row)}</ul>
