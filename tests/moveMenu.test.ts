@@ -57,7 +57,8 @@ test("no ONE MOVE account: the pages still show, nothing lit", () => {
 // except Dashboard (Classic's home, which has no orb).
 test("every ONE MOVE menu page opens inside the Brain; other orbs do not", async () => {
   const { inBrainPage, movePageId, IN_BRAIN } = await import("../lib/moveMenu.ts");
-  assert.equal(IN_BRAIN.size, 22);
+  // 22 agent pages, plus the 7 Coach pages for admins (Parry, 8 Oct: the admin pages belong in the Brain too)
+  assert.equal(IN_BRAIN.size, 29);
   assert.ok(!IN_BRAIN.has("/dashboard")); // Classic's home stays a link
   assert.equal(inBrainPage(movePageId("/contacts/vip"))?.label, "VIP Management");
   assert.equal(inBrainPage(movePageId("/contacts"))?.label, "Contacts");

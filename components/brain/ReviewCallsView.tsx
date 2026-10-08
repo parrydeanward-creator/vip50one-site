@@ -213,7 +213,7 @@ export default function ReviewCallsView({ agents, demo, onClose, onSearch }: { a
                     </span>
                   </li>
                 ))}
-                {!agents.length && <li><span className="pm-body"><small>No agents found.</small></span></li>}
+                {!agents.length && <li><span className="pm-body"><small>{q ? "No agents found." : "The agent list arrives with ONE MOVE's next update. For a call today, use Coach > Review calls in the ONE MOVE menu."}</small></span></li>}
               </ul>
             </>
           ) : step && pick != null ? (

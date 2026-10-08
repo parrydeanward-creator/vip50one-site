@@ -71,7 +71,7 @@ import { needWords, needsOf, type Need } from "@/lib/needs.ts";
 import { SEEN_KEY } from "@/lib/pulseIntro.ts";
 import type { SceneNeed } from "./scene.ts";
 import { returnNote, withoutNotes } from "@/lib/googleReturn.ts";
-import { IN_BRAIN, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_GROUPS, MOVE_TOP, inBrainPage, moveEmbedHref, moveGroupId, moveMenuHref, movePageId, type MovePage, pageAddress, pageFromAddress } from "@/lib/moveMenu.ts";
+import { IN_BRAIN, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_TOP, inBrainPage, moveGroupsFor, withMoveCoach, moveEmbedHref, moveGroupId, moveMenuHref, movePageId, type MovePage, pageAddress, pageFromAddress } from "@/lib/moveMenu.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -86,6 +86,7 @@ export interface BrainAgent {
   initials: string;
   label: string; // spoken name for the account button
   photo?: string; // the agent's own photo (MASTER user_profiles.avatar_url)
+  admin?: boolean; // MASTER is_admin / is_super_admin: the Coach menu and Review calls
 }
 
 // The made-up agent the demo, films and screenshots use.
@@ -119,7 +120,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const pcRef = useRef<PulseRead | null>(null);
   // ONE YOU's Power Hour orb: today's calls lined up.
   const powerRef = useRef<{ calls: Call[]; session: PowerSession | null } | null>(null);
-  const [graph, setGraph] = useState(() => withPlanNode(initialGraph, null));
+  const admin = agent.admin === true;
+  const [graph, setGraph] = useState(() => withMoveCoach(withPlanNode(initialGraph, null), admin));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
   // this, a refresh after logging a call changed nothing on screen.
@@ -127,7 +129,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current);
+    const next = withMoveCoach(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), admin);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -443,11 +445,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => {
           const a = j ? readAgents(j) : null;
+          // An admin sees the orb even before ONE MOVE serves the list; saving then says to use Classic for now.
           if (a) setRcAgents(a);
+          else if (admin) setRcAgents((x) => x ?? []);
         })
         .catch(() => {});
     },
-    [live],
+    [live, admin],
   );
   useEffect(() => loadRcAgents(), [loadRcAgents]);
   useEffect(() => {
@@ -1531,7 +1535,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               <p className="rail-sub">Main menu</p>
               <ul>
                 {MOVE_TOP.map(moveLink)}
-                {MOVE_GROUPS.map((g) => {
+                {moveGroupsFor(admin).map((g) => {
                   const gn = ix.byId.get(moveGroupId(g.key));
                   const open = openGroups.includes(g.key);
                   return (

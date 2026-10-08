@@ -79,6 +79,28 @@ export const MOVE_GROUPS: MoveGroup[] = [
   },
 ];
 
+/**
+ * Coach: the admin pages (Parry, 8 Oct, via GO/MOVE: he could not find them in the Brain). Shown to admins only,
+ * last in the list; each page checks admin itself (ONE MOVE redirects anyone else), so the menu is not the lock.
+ */
+export const MOVE_COACH: MoveGroup = {
+  key: "coach",
+  label: "Coach",
+  blurb: "Admin pages",
+  pages: [
+    { label: "Coach Overview", path: "/admin" },
+    { label: "Revenue", path: "/admin/revenue" },
+    { label: "All Agents", path: "/users" },
+    { label: "Challenge", path: "/admin/challenge" },
+    { label: "Luxury Team", path: "/admin/team" },
+    { label: "Review calls", path: "/admin/review-calls" },
+    { label: "System Health", path: "/admin/system-health" },
+  ],
+};
+
+/** The groups an agent sees: Coach last, for admins only. */
+export const moveGroupsFor = (admin: boolean): MoveGroup[] => (admin ? [...MOVE_GROUPS, MOVE_COACH] : MOVE_GROUPS);
+
 /** Always on show, below the groups. */
 export const MOVE_BOTTOM: MovePage[] = [
   { label: "The Lounge", path: "/lounge" },
@@ -95,7 +117,8 @@ export const moveEmbedHref = (path: string) => `${MOVE_URL}${path}${path.include
 
 function MOVE_MENU_PATHS(): string[] {
   // Dashboard is ONE MOVE's Classic home, not a page inside the Brain.
-  return MOVE_MENU.map((m) => m.path).filter((p) => p !== "/dashboard");
+  // Coach pages (admins) open in place too.
+  return [...MOVE_MENU, ...MOVE_COACH.pages].map((m) => m.path).filter((p) => p !== "/dashboard");
 }
 
 /** Graph ids: a group orb and a page orb. Touch Audit keeps its live id. */
@@ -114,7 +137,7 @@ export const MOVE_PAGE_WIDTH = 1280;
 
 export const IN_BRAIN: ReadonlySet<string> = new Set(MOVE_MENU_PATHS());
 
-const PATH_BY_ID = new Map(MOVE_MENU.map((m) => [movePageId(m.path), m]));
+const PATH_BY_ID = new Map([...MOVE_MENU, ...MOVE_COACH.pages].map((m) => [movePageId(m.path), m]));
 
 /** The page a focused orb opens inside the Brain, if any. */
 export function inBrainPage(nodeId: string): MovePage | null {
@@ -141,4 +164,24 @@ export const pageAddress = (path: string | null) => (path ? `/dashboard${path}` 
 export function pageFromAddress(pathname: string): string | null {
   const m = /^\/dashboard(\/.+?)\/?$/.exec(pathname);
   return m && IN_BRAIN.has(m[1]) ? m[1] : null;
+}
+
+/**
+ * The Coach group and its pages as orbs round ONE MOVE, for admins only (added in the Brain, since the graph is
+ * built before the page knows who is looking at it). Nothing for anyone else.
+ */
+export function withMoveCoach<G extends { nodes: import("./graph/types.ts").GraphNode[]; edges: import("./graph/types.ts").GraphEdge[] }>(g: G, admin: boolean): G {
+  const gid = moveGroupId(MOVE_COACH.key);
+  const ids = new Set([gid, ...MOVE_COACH.pages.map((p) => movePageId(p.path))]);
+  const nodes = g.nodes.filter((n) => !ids.has(n.id));
+  const edges = g.edges.filter((e) => !ids.has(e.target));
+  if (!admin || !g.nodes.some((n) => n.id === "move")) return { ...g, nodes, edges };
+  nodes.push({ id: gid, type: "category", label: MOVE_COACH.label, secondaryLabel: MOVE_COACH.blurb, parentId: "move", product: "move", importance: 0.5, summary: `Coach in ONE MOVE (admins): ${MOVE_COACH.pages.map((p) => p.label).join(", ")}.` });
+  edges.push({ id: `move>${gid}`, source: "move", target: gid, relationshipType: "belongs_to", strength: 1 });
+  MOVE_COACH.pages.forEach((p, j) => {
+    const id = movePageId(p.path);
+    nodes.push({ id, type: "feature", label: p.label, parentId: gid, product: "move", importance: 0.8 - j * 0.02, href: moveMenuHref(p.path) });
+    edges.push({ id: `${gid}>${id}`, source: gid, target: id, relationshipType: "belongs_to", strength: 1 });
+  });
+  return { ...g, nodes, edges };
 }
