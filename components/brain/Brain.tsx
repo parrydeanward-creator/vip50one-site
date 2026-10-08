@@ -45,6 +45,7 @@ import PulseCoachView from "./PulseCoachView.tsx";
 import ReferralsView from "./ReferralsView.tsx";
 import WinsView from "./WinsView.tsx";
 import TeamView from "./TeamView.tsx";
+import ReviewCallsView from "./ReviewCallsView.tsx";
 import HabitsView from "./HabitsView.tsx";
 import PartnersView from "./PartnersView.tsx";
 import PowerHourView from "./PowerHourView.tsx";
@@ -55,6 +56,7 @@ import { POWER_NODE, lineUp, newSession, powerKey, readSession, withPowerNode, t
 import { ASSUME_DEFAULT, INCOME_NODE, goalFacts, incomeKey, incomeMap, readAssume, withIncomeNode, type Assume, type IncomeMap } from "@/lib/goals.ts";
 import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
 import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
+import { REVIEW_CALLS_NODE, agentsUrl, demoAgents, readAgents, withReviewCallsNode, type ReviewAgent } from "@/lib/reviewCalls.ts";
 import { TEAM_NODE, demoTeam, readTeam, teamUrl, withTeamNode, type Scope as TeamScope, type Team } from "@/lib/team.ts";
 import { WINS_NODE, demoWins, newSince, readWins, winsUrl, withWinsNode, type Wins } from "@/lib/wins.ts";
 import { PARTNERS_NODE, demoPartners, partnersActionUrl, partnersUrl, readPartners, withPartnersNode, type PartnersState } from "@/lib/partners.ts";
@@ -112,6 +114,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const partnersRef = useRef<PartnersState | null>(null);
   const winsRef = useRef<{ w: Wins; fresh: number } | null>(null);
   const teamRef = useRef<Team | null>(null);
+  const rcRef = useRef(false);
   // ONE YOU's Pulse Coach orb (§3q): the weekly read on the agent's own numbers.
   const pcRef = useRef<PulseRead | null>(null);
   // ONE YOU's Power Hour orb: today's calls lined up.
@@ -124,7 +127,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current);
+    const next = withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -430,6 +433,27 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       })
       .catch(() => {});
   }, [live]);
+  // Review calls (§3v): admins only. The orb shows once ONE MOVE answers the agents list (a 403 for everyone else).
+  const [rcAgents, setRcAgents] = useState<ReviewAgent[] | null>(null);
+  const [rcOpen, setRcOpen] = useState(false);
+  const loadRcAgents = useCallback(
+    (q = "") => {
+      if (!live) return setRcAgents(demoAgents().filter((a) => a.name.toLowerCase().includes(q.toLowerCase())));
+      fetch(agentsUrl(q), { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          const a = j ? readAgents(j) : null;
+          if (a) setRcAgents(a);
+        })
+        .catch(() => {});
+    },
+    [live],
+  );
+  useEffect(() => loadRcAgents(), [loadRcAgents]);
+  useEffect(() => {
+    rcRef.current = rcAgents != null;
+    setGraph((g) => withReviewCallsNode(g, rcAgents != null));
+  }, [rcAgents]);
   // Team (§3u): the week's leaderboard among members, full screen for the office TV; the example team in the demo.
   const [team, setTeam] = useState<Team | null>(null);
   const [teamOpen, setTeamOpen] = useState(false);
@@ -1279,6 +1303,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === PARTNERS_NODE) return setPartnersOpen(true);
     if (id === WINS_NODE) return setWinsOpen(true);
     if (id === TEAM_NODE) return setTeamOpen(true);
+    if (id === REVIEW_CALLS_NODE) return setRcOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
   };
@@ -1910,6 +1935,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </button>
           )}
 
+          {focus.id === REVIEW_CALLS_NODE && rcAgents && !tour && (
+            <button className="pi-film pm-open" onClick={() => setRcOpen(true)}>
+              <span className="pi-play" aria-hidden="true">✓</span>
+              <span>
+                <b>Open Review calls</b>
+                <span>The call guide for the done-for-you site and SOI setup. Saved on the agent's record.</span>
+              </span>
+            </button>
+          )}
           {focus.id === TEAM_NODE && team && !tour && (
             <button className="pi-film pm-open" onClick={() => setTeamOpen(true)}>
               <span className="pi-play" aria-hidden="true">#</span>
@@ -2305,6 +2339,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       ) : null}
       {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} demo={!live} onAssume={saveAssume} onClose={() => setIncomeOpen(false)} /> : null}
       {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} /> : null}
+      {rcOpen && rcAgents ? <ReviewCallsView agents={rcAgents} demo={!live} onClose={() => setRcOpen(false)} onSearch={loadRcAgents} /> : null}
       {teamOpen && team ? <TeamView team={team} demo={!live} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} /> : null}
       {winsOpen && wins ? (
         <WinsView

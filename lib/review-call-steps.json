@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "updated": "2026-10-08",
+  "owner": "websites",
+  "calls": {
+    "site": {
+      "title": "Website review call",
+      "steps": [
+        {
+          "t": "Before the call",
+          "min": "5 min, on your own",
+          "items": [
+            "Open the draft site preview (ONE Websites builder, Preview)",
+            "Open the agent's My Profile in ONE Brain",
+            "Open their old website, if they have one",
+            "Count the Check badges still showing in the builder (the number at the top)"
+          ]
+        },
+        {
+          "t": "Open the call",
+          "min": "2 min",
+          "say": "Thanks for the time. We'll walk through your new site together. Nothing goes live until you press Publish yourself, so say anything you want changed.",
+          "items": [
+            "Agreed how long the call will take (30 to 45 minutes)",
+            "Told them they press Publish, not us"
+          ]
+        },
+        {
+          "t": "Facts that must be exact",
+          "min": "5 min",
+          "items": [
+            "Name, spelled the way they want it shown",
+            "Brokerage legal name exactly as on the Utah Division of Real Estate record",
+            "Team name, if any (it shows beside the brokerage, never instead of it)",
+            "Licence number, mobile, email",
+            "The areas they serve, in order of importance",
+            "Who they mostly help (first-time buyers, luxury, sellers, land...)"
+          ],
+          "rule": "Utah rule: the brokerage name shows on every page. If what they say differs from the profile, fix it in My Profile so it changes everywhere."
+        },
+        {
+          "t": "Look and brand",
+          "min": "10 min",
+          "items": [
+            "Their first reaction to the look (keep, change, or try another template)",
+            "Logo file: have one, need one, or text name only",
+            "Colours they love or never want",
+            "Headshot to use (and any photos of them working)",
+            "Listing or area photos they own and want used",
+            "One or two sites they like, for ideas only (we never copy them)"
+          ]
+        },
+        {
+          "t": "Words",
+          "min": "10 min",
+          "say": "Pulse wrote a first draft from your profile. Let's read the parts marked Check so the words sound like you.",
+          "items": [
+            "Read the home page headline and intro aloud; changes noted",
+            "Bio checked: true, current, in their voice",
+            "Numbers (homes sold, years, ratings): only real ones they can stand behind, or leave them out",
+            "Area guides: anything they would add about the place and the homes",
+            "Every Check badge looked at"
+          ],
+          "rule": "Fair housing: describe places and homes, never who lives there. No \"safe\", \"family-friendly\", \"exclusive\" or school-quality claims. Census figures stay as published."
+        },
+        {
+          "t": "Leads and follow-up",
+          "min": "5 min",
+          "items": [
+            "Leads from the site go into ONE MOVE: confirmed they know where to find them",
+            "Pulse chat on the site: Off, Ask me or Autopilot (default Off; their choice)",
+            "Home value requests: Pulse drafts it, they check it and send it",
+            "Texts go from their own phone; nothing is sent to a client unless they chose it"
+          ]
+        },
+        {
+          "t": "Old site, domain and Google",
+          "min": "5 min",
+          "items": [
+            "Old site address, and pages worth keeping",
+            "Domain: keep their own, or use name.vip50homes.com (VIP-50 buys a custom domain if they want one)",
+            "Who holds the old domain login (they keep it; we never ask for passwords on the call)",
+            "Google Business Profile: do they have one, and is it theirs"
+          ]
+        },
+        {
+          "t": "Reviews and testimonials",
+          "min": "3 min",
+          "items": [
+            "Real, named clients only, with each person's permission",
+            "Where their reviews live now (Google, RateMyAgent, Zillow)"
+          ]
+        },
+        {
+          "t": "Close",
+          "min": "3 min",
+          "say": "I'll send the changes through today. You'll get the updated draft, and when it's right, you press Publish.",
+          "items": [
+            "Listed every change back to them",
+            "Agreed when they'll see the next draft",
+            "Asked whether they want the SOI setup next (if they don't have it)"
+          ]
+        }
+      ]
+    },
+    "soi": {
+      "title": "SOI setup review call",
+      "steps": [
+        {
+          "t": "Before the call",
+          "min": "5 min, on your own",
+          "items": [
+            "Open their ONE MOVE contacts and the import summary",
+            "Note how many contacts, duplicates found and missing phones or emails"
+          ]
+        },
+        {
+          "t": "Open the call",
+          "min": "2 min",
+          "say": "We've brought your contacts into ONE MOVE and tidied them. Let's check it together. Nothing is sent to anyone from this setup.",
+          "items": [
+            "Told them nothing goes out to contacts without their choice"
+          ]
+        },
+        {
+          "t": "Where the contacts came from",
+          "min": "5 min",
+          "items": [
+            "Phone contacts, Google Contacts, old CRM export (Lofty or other), spreadsheets",
+            "Anything missing (a second phone, an old email account)",
+            "Duplicates merged: spot-check five with them"
+          ]
+        },
+        {
+          "t": "Your VIP-50",
+          "min": "10 min",
+          "items": [
+            "Picked their VIP list (target 50, up to 75)",
+            "Each VIP has a phone and an email where known",
+            "Birthdays and home anniversaries filled where known",
+            "\"Tell Us About You\" details filled where they know them"
+          ],
+          "rule": "Open house visitors and tour buyers go to ONE MOVE tagged by source, never straight into the VIP-50."
+        },
+        {
+          "t": "Tags and do-not-contact",
+          "min": "5 min",
+          "items": [
+            "Past clients, sphere, vendors, agents tagged",
+            "Anyone who asked not to be contacted marked do-not-contact",
+            "Anyone who must not get texts or emails noted"
+          ]
+        },
+        {
+          "t": "First plans",
+          "min": "5 min",
+          "items": [
+            "Which plans to start, and for whom",
+            "Each plan's automatic texts and emails: off unless they switch them on",
+            "SOI managed monthly ($149): want Pulse to draft every monthly touch for them to approve?"
+          ]
+        },
+        {
+          "t": "Close",
+          "min": "3 min",
+          "say": "You're set. Your first touches will show up as tasks in ONE GO for you to send.",
+          "items": [
+            "Listed what was set up",
+            "Showed where tomorrow's touches appear in ONE GO"
+          ]
+        }
+      ]
+    }
+  }
+}
