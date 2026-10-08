@@ -12,7 +12,11 @@ import {
   COUNTED,
   NOTE_MAX,
   TEXT_MAX,
+  applyTick,
   checkBody,
+  doneUrl,
+  tickable,
+  ticked,
   commitmentsUrl,
   dueLevel,
   dueWords,
@@ -72,6 +76,8 @@ export default function CommitmentsView({
   const [picks, setPicks] = useState<Record<string, { result: Result | null; note: string }>>({});
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sel, setSel] = useState<string | null>(null);
+  const [ticking, setTicking] = useState<string | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const cam = useSvgCamera(SIZE);
 
@@ -138,6 +144,36 @@ export default function CommitmentsView({
     }
   };
 
+  // Tick a commitment off as it is done (§3n.5): the same tick as ONE GO's, kept until the check-in.
+  const tick = async (period: Period, id: string, done: boolean) => {
+    if (ticking) return;
+    if (!live) {
+      save(applyTick(c, period, id, done));
+      return setNote(EXAMPLE);
+    }
+    setTicking(id);
+    try {
+      const r = await fetch(doneUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ item_id: id, done }) });
+      const j = await r.json().catch(() => null);
+      const next = r.ok ? readCommitments(j) : null;
+      if (next) save(next);
+      else if (r.status === 404 || r.status === 405) setNote(NOT_YET);
+      else setNote((j as { error?: string } | null)?.error || "That didn't save. Nothing was changed.");
+    } catch {
+      setNote(NOT_YET);
+    } finally {
+      setTicking(null);
+    }
+  };
+  const tickButton = (period: Period, i: Item) =>
+    tickable(period === "week" ? c.week : c.weekend, c.today) ? (
+      <span className="pm-acts">
+        <button onClick={() => tick(period, i.id, !ticked(i))} disabled={ticking === i.id} aria-label={ticked(i) ? `Untick ${i.text}` : `${i.text}: done`}>
+          {ticked(i) ? "✓" : "○"}
+        </button>
+      </span>
+    ) : null;
+
   const doSet = (period: Period) => {
     const b = setBody(period, drafts);
     if ("error" in b) return setNote(b.error);
@@ -174,6 +210,18 @@ export default function CommitmentsView({
   const fill = n ? on / n : 0;
   const top = C + CORE - 2 * CORE * fill;
   const level = dueLevel(c.due, c.today, hour);
+  const picked = week.find((i) => i.id === sel) ?? null;
+  // The orb rule (Parry, 6 Oct): a tapped commitment comes to the middle and opens in the panel; again, or the
+  // way back, returns to the whole week.
+  const pick = (id: string, x: number, y: number) => {
+    if (sel === id) {
+      setSel(null);
+      return cam.reset();
+    }
+    setSel(id);
+    setMode({ kind: "view" });
+    cam.centreOn(x, y);
+  };
   const step = dueWords(c.due);
 
   return (
@@ -221,7 +269,21 @@ export default function CommitmentsView({
               const end = -Math.PI / 2 + frac * 2 * Math.PI;
               const big = frac > 0.5 ? 1 : 0;
               return (
-                <g key={i.id} className="cm-orb" role="img" aria-label={`${i.text}. ${progressWords(i)}${i.result ? `. ${resultWord(i.result)}` : ""}`}>
+                <g
+                  key={i.id}
+                  className={`cm-orb${sel === i.id ? " picked" : ""}`}
+                  data-tap
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={sel === i.id}
+                  aria-label={`${i.text}. ${progressWords(i)}${i.result ? `. ${resultWord(i.result)}` : ""}`}
+                  onClick={() => pick(i.id, x, y)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    pick(i.id, x, y);
+                  }}
+                >
                   <circle cx={x} cy={y} r={ar} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={5} />
                   {frac > 0 && frac < 1 && <path d={`M ${x} ${y - ar} A ${ar} ${ar} 0 ${big} 1 ${x + ar * Math.cos(end)} ${y + ar * Math.sin(end)}`} fill="none" stroke={col} strokeWidth={5} strokeLinecap="round" />}
                   {frac >= 1 && <circle cx={x} cy={y} r={ar} fill="none" stroke={col} strokeWidth={5} />}
@@ -308,7 +370,25 @@ export default function CommitmentsView({
             </section>
           )}
 
-          {mode.kind === "view" && (
+          {mode.kind === "view" && picked && (
+            <section className="cm-form">
+              <h2>{picked.text}</h2>
+              <p className="d-sub">
+                {progressWords(picked)}
+                {picked.result && picked.kind !== "yes_no" ? ` · ${resultWord(picked.result)}` : !picked.result && reached(picked) ? " · reached" : ""}
+              </p>
+              {tickable(c.week, c.today) ? (
+                <div className="decide-btns">
+                  <button type="button" className={`chip-btn${ticked(picked) ? "" : " primary"}`} disabled={ticking === picked.id} onClick={() => tick("week", picked.id, !ticked(picked))}>
+                    {ticking === picked.id ? "Saving…" : ticked(picked) ? "Untick" : "Done"}
+                  </button>
+                </div>
+              ) : null}
+              <button className="vr-classic" onClick={() => { setSel(null); cam.reset(); }}>All of this week</button>
+            </section>
+          )}
+
+          {mode.kind === "view" && !picked && (
             <>
               <h2>This week</h2>
               {week.length ? (
@@ -318,8 +398,9 @@ export default function CommitmentsView({
                       <i className="pm-dot" style={{ background: i.result ? RES_COLOR[i.result] : reached(i) ? RES_COLOR.kept : GOLD }} aria-hidden="true" />
                       <span className="pm-body">
                         <b>{i.text}</b>
-                        <small>{progressWords(i)}{i.result ? ` · ${resultWord(i.result)}` : reached(i) ? " · reached" : ""}{i.note ? ` · ${i.note}` : ""}</small>
+                        <small>{progressWords(i)}{i.result && i.kind !== "yes_no" ? ` · ${resultWord(i.result)}` : !i.result && reached(i) ? " · reached" : ""}{i.note ? ` · ${i.note}` : ""}</small>
                       </span>
+                      {tickButton("week", i)}
                     </li>
                   ))}
                 </ul>
@@ -335,8 +416,9 @@ export default function CommitmentsView({
                         <i className="pm-dot" style={{ background: i.result ? RES_COLOR[i.result] : GOLD }} aria-hidden="true" />
                         <span className="pm-body">
                           <b>{i.text}</b>
-                          <small>{progressWords(i)}</small>
+                          <small>{progressWords(i)}{i.result && i.kind !== "yes_no" ? ` · ${resultWord(i.result)}` : ""}</small>
                         </span>
+                        {tickButton("weekend", i)}
                       </li>
                     ))}
                   </ul>
@@ -354,7 +436,7 @@ export default function CommitmentsView({
           {mode.kind !== "view" && (
             <button className="vr-classic" onClick={() => setMode({ kind: "view" })}>Back to this week</button>
           )}
-          <p className="pm-promise">Only you mark a commitment kept. No points: your keep rate shows beside your weekly score.</p>
+          <p className="pm-promise">Only you mark a commitment kept: tick it as you do it, here or in ONE GO. No points: your keep rate shows beside your weekly score.</p>
         </aside>
       </div>
     </div>

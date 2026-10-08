@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkBody, demoCommitments, dueLevel, keepShare, progressWords, reached, readCommitments, setBody, starters, withWeekNode, WEEK_NODE, type Item } from "../lib/commitments.ts";
+import { applyTick, checkBody, doneUrl, tickable, ticked, demoCommitments, dueLevel, keepShare, progressWords, reached, readCommitments, setBody, starters, withWeekNode, WEEK_NODE, type Item } from "../lib/commitments.ts";
 import { needsOf } from "../lib/needs.ts";
 import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
 
@@ -82,4 +82,25 @@ test("ONE YOU's This week orb: pulses for the due step, else shows how the week 
   assert.equal(mid.nodes.filter((x) => x.id === WEEK_NODE).length, 1);
   assert.equal(mid.nodes.find((x) => x.id === WEEK_NODE)!.secondaryLabel, "1 of 4 commitments on track");
   assert.equal(withWeekNode(g, null, 10), g, "no commitments (route not live): no orb");
+});
+
+test("ticks (§3n.5): only on a set, started, unchecked period; untick clears", () => {
+  const base = {
+    today: "2026-10-08",
+    due: null,
+    week: { id: "w", starts: "2026-10-05", setAt: "2026-10-05T15:00:00Z", checkedAt: null, items: [{ id: "a", text: "Call 15", kind: "call" as const, target: 15, count: 4, result: null, note: null }] },
+    weekend: { id: "e", starts: "2026-10-10", setAt: "2026-10-08T15:00:00Z", checkedAt: null, items: [{ id: "b", text: "Open house", kind: "yes_no" as const, target: null, count: null, result: null, note: null }] },
+    lastWeek: null,
+    keepRate8w: null,
+    streak: 0,
+  };
+  assert.equal(tickable(base.week, base.today), true);
+  assert.equal(tickable(base.weekend, base.today), false); // not started
+  const on = applyTick(base, "week", "a", true);
+  assert.equal(ticked(on.week!.items[0]), true);
+  assert.equal(applyTick(on, "week", "a", false).week!.items[0].result, null);
+  assert.equal(applyTick(base, "weekend", "b", true), base); // refused: weekend not started
+  const closed = { ...base, week: { ...base.week, checkedAt: "2026-10-09T20:00:00Z" } };
+  assert.equal(applyTick(closed, "week", "a", true), closed);
+  assert.equal(doneUrl, "https://move.vip50one.com/api/brain/commitments/done");
 });
