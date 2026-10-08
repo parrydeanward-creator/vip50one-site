@@ -44,6 +44,7 @@ import IncomeMapView from "./IncomeMapView.tsx";
 import PulseCoachView from "./PulseCoachView.tsx";
 import ReferralsView from "./ReferralsView.tsx";
 import HabitsView from "./HabitsView.tsx";
+import PartnersView from "./PartnersView.tsx";
 import PowerHourView from "./PowerHourView.tsx";
 import CoachView from "./CoachView.tsx";
 import { commitmentWork } from "@/lib/assist.ts";
@@ -52,6 +53,7 @@ import { POWER_NODE, lineUp, newSession, powerKey, readSession, withPowerNode, t
 import { ASSUME_DEFAULT, INCOME_NODE, goalFacts, incomeKey, incomeMap, readAssume, withIncomeNode, type Assume, type IncomeMap } from "@/lib/goals.ts";
 import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
 import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
+import { PARTNERS_NODE, demoPartners, partnersActionUrl, partnersUrl, readPartners, withPartnersNode, type PartnersState } from "@/lib/partners.ts";
 import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, type HabitToday } from "@/lib/habits.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
 import { REFERRALS_NODE, askUrl, demoReferrals, readReferrals, referralsUrl, withReferralsNode, type Referrals } from "@/lib/referrals.ts";
@@ -103,6 +105,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const incomeRef = useRef<IncomeMap | null>(null);
   const refsRef = useRef<Referrals | null>(null);
   const habitsRef = useRef<HabitToday[] | null>(null);
+  const partnersRef = useRef<PartnersState | null>(null);
   // ONE YOU's Pulse Coach orb (§3q): the weekly read on the agent's own numbers.
   const pcRef = useRef<PulseRead | null>(null);
   // ONE YOU's Power Hour orb: today's calls lined up.
@@ -115,7 +118,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current);
+    const next = withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current), partnersRef.current, todayIn());
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -436,6 +439,53 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       })
       .catch(() => {});
   }, [live]);
+  // Accountability partners (§3s): from ONE MOVE once it answers; example partners in the demo.
+  const [partners, setPartners] = useState<PartnersState | null>(null);
+  const [partnersOpen, setPartnersOpen] = useState(false);
+  const loadPartners = useCallback(() => {
+    if (!live) return setPartners((p) => p ?? demoPartners(todayIn()));
+    fetch(partnersUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setPartners(j ? readPartners(j) : null))
+      .catch(() => {});
+  }, [live]);
+  useEffect(() => loadPartners(), [loadPartners]);
+  useEffect(() => {
+    partnersRef.current = partners;
+    setGraph((g) => withPartnersNode(g, partners, todayIn()));
+  }, [partners]);
+  const partnerAct = useCallback(
+    async (a: { action: "respond" | "end" | "nudge"; pairId: string; accept?: boolean; kind?: string }): Promise<string | null> => {
+      if (!live) {
+        // the example agent: show the result without ONE MOVE
+        setPartners((s) => {
+          if (!s) return s;
+          if (a.action === "nudge") return { ...s, partners: s.partners.map((p) => (p.pairId === a.pairId ? { ...p, lastNudgeFromMe: `${todayIn()}T12:00:00Z` } : p)) };
+          if (a.action === "end") return { ...s, partners: s.partners.filter((p) => p.pairId !== a.pairId) };
+          const inv = s.invitesIn.find((i) => i.pairId === a.pairId);
+          const rest = s.invitesIn.filter((i) => i.pairId !== a.pairId);
+          if (!a.accept || !inv) return { ...s, invitesIn: rest };
+          return { ...s, invitesIn: rest, partners: [...s.partners, { pairId: inv.pairId, userId: inv.pairId, name: inv.name, photo: null, score: 71, minimum: 100, last4: [88, 95, 102, 90], streak: 0, tickedToday: true, lastNudgeFromMe: null }] };
+        });
+        return null;
+      }
+      const body = a.action === "respond" ? { pair_id: a.pairId, accept: a.accept } : a.action === "nudge" ? { pair_id: a.pairId, kind: a.kind } : { pair_id: a.pairId };
+      try {
+        const r = await fetch(partnersActionUrl(a.action), { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        const j = (await r.json().catch(() => null)) as { ok?: boolean; reason?: string } | null;
+        if (r.ok && j?.ok) {
+          loadPartners();
+          return null;
+        }
+        if (j?.reason === "too_soon") return "You've already nudged them today. One a day.";
+        if (j?.reason === "limit") return "You already have 3 partners.";
+        return "That didn't go through. Nothing was changed.";
+      } catch {
+        return "That didn't go through. Nothing was changed.";
+      }
+    },
+    [live, loadPartners],
+  );
   // A coach's Pulse read of one agent they coach (§3n.4, §3q): their eight weeks, in the third person. MASTER answers
   // only for an agent linked to this coach (coach_links); the example agents use example weeks.
   const [agentRead, setAgentRead] = useState<{ who: string; read: PulseRead } | null>(null);
@@ -1194,6 +1244,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === PULSE_COACH_NODE) return setPcOpen(true);
     if (id === REFERRALS_NODE) return setRefsOpen(true);
     if (id === HABITS_NODE) return openHabits();
+    if (id === PARTNERS_NODE) return setPartnersOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
   };
@@ -1875,6 +1926,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </button>
           )}
 
+          {focus.id === PARTNERS_NODE && partners && !tour && (
+            <button className="pi-film pm-open" onClick={() => setPartnersOpen(true)}>
+              <span className="pi-play" aria-hidden="true">⇄</span>
+              <span>
+                <b>Open your Partners</b>
+                <span>The agents you chose to keep each other honest: their weekly score, and a one-tap nudge.</span>
+              </span>
+            </button>
+          )}
           {focus.id === HABITS_NODE && theHabits.length > 0 && !tour && (
             <button className="pi-film pm-open" onClick={openHabits}>
               <span className="pi-play" aria-hidden="true">♥</span>
@@ -2243,6 +2303,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       ) : null}
       {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} demo={!live} onAssume={saveAssume} onClose={() => setIncomeOpen(false)} /> : null}
       {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} /> : null}
+      {partnersOpen && partners ? <PartnersView state={partners} me={weekScore} today={todayIn()} demo={!live} onClose={() => setPartnersOpen(false)} onAct={partnerAct} /> : null}
       {habitsOpen && theHabits.length ? <HabitsView habits={theHabits} demo={!live} onClose={() => setHabitsOpen(false)} onTick={tickHabit} /> : null}
       {refsOpen && refs ? <ReferralsView data={refs} today={todayIn()} demo={!live} onClose={() => setRefsOpen(false)} onAsk={askReferral} /> : null}
       {agentRead ? <PulseCoachView read={agentRead.read} who={agentRead.who} demo={!live} onClose={() => setAgentRead(null)} /> : null}
