@@ -43,6 +43,7 @@ import ReviewView from "./ReviewView.tsx";
 import IncomeMapView from "./IncomeMapView.tsx";
 import PulseCoachView from "./PulseCoachView.tsx";
 import ReferralsView from "./ReferralsView.tsx";
+import WinsView from "./WinsView.tsx";
 import HabitsView from "./HabitsView.tsx";
 import PartnersView from "./PartnersView.tsx";
 import PowerHourView from "./PowerHourView.tsx";
@@ -53,6 +54,7 @@ import { POWER_NODE, lineUp, newSession, powerKey, readSession, withPowerNode, t
 import { ASSUME_DEFAULT, INCOME_NODE, goalFacts, incomeKey, incomeMap, readAssume, withIncomeNode, type Assume, type IncomeMap } from "@/lib/goals.ts";
 import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
 import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
+import { WINS_NODE, demoWins, newSince, readWins, winsUrl, withWinsNode, type Wins } from "@/lib/wins.ts";
 import { PARTNERS_NODE, demoPartners, partnersActionUrl, partnersUrl, readPartners, withPartnersNode, type PartnersState } from "@/lib/partners.ts";
 import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, type HabitToday } from "@/lib/habits.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
@@ -106,6 +108,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const refsRef = useRef<Referrals | null>(null);
   const habitsRef = useRef<HabitToday[] | null>(null);
   const partnersRef = useRef<PartnersState | null>(null);
+  const winsRef = useRef<{ w: Wins; fresh: number } | null>(null);
   // ONE YOU's Pulse Coach orb (§3q): the weekly read on the agent's own numbers.
   const pcRef = useRef<PulseRead | null>(null);
   // ONE YOU's Power Hour orb: today's calls lined up.
@@ -118,7 +121,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current), partnersRef.current, todayIn());
+    const next = withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -439,6 +442,35 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       })
       .catch(() => {});
   }, [live]);
+  // Wins (§3t): every good thing in one place, from ONE MOVE; the example agent's in the demo. A win newer than the
+  // agent's last look glows gold; the last look is kept in this browser only.
+  const WINS_SEEN = "one.wins.seen";
+  const [wins, setWins] = useState<Wins | null>(null);
+  const [winsOpen, setWinsOpen] = useState(false);
+  const [winsSeen, setWinsSeen] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      setWinsSeen(localStorage.getItem(WINS_SEEN) ?? (live ? null : new Date(Date.parse(`${todayIn()}T12:00:00Z`) - 3 * 86_400_000).toISOString().slice(0, 10)));
+    } catch {}
+    if (!live) return setWins(demoWins(todayIn()));
+    fetch(winsUrl(), { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setWins(j ? readWins(j) : null))
+      .catch(() => {});
+  }, [live]);
+  const freshWins = useMemo(() => (wins ? newSince(wins, winsSeen) : []), [wins, winsSeen]);
+  useEffect(() => {
+    winsRef.current = wins ? { w: wins, fresh: freshWins.length } : null;
+    setGraph((g) => withWinsNode(g, wins, freshWins.length));
+  }, [wins, freshWins]);
+  const closeWins = useCallback(() => {
+    setWinsOpen(false);
+    const t = todayIn();
+    setWinsSeen(t);
+    try {
+      localStorage.setItem(WINS_SEEN, t);
+    } catch {}
+  }, []);
   // Accountability partners (§3s): from ONE MOVE once it answers; example partners in the demo.
   const [partners, setPartners] = useState<PartnersState | null>(null);
   const [partnersOpen, setPartnersOpen] = useState(false);
@@ -1245,6 +1277,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === REFERRALS_NODE) return setRefsOpen(true);
     if (id === HABITS_NODE) return openHabits();
     if (id === PARTNERS_NODE) return setPartnersOpen(true);
+    if (id === WINS_NODE) return setWinsOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
   };
@@ -1926,6 +1959,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </button>
           )}
 
+          {focus.id === WINS_NODE && wins && !tour && (
+            <button className="pi-film pm-open" onClick={() => setWinsOpen(true)}>
+              <span className="pi-play" aria-hidden="true">★</span>
+              <span>
+                <b>Open your Wins</b>
+                <span>Every closing, referral, five-star review, week at 100, badge and goal reached, in one place.</span>
+              </span>
+            </button>
+          )}
           {focus.id === PARTNERS_NODE && partners && !tour && (
             <button className="pi-film pm-open" onClick={() => setPartnersOpen(true)}>
               <span className="pi-play" aria-hidden="true">⇄</span>
@@ -2303,6 +2345,22 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       ) : null}
       {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} demo={!live} onAssume={saveAssume} onClose={() => setIncomeOpen(false)} /> : null}
       {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} /> : null}
+      {winsOpen && wins ? (
+        <WinsView
+          data={wins}
+          fresh={freshWins}
+          today={todayIn()}
+          demo={!live}
+          onClose={closeWins}
+          onContact={(id) => {
+            const page = movePageId("/contacts");
+            if (!ix.byId.has(page)) return;
+            closeWins();
+            setContactOpen({ id, k: Date.now() });
+            goTo(page);
+          }}
+        />
+      ) : null}
       {partnersOpen && partners ? <PartnersView state={partners} me={weekScore} today={todayIn()} demo={!live} onClose={() => setPartnersOpen(false)} onAct={partnerAct} /> : null}
       {habitsOpen && theHabits.length ? <HabitsView habits={theHabits} demo={!live} onClose={() => setHabitsOpen(false)} onTick={tickHabit} /> : null}
       {refsOpen && refs ? <ReferralsView data={refs} today={todayIn()} demo={!live} onClose={() => setRefsOpen(false)} onAsk={askReferral} /> : null}
