@@ -42,6 +42,7 @@ import CommitmentsView from "./CommitmentsView.tsx";
 import ReviewView from "./ReviewView.tsx";
 import IncomeMapView from "./IncomeMapView.tsx";
 import PulseCoachView from "./PulseCoachView.tsx";
+import ReferralsView from "./ReferralsView.tsx";
 import PowerHourView from "./PowerHourView.tsx";
 import CoachView from "./CoachView.tsx";
 import { commitmentWork } from "@/lib/assist.ts";
@@ -51,6 +52,7 @@ import { ASSUME_DEFAULT, INCOME_NODE, goalFacts, incomeKey, incomeMap, readAssum
 import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
 import { dailyUrl, readDaily } from "@/lib/daily.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
+import { REFERRALS_NODE, askUrl, demoReferrals, readReferrals, referralsUrl, withReferralsNode, type Referrals } from "@/lib/referrals.ts";
 import { COACH_NODE, coachedUrl, demoCoached, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
 import { WEEK_NODE, commitmentsUrl, demoCommitments, readCommitments, withWeekNode, type Commitments } from "@/lib/commitments.ts";
 import { PLAN_NODE, planKey, planUrl, readPlan, timed, withPlanNode, type Plan } from "@/lib/plan.ts";
@@ -97,6 +99,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const reviewRef = useRef<Review | null>(null);
   // ONE YOU's Income Map orb: the income goal worked back to the week.
   const incomeRef = useRef<IncomeMap | null>(null);
+  const refsRef = useRef<Referrals | null>(null);
   // ONE YOU's Pulse Coach orb (§3q): the weekly read on the agent's own numbers.
   const pcRef = useRef<PulseRead | null>(null);
   // ONE YOU's Power Hour orb: today's calls lined up.
@@ -109,7 +112,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current);
+    const next = withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -358,6 +361,32 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       .catch(() => {});
   }, [live]);
   const thePulseRead = useMemo(() => (history ? pulseRead(history, commitments, todayIn()) : null), [history, commitments]);
+  // Referral Scoreboard (§3r): who sent business and who is likely next, from ONE MOVE; the example agent's until it answers.
+  const [refs, setRefs] = useState<Referrals | null>(null);
+  const [refsOpen, setRefsOpen] = useState(false);
+  useEffect(() => {
+    if (!live) return setRefs(demoReferrals(todayIn()));
+    fetch(referralsUrl(), { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setRefs(j ? readReferrals(j) : null))
+      .catch(() => {});
+  }, [live]);
+  useEffect(() => {
+    refsRef.current = refs;
+    setGraph((g) => withReferralsNode(g, refs));
+  }, [refs]);
+  const askReferral = useCallback(async (contactId: string): Promise<string> => {
+    try {
+      const r = await fetch(askUrl, { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ contact_id: contactId }) });
+      const j = (await r.json().catch(() => null)) as { ok?: boolean; reason?: string } | null;
+      if (r.ok && j?.ok) return "Added to today's tasks. Ask in your own words; nothing is sent.";
+      if (j?.reason === "already_asked") return "There is already an open ask for them in your tasks.";
+      if (j?.reason === "opted_out" || j?.reason === "has_agent") return "Not for this one: they opted out or have an agent.";
+      return "Could not add the task just now. Please try again.";
+    } catch {
+      return "Could not add the task just now. Please try again.";
+    }
+  }, []);
   // A coach's Pulse read of one agent they coach (§3n.4, §3q): their eight weeks, in the third person. MASTER answers
   // only for an agent linked to this coach (coach_links); the example agents use example weeks.
   const [agentRead, setAgentRead] = useState<{ who: string; read: PulseRead } | null>(null);
@@ -1114,6 +1143,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === INCOME_NODE) return setIncomeOpen(true);
     if (id === POWER_NODE) return setPowerOpen(true);
     if (id === PULSE_COACH_NODE) return setPcOpen(true);
+    if (id === REFERRALS_NODE) return setRefsOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
   };
@@ -1795,6 +1825,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </button>
           )}
 
+          {focus.id === REFERRALS_NODE && refs && !tour && (
+            <button className="pi-film pm-open" onClick={() => setRefsOpen(true)}>
+              <span className="pi-play" aria-hidden="true">★</span>
+              <span>
+                <b>Open the Referral Scoreboard</b>
+                <span>Who sent you business, who is likely next, and how many of your VIPs refer.</span>
+              </span>
+            </button>
+          )}
           {focus.id === INCOME_NODE && theIncome && !tour && (
             <button className="pi-film pm-open" onClick={() => setIncomeOpen(true)}>
               <span className="pi-play" aria-hidden="true">$</span>
@@ -2145,6 +2184,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       ) : null}
       {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} demo={!live} onAssume={saveAssume} onClose={() => setIncomeOpen(false)} /> : null}
       {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} /> : null}
+      {refsOpen && refs ? <ReferralsView data={refs} today={todayIn()} demo={!live} onClose={() => setRefsOpen(false)} onAsk={askReferral} /> : null}
       {agentRead ? <PulseCoachView read={agentRead.read} who={agentRead.who} demo={!live} onClose={() => setAgentRead(null)} /> : null}
       {cmOpen && commitments && (
         <CommitmentsView initial={commitments} live={live} hour={denverHour()} onClose={() => setCmOpen(false)} onChanged={setCommitments} />
