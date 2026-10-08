@@ -249,3 +249,20 @@ export function demoCommitments(today: string): Commitments {
     streak: 4,
   };
 }
+
+// Ticked as they are done (Parry, 8 Oct: "yes allow each agent to check off as they do them"; VIP-SUMMARY §3n.5).
+// A tick marks the item kept now; the check-in still comes and opens with it marked. Only the agent ticks.
+export const doneUrl = `${commitmentsUrl}/done`;
+
+/** A period's items can be ticked once it is set and started, until its check-in closes it. */
+export const tickable = (p: PeriodState | null, today: string) => !!p && !!p.setAt && !p.checkedAt && p.starts <= today;
+
+/** Ticked done before the check-in. */
+export const ticked = (i: Item) => i.result === "kept";
+
+/** The example agent's tick, without ONE MOVE. */
+export function applyTick(c: Commitments, period: Period, id: string, done: boolean): Commitments {
+  const p = c[period];
+  if (!p || !tickable(p, c.today)) return c;
+  return { ...c, [period]: { ...p, items: p.items.map((i) => (i.id === id ? { ...i, result: done ? ("kept" as const) : null } : i)) } };
+}

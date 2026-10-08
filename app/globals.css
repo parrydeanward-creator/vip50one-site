@@ -1687,6 +1687,8 @@ a.link { display: block; text-decoration: none; }
 /* Commitments in ONE YOU (VIP-SUMMARY §3n) */
 .cm-orb-n { fill: #fff3cc; font-size: 20px; font-weight: 800; pointer-events: none; }
 .cm-orb-k { fill: rgba(255, 233, 168, 0.75); font-size: 10px; letter-spacing: 0.12em; pointer-events: none; }
+.cm-orb { cursor: pointer; outline: none; }
+.cm-orb:focus-visible > circle:nth-of-type(2), .cm-orb.picked > circle:nth-of-type(2) { stroke-width: 4; filter: drop-shadow(0 0 10px rgba(255, 216, 106, 0.6)); }
 .cm-due { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; margin-left: 10px; }
 .cm-form { display: grid; gap: 12px; }
 .cm-row { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.03); }
