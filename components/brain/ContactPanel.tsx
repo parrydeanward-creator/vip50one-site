@@ -20,7 +20,7 @@ import PanelBoundary from "./PanelBoundary.tsx";
 // A box the agent ticks by hand asks first, like Call and Text (Parry, 5 Oct:
 // "the checkbox is not checking when clicked"). Newsletter and mixer invite
 // tick themselves when one is actually sent; a ticked box is not unticked here.
-type Ask = { kind: string; question: string; label: string };
+type Ask = { kind: string; question: string; label: string; box?: boolean };
 const askFor = (kind: TouchKind): Ask => ({ kind, question: LOG_QUESTION[kind], label: kind });
 
 // VIP-SUMMARY §3c: the person in the right panel, with Call / Text / Email.
@@ -147,7 +147,7 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
           }}
         />
       )}
-      {ask && (
+      {ask && !ask.box && (
         <div className="cc-ask pop" role="status">
           <p>
             {ask.question} with {first}?
@@ -165,13 +165,13 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
         <h2>This month</h2>
         <ul>
           {MONTH_BOXES.map(([k, label]) => (
-            <Box key={k} on={!!card.month?.[k]} label={label} kind={LOGGABLE[k]} busy={busy} onAsk={setAsk} />
+            <Box key={k} on={!!card.month?.[k]} label={label} kind={LOGGABLE[k]} busy={busy} ask={ask} first={first} onAsk={setAsk} onYes={log} />
           ))}
         </ul>
         <h2>This quarter</h2>
         <ul>
           {QUARTER_BOXES.map(([k, label]) => (
-            <Box key={k} on={!!card.quarter?.[k]} label={label} kind={LOGGABLE[k]} busy={busy} onAsk={setAsk} />
+            <Box key={k} on={!!card.quarter?.[k]} label={label} kind={LOGGABLE[k]} busy={busy} ask={ask} first={first} onAsk={setAsk} onYes={log} />
           ))}
         </ul>
       </div>
@@ -194,22 +194,36 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
   );
 }
 
-function Box({ on, label, kind, busy, onAsk }: { on: boolean; label: string; kind?: string; busy: boolean; onAsk: (a: Ask) => void }) {
+// A box asks right where it was clicked (Parry, 8 Oct: on Jen Wright the question showed at the top of the panel,
+// far from the box, so the box seemed not to tick). The box shows ticked while it asks; Yes logs it, Not now clears.
+function Box({ on, label, kind, busy, ask, first, onAsk, onYes }: { on: boolean; label: string; kind?: string; busy: boolean; ask: Ask | null; first: string; onAsk: (a: Ask | null) => void; onYes: (a: Ask) => void }) {
   if (on || !kind) {
     return (
-      <li className={on ? "on" : "auto"} title={on ? undefined : "Ticks itself when you send one"}>
+      <li className={on ? "on" : "auto"}>
         <i aria-hidden="true">{on ? "✓" : ""}</i>
         {label}
         {!on && <small> · ticks when sent</small>}
       </li>
     );
   }
+  const asking = !!ask?.box && ask.label === label;
   return (
-    <li>
-      <button type="button" className="cc-box" disabled={busy} onClick={() => onAsk({ kind, label, question: `Log a ${label.toLowerCase()}` })} aria-label={`Log a ${label.toLowerCase()}`}>
-        <i aria-hidden="true" />
+    <li className={asking ? "on asking" : undefined}>
+      <button type="button" className="cc-box" disabled={busy} aria-pressed={asking} onClick={() => onAsk(asking ? null : { kind, label, box: true, question: `Log a ${label.toLowerCase()}` })} aria-label={`Log a ${label.toLowerCase()}`}>
+        <i aria-hidden="true">{asking ? "✓" : ""}</i>
         {label}
       </button>
+      {asking && (
+        <div className="cc-ask cc-ask-here pop" role="status">
+          <p>
+            {ask!.question} with {first}?
+          </p>
+          <div>
+            <button className="btn" disabled={busy} onClick={() => onYes(ask!)}>Yes, log it</button>
+            <button className="btn ghost-btn" disabled={busy} onClick={() => onAsk(null)}>Not now</button>
+          </div>
+        </div>
+      )}
     </li>
   );
 }

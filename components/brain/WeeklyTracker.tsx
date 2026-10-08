@@ -169,7 +169,7 @@ export default function WeeklyTracker({
             const isToday = d.date === today;
             return (
               <g key={d.date} className={`wk-day${d.points > 0 ? " on" : ""}${isToday ? " today" : ""}`}>
-                <title>{`${dayName(d.date)} ${d.date}: ${d.points} points`}</title>
+                <desc>{`${dayName(d.date)} ${d.date}: ${d.points} points`}</desc>
                 <circle cx={x} cy={y} r={24} fill={d.points > 0 ? "url(#dt-box-on)" : "url(#dt-glass)"} stroke={isToday ? "#fff" : d.points > 0 ? GOLD : "rgba(160,175,210,0.3)"} strokeWidth={isToday ? 2.5 : 1.5} />
                 <text className="wk-day-n" x={x} y={y + 1} dy="0.35em" textAnchor="middle">{d.points}</text>
                 <text className="wk-day-l" x={x} y={y + 40} textAnchor="middle">{dayName(d.date).toUpperCase()}</text>
@@ -204,7 +204,7 @@ export default function WeeklyTracker({
                 onPointerEnter={() => setHover(s.key)}
                 onPointerLeave={() => setHover((h) => (h === s.key ? null : h))}
               >
-                <title>{`${b.label} · ${b.points} ${b.points === 1 ? "pt" : "pts"}${b.auto ? " · ticks itself when you send one" : ""}`}</title>
+                <desc>{`${b.label} · ${b.points} ${b.points === 1 ? "pt" : "pts"}${b.auto ? " · ticks itself when you send one" : ""}`}</desc>
                 {b.auto && <circle cx={s.x} cy={s.y} r={s.r + 6} fill="none" stroke={TEAL} strokeWidth={1.5} strokeDasharray="3 4" />}
                 {b.done && <circle cx={s.x} cy={s.y} r={s.r * 1.8} fill="url(#dt-box-glow)" />}
                 <circle className="dt-box-disc" cx={s.x} cy={s.y} r={s.r} fill={b.done ? "url(#dt-box-on)" : "url(#dt-glass)"} stroke={b.done ? GOLD : "rgba(160,175,210,0.35)"} strokeWidth={2} />

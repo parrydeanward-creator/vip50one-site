@@ -307,7 +307,7 @@ export default function VipRings({
           }
         }}
       >
-        <title>{`${p.name} · ${done}/${segs.length} this month · ${lastTouchLine(p, today)}`}</title>
+        <desc>{`${p.name} · ${done}/${segs.length} this month · ${lastTouchLine(p, today)}`}</desc>
         {glowing.has(s.id) && <circle cx={s.x} cy={s.y} r={s.r + (big ? 13 : 10)} fill="none" stroke="#f5c542" strokeWidth={4} className="sd-glow" pointerEvents="none" />}
         <circle className="vr-glow" cx={s.x} cy={s.y} r={s.r * (big ? 1.9 : 1.6)} fill={`url(#vr-glow-${urg === "overdue" ? "red" : big ? "gold" : "teal"})`} />
         <PulseRing x={s.x} y={s.y} r={s.r + (big ? 9 : 7)} level={urg === "overdue" ? "now" : urg === "soon" ? "today" : "good"} />

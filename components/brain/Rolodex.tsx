@@ -246,7 +246,7 @@ export default function Rolodex({
           }
         }}
       >
-        <title>{b.name}</title>
+        <desc>{b.name}</desc>
         {b.offer && <circle r={s.r + 6} fill="none" stroke={GOLD} strokeWidth={2} strokeDasharray="2 3" />}
         <circle r={s.r} fill="url(#rx-glass)" stroke={on ? "#fff" : col} strokeWidth={on ? 3 : 1.6} />
         <text dy="0.35em" textAnchor="middle" style={{ fill: col, fontSize: s.r * 0.62, fontWeight: 700 }} pointerEvents="none">{bizInitials(b.name)}</text>

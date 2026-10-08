@@ -250,7 +250,7 @@ export default function TouchAudit({
               .map((d) => {
                 const p = byId.get(d.id)!;
                 return (
-                  <button key={d.id + d.title} className={`ta-due-p ta-due-${d.level}`} onClick={() => tapPerson(p)} title={d.title}>
+                  <button key={d.id + d.title} className={`ta-due-p ta-due-${d.level}`} onClick={() => tapPerson(p)} aria-label={d.title}>
                     <i aria-hidden="true" />
                     {shortName(p)}
                     <small>{d.title}</small>
@@ -284,7 +284,7 @@ export default function TouchAudit({
                 <div className="tg-who" role="columnheader">{`VIP-50 · ${a.people}`}</div>
                 {a.touches.map((t, i) => (
                   <div key={t.key} role="columnheader" className={`tg-h tg-${t.kind}${i === 5 ? " tg-split" : ""}${touch === t.key ? " on" : ""}`}>
-                    <button onClick={() => pickTouch(t.key)} title={`${t.label}: ${t.done} of ${t.total}`}>
+                    <button onClick={() => pickTouch(t.key)} aria-label={`${t.label}: ${t.done} of ${t.total}`}>
                       <span>{SHORT[t.key] ?? t.label}</span>
                       <em>{`${t.done}/${t.total}`}</em>
                       <i style={{ width: `${t.total ? (100 * t.done) / t.total : 0}%` }} />
@@ -316,7 +316,6 @@ export default function TouchAudit({
                             className={`tg-dot${c.done ? " done" : ""}`}
                             onClick={() => tapCell(p, c.key, c.done)}
                             aria-label={`${p.name}: ${t.label} ${c.done ? "done" : "not done yet"}`}
-                            title={`${t.label}: ${c.done ? "done" : LOGGABLE[c.key] ? "tap to log" : "ticks when you send one"}`}
                           >
                             {c.done ? "✓" : LOGGABLE[c.key] ? "+" : ""}
                           </button>
@@ -404,7 +403,7 @@ export default function TouchAudit({
                     setPerson(f.id);
                   }}
                 >
-                  <title>{p.name}</title>
+                  <desc>{p.name}</desc>
                   {glowing.has(f.id) && <circle cx={0} cy={0} r={f.r + 10} fill="none" stroke="#f5c542" strokeWidth={4} className="sd-glow" pointerEvents="none" />}
                   <circle cx={0} cy={0} r={f.r} fill="#121a36" stroke={picked ? "#fff" : GOLD} strokeWidth={picked ? 3 : 1.6} />
                   {pic ? (
