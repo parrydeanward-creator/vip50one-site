@@ -43,6 +43,7 @@ import ReviewView from "./ReviewView.tsx";
 import IncomeMapView from "./IncomeMapView.tsx";
 import PulseCoachView from "./PulseCoachView.tsx";
 import ReferralsView from "./ReferralsView.tsx";
+import HabitsView from "./HabitsView.tsx";
 import PowerHourView from "./PowerHourView.tsx";
 import CoachView from "./CoachView.tsx";
 import { commitmentWork } from "@/lib/assist.ts";
@@ -50,7 +51,8 @@ import { PULSE_COACH_NODE, demoHistory, historyUrl, pulseRead, readHistory, with
 import { POWER_NODE, lineUp, newSession, powerKey, readSession, withPowerNode, type Call, type Session as PowerSession } from "@/lib/powerHour.ts";
 import { ASSUME_DEFAULT, INCOME_NODE, goalFacts, incomeKey, incomeMap, readAssume, withIncomeNode, type Assume, type IncomeMap } from "@/lib/goals.ts";
 import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
-import { dailyUrl, readDaily } from "@/lib/daily.ts";
+import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
+import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, type HabitToday } from "@/lib/habits.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
 import { REFERRALS_NODE, askUrl, demoReferrals, readReferrals, referralsUrl, withReferralsNode, type Referrals } from "@/lib/referrals.ts";
 import { COACH_NODE, coachedUrl, demoCoached, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
@@ -100,6 +102,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // ONE YOU's Income Map orb: the income goal worked back to the week.
   const incomeRef = useRef<IncomeMap | null>(null);
   const refsRef = useRef<Referrals | null>(null);
+  const habitsRef = useRef<HabitToday[] | null>(null);
   // ONE YOU's Pulse Coach orb (§3q): the weekly read on the agent's own numbers.
   const pcRef = useRef<PulseRead | null>(null);
   // ONE YOU's Power Hour orb: today's calls lined up.
@@ -112,7 +115,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current);
+    const next = withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -307,16 +310,24 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   }, [coached]);
   // Weekly Review: the week's score (ONE MOVE's daily feed), the VIP-50 roster, commitments and goals.
   const [weekScore, setWeekScore] = useState<{ score: number; minimum: number } | null>(null);
+  // The Habits ring: the Daily Tracker's "habits" boxes (same feed), ticked from the Brain like any box.
+  const [habitsDay, setHabitsDay] = useState<DailyDay | null>(null);
+  const [habitsOpen, setHabitsOpen] = useState(false);
   const [roster, setRoster] = useState<VipRoster | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   useEffect(() => {
     if (!live) {
       setWeekScore({ score: 82, minimum: 100 });
       setRoster(demoRoster());
+      setHabitsDay(demoHabitsDay(todayIn()));
       return;
     }
     const get = (u: string) => fetch(u, { credentials: "include", cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    get(dailyUrl).then((j) => setWeekScore(readDaily(j)?.week ?? null));
+    get(dailyUrl).then((j) => {
+      const d = readDaily(j);
+      setWeekScore(d?.week ?? null);
+      setHabitsDay(d);
+    });
     get(vipsUrl).then((j) => setRoster(j ? readRoster(j) : null));
   }, [live]);
   // Keyed by content: adding the review orb changes graph.nodes, and must not rebuild the review again.
@@ -387,6 +398,44 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       return "Could not add the task just now. Please try again.";
     }
   }, []);
+  const theHabits = useMemo(() => habitsToday(habitsDay, history, todayIn()), [habitsDay, history]);
+  useEffect(() => {
+    habitsRef.current = theHabits.length ? theHabits : null;
+    setGraph((g) => withHabitsNode(g, theHabits.length ? theHabits : null));
+  }, [theHabits]);
+  const tickHabit = useCallback(
+    async (key: string, done: boolean): Promise<string | null> => {
+      if (!habitsDay) return "Your Daily Tracker isn't loaded yet.";
+      const before = habitsDay;
+      setHabitsDay(withTick(habitsDay, key, done)); // lights at once; ONE MOVE's answer settles it
+      if (!live) return null;
+      try {
+        const r = await fetch(dailyUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, done }) });
+        const body = await r.json().catch(() => null);
+        const next = r.ok ? readDaily(body) : null;
+        if (!next) throw new Error((body as { error?: string } | null)?.error || "That didn't save. Nothing was changed.");
+        setHabitsDay(next);
+        setWeekScore(next.week);
+        return null;
+      } catch (e) {
+        setHabitsDay(before);
+        return e instanceof Error ? e.message : "That didn't save. Nothing was changed.";
+      }
+    },
+    [habitsDay, live],
+  );
+  const openHabits = useCallback(() => {
+    setHabitsOpen(true);
+    if (!live) return;
+    // fresh from ONE MOVE, in case a box was ticked on the phone since the Brain loaded
+    fetch(dailyUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const d = readDaily(j);
+        if (d) setHabitsDay(d);
+      })
+      .catch(() => {});
+  }, [live]);
   // A coach's Pulse read of one agent they coach (§3n.4, §3q): their eight weeks, in the third person. MASTER answers
   // only for an agent linked to this coach (coach_links); the example agents use example weeks.
   const [agentRead, setAgentRead] = useState<{ who: string; read: PulseRead } | null>(null);
@@ -1144,6 +1193,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === POWER_NODE) return setPowerOpen(true);
     if (id === PULSE_COACH_NODE) return setPcOpen(true);
     if (id === REFERRALS_NODE) return setRefsOpen(true);
+    if (id === HABITS_NODE) return openHabits();
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
   };
@@ -1825,6 +1875,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </button>
           )}
 
+          {focus.id === HABITS_NODE && theHabits.length > 0 && !tour && (
+            <button className="pi-film pm-open" onClick={openHabits}>
+              <span className="pi-play" aria-hidden="true">♥</span>
+              <span>
+                <b>Open your Habits</b>
+                <span>Your morning habits as one ring. Tick them here and they tick on your Daily Tracker.</span>
+              </span>
+            </button>
+          )}
           {focus.id === REFERRALS_NODE && refs && !tour && (
             <button className="pi-film pm-open" onClick={() => setRefsOpen(true)}>
               <span className="pi-play" aria-hidden="true">★</span>
@@ -2184,6 +2243,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       ) : null}
       {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} demo={!live} onAssume={saveAssume} onClose={() => setIncomeOpen(false)} /> : null}
       {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} /> : null}
+      {habitsOpen && theHabits.length ? <HabitsView habits={theHabits} demo={!live} onClose={() => setHabitsOpen(false)} onTick={tickHabit} /> : null}
       {refsOpen && refs ? <ReferralsView data={refs} today={todayIn()} demo={!live} onClose={() => setRefsOpen(false)} onAsk={askReferral} /> : null}
       {agentRead ? <PulseCoachView read={agentRead.read} who={agentRead.who} demo={!live} onClose={() => setAgentRead(null)} /> : null}
       {cmOpen && commitments && (
