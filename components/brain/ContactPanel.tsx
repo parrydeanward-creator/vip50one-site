@@ -15,6 +15,7 @@ import {
 } from "@/lib/contact.ts";
 import { LOGGABLE } from "@/lib/audit.ts";
 import CallPrepCard from "./CallPrepCard.tsx";
+import PanelBoundary from "./PanelBoundary.tsx";
 
 // A box the agent ticks by hand asks first, like Call and Text (Parry, 5 Oct:
 // "the checkbox is not checking when clicked"). Newsletter and mixer invite
@@ -26,7 +27,16 @@ const askFor = (kind: TouchKind): Ask => ({ kind, question: LOG_QUESTION[kind], 
 // Tapping one opens the phone, messages or mail; the panel then asks once
 // whether to log it (as ONE MOVE's action bar does, so a misdial never
 // counts). Logging runs ONE MOVE's own logTouchEverywhere.
-export default function ContactPanel({ contactId, taskId, onLogged }: { contactId: string; taskId?: string; onLogged: () => void }) {
+// The contact card, inside a boundary: if one value is ever wrong, this card says so and the page stays up.
+export default function ContactPanel(props: { contactId: string; taskId?: string; onLogged: () => void }) {
+  return (
+    <PanelBoundary key={props.contactId} label="This contact">
+      <ContactCard {...props} />
+    </PanelBoundary>
+  );
+}
+
+function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskId?: string; onLogged: () => void }) {
   const [card, setCard] = useState<ContactCard | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [ask, setAsk] = useState<Ask | null>(null);
@@ -87,7 +97,7 @@ export default function ContactPanel({ contactId, taskId, onLogged }: { contactI
 
   const tel = dialable(card.phone);
   const mail = mailable(card.email);
-  const first = card.first_name || card.name.split(" ")[0];
+  const first = card.first_name || (card.name ?? "").split(" ")[0] || "them";
 
   return (
     <div className="cc">
@@ -95,7 +105,7 @@ export default function ContactPanel({ contactId, taskId, onLogged }: { contactI
         {card.tier && TIER_LABEL[card.tier] && <span className="cc-tier">{TIER_LABEL[card.tier]}</span>}
         {card.last_touch ? (
           <span>
-            Last touch: {card.last_touch.kind.replace(/_/g, " ")}, {new Date(card.last_touch.on + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+            Last touch: {(card.last_touch.kind ?? "touch").replace(/_/g, " ")}, {new Date(card.last_touch.on + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
           </span>
         ) : (
           <span>No touches yet</span>
