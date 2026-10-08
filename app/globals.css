@@ -1840,3 +1840,7 @@ a.link { display: block; text-decoration: none; }
 .tm-tv .pm-name-l { font-size: 20px; }
 .tm-tv-bar { position: absolute; left: 0; right: 0; bottom: 24px; display: flex; justify-content: center; gap: 28px; align-items: baseline; color: var(--text-2); font-size: 18px; pointer-events: none; }
 .tm-tv-bar b { font-family: var(--font-display), "Bebas Neue", sans-serif; font-weight: 400; font-size: 30px; letter-spacing: 0.06em; color: var(--gold-2); }
+
+/* Review calls (VIP-SUMMARY §3v) */
+.rc-say { margin: 4px 0 10px; padding: 10px 12px; border-left: 3px solid var(--gold); background: rgba(212, 175, 55, 0.06); border-radius: 8px; font-style: italic; color: var(--text); }
+.rc-rule { margin: 10px 0; padding: 10px 12px; border: 1px solid rgba(91, 184, 255, 0.4); border-radius: 8px; color: var(--text-2); font-size: 13px; }
