@@ -47,5 +47,5 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   }
   const { graph } = bundle;
   const label = `${me.displayName}, ${PACKAGE_LABEL[me.pkg]}${me.founding ? ", founding member" : ""}`;
-  return <Brain graph={graph} pkg={me.pkg} live agent={{ firstName: me.firstName, initials: me.initials, label, photo: me.photo }} />;
+  return <Brain graph={graph} pkg={me.pkg} live agent={{ firstName: me.firstName, initials: me.initials, label, photo: me.photo, admin: me.admin }} />;
 }

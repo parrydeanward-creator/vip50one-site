@@ -51,6 +51,8 @@ export interface SignedIn {
   founding: boolean;
   member: boolean;
   photo?: string;
+  /** MASTER is_admin or is_super_admin: shows the Coach menu and Review calls (the pages check again). */
+  admin: boolean;
 }
 
 export interface Identity {
@@ -74,7 +76,7 @@ export async function profileOf(who: Identity, token?: string): Promise<SignedIn
   // Own row only (RLS: user_id = auth.uid()); only the columns ONE needs.
   const { data: p } = await sb
     .from("user_profiles")
-    .select("display_name, avatar_url, one_plan, vip_access, subscription_status, founding_member")
+    .select("display_name, avatar_url, one_plan, vip_access, subscription_status, founding_member, is_admin, is_super_admin")
     .eq("user_id", who.id)
     .maybeSingle();
   const displayName = (p?.display_name as string | null)?.trim() || "";
@@ -88,6 +90,7 @@ export async function profileOf(who: Identity, token?: string): Promise<SignedIn
     founding: p?.founding_member === true,
     photo: safeImage(p?.avatar_url as string | null),
     member: p ? isMember(p as { vip_access?: boolean; subscription_status?: string }) : false,
+    admin: p?.is_admin === true || p?.is_super_admin === true,
   };
 }
 

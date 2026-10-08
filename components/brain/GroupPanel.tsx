@@ -3,14 +3,14 @@
 import type { GraphIndex } from "@/lib/graph/model.ts";
 import type { GraphNode } from "@/lib/graph/types.ts";
 import { STATUS, hex } from "@/lib/brain/theme.ts";
-import { MOVE_GROUPS, movePageId } from "@/lib/moveMenu.ts";
+import { moveGroupsFor, movePageId } from "@/lib/moveMenu.ts";
 import { daysLeftInMonth, liveItemsUnder, meter, tipFor } from "@/lib/groupPanel.ts";
 
 // The right panel for a ONE MOVE group (Parry, 4 Oct): "what should I do here
 // right now, and how am I doing", never a description of the menu.
 export default function GroupPanel({ node, ix, today, goTo }: { node: GraphNode; ix: GraphIndex; today: string; goTo: (id: string) => void }) {
   const key = node.id.replace(/^move-g-/, "");
-  const group = MOVE_GROUPS.find((g) => g.key === key);
+  const group = moveGroupsFor(true).find((g) => g.key === key);
   const items = liveItemsUnder(ix, node.id);
   const doNow = items.filter((n) => n.status === "action" || n.status === "attention").slice(0, 8);
   const coming = items.filter((n) => n.status === "opportunity").slice(0, 5);
