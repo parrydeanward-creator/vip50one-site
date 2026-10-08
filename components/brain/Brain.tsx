@@ -44,6 +44,7 @@ import IncomeMapView from "./IncomeMapView.tsx";
 import PulseCoachView from "./PulseCoachView.tsx";
 import ReferralsView from "./ReferralsView.tsx";
 import WinsView from "./WinsView.tsx";
+import TeamView from "./TeamView.tsx";
 import HabitsView from "./HabitsView.tsx";
 import PartnersView from "./PartnersView.tsx";
 import PowerHourView from "./PowerHourView.tsx";
@@ -54,9 +55,10 @@ import { POWER_NODE, lineUp, newSession, powerKey, readSession, withPowerNode, t
 import { ASSUME_DEFAULT, INCOME_NODE, goalFacts, incomeKey, incomeMap, readAssume, withIncomeNode, type Assume, type IncomeMap } from "@/lib/goals.ts";
 import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
 import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
+import { TEAM_NODE, demoTeam, readTeam, teamUrl, withTeamNode, type Scope as TeamScope, type Team } from "@/lib/team.ts";
 import { WINS_NODE, demoWins, newSince, readWins, winsUrl, withWinsNode, type Wins } from "@/lib/wins.ts";
 import { PARTNERS_NODE, demoPartners, partnersActionUrl, partnersUrl, readPartners, withPartnersNode, type PartnersState } from "@/lib/partners.ts";
-import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, type HabitToday } from "@/lib/habits.ts";
+import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, mondayOf, type HabitToday } from "@/lib/habits.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
 import { REFERRALS_NODE, askUrl, demoReferrals, readReferrals, referralsUrl, withReferralsNode, type Referrals } from "@/lib/referrals.ts";
 import { COACH_NODE, coachedUrl, demoCoached, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
@@ -109,6 +111,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const habitsRef = useRef<HabitToday[] | null>(null);
   const partnersRef = useRef<PartnersState | null>(null);
   const winsRef = useRef<{ w: Wins; fresh: number } | null>(null);
+  const teamRef = useRef<Team | null>(null);
   // ONE YOU's Pulse Coach orb (§3q): the weekly read on the agent's own numbers.
   const pcRef = useRef<PulseRead | null>(null);
   // ONE YOU's Power Hour orb: today's calls lined up.
@@ -121,7 +124,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0);
+    const next = withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -427,6 +430,21 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       })
       .catch(() => {});
   }, [live]);
+  // Team (§3u): the week's leaderboard among members, full screen for the office TV; the example team in the demo.
+  const [team, setTeam] = useState<Team | null>(null);
+  const [teamOpen, setTeamOpen] = useState(false);
+  const [teamScope, setTeamScope] = useState<TeamScope>("all");
+  useEffect(() => {
+    if (!live) return setTeam(demoTeam(mondayOf(todayIn())));
+    fetch(teamUrl(teamScope), { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setTeam(j ? readTeam(j) : null))
+      .catch(() => {});
+  }, [live, teamScope]);
+  useEffect(() => {
+    teamRef.current = team;
+    setGraph((g) => withTeamNode(g, team));
+  }, [team]);
   // Wins (§3t): every good thing in one place, from ONE MOVE; the example agent's in the demo. A win newer than the
   // agent's last look glows gold; the last look is kept in this browser only.
   const WINS_SEEN = "one.wins.seen";
@@ -1260,6 +1278,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === HABITS_NODE) return openHabits();
     if (id === PARTNERS_NODE) return setPartnersOpen(true);
     if (id === WINS_NODE) return setWinsOpen(true);
+    if (id === TEAM_NODE) return setTeamOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
   };
@@ -1891,6 +1910,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </button>
           )}
 
+          {focus.id === TEAM_NODE && team && !tour && (
+            <button className="pi-film pm-open" onClick={() => setTeamOpen(true)}>
+              <span className="pi-play" aria-hidden="true">#</span>
+              <span>
+                <b>Open the Team screen</b>
+                <span>The week's leaderboard. Show it full screen on the office TV.</span>
+              </span>
+            </button>
+          )}
           {focus.id === WINS_NODE && wins && !tour && (
             <button className="pi-film pm-open" onClick={() => setWinsOpen(true)}>
               <span className="pi-play" aria-hidden="true">★</span>
@@ -2277,6 +2305,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       ) : null}
       {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} demo={!live} onAssume={saveAssume} onClose={() => setIncomeOpen(false)} /> : null}
       {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} /> : null}
+      {teamOpen && team ? <TeamView team={team} demo={!live} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} /> : null}
       {winsOpen && wins ? (
         <WinsView
           data={wins}
