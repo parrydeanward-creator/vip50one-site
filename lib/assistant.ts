@@ -9,7 +9,9 @@ import type { DashboardData, Item } from "./types.ts";
 // items the products reported. Anything that goes wrong falls back to the
 // rules-based note, so the dashboard never waits on or breaks because of it.
 
-const MODEL = "claude-opus-5-5";
+// Sonnet 5.5 for longer writing and reasoning over the whole day or graph (Parry, 9 Oct: Haiku first, "stronger bot
+// for harder tasks").
+const MODEL = "claude-sonnet-5-5";
 const TIMEOUT_MS = 20_000;
 
 const NoteSchema = z.object({

@@ -7,7 +7,9 @@ import { checkTold, mergeTold, readOverview, type Told } from "./overview.ts";
 // Tell Pulse your day, read by Claude: any wording, any order. The answer is only the appointments the
 // agent said, with times; lib/overview.ts checks every one and the local reading takes over on any failure.
 
-const MODEL = "claude-opus-5-5";
+// Haiku 5.5 for quick, short jobs (Parry, 9 Oct: "yes on Haiku, with stronger bot for harder tasks"). It has no
+// server-side refusal fallback, so a refusal falls back to the plain rules below.
+const MODEL = "claude-haiku-5-5";
 const TIMEOUT_MS = 15_000;
 
 const Schema = z.object({
@@ -41,8 +43,6 @@ export async function readDayAI(text: string, current: Told[] = []): Promise<{ i
     const r = await client.beta.messages.parse({
       model: MODEL,
       max_tokens: 2000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
       output_config: { effort: "low", format: betaZodOutputFormat(Schema) },
       system: SYSTEM,
       messages: [{ role: "user", content: planned + text }],
