@@ -45,6 +45,7 @@ import PulseCoachView from "./PulseCoachView.tsx";
 import ReferralsView from "./ReferralsView.tsx";
 import WinsView from "./WinsView.tsx";
 import EnergyView from "./EnergyView.tsx";
+import TimeOffView from "./TimeOffView.tsx";
 import TeamView from "./TeamView.tsx";
 import ReviewCallsView from "./ReviewCallsView.tsx";
 import HabitsView from "./HabitsView.tsx";
@@ -59,6 +60,7 @@ import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withRev
 import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
 import { REVIEW_CALLS_NODE, agentsUrl, demoAgents, readAgents, withReviewCallsNode, type ReviewAgent } from "@/lib/reviewCalls.ts";
 import { TEAM_NODE, demoTeam, readTeam, teamUrl, withTeamNode, type Scope as TeamScope, type Team } from "@/lib/team.ts";
+import { TIME_OFF_NODE, demoTimeOff, readTimeOff, saveBody as timeOffBody, timeOffUrl, withTimeOffNode, type TimeOffState } from "@/lib/timeOff.ts";
 import { ENERGY_NODE, applyCheck, demoEnergy, energyUrl, readEnergy, saveBody as energyBody, saveEnergyUrl, withEnergyNode, type Energy, type Level as EnergyLevel } from "@/lib/energy.ts";
 import { WINS_NODE, demoWins, newSince, readWins, winsUrl, withWinsNode, type Wins } from "@/lib/wins.ts";
 import { PARTNERS_NODE, demoPartners, partnersActionUrl, partnersUrl, readPartners, withPartnersNode, type PartnersState } from "@/lib/partners.ts";
@@ -117,6 +119,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const partnersRef = useRef<PartnersState | null>(null);
   const winsRef = useRef<{ w: Wins; fresh: number } | null>(null);
   const energyRef = useRef<Energy | null>(null);
+  const timeOffRef = useRef<TimeOffState | null>(null);
   const teamRef = useRef<Team | null>(null);
   const rcRef = useRef(false);
   // ONE YOU's Pulse Coach orb (§3q): the weekly read on the agent's own numbers.
@@ -132,7 +135,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withMoveCoach(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), admin);
+    const next = withMoveCoach(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), admin);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -533,6 +536,48 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       return true;
     },
     [energy, live],
+  );
+  // Time off (§3x): plan days away; from ONE MOVE once it answers, the example agent's long weekend in the demo
+  // (saved in this page only).
+  const [timeOff, setTimeOff] = useState<TimeOffState | null>(null);
+  const [timeOffOpen, setTimeOffOpen] = useState(false);
+  const loadTimeOff = useCallback(() => {
+    if (!live) return setTimeOff(demoTimeOff(todayIn()));
+    fetch(timeOffUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setTimeOff(j ? readTimeOff(j, todayIn()) : null))
+      .catch(() => {});
+  }, [live]);
+  useEffect(() => loadTimeOff(), [loadTimeOff]);
+  useEffect(() => {
+    timeOffRef.current = timeOff;
+    setGraph((g) => withTimeOffNode(g, timeOff));
+  }, [timeOff]);
+  const saveTimeOff = useCallback(
+    async (starts: string, ends: string, note: string): Promise<string | null> => {
+      if (!live) {
+        setTimeOff((s) => (s ? { ...s, upcoming: [...s.upcoming, { id: `demo-${starts}`, starts, ends, note: note.trim() || null }].sort((a, b) => a.starts.localeCompare(b.starts)) } : s));
+        return null;
+      }
+      const r = await fetch(timeOffUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(timeOffBody(starts, ends, note)) }).catch(() => null);
+      if (!r || !r.ok) return (r && ((await r.json().catch(() => null)) as { error?: string } | null)?.error) || "Could not save that just now.";
+      loadTimeOff();
+      return null;
+    },
+    [live, loadTimeOff],
+  );
+  const cancelTimeOff = useCallback(
+    async (id: string): Promise<string | null> => {
+      if (!live) {
+        setTimeOff((s) => (s ? { ...s, current: s.current?.id === id ? null : s.current, upcoming: s.upcoming.filter((o) => o.id !== id) } : s));
+        return null;
+      }
+      const r = await fetch(`${timeOffUrl}?id=${encodeURIComponent(id)}`, { method: "DELETE", credentials: "include" }).catch(() => null);
+      if (!r || !r.ok) return "Could not change that just now.";
+      loadTimeOff();
+      return null;
+    },
+    [live, loadTimeOff],
   );
   // Accountability partners (§3s): from ONE MOVE once it answers; example partners in the demo.
   const [partners, setPartners] = useState<PartnersState | null>(null);
@@ -1339,6 +1384,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === PARTNERS_NODE) return setPartnersOpen(true);
     if (id === WINS_NODE) return setWinsOpen(true);
     if (id === ENERGY_NODE) return setEnergyOpen(true);
+    if (id === TIME_OFF_NODE) return setTimeOffOpen(true);
     if (id === TEAM_NODE) return setTeamOpen(true);
     if (id === REVIEW_CALLS_NODE) return setRcOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
@@ -1990,6 +2036,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               </span>
             </button>
           )}
+          {focus.id === TIME_OFF_NODE && timeOff && !tour && (
+            <button className="pi-film pm-open" onClick={() => setTimeOffOpen(true)}>
+              <span className="pi-play" aria-hidden="true">☼</span>
+              <span>
+                <b>Plan time off</b>
+                <span>Touches pause, Autopilot waits, and Pulse plans your first day back.</span>
+              </span>
+            </button>
+          )}
           {focus.id === ENERGY_NODE && energy && !tour && (
             <button className="pi-film pm-open" onClick={() => setEnergyOpen(true)}>
               <span className="pi-play" aria-hidden="true">◐</span>
@@ -2387,6 +2442,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} /> : null}
       {rcOpen && rcAgents ? <ReviewCallsView agents={rcAgents} demo={!live} onClose={() => setRcOpen(false)} onSearch={loadRcAgents} /> : null}
       {teamOpen && team ? <TeamView team={team} demo={!live} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} /> : null}
+      {timeOffOpen && timeOff ? <TimeOffView data={timeOff} demo={!live} onSave={saveTimeOff} onCancel={cancelTimeOff} onClose={() => setTimeOffOpen(false)} /> : null}
       {energyOpen && energy ? <EnergyView data={energy} demo={!live} onSave={saveEnergy} onClose={() => setEnergyOpen(false)} /> : null}
       {winsOpen && wins ? (
         <WinsView
