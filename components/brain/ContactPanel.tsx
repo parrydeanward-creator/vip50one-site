@@ -16,6 +16,7 @@ import {
 import { LOGGABLE } from "@/lib/audit.ts";
 import CallPrepCard from "./CallPrepCard.tsx";
 import PanelBoundary from "./PanelBoundary.tsx";
+import SendsSection from "./SendsSection.tsx";
 
 // A box the agent ticks by hand asks first, like Call and Text (Parry, 5 Oct:
 // "the checkbox is not checking when clicked"). Newsletter and mixer invite
@@ -189,6 +190,7 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
           </ul>
         </div>
       )}
+      <SendsSection contactId={contactId} />
       {card.source_label && <p className="cc-source">{card.source_label}</p>}
     </div>
   );
