@@ -21,6 +21,10 @@ export interface Mate {
   streak: number;
   tickedToday: boolean;
   me: boolean;
+  /** Away this week (§3x.6): time off covers 4 or more weekdays; the 100 does not apply. */
+  away: boolean;
+  /** Which of `last4` were away weeks, same order. */
+  last4Away: boolean[];
   /** Badges earned in ONE MOVE (§3u.2, optional), newest first, at most 3. */
   earned: string[];
 }
@@ -53,6 +57,8 @@ export function readTeam(j: unknown): Team | null {
       streak: num(x.streak_weeks) ?? 0,
       tickedToday: x.ticked_today === true,
       me: x.me === true,
+      away: x.away === true,
+      last4Away: (Array.isArray(x.last4_away) ? x.last4_away : []).map((v: unknown) => v === true).slice(-4),
       earned: (Array.isArray(x.badges) ? x.badges : [])
         .map((b: unknown) => (b && typeof b === "object" ? str((b as Record<string, unknown>).name, 40) : str(b, 40)))
         .filter((b): b is string => !!b)
@@ -79,7 +85,7 @@ export function mostImproved(t: Team): Mate | null {
   let gain = 0;
   for (const a of t.agents) {
     const last = a.last4[a.last4.length - 1];
-    if (last == null) continue;
+    if (last == null || a.away || a.last4Away[a.last4Away.length - 1]) continue;
     const g = a.score - last;
     if (g > gain) {
       gain = g;
