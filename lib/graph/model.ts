@@ -81,7 +81,7 @@ export interface Budget {
   ancestors: number;
 }
 
-export const DESKTOP_BUDGET: Budget = { children: 16, siblings: 8, related: 4, ancestors: 4 };
+export const DESKTOP_BUDGET: Budget = { children: 18, siblings: 8, related: 4, ancestors: 4 };
 export const PHONE_BUDGET: Budget = { children: 6, siblings: 0, related: 2, ancestors: 1 };
 
 // Presentation's question: what should be on screen when `focusId` is
