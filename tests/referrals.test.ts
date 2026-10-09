@@ -81,7 +81,7 @@ test("thank-you (§3r.3): only when ONE MOVE says unthanked, last 90 days, no op
 
 test("the Referrals orb pulses for a thank-you owed, and says so first", () => {
   const g = { nodes: [{ id: "go", type: "product", label: "ONE YOU", importance: 1 } as never], edges: [] as never[] };
-  const n = withRefs(g, demoRefs("2026-10-09"), "2026-10-09").nodes.find((x: { id: string }) => x.id === RNODE) as { status: string; secondaryLabel: string };
+  const n = withRefs(g, demoRefs("2026-10-09"), "2026-10-09").nodes.find((x: { id: string }) => x.id === RNODE) as unknown as { status: string; secondaryLabel: string };
   assert.equal(n.status, "attention");
   assert.equal(n.secondaryLabel, "1 to thank · 2 worth asking");
 });
