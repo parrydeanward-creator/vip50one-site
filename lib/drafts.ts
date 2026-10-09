@@ -37,7 +37,21 @@ export function factsFrom(p: CallPrep): DraftFacts {
 }
 
 /** The request body, checked on the server; null when it is not one. */
-export function readDraftRequest(j: unknown): { kind: DraftKind; facts: DraftFacts; agentFirst: string | null; ask: string | null } | null {
+// A life event the agent wrote about (VIP-SUMMARY §3y): the plain-rules draft opens with its own line, so a sympathy
+// note never reads like a check-in.
+export const EVENT_LINE: Record<string, string> = {
+  baby: "Congratulations on your new baby! I'm so happy for your family.",
+  wedding: "Congratulations on your wedding news! I'm so happy for you both.",
+  new_job: "Congratulations on the new job! They are lucky to have you.",
+  retirement: "Congratulations on your retirement! You've earned every minute of it.",
+  new_home: "Congratulations on your new home! I hope it's full of good days.",
+  empty_nest: "I heard the kids are heading out on their own. Thinking of you in this new chapter.",
+  loss: "I was so sorry to hear of your loss. I'm thinking of you and holding you close in my thoughts.",
+  hard_time: "I've been thinking of you and wanted you to know I'm here if you need anything at all.",
+};
+const isEventKey = (v: unknown): v is string => typeof v === "string" && Object.hasOwn(EVENT_LINE, v);
+
+export function readDraftRequest(j: unknown): { kind: DraftKind; facts: DraftFacts; agentFirst: string | null; ask: string | null; event: string | null } | null {
   if (!j || typeof j !== "object") return null;
   const r = j as Record<string, unknown>;
   const f = (r.facts && typeof r.facts === "object" ? r.facts : null) as Record<string, unknown> | null;
@@ -54,6 +68,7 @@ export function readDraftRequest(j: unknown): { kind: DraftKind; facts: DraftFac
     },
     agentFirst: typeof r.agentFirst === "string" && r.agentFirst.trim() ? clip(r.agentFirst, 40) : null,
     ask: typeof r.ask === "string" && r.ask.trim() ? clip(r.ask, 200) : null,
+    event: isEventKey(r.event) ? r.event : null,
   };
 }
 
@@ -72,7 +87,8 @@ export function fairHousingFlags(text: string): string[] {
 }
 
 /** The plain-rules draft, when Pulse's model is not available: short, true, from the facts only. */
-export function rulesDraft(kind: DraftKind, f: DraftFacts, agentFirst: string | null): Draft {
+export function rulesDraft(kind: DraftKind, f: DraftFacts, agentFirst: string | null, event: string | null = null): Draft {
+  if (event && EVENT_LINE[event]) return eventDraft(kind, f, agentFirst, event);
   const hook = f.comingUp[0]
     ? f.comingUp[0].replace(/^Birthday/, "your birthday").replace(/^Anniversary/, "your anniversary").replace(/ in \d+ days?.*$| today.*$| tomorrow.*$/, " is coming up")
     : null;
@@ -88,6 +104,23 @@ export function rulesDraft(kind: DraftKind, f: DraftFacts, agentFirst: string | 
     body = `Hi ${f.first},\n\n${line}${extra} I'd love to hear how things are going with you and yours.\n\nIf there is ever anything I can do for you, or anyone you know, I'm here.${sign ? `\n${sign}` : ""}`;
   } else if (kind === "video_text") body = `Hey ${f.first}! ${line}${extra} Nothing needed, I just wanted you to see my face and know I'm grateful for you. Talk soon.`;
   else body = `${f.first},\n${line} I'm grateful to have you in my life.${sign}`;
+  body = body.slice(0, MAX_CHARS[kind]);
+  return { kind, subject, body, flags: fairHousingFlags(`${subject ?? ""} ${body}`), source: "rules" };
+}
+
+/** A life-event draft: the event's own line, nothing about the favourites, no business. */
+function eventDraft(kind: DraftKind, f: DraftFacts, agentFirst: string | null, event: string): Draft {
+  const line = EVENT_LINE[event];
+  const sign = agentFirst ? `\n${agentFirst}` : "";
+  const sad = event === "loss" || event === "hard_time";
+  let subject: string | null = null;
+  let body: string;
+  if (kind === "text") body = `Hi ${f.first}, ${line}`;
+  else if (kind === "email") {
+    subject = sad ? `Thinking of you, ${f.first}` : `Congratulations, ${f.first}`;
+    body = `Hi ${f.first},\n\n${line}${sad ? "" : " I'd love to hear all about it when you have a minute."}${sign ? `\n${sign}` : ""}`;
+  } else if (kind === "video_text") body = `Hey ${f.first}. ${line} ${sad ? "No need to reply." : "Talk soon."}`;
+  else body = `${f.first},\n${line}${sign}`;
   body = body.slice(0, MAX_CHARS[kind]);
   return { kind, subject, body, flags: fairHousingFlags(`${subject ?? ""} ${body}`), source: "rules" };
 }

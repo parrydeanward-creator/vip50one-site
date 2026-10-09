@@ -29,8 +29,8 @@ Formats:
 - video_text: a 20 to 40 second spoken script, said straight to camera. subject is null.
 - note: a handwritten card, 2 to 4 short sentences, at most 60 words, signed with the agent's first name when given. subject is null.`;
 
-export async function draftTouch(kind: DraftKind, facts: DraftFacts, agentFirst: string | null, ask: string | null): Promise<Draft> {
-  if (!process.env.ANTHROPIC_API_KEY) return rulesDraft(kind, facts, agentFirst);
+export async function draftTouch(kind: DraftKind, facts: DraftFacts, agentFirst: string | null, ask: string | null, event: string | null = null): Promise<Draft> {
+  if (!process.env.ANTHROPIC_API_KEY) return rulesDraft(kind, facts, agentFirst, event);
   try {
     const client = new Anthropic({ timeout: TIMEOUT_MS, maxRetries: 1 });
     const lines = [
@@ -43,6 +43,7 @@ export async function draftTouch(kind: DraftKind, facts: DraftFacts, agentFirst:
       facts.comingUp.length ? `Coming up: ${facts.comingUp.join("; ")}` : null,
       facts.openItems.length ? `Open items: ${facts.openItems.join("; ")}` : null,
       ask ? `The agent asked: ${ask}` : null,
+      event ? `Life event the agent wrote about (the reason for this touch): ${event.replace("_", " ")}. No business, no home value, no favourites small talk.` : null,
     ].filter(Boolean);
     const response = await client.beta.messages.parse({
       model: MODEL,
@@ -51,13 +52,13 @@ export async function draftTouch(kind: DraftKind, facts: DraftFacts, agentFirst:
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: lines.join("\n") }],
     });
-    if (response.stop_reason === "refusal") return rulesDraft(kind, facts, agentFirst);
+    if (response.stop_reason === "refusal") return rulesDraft(kind, facts, agentFirst, event);
     const out = response.parsed_output;
-    if (!out || !out.body.trim()) return rulesDraft(kind, facts, agentFirst);
+    if (!out || !out.body.trim()) return rulesDraft(kind, facts, agentFirst, event);
     const subject = kind === "email" && out.subject?.trim() ? out.subject.trim().slice(0, 120) : null;
     const body = out.body.trim().slice(0, MAX_CHARS[kind]);
     return { kind, subject, body, flags: fairHousingFlags(`${subject ?? ""} ${body}`), source: "pulse" };
   } catch {
-    return rulesDraft(kind, facts, agentFirst);
+    return rulesDraft(kind, facts, agentFirst, event);
   }
 }

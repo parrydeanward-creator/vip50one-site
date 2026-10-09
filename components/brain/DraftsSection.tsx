@@ -10,7 +10,14 @@ import { DRAFT_KINDS, DRAFT_LABEL, factsFrom, mailHref, smsHref, type Draft, typ
 
 const isIOS = () => typeof navigator !== "undefined" && /iPhone|iPad|Macintosh/.test(navigator.userAgent);
 
-export default function DraftsSection({ contactId, phone, email, onSent }: { contactId: string; phone: string | null; email: string | null; onSent: (kind: "text" | "email") => void }) {
+export interface DraftPreset {
+  kind: DraftKind;
+  ask: string;
+  event: string;
+  label: string;
+}
+
+export default function DraftsSection({ contactId, phone, email, onSent, preset }: { contactId: string; phone: string | null; email: string | null; onSent: (kind: "text" | "email") => void; preset?: DraftPreset | null }) {
   const [facts, setFacts] = useState<DraftFacts | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [subject, setSubject] = useState("");
@@ -33,7 +40,7 @@ export default function DraftsSection({ contactId, phone, email, onSent }: { con
     return f;
   };
 
-  const write = async (kind: DraftKind) => {
+  const write = async (kind: DraftKind, p: DraftPreset | null = null) => {
     setBusy(kind);
     setErr(null);
     setCopied(false);
@@ -42,7 +49,7 @@ export default function DraftsSection({ contactId, phone, email, onSent }: { con
       setBusy(null);
       return setErr("ONE couldn't load this person just now.");
     }
-    const r = await fetch("/api/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, facts: f }) }).catch(() => null);
+    const r = await fetch("/api/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, facts: f, ...(p ? { ask: p.ask, event: p.event } : {}) }) }).catch(() => null);
     const d = r && r.ok ? ((await r.json().catch(() => null)) as Draft | null) : null;
     setBusy(null);
     if (!d || typeof d.body !== "string") return setErr(r && r.status === 429 ? "That's a lot of drafts this hour. Try again in a little while." : "Pulse couldn't draft that just now.");
@@ -63,6 +70,11 @@ export default function DraftsSection({ contactId, phone, email, onSent }: { con
   return (
     <div className="cc-tasks cc-drafts">
       <h2>Pulse drafts</h2>
+      {preset ? (
+        <button type="button" className="chip-btn primary cc-preset" disabled={!!busy} onClick={() => void write(preset.kind, preset)}>
+          {busy === preset.kind ? "Writing…" : preset.label}
+        </button>
+      ) : null}
       <div className="cc-draft-kinds" role="group" aria-label="What should Pulse draft?">
         {DRAFT_KINDS.map((k) => (
           <button key={k} type="button" className={`chip-btn${draft?.kind === k ? " primary" : ""}`} disabled={!!busy} onClick={() => void write(k)}>

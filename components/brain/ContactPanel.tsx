@@ -17,7 +17,8 @@ import { LOGGABLE } from "@/lib/audit.ts";
 import CallPrepCard from "./CallPrepCard.tsx";
 import PanelBoundary from "./PanelBoundary.tsx";
 import SendsSection from "./SendsSection.tsx";
-import DraftsSection from "./DraftsSection.tsx";
+import DraftsSection, { type DraftPreset } from "./DraftsSection.tsx";
+import LifeEventsSection from "./LifeEventsSection.tsx";
 import PermissionsSection from "./PermissionsSection.tsx";
 
 // A box the agent ticks by hand asks first, like Call and Text (Parry, 5 Oct:
@@ -46,6 +47,7 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [prep, setPrep] = useState(false); // Call Prep before the call (PULSE-ROADMAP #1)
+  const [preset, setPreset] = useState<DraftPreset | null>(null); // a life event's touch, for Pulse Drafts (§3y)
 
   const load = useCallback(async () => {
     try {
@@ -192,7 +194,8 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
           </ul>
         </div>
       )}
-      <DraftsSection contactId={contactId} phone={tel} email={mail} onSent={(k) => setAsk(askFor(k))} />
+      <LifeEventsSection contactId={contactId} name={card.name} onDraft={setPreset} />
+      <DraftsSection contactId={contactId} phone={tel} email={mail} onSent={(k) => setAsk(askFor(k))} preset={preset} />
       <PermissionsSection contactId={contactId} />
       <SendsSection contactId={contactId} />
       {card.source_label && <p className="cc-source">{card.source_label}</p>}
