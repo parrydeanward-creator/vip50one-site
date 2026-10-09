@@ -45,6 +45,7 @@ import PulseCoachView from "./PulseCoachView.tsx";
 import ReferralsView from "./ReferralsView.tsx";
 import WinsView from "./WinsView.tsx";
 import EnergyView from "./EnergyView.tsx";
+import LifeEventsView from "./LifeEventsView.tsx";
 import TimeOffView from "./TimeOffView.tsx";
 import TeamView from "./TeamView.tsx";
 import ReviewCallsView from "./ReviewCallsView.tsx";
@@ -61,6 +62,7 @@ import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
 import { REVIEW_CALLS_NODE, agentsUrl, demoAgents, readAgents, withReviewCallsNode, type ReviewAgent } from "@/lib/reviewCalls.ts";
 import { TEAM_NODE, demoTeam, readTeam, teamUrl, withTeamNode, type Scope as TeamScope, type Team } from "@/lib/team.ts";
 import { TIME_OFF_NODE, demoTimeOff, readTimeOff, saveBody as timeOffBody, timeOffUrl, withTimeOffNode, type TimeOffState } from "@/lib/timeOff.ts";
+import { LIFE_NODE, applyKeep, demoRadar, keepBody as lifeKeepBody, keepUrl as lifeKeepUrl, lifeEventsUrl, readRadar, withLifeEventsNode, type Found as LifeFound, type Radar } from "@/lib/lifeEvents.ts";
 import { ENERGY_NODE, applyCheck, demoEnergy, energyUrl, readEnergy, saveBody as energyBody, saveEnergyUrl, withEnergyNode, type Energy, type Level as EnergyLevel } from "@/lib/energy.ts";
 import { WINS_NODE, demoWins, newSince, readWins, winsUrl, withWinsNode, type Wins } from "@/lib/wins.ts";
 import { PARTNERS_NODE, demoPartners, partnersActionUrl, partnersUrl, readPartners, withPartnersNode, type PartnersState } from "@/lib/partners.ts";
@@ -119,6 +121,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const partnersRef = useRef<PartnersState | null>(null);
   const winsRef = useRef<{ w: Wins; fresh: number } | null>(null);
   const energyRef = useRef<Energy | null>(null);
+  const lifeRef = useRef<Radar | null>(null);
   const timeOffRef = useRef<TimeOffState | null>(null);
   const teamRef = useRef<Team | null>(null);
   const rcRef = useRef(false);
@@ -135,7 +138,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withMoveCoach(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), admin);
+    const next = withMoveCoach(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), admin);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -536,6 +539,33 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       return true;
     },
     [energy, live],
+  );
+  // Life-event radar (§3y): from ONE MOVE once it answers (404 until then: no orb), the example agent's in the demo.
+  const [life, setLife] = useState<Radar | null>(null);
+  const [lifeOpen, setLifeOpen] = useState(false);
+  useEffect(() => {
+    if (!live) return setLife(demoRadar(todayIn()));
+    fetch(lifeEventsUrl(), { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setLife(j ? readRadar(j, todayIn()) : null))
+      .catch(() => {});
+  }, [live]);
+  useEffect(() => {
+    lifeRef.current = life;
+    setGraph((g) => withLifeEventsNode(g, life));
+  }, [life]);
+  const keepLife = useCallback(
+    async (f: LifeFound, state: "done" | "not_this"): Promise<boolean> => {
+      if (live) {
+        const ok = await fetch(lifeKeepUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lifeKeepBody(f.contactId, f.event, state)) })
+          .then((r) => r.ok)
+          .catch(() => false);
+        if (!ok) return false;
+      }
+      setLife((r) => (r ? applyKeep(r, f.contactId, f.event, state) : r));
+      return true;
+    },
+    [live],
   );
   // Time off (§3x): plan days away; from ONE MOVE once it answers, the example agent's long weekend in the demo
   // (saved in this page only).
@@ -1384,6 +1414,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === PARTNERS_NODE) return setPartnersOpen(true);
     if (id === WINS_NODE) return setWinsOpen(true);
     if (id === ENERGY_NODE) return setEnergyOpen(true);
+    if (id === LIFE_NODE) return setLifeOpen(true);
     if (id === TIME_OFF_NODE) return setTimeOffOpen(true);
     if (id === TEAM_NODE) return setTeamOpen(true);
     if (id === REVIEW_CALLS_NODE) return setRcOpen(true);
@@ -2045,6 +2076,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               </span>
             </button>
           )}
+          {focus.id === LIFE_NODE && life && !tour && (
+            <button className="pi-film pm-open" onClick={() => setLifeOpen(true)}>
+              <span className="pi-play" aria-hidden="true">♡</span>
+              <span>
+                <b>Open life events</b>
+                <span>New babies, weddings, new jobs and harder news from your notes, with the touch to make.</span>
+              </span>
+            </button>
+          )}
           {focus.id === ENERGY_NODE && energy && !tour && (
             <button className="pi-film pm-open" onClick={() => setEnergyOpen(true)}>
               <span className="pi-play" aria-hidden="true">◐</span>
@@ -2443,6 +2483,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       {rcOpen && rcAgents ? <ReviewCallsView agents={rcAgents} demo={!live} onClose={() => setRcOpen(false)} onSearch={loadRcAgents} /> : null}
       {teamOpen && team ? <TeamView team={team} demo={!live} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} /> : null}
       {timeOffOpen && timeOff ? <TimeOffView data={timeOff} demo={!live} onSave={saveTimeOff} onCancel={cancelTimeOff} onClose={() => setTimeOffOpen(false)} /> : null}
+      {lifeOpen && life ? <LifeEventsView data={life} demo={!live} onKeep={keepLife} onClose={() => setLifeOpen(false)} /> : null}
       {energyOpen && energy ? <EnergyView data={energy} demo={!live} onSave={saveEnergy} onClose={() => setEnergyOpen(false)} /> : null}
       {winsOpen && wins ? (
         <WinsView

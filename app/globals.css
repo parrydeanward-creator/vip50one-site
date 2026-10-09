@@ -1901,3 +1901,11 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 .cmd-day.missed { border-color: rgba(228, 87, 74, 0.6); color: #e88a80; }
 .cmd-day.off { opacity: 0.3; border-style: dashed; }
 .cmd-day.ahead { opacity: 0.6; }
+/* Life events on the contact card (§3y) */
+.cc-life li { display: grid; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.cc-life li:last-child { border-bottom: 0; }
+.cc-life-touch { color: var(--gold-2); font-size: 13px; }
+.cc-life-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.cc-preset { margin-bottom: 8px; }
+.le-quote { margin: 0; padding: 10px 12px; border-left: 3px solid var(--gold-2); background: rgba(255, 255, 255, 0.03); border-radius: 8px; font-size: 14px; color: var(--text-2, var(--text)); }
+.le-touch { margin: 0; font-weight: 700; }
