@@ -6,7 +6,7 @@ import { permissionsUrl, readPermissions, stateWord, stopBody, yesBody, type Cha
 // Permissions on the contact card (LEADS.md §2.5): each channel's state with one button. "They said yes" asks how they
 // agreed and for the agent's tick; "They asked me to stop" asks once. Same route as ONE MOVE and ONE GO.
 
-export default function PermissionsSection({ contactId }: { contactId: string }) {
+export default function PermissionsSection({ contactId, onChanged }: { contactId: string; onChanged?: () => void }) {
   const [p, setP] = useState<Permissions | null>(null);
   const [open, setOpen] = useState<string | null>(null); // channel being changed
   const [how, setHow] = useState("");
@@ -38,6 +38,7 @@ export default function PermissionsSection({ contactId }: { contactId: string })
     else void load();
     setOpen(null);
     setMsg("Saved.");
+    onChanged?.();
   };
   const begin = (c: ChannelState) => {
     setOpen(c.channel);

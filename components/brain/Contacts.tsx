@@ -6,7 +6,8 @@ import { editText, editValue, gapsIn, groupColor, listUrl, peopleUrl, personTag,
 import { initialsOf, ringRows } from "@/lib/vips.ts";
 import { focusFace, focusRings } from "@/lib/orbs.ts";
 import { useSvgCamera } from "./useSvgCamera.ts";
-import PulseRing, { PULSE_COLOR, levelOf } from "./PulseRing.tsx";
+import PulseRing, { PULSE_COLOR, levelOf, type PulseLevel } from "./PulseRing.tsx";
+import PermissionsSection from "./PermissionsSection.tsx";
 import CallPrepCard from "./CallPrepCard.tsx";
 
 // VIP-SUMMARY §3k (Parry, 4 Oct, option C): Contacts in ONE Brain. A map of
@@ -351,6 +352,18 @@ export default function Contacts({
                 <stop offset="1" stopColor={groupColor(g.key)} stopOpacity="0" />
               </radialGradient>
             ))}
+            {(person?.sections ?? []).map((sec) => [
+              <radialGradient key={`b-${sec.key}`} id={`pc-body-${sec.key}`} cx="50%" cy="50%" r="50%">
+                <stop offset="0" stopColor="#070b18" />
+                <stop offset="0.55" stopColor="#0b1020" />
+                <stop offset="0.86" stopColor={sectionColor(sec.key)} stopOpacity="0.35" />
+                <stop offset="1" stopColor={sectionColor(sec.key)} stopOpacity="0.75" />
+              </radialGradient>,
+              <radialGradient key={`g-${sec.key}`} id={`pc-sglow-${sec.key}`}>
+                <stop offset="0.45" stopColor={sectionColor(sec.key)} stopOpacity="0.28" />
+                <stop offset="1" stopColor={sectionColor(sec.key)} stopOpacity="0" />
+              </radialGradient>,
+            ])}
             <radialGradient id="pc-core-glow">
               <stop offset="0.45" stopColor={GOLD} stopOpacity="0.3" />
               <stop offset="1" stopColor={GOLD} stopOpacity="0" />
@@ -487,8 +500,11 @@ export default function Contacts({
                         }
                       }}
                     >
-                      <circle r={84} fill={col} opacity={centre ? 0.18 : 0.1} pointerEvents="none" />
-                      <circle r={64} fill="url(#pc-glass)" stroke={drill.sec?.key === s.key ? "#fff" : col} strokeWidth={drill.sec?.key === s.key ? 3 : 2.2} />
+                      <circle r={118} fill={`url(#pc-sglow-${s.key})`} opacity={centre ? 1 : 0.85} pointerEvents="none" />
+                      <PulseRing r={64} level={sectionLevel(s)} />
+                      <circle r={64} fill={`url(#pc-body-${s.key})`} stroke={drill.sec?.key === s.key ? "#fff" : col} strokeWidth={drill.sec?.key === s.key ? 3 : 2.4} />
+                      <circle r={62} fill="none" stroke="#fff" strokeOpacity={0.16} strokeWidth={1} pointerEvents="none" />
+                      <ellipse cy={-32} rx={35} ry={14} fill="#fff" fillOpacity={0.07} pointerEvents="none" />
                       {twoLines(s.label).map((ln, k, all) => (
                         <text key={k} y={(k - all.length / 2) * 17 + 4} textAnchor="middle" className="pc-sec-label" style={{ fill: col }}>{ln}</text>
                       ))}
@@ -532,8 +548,11 @@ export default function Contacts({
                       }}
                     >
                       <desc>{`${f.label}: ${shown ?? "empty"}`}</desc>
-                      <circle r={r + 8} fill={yes ? TEAL : col} opacity={yes ? 0.22 : 0.08} pointerEvents="none" />
-                      <circle r={r} fill={yes ? "#0e2b2a" : "url(#pc-glass)"} stroke={shown == null ? GOLD : yes ? TEAL : col} strokeWidth={yes ? 3 : 1.8} strokeDasharray={shown == null ? "5 5" : undefined} opacity={f.editable || shown != null ? 1 : 0.6} />
+                      <circle r={r * 1.7} fill={`url(#pc-sglow-${drill.sec!.key})`} opacity={yes ? 0.5 : 0.8} pointerEvents="none" />
+                      {fieldLevel(drill.sec!, f) ? <PulseRing r={r} level={fieldLevel(drill.sec!, f)!} /> : null}
+                      <circle r={r} fill={yes ? "#0e2b2a" : `url(#pc-body-${drill.sec!.key})`} stroke={shown == null ? GOLD : yes ? TEAL : col} strokeWidth={yes ? 3 : 2} strokeDasharray={shown == null ? "5 5" : undefined} opacity={f.editable || shown != null ? 1 : 0.7} />
+                      <circle r={r - 2} fill="none" stroke="#fff" strokeOpacity={0.14} strokeWidth={1} pointerEvents="none" />
+                      <ellipse cy={-r * 0.5} rx={r * 0.55} ry={r * 0.22} fill="#fff" fillOpacity={0.07} pointerEvents="none" />
                       {fitLines(shown == null ? (f.editable ? "Add" : "—") : yes ? "✓" : shown, r).map((ln, k, all) => (
                         <text key={k} y={(k - (all.length - 1) / 2) * r * 0.36} dy="0.35em" textAnchor="middle" className="pc-f-val" style={{ fontSize: yes ? r * 0.7 : Math.max(11, r * 0.28), fill: shown == null ? GOLD : yes ? "#8af0de" : "#eef1f8" }}>{ln}</text>
                       ))}
@@ -700,7 +719,11 @@ export default function Contacts({
               {tel && <a className={`chip-btn${person.pulse?.nextStep === "text" ? " primary" : ""}`} href={`sms:${tel}`}>Text</a>}
               {mail && <a className="chip-btn" href={`mailto:${mail}`}>Email</a>}
             </div>
-            {person.sections.map((s) => (
+            {person.sections.map((s) => s.key === "permissions" ? (
+              <section key={s.key} className="pc-card">
+                <PermissionsSection contactId={person.id} onChanged={() => void getJson(personUrl(person.id)).then((r) => { const p = r?.status === 200 ? readPerson(r.body) : null; if (p) setPerson(p); })} />
+              </section>
+            ) : (
               <SectionCard
                 key={s.key}
                 s={s}
@@ -892,4 +915,15 @@ function SectionCard({
       )}
     </section>
   );
+}
+
+/** Follow the pulse inside a person: this month's touches pulse yellow until every monthly box is done; other
+ * sections show the still green ring. */
+function sectionLevel(s: Section): PulseLevel {
+  if (s.key !== "touches") return "good";
+  return s.fields.some((f) => f.type === "choice" && f.value !== "Yes") ? "today" : "good";
+}
+/** A monthly touch not done yet pulses yellow; every other field is quiet. */
+function fieldLevel(sec: Section, f: Field): PulseLevel | null {
+  return sec.key === "touches" && f.type === "choice" && f.value !== "Yes" ? "today" : null;
 }
