@@ -62,10 +62,10 @@ export default function Privacy() {
         <h3>Google Calendar (only if you connect it)</h3>
         <p>If you connect Google Calendar in My Profile, ONE uses it to plan your day around your real schedule.</p>
         <ul>
-          <li>What we read: events on the calendars you choose to sync (time, title, place and notes). For any other calendar you choose, we read only when you are busy, not what the event is, unless you allow titles.</li>
-          <li>What we write: only events you create or approve in ONE, such as a planned call block, and only on your own calendar. We never write to a shared, team or office calendar, never invite anyone, and never send anything to your clients from your calendar.</li>
+          <li>What we read: events on your main Google calendar (time, title, place and notes). We do not read your other Google calendars.</li>
+          <li>What we write: only events you create or approve in ONE, such as a planned call block, on your main calendar. We never write to a shared, team or office calendar, never invite anyone, and never send anything to your clients from your calendar.</li>
           <li>What we change or delete: only events ONE created, or events you change from inside ONE. Fixed appointments are never moved.</li>
-          <li>What we keep: a copy of synced events so your plan works, kept while Google Calendar is connected. Busy-only calendars are kept as busy times only.</li>
+          <li>What we keep: a copy of synced events so your plan works, kept while Google Calendar is connected.</li>
           <li>Who sees it: you, and your coach only if you share your plan with them. Never other agents.</li>
           <li>Pulse: to build your plan, Pulse (our AI, provided by Anthropic) reads your synced events when it plans. Anthropic does not use them to train its models.</li>
           <li>We do not sell your calendar data, use it for advertising, or use it to train AI models. No one at VIP-50 reads it unless you ask us to for support, or the law requires it.</li>
