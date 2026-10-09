@@ -8,7 +8,9 @@ import { DRAFT_LABEL, MAX_CHARS, fairHousingFlags, rulesDraft, type Draft, type 
 // fair-housing words check. Any failure falls back to the plain-rules draft, so the button always gives the agent
 // something to edit. Nothing is sent from here.
 
-const MODEL = "claude-opus-5-5";
+// Haiku 5.5 for quick, short jobs (Parry, 9 Oct: "yes on Haiku, with stronger bot for harder tasks"). It has no
+// server-side refusal fallback, so a refusal falls back to the plain rules below.
+const MODEL = "claude-haiku-5-5";
 const TIMEOUT_MS = 20_000;
 
 const DraftSchema = z.object({ subject: z.string().nullable(), body: z.string() });
@@ -45,8 +47,6 @@ export async function draftTouch(kind: DraftKind, facts: DraftFacts, agentFirst:
     const response = await client.beta.messages.parse({
       model: MODEL,
       max_tokens: 2000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
       output_config: { effort: "low", format: betaZodOutputFormat(DraftSchema) },
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: lines.join("\n") }],
