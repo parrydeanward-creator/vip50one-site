@@ -44,7 +44,9 @@ test("referral rate, ask-now and the headline", () => {
 
 test("withReferralsNode: one orb under ONE YOU, yellow when someone is worth asking now", () => {
   const base: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "go", type: "product", label: "ONE YOU", parentId: "one", product: "go", importance: 1 }], edges: [] };
-  const r = demoReferrals(today);
+  // every referral thanked, so the ask line shows (a thank-you owed now leads the line: see the §3r.3 test below)
+  const demo = demoReferrals(today);
+  const r = { ...demo, recent: demo.recent.map((x) => ({ ...x, thanked: true })) };
   const g = withReferralsNode(withReferralsNode(base, r), r);
   const n = g.nodes.filter((x) => x.id === REFERRALS_NODE);
   assert.equal(n.length, 1);
@@ -54,4 +56,32 @@ test("withReferralsNode: one orb under ONE YOU, yellow when someone is worth ask
   assert.equal(calm.nodes.find((x) => x.id === REFERRALS_NODE)!.status, "healthy");
   assert.equal(withReferralsNode(base, null).nodes.length, 1);
   assert.equal(withReferralsNode({ ...base, nodes: [{ ...base.nodes[0], locked: true }] }, r).nodes.length, 1);
+});
+
+import { applyThank, thankUrl, thankWords, unthanked, withReferralsNode as withRefs, demoReferrals as demoRefs, readReferrals as readRefs, REFERRALS_NODE as RNODE } from "../lib/referrals.ts";
+test("thank-you (§3r.3): only when ONE MOVE says unthanked, last 90 days, no open task; oldest first", () => {
+  const r = readRefs({
+    referrers: [{ contact_id: "a", name: "Jane Smith", total: 2 }],
+    vips: { count: 1 },
+    recent: [
+      { referral_id: "f1", referred_name: "Tom Lee", referrer_contact_id: "a", at: "2026-10-01", thanked: false },
+      { referral_id: "f2", referred_name: "Amy Fox", referrer_contact_id: "a", at: "2026-09-01", thanked: false },
+      { referral_id: "f3", referred_name: "Old One", referrer_contact_id: "a", at: "2026-05-01", thanked: false },
+      { referral_id: "f4", referred_name: "Open Task", referrer_contact_id: "a", at: "2026-10-02", thanked: false, thank_open: true },
+      { referral_id: "f5", referred_name: "Done", referrer_contact_id: "a", at: "2026-10-03", thanked: true },
+      { referred_name: "No word", referrer_contact_id: "a", at: "2026-10-04" },
+    ],
+  })!;
+  const list = unthanked(r, "2026-10-09");
+  assert.deepEqual(list.map((x) => x.name), ["Amy Fox", "Tom Lee"]);
+  assert.equal(thankWords(r, list[0]), "Thank Jane Smith for referring Amy Fox");
+  assert.deepEqual(unthanked(applyThank(r, "f2"), "2026-10-09").map((x) => x.name), ["Tom Lee"]);
+  assert.equal(thankUrl, "https://move.vip50one.com/api/brain/referrals/thank");
+});
+
+test("the Referrals orb pulses for a thank-you owed, and says so first", () => {
+  const g = { nodes: [{ id: "go", type: "product", label: "ONE YOU", importance: 1 } as never], edges: [] as never[] };
+  const n = withRefs(g, demoRefs("2026-10-09"), "2026-10-09").nodes.find((x: { id: string }) => x.id === RNODE) as { status: string; secondaryLabel: string };
+  assert.equal(n.status, "attention");
+  assert.equal(n.secondaryLabel, "1 to thank · 2 worth asking");
 });

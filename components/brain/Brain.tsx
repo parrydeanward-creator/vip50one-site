@@ -68,7 +68,7 @@ import { WINS_NODE, demoWins, newSince, readWins, winsUrl, withWinsNode, type Wi
 import { PARTNERS_NODE, demoPartners, partnersActionUrl, partnersUrl, readPartners, withPartnersNode, type PartnersState } from "@/lib/partners.ts";
 import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, mondayOf, type HabitToday } from "@/lib/habits.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
-import { REFERRALS_NODE, askUrl, demoReferrals, readReferrals, referralsUrl, withReferralsNode, type Referrals } from "@/lib/referrals.ts";
+import { REFERRALS_NODE, applyThank, askUrl, demoReferrals, thankUrl, readReferrals, referralsUrl, withReferralsNode, type Referrals } from "@/lib/referrals.ts";
 import { COACH_NODE, coachedUrl, demoCoached, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
 import { WEEK_NODE, commitmentsUrl, demoCommitments, readCommitments, withWeekNode, type Commitments } from "@/lib/commitments.ts";
 import { PLAN_NODE, planKey, planUrl, readPlan, timed, withPlanNode, type Plan } from "@/lib/plan.ts";
@@ -138,7 +138,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withMoveCoach(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), admin);
+    const next = withMoveCoach(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), admin);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -392,7 +392,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   }, [live]);
   useEffect(() => {
     refsRef.current = refs;
-    setGraph((g) => withReferralsNode(g, refs));
+    setGraph((g) => withReferralsNode(g, refs, todayIn()));
   }, [refs]);
   const askReferral = useCallback(async (contactId: string): Promise<string> => {
     try {
@@ -401,6 +401,22 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       if (r.ok && j?.ok) return "Added to today's tasks. Ask in your own words; nothing is sent.";
       if (j?.reason === "already_asked") return "There is already an open ask for them in your tasks.";
       if (j?.reason === "opted_out" || j?.reason === "has_agent") return "Not for this one: they opted out or have an agent.";
+      return "Could not add the task just now. Please try again.";
+    } catch {
+      return "Could not add the task just now. Please try again.";
+    }
+  }, []);
+  const thankReferral = useCallback(async (referralId: string): Promise<string> => {
+    try {
+      const r = await fetch(thankUrl, { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ referral_id: referralId }) });
+      const j = (await r.json().catch(() => null)) as { ok?: boolean; reason?: string } | null;
+      if (r.ok && j?.ok) {
+        setRefs((x) => (x ? applyThank(x, referralId) : x));
+        return "Added to today's tasks. Thank them in your own words; nothing is sent.";
+      }
+      if (j?.reason === "already_open") return "There is already an open thank-you for this one in your tasks.";
+      if (j?.reason === "already_thanked") return "Already thanked: you logged a touch since.";
+      if (r.status === 404 || r.status === 405) return "Thank-you tasks arrive with ONE MOVE's next update. Nothing was saved.";
       return "Could not add the task just now. Please try again.";
     } catch {
       return "Could not add the task just now. Please try again.";
@@ -2503,7 +2519,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       ) : null}
       {partnersOpen && partners ? <PartnersView state={partners} me={weekScore} today={todayIn()} demo={!live} onClose={() => setPartnersOpen(false)} onAct={partnerAct} /> : null}
       {habitsOpen && theHabits.length ? <HabitsView habits={theHabits} demo={!live} onClose={() => setHabitsOpen(false)} onTick={tickHabit} /> : null}
-      {refsOpen && refs ? <ReferralsView data={refs} today={todayIn()} demo={!live} onClose={() => setRefsOpen(false)} onAsk={askReferral} /> : null}
+      {refsOpen && refs ? <ReferralsView data={refs} today={todayIn()} demo={!live} onClose={() => setRefsOpen(false)} onAsk={askReferral} onThank={thankReferral} /> : null}
       {agentRead ? <PulseCoachView read={agentRead.read} who={agentRead.who} demo={!live} onClose={() => setAgentRead(null)} /> : null}
       {cmOpen && commitments && (
         <CommitmentsView initial={commitments} live={live} hour={denverHour()} onClose={() => setCmOpen(false)} onChanged={setCommitments} />

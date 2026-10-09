@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import PulseRing, { PULSE_COLOR } from "./PulseRing.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
-import { WHY_TITLE, askNow, headline, referralRate, type Candidate, type Referrals, type Referrer } from "@/lib/referrals.ts";
+import { WHY_TITLE, askNow, headline, referralRate, thankWords, unthanked, type Candidate, type Recent, type Referrals, type Referrer } from "@/lib/referrals.ts";
 
 // The Referral Scoreboard in ONE YOU (VIP-SUMMARY §3r; Parry, 7 Oct). The year's referrals against the goal in the
 // middle; round it, the people who sent business (gold ring: how many) and the ones likely to send the next
@@ -42,13 +42,14 @@ function arc(cx: number, cy: number, r: number, share: number): string {
   return `M ${cx} ${cy - r} A ${r} ${r} 0 ${a > Math.PI ? 1 : 0} 1 ${x} ${y}`;
 }
 
-export default function ReferralsView({ data, today, demo, onClose, onAsk }: { data: Referrals; today: string; demo: boolean; onClose: () => void; onAsk?: (contactId: string) => Promise<string> }) {
+export default function ReferralsView({ data, today, demo, onClose, onAsk, onThank }: { data: Referrals; today: string; demo: boolean; onClose: () => void; onAsk?: (contactId: string) => Promise<string>; onThank?: (referralId: string) => Promise<string> }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const [pick, setPick] = useState<string | null>(null);
   const [asked, setAsked] = useState<Record<string, string>>({});
+  const [thanks, setThanks] = useState<Record<string, string>>({});
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -98,8 +99,36 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk }: { d
     const words = await onAsk(id);
     setAsked((a) => ({ ...a, [id]: words }));
   };
+  // Not thanked yet (§3r.3): one tap makes the thank-you task; the agent thanks them in their own words.
+  const toThank = unthanked(data, today);
+  const owed = new Set(toThank.map((x) => x.by));
+  const thank = async (x: Recent) => {
+    const id = x.referralId!;
+    if (demo || !onThank) return setThanks((t) => ({ ...t, [id]: `Example agent: this would add "${thankWords(data, x)}" to today's tasks.` }));
+    setThanks((t) => ({ ...t, [id]: "Adding…" }));
+    const words = await onThank(id);
+    setThanks((t) => ({ ...t, [id]: words }));
+  };
+  const thankRows = (rows: Recent[]) => (
+    <ul className="pm-list pm-compact">
+      {rows.map((x) => (
+        <li key={x.referralId}>
+          <i className="pm-dot" style={{ background: PULSE_COLOR.today }} aria-hidden="true" />
+          <span className="pm-body">
+            <b>{thankWords(data, x)}</b>
+            <small>{thanks[x.referralId!] ?? `Referred ${ago(x.at, today)}; no thank-you yet`}</small>
+          </span>
+          {thanks[x.referralId!] ? null : (
+            <span className="pm-acts">
+              <button className="pm-tick" onClick={() => void thank(x)} aria-label={`${thankWords(data, x)}: add the task`}>Thank</button>
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
   // Worth asking now pulses yellow, whether they sit as a referrer (a quiet past referrer) or as likely next.
-  const askable = (s: Seat) => now.has(s.kind === "ref" ? s.r.id : s.c.id);
+  const askable = (s: Seat) => now.has(s.kind === "ref" ? s.r.id : s.c.id) || (s.kind === "ref" && owed.has(s.r.id));
   const ring = (s: Seat) => (askable(s) ? PULSE_COLOR.today : s.kind === "ref" ? GOLD : "rgba(160,175,210,0.45)");
   const level = (s: Seat) => (askable(s) ? ("today" as const) : null);
 
@@ -227,6 +256,12 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk }: { d
                   </li>
                 ))}
               </ul>
+              {toThank.some((x) => x.by === sel.r.id) ? (
+                <>
+                  <h2>Not thanked yet</h2>
+                  {thankRows(toThank.filter((x) => x.by === sel.r.id))}
+                </>
+              ) : null}
               {candidateFor(sel.r.id) ? <p className="d-sum">{candidateFor(sel.r.id)!.words}. A thank-you and an ask go well together.</p> : <p className="d-sum">Thank them. People who have referred once are the likeliest to refer again.</p>}
               {askButton(sel.r.id, sel.r.name)}
               <button className="vr-classic" onClick={() => open(null)}>The whole scoreboard</button>
@@ -247,6 +282,12 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk }: { d
                 <p className="d-sum">
                   {data.vips.thisYear} of your {data.vips.count} VIPs have referred this goal year ({Math.round(rate * 100)}%); {data.vips.ever} ever.
                 </p>
+              ) : null}
+              {toThank.length ? (
+                <>
+                  <h2>Not thanked yet</h2>
+                  {thankRows(toThank)}
+                </>
               ) : null}
               {data.candidates.length ? (
                 <>
@@ -292,7 +333,7 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk }: { d
               )}
             </>
           )}
-          <p className="pm-promise">{demo ? "Example agent. " : ""}From your own records only. Nothing is sent: an ask is a task you do in your own words.</p>
+          <p className="pm-promise">{demo ? "Example agent. " : ""}From your own records only. Nothing is sent: an ask or a thank-you is a task you do in your own words.</p>
         </aside>
       </div>
     </div>
