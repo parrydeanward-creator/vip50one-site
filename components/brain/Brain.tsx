@@ -406,6 +406,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       return "Could not add the task just now. Please try again.";
     }
   }, []);
+  // who has sent business, for the VIP swap coach (never suggest moving a referrer out)
+  const referredMap = useMemo(() => new Map((refs?.referrers ?? []).map((x) => [x.id, x.total])), [refs]);
   const thankReferral = useCallback(async (referralId: string): Promise<string> => {
     try {
       const r = await fetch(thankUrl, { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ referral_id: referralId }) });
@@ -2437,6 +2439,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                   onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
+                  referred={referredMap}
                   celebrate={graph.celebrate}
                 />
               ) : (

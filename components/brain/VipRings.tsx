@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { coachLine, swapSuggestions } from "@/lib/swapCoach.ts";
 import ContactPanel from "./ContactPanel.tsx";
 import PulseRing from "./PulseRing.tsx";
 import {
@@ -54,6 +55,7 @@ export default function VipRings({
   onBack,
   onClassic,
   celebrate = [],
+  referred,
 }: {
   today: string;
   onUnavailable: () => void;
@@ -61,6 +63,7 @@ export default function VipRings({
   onBack: () => void;
   onClassic: () => void;
   celebrate?: string[]; // contact ids with a special day today (gold glow)
+  referred?: Map<string, number>; // contact id -> referrals sent (§3r), for the swap coach
 }) {
   const glowing = new Set(celebrate);
   const [roster, setRoster] = useState<VipRoster | null>(null);
@@ -509,6 +512,54 @@ export default function VipRings({
               {`${fully} fully touched this month. ${roster.vip100.length} waiting in your VIP-100.`}
               {open ? ` ${open} open ${open === 1 ? "spot" : "spots"}.` : ""}
             </p>
+            {(() => {
+              // VIP swap coach (PULSE-ROADMAP relationship #6): suggestions only; every move is the agent's, confirmed.
+              const s = swapSuggestions(roster, today, referred);
+              const line = coachLine(s);
+              if (!line) return null;
+              return (
+                <div className="vr-coach">
+                  <h2>Pulse suggests</h2>
+                  <p className="d-sum">{line}. You decide; nothing moves until you confirm.</p>
+                  <ul className="pm-list pm-compact">
+                    {s.pairs.map(({ out, into }) => (
+                      <li key={`${out.p.id}>${into.p.id}`}>
+                        <span className="pm-body">
+                          <b>{into.p.name} in, {out.p.name} out</b>
+                          <small>{into.words} · {out.p.name.split(/\s+/)[0]}: {out.words.toLowerCase()}</small>
+                        </span>
+                        <span className="pm-acts">
+                          <button className="pm-tick" onClick={() => setPending({ kind: "swap", out: out.p, into: into.p })} aria-label={`Swap: ${into.p.name} in, ${out.p.name} out`}>Swap</button>
+                        </span>
+                      </li>
+                    ))}
+                    {s.open
+                      ? s.into.slice(0, Math.min(3, s.open)).map((w) => (
+                          <li key={w.p.id}>
+                            <span className="pm-body">
+                              <b>{w.p.name}</b>
+                              <small>{w.words}</small>
+                            </span>
+                            <span className="pm-acts">
+                              <button className="pm-tick" onClick={() => setPending({ kind: "tier", who: w.p, tier: "vip50" })} aria-label={`Move ${w.p.name} to your VIP-50`}>Move in</button>
+                            </span>
+                          </li>
+                        ))
+                      : null}
+                    {!s.pairs.length && !s.open
+                      ? s.out.slice(0, 3).map((w) => (
+                          <li key={w.p.id}>
+                            <span className="pm-body">
+                              <b>{w.p.name}</b>
+                              <small>{w.words}: call them, or move them to your VIP-100</small>
+                            </span>
+                          </li>
+                        ))
+                      : null}
+                  </ul>
+                </div>
+              );
+            })()}
             <h2>How it works</h2>
             <p className="d-sum">Click a face to call, text or email them and log it. Drag a face onto someone in the other ring to swap them, or pick one in each ring.</p>
             <h2>Reading the rings</h2>

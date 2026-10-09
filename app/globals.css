@@ -1909,3 +1909,5 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 .cc-preset { margin-bottom: 8px; }
 .le-quote { margin: 0; padding: 10px 12px; border-left: 3px solid var(--gold-2); background: rgba(255, 255, 255, 0.03); border-radius: 8px; font-size: 14px; color: var(--text-2, var(--text)); }
 .le-touch { margin: 0; font-weight: 700; }
+/* VIP swap coach (PULSE-ROADMAP relationship #6) */
+.vr-coach { margin: 6px 0 14px; }
