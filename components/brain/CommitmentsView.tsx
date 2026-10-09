@@ -32,6 +32,19 @@ import {
   type Kind,
   type Period,
   type Result,
+  DAILY_MAX,
+  DAYS_LABEL,
+  applyDailySet,
+  applyDailyTick,
+  dailyDoneUrl,
+  dailyUrl,
+  dailyWords,
+  dayTickable,
+  daysKept,
+  setDailyBody,
+  type DailyDraft,
+  type DailyItem,
+  type Days,
 } from "@/lib/commitments.ts";
 
 // Commitments in ONE YOU (Parry, 6 Oct; VIP-SUMMARY §3n): the week's commitments as orbs round a core
@@ -47,7 +60,10 @@ const RES_COLOR: Record<Result, string> = { kept: "#3fbf7f", partly: "#e5b83a", 
 const NOT_YET = "Commitments arrive with ONE MOVE's next update. Nothing was saved.";
 const EXAMPLE = "Example agent: in your account this is saved and your coach sees it.";
 
-type Mode = { kind: "view" } | { kind: "set"; period: Period } | { kind: "check"; period: Period };
+type Mode = { kind: "view" } | { kind: "set"; period: Period } | { kind: "check"; period: Period } | { kind: "daily" };
+const DAILY_R = 420;
+const DAY_SHORT = ["M", "T", "W", "T", "F", "S", "S"];
+const dayName = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
 
 function modeFor(c: Commitments): Mode {
   if (c.due === "set_week") return { kind: "set", period: "week" };
@@ -78,6 +94,7 @@ export default function CommitmentsView({
   const [busy, setBusy] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [ticking, setTicking] = useState<string | null>(null);
+  const [dailyDrafts, setDailyDrafts] = useState<DailyDraft[]>([]);
   const closeRef = useRef<HTMLButtonElement>(null);
   const cam = useSvgCamera(SIZE);
 
@@ -93,6 +110,10 @@ export default function CommitmentsView({
       } catch {}
       const weekStart = starters({ vipsUntouched: 12, faceToFaceLastWeek: 0, overdueFollowUps: 1 });
       setDrafts(cur.length ? cur.map((i) => ({ text: i.text, kind: i.kind, target: i.target })) : mode.period === "week" ? (chosen ? [chosen, ...weekStart.filter((d) => d.kind !== chosen!.kind)].slice(0, 3) : weekStart) : [{ text: "", kind: "yes_no", target: null }]);
+    }
+    if (mode.kind === "daily") {
+      const cur = c.daily?.items ?? [];
+      setDailyDrafts(cur.length ? cur.map((i) => ({ text: i.text, kind: i.kind, target: i.target, days: i.days })) : [{ text: "", kind: "yes_no", target: null, days: "weekdays" }]);
     }
     if (mode.kind === "check") {
       const cur = (mode.period === "week" ? c.week : c.weekend)?.items ?? [];
@@ -174,6 +195,81 @@ export default function CommitmentsView({
       </span>
     ) : null;
 
+  // Daily commitments (§3n.6): today's tick, or an earlier day this week caught up. Only the agent ticks.
+  const tickDay = async (id: string, day: string, done: boolean) => {
+    if (ticking) return;
+    if (!live) {
+      save(applyDailyTick(c, id, day, done));
+      return setNote(EXAMPLE);
+    }
+    setTicking(`${id}:${day}`);
+    try {
+      const r = await fetch(dailyDoneUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ daily_id: id, day, done }) });
+      const j = await r.json().catch(() => null);
+      const next = r.ok ? readCommitments(j) : null;
+      if (next) save(next);
+      else if (r.status === 404 || r.status === 405) setNote(NOT_YET);
+      else setNote((j as { error?: string } | null)?.error || "That didn't save. Nothing was changed.");
+    } catch {
+      setNote(NOT_YET);
+    } finally {
+      setTicking(null);
+    }
+  };
+  const doDaily = async () => {
+    const b = setDailyBody(dailyDrafts);
+    if ("error" in b) return setNote(b.error);
+    if (!live) {
+      save(applyDailySet(c, b.items));
+      setMode({ kind: "view" });
+      return setNote(EXAMPLE);
+    }
+    setBusy(true);
+    try {
+      const r = await fetch(dailyUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
+      const j = await r.json().catch(() => null);
+      const next = r.ok ? readCommitments(j) : null;
+      if (next) {
+        save(next);
+        setMode({ kind: "view" });
+        setNote(b.items.length ? "Saved. They come round every day until you change them; ONE GO shows them too." : "Daily commitments cleared.");
+      } else if (r.status === 404 || r.status === 405) setNote(NOT_YET);
+      else setNote((j as { error?: string } | null)?.error || "That didn't save. Nothing was changed.");
+    } catch {
+      setNote(NOT_YET);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const dayTick = (i: DailyItem) =>
+    i.today.due ? (
+      <span className="pm-acts">
+        <button className={`pm-tick${i.today.done ? " on" : ""}`} onClick={() => tickDay(i.id, c.today, !i.today.done)} disabled={ticking === `${i.id}:${c.today}`} aria-label={i.today.done ? `Untick ${i.text} today` : `${i.text}: done today`}>
+          {i.today.done ? "✓" : "○"}
+        </button>
+      </span>
+    ) : null;
+  const weekStrip = (i: DailyItem, buttons: boolean) => (
+    <ol className="cmd-strip" aria-label={`${i.text}, this week`}>
+      {i.week.map((w, k) => {
+        const can = buttons && dayTickable(w, c.today);
+        const state = !w.due ? "off" : w.done ? "done" : w.day < c.today ? "missed" : w.day === c.today ? "today" : "ahead";
+        const words = `${dayName(w.day)}: ${!w.due ? "not due" : w.done ? "done" : w.day > c.today ? "to come" : "not ticked"}`;
+        return (
+          <li key={w.day}>
+            {can ? (
+              <button className={`cmd-day ${state}`} disabled={ticking === `${i.id}:${w.day}`} onClick={() => tickDay(i.id, w.day, !w.done)} aria-label={`${words}. Tap to ${w.done ? "untick" : "tick"}`} title={words}>
+                {DAY_SHORT[k]}
+              </button>
+            ) : (
+              <span className={`cmd-day ${state}`} title={words} aria-label={words}>{DAY_SHORT[k]}</span>
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+
   const doSet = (period: Period) => {
     const b = setBody(period, drafts);
     if ("error" in b) return setNote(b.error);
@@ -211,6 +307,13 @@ export default function CommitmentsView({
   const top = C + CORE - 2 * CORE * fill;
   const level = dueLevel(c.due, c.today, hour);
   const picked = week.find((i) => i.id === sel) ?? null;
+  const daily = c.daily?.items ?? [];
+  const dailyPicked = daily.find((i) => i.id === sel) ?? null;
+  // Daily commitments sit on an outer arc along the bottom, apart from the week's.
+  const dailySeats = daily.map((i, k) => {
+    const a = Math.PI + (k - (daily.length - 1) / 2) * 0.32;
+    return { i, x: C + DAILY_R * Math.sin(a), y: C - DAILY_R * Math.cos(a), r: 36 };
+  });
   // The orb rule (Parry, 6 Oct): a tapped commitment comes to the middle and opens in the panel; again, or the
   // way back, returns to the whole week.
   const pick = (id: string, x: number, y: number) => {
@@ -291,6 +394,35 @@ export default function CommitmentsView({
                   <text className="cm-orb-n" x={x} y={y - 2} textAnchor="middle">{i.kind === "yes_no" ? (i.result ? resultWord(i.result) : "Yes / no") : `${i.count ?? 0}/${i.target}`}</text>
                   <text className="cm-orb-k" x={x} y={y + 18} textAnchor="middle">{KIND_SHORT[i.kind]}</text>
                   <text className="pm-name-l" x={x} y={y + r + 28} textAnchor="middle">{i.text.length > 30 ? `${i.text.slice(0, 29)}…` : i.text}</text>
+                </g>
+              );
+            })}
+            {dailySeats.map(({ i, x, y, r }) => {
+              const col = !i.today.due ? "#6b7590" : i.today.done ? RES_COLOR.kept : GOLD;
+              const go = () => pick(i.id, x, y);
+              return (
+                <g
+                  key={i.id}
+                  className={`cm-orb${sel === i.id ? " picked" : ""}`}
+                  data-tap
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={sel === i.id}
+                  aria-label={`Daily: ${i.text}. ${!i.today.due ? "Not due today" : i.today.done ? "Done today" : "Not done yet today"}. ${daysKept(i, c.today)} this week`}
+                  onClick={go}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    go();
+                  }}
+                >
+                  {i.today.due && !i.today.done && <PulseRing r={r} level="today" x={x} y={y} />}
+                  <circle cx={x} cy={y} r={r} fill="url(#cm-glass)" stroke={col} strokeWidth={2.5} />
+                  <text className="cm-orb-n" x={x} y={y + (i.kind === "yes_no" ? 7 : -1)} textAnchor="middle" fontSize={i.kind === "yes_no" ? 20 : 15}>
+                    {i.today.done ? "✓" : i.kind === "yes_no" || i.target == null ? (i.today.due ? "○" : "–") : `${Math.min(i.today.count ?? 0, 999)}/${i.target}`}
+                  </text>
+                  {i.kind !== "yes_no" && !i.today.done && <text className="cm-orb-k" x={x} y={y + 15} textAnchor="middle">TODAY</text>}
+                  <text className="pm-name-l" x={x} y={y + r + 22} textAnchor="middle" fontSize={13}>{i.text.length > 20 ? `${i.text.slice(0, 19)}…` : i.text}</text>
                 </g>
               );
             })}
@@ -388,7 +520,62 @@ export default function CommitmentsView({
             </section>
           )}
 
-          {mode.kind === "view" && !picked && (
+          {mode.kind === "view" && dailyPicked && (
+            <section className="cm-form">
+              <h2>{dailyPicked.text}</h2>
+              <p className="d-sub">
+                Daily · {DAYS_LABEL[dailyPicked.days]}
+                {dailyPicked.kind !== "yes_no" && dailyPicked.target != null ? ` · ${dailyPicked.today.count ?? 0} of ${dailyPicked.target} ${KIND_LABEL[dailyPicked.kind].toLowerCase()} today` : ""}
+              </p>
+              {dailyPicked.today.due ? (
+                <div className="decide-btns">
+                  <button type="button" className={`chip-btn${dailyPicked.today.done ? "" : " primary"}`} disabled={ticking === `${dailyPicked.id}:${c.today}`} onClick={() => tickDay(dailyPicked.id, c.today, !dailyPicked.today.done)}>
+                    {ticking === `${dailyPicked.id}:${c.today}` ? "Saving…" : dailyPicked.today.done ? "Untick today" : "Done today"}
+                  </button>
+                </div>
+              ) : (
+                <p className="pm-empty">Not due today.</p>
+              )}
+              <h2 className="pm-h">This week · {daysKept(dailyPicked, c.today)}</h2>
+              {weekStrip(dailyPicked, true)}
+              <p className="pm-promise">Missed a tick? Tap an earlier day this week to catch it up. Days ahead open when they come.</p>
+              <button className="vr-classic" onClick={() => { setSel(null); cam.reset(); }}>All of this week</button>
+            </section>
+          )}
+
+          {mode.kind === "daily" && (
+            <section className="cm-form">
+              <h2>Every day I commit to</h2>
+              {dailyDrafts.map((d, k) => (
+                <div key={k} className="cm-row">
+                  <input aria-label={`Daily commitment ${k + 1}`} maxLength={TEXT_MAX} value={d.text} placeholder="What will you do each day?" onChange={(e) => setDailyDrafts((all) => all.map((x, j) => (j === k ? { ...x, text: e.target.value } : x)))} />
+                  <div className="cm-row-2">
+                    <select aria-label={`How it is measured, daily commitment ${k + 1}`} value={d.kind} onChange={(e) => setDailyDrafts((all) => all.map((x, j) => (j === k ? { ...x, kind: e.target.value as Kind, target: e.target.value === "yes_no" ? null : x.target ?? 1 } : x)))}>
+                      <option value="yes_no">{KIND_LABEL.yes_no}</option>
+                      {COUNTED.map((kk) => (
+                        <option key={kk} value={kk}>{`Count: ${KIND_LABEL[kk]}`}</option>
+                      ))}
+                    </select>
+                    {d.kind !== "yes_no" && (
+                      <input aria-label={`Number each day, daily commitment ${k + 1}`} type="number" min={1} max={100} value={d.target ?? 1} onChange={(e) => setDailyDrafts((all) => all.map((x, j) => (j === k ? { ...x, target: Number(e.target.value) } : x)))} />
+                    )}
+                    <button className="cm-x" onClick={() => setDailyDrafts((all) => all.filter((_, j) => j !== k))} aria-label={`Remove daily commitment ${k + 1}`}>×</button>
+                  </div>
+                  <select aria-label={`Which days, daily commitment ${k + 1}`} value={d.days} onChange={(e) => setDailyDrafts((all) => all.map((x, j) => (j === k ? { ...x, days: e.target.value as Days } : x)))}>
+                    <option value="weekdays">{DAYS_LABEL.weekdays}</option>
+                    <option value="every_day">{DAYS_LABEL.every_day}</option>
+                  </select>
+                </div>
+              ))}
+              {dailyDrafts.length < DAILY_MAX && (
+                <button className="vr-btn" onClick={() => setDailyDrafts((all) => [...all, { text: "", kind: "yes_no", target: null, days: "weekdays" }])}>+ Add one</button>
+              )}
+              <p className="pm-promise">Up to {DAILY_MAX}. They come round every week until you change them. Keeping the same words keeps their history.</p>
+              <button className="pi-btn pm-send" disabled={busy} onClick={doDaily}>{busy ? "Saving…" : "Save my daily commitments"}</button>
+            </section>
+          )}
+
+          {mode.kind === "view" && !picked && !dailyPicked && (
             <>
               <h2>This week</h2>
               {week.length ? (
@@ -425,18 +612,47 @@ export default function CommitmentsView({
                 </>
               )}
               {c.lastWeek && <p className="d-sum">Last week: {c.lastWeek.kept} kept, {c.lastWeek.partly} partly, {c.lastWeek.missed} missed.</p>}
+              {c.daily && (
+                <>
+                  <h2>Every day</h2>
+                  {daily.length ? (
+                    <>
+                      <p className="d-sum">
+                        {dailyWords(c.daily)}. This week {c.daily.week.done} of {c.daily.week.due} done
+                        {c.daily.lastWeek ? `; last week ${c.daily.lastWeek.done} of ${c.daily.lastWeek.due}` : ""}.
+                      </p>
+                      <ul className="pm-list pm-compact">
+                        {daily.map((i) => (
+                          <li key={i.id}>
+                            <i className="pm-dot" style={{ background: !i.today.due ? "#6b7590" : i.today.done ? RES_COLOR.kept : GOLD }} aria-hidden="true" />
+                            <span className="pm-body">
+                              <b>{i.text}</b>
+                              <small>{daysKept(i, c.today)} this week{i.kind !== "yes_no" && i.target != null ? ` · ${i.today.count ?? 0} of ${i.target} today` : ""}{i.days === "every_day" ? " · every day" : ""}</small>
+                              {weekStrip(i, false)}
+                            </span>
+                            {dayTick(i)}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <p className="pm-empty">Things you do every day, like five calls before 10 or reading your VIP-50 list. Up to {DAILY_MAX}; they come round every week.</p>
+                  )}
+                </>
+              )}
               <div className="cm-actions">
                 {!c.week?.checkedAt && <button className="vr-btn" onClick={() => setMode({ kind: "set", period: "week" })}>{week.length ? "Change this week's" : "Set this week's"}</button>}
                 {week.length > 0 && !c.week?.checkedAt && <button className="vr-btn vr-gold" onClick={() => setMode({ kind: "check", period: "week" })}>Check in on my week</button>}
                 {c.week?.checkedAt && !c.weekend && <button className="vr-btn vr-gold" onClick={() => setMode({ kind: "set", period: "weekend" })}>Set my weekend</button>}
                 {c.weekend && !c.weekend.checkedAt && <button className="vr-btn" onClick={() => setMode({ kind: "check", period: "weekend" })}>Check in on my weekend</button>}
+                {c.daily && <button className="vr-btn" onClick={() => setMode({ kind: "daily" })}>{daily.length ? "Change my daily ones" : "Set daily commitments"}</button>}
               </div>
             </>
           )}
           {mode.kind !== "view" && (
             <button className="vr-classic" onClick={() => setMode({ kind: "view" })}>Back to this week</button>
           )}
-          <p className="pm-promise">Only you mark a commitment kept: tick it as you do it, here or in ONE GO. No points: your keep rate shows beside your weekly score.</p>
+          <p className="pm-promise">Only you mark a commitment kept: tick it as you do it, here or in ONE GO. No points: your keep rate shows beside your weekly score. Daily ones keep their own record and do not change it.</p>
         </aside>
       </div>
     </div>

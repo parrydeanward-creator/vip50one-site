@@ -1891,3 +1891,13 @@ a.link { display: block; text-decoration: none; }
 .cc-perm-form .cc-perm-tick { flex-direction: row; align-items: center; gap: 8px; font-size: 14px; color: var(--text); }
 .cc-perm-form select, .cc-perm-form input[type="text"] { padding: 7px 9px; border: 1px solid rgba(160, 175, 210, 0.35); border-radius: 8px; background: rgba(11, 18, 38, 0.8); color: var(--text); font: inherit; font-size: 14px; color-scheme: dark; }
 .cc-perm-history { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--text-3); }
+/* Daily commitments (§3n.6): the week, Monday to Sunday */
+.cmd-strip { display: flex; gap: 4px; list-style: none; margin: 6px 0 0; padding: 0; }
+.cmd-day { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-size: 11px; font-weight: 800; border: 1px solid var(--line); background: transparent; color: var(--text-3); padding: 0; }
+button.cmd-day { cursor: pointer; }
+button.cmd-day:disabled { opacity: 0.5; cursor: default; }
+.cmd-day.done { background: #3fbf7f; border-color: #3fbf7f; color: #06150d; }
+.cmd-day.today { border-color: var(--gold-2); color: var(--gold-2); }
+.cmd-day.missed { border-color: rgba(228, 87, 74, 0.6); color: #e88a80; }
+.cmd-day.off { opacity: 0.3; border-style: dashed; }
+.cmd-day.ahead { opacity: 0.6; }

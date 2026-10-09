@@ -78,7 +78,8 @@ test("ONE YOU's This week orb: pulses for the due step, else shows how the week 
   const n = due.nodes.find((x) => x.id === WEEK_NODE)!;
   assert.deepEqual([n.secondaryLabel, n.status], ["Set this week's commitments", "action"]);
   assert.deepEqual(needsOf(due.nodes).get("go"), { count: 1, level: "now" });
-  const mid = withWeekNode(due, demoCommitments("2026-10-06"), 10);
+  // without daily commitments (they pulse and take the line while undone today: dailyCommitments.test.ts)
+  const mid = withWeekNode(due, { ...demoCommitments("2026-10-06"), daily: null }, 10);
   assert.equal(mid.nodes.filter((x) => x.id === WEEK_NODE).length, 1);
   assert.equal(mid.nodes.find((x) => x.id === WEEK_NODE)!.secondaryLabel, "1 of 4 commitments on track");
   assert.equal(withWeekNode(g, null, 10), g, "no commitments (route not live): no orb");
