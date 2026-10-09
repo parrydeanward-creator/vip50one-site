@@ -115,7 +115,7 @@ export default function TeamView({ team, demo, scope, onScope, onClose }: { team
     if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
   }
 
-  const middleWeek = (a: Mate) => (a.last4.length ? `Last weeks: ${a.last4.join(" · ")}` : "First week on the board");
+  const middleWeek = (a: Mate) => (a.last4.length ? `Last weeks: ${a.last4.map((n, i) => (a.last4Away[i] ? "away" : String(n))).join(" · ")}` : "First week on the board");
 
   return (
     <div ref={rootRef} className={`pm-full pop${tv ? " tm-tv" : ""}`} role="dialog" aria-modal="true" aria-labelledby="tm-title" onClick={tv ? leaveTv : undefined}>
@@ -197,7 +197,7 @@ export default function TeamView({ team, demo, scope, onScope, onClose }: { team
             <h1 className="d-title" id="tm-title">{sel ? (sel.me ? "You" : sel.name) : "Team"}</h1>
             {sel ? (
               <>
-                <p className="d-sub">#{rank.get(sel.id)} of {agents.length} · {sel.score} this week{sel.tickedToday ? " · ticked today" : ""}</p>
+                <p className="d-sub">#{rank.get(sel.id)} of {agents.length} · {sel.score} this week{sel.away ? " · away this week" : sel.tickedToday ? " · ticked today" : ""}</p>
                 <p className="d-sum">{middleWeek(sel)}{sel.streak ? `. ${weeks(sel.streak)} in a row at ${team.minimum}.` : "."}</p>
                 {badgesFor(team, sel).length ? (
                   <ul className="tm-badges" aria-label="Badges">
@@ -227,7 +227,7 @@ export default function TeamView({ team, demo, scope, onScope, onClose }: { team
                       <span className="pm-body">
                         <b>{`#${rank.get(a.id)} ${a.me ? "You" : a.name}: ${a.score}`}</b>
                         <small>
-                          {a.streak ? `${weeks(a.streak)} at ${team.minimum}` : a.score >= team.minimum ? `At ${team.minimum}` : `${team.minimum - a.score} to ${team.minimum}`}
+                          {a.away ? "Away this week" : a.streak ? `${weeks(a.streak)} at ${team.minimum}` : a.score >= team.minimum ? `At ${team.minimum}` : `${team.minimum - a.score} to ${team.minimum}`}
                           {badgesFor(team, a).map((b) => ` · ${b.icon} ${b.label}`).join("")}
                         </small>
                       </span>

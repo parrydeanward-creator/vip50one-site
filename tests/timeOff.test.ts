@@ -78,3 +78,12 @@ test("timeOffLine and the orb: quiet, gold only when something needs cover befor
   assert.equal(withTimeOffNode(locked, s).nodes.length, 1);
   assert.equal(withTimeOffNode(withTimeOffNode(base, s), s).nodes.filter((x) => x.id === TIME_OFF_NODE).length, 1);
 });
+
+test("while away, the centre ONE orb says when the agent is back", async () => {
+  const { readTimeOff, withTimeOffNode } = await import("../lib/timeOff.ts");
+  const base = { nodes: [{ id: "one", type: "core", label: "ONE", importance: 1 } as GraphNode, { id: "go", type: "product", label: "ONE YOU", importance: 1 } as GraphNode], edges: [] as GraphEdge[] };
+  const away = readTimeOff({ today: "2026-10-09", current: { id: "c", starts: "2026-10-08", ends: "2026-10-12" }, upcoming: [], due: [] }, "2026-10-09")!;
+  assert.equal(withTimeOffNode(base, away).nodes.find((n) => n.id === "one")!.secondaryLabel, "Away until Mon, Oct 12");
+  const home = readTimeOff({ today: "2026-10-09", current: null, upcoming: [], due: [] }, "2026-10-09")!;
+  assert.equal(withTimeOffNode(base, home).nodes.find((n) => n.id === "one")!.secondaryLabel, undefined);
+});

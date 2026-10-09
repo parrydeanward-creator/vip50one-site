@@ -1878,3 +1878,16 @@ a.link { display: block; text-decoration: none; }
 .cc-draft { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .cc-draft input, .cc-draft textarea { width: 100%; padding: 8px 10px; border: 1px solid rgba(160, 175, 210, 0.35); border-radius: 8px; background: rgba(11, 18, 38, 0.8); color: var(--text); font: inherit; font-size: 14px; line-height: 1.45; resize: vertical; }
 .cc-draft-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Contact permissions (LEADS.md §2.5) */
+.cc-perm-list { list-style: none; padding: 0; margin: 0; }
+.cc-perm-list > li { margin-bottom: 10px; }
+.cc-perm-state { font-weight: 600; }
+.cc-perm-state.s-yes { color: #3fbf7f; }
+.cc-perm-state.s-no { color: #ff8a6b; }
+.cc-perm-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.cc-perm-form { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding: 10px; border: 1px solid rgba(160, 175, 210, 0.3); border-radius: 10px; }
+.cc-perm-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-3); }
+.cc-perm-form .cc-perm-tick { flex-direction: row; align-items: center; gap: 8px; font-size: 14px; color: var(--text); }
+.cc-perm-form select, .cc-perm-form input[type="text"] { padding: 7px 9px; border: 1px solid rgba(160, 175, 210, 0.35); border-radius: 8px; background: rgba(11, 18, 38, 0.8); color: var(--text); font: inherit; font-size: 14px; color-scheme: dark; }
+.cc-perm-history { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--text-3); }

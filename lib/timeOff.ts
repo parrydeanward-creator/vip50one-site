@@ -124,6 +124,11 @@ export function withTimeOffNode<G extends { nodes: GraphNode[]; edges: GraphEdge
   const nodes = g.nodes.filter((n) => n.id !== TIME_OFF_NODE);
   const edges = g.edges.filter((e) => e.target !== TIME_OFF_NODE);
   if (!go || go.locked || !s) return { ...g, nodes, edges };
+  // While away, the centre ONE orb says when the agent is back (§3x.6).
+  if (s.current) {
+    const i = nodes.findIndex((n) => n.id === "one");
+    if (i >= 0) nodes[i] = { ...nodes[i], secondaryLabel: `Away until ${short(s.current.ends)}` };
+  }
   const cover = !s.current && s.upcoming.length > 0 && coverNeeded(s).length > 0;
   nodes.push({
     id: TIME_OFF_NODE,

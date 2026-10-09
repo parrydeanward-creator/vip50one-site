@@ -71,3 +71,18 @@ test("badgesFor: top of the week at the minimum, most improved, the longest stre
   const low = readTeam({ minimum: 100, agents: [{ user_id: "a", first_name: "Amy", score: 90 }] })!;
   assert.deepEqual(badgesFor(low, low.agents[0]), [], "first place under the minimum is not a badge");
 });
+
+test("away weeks: read, shown, and never 'most improved'", async () => {
+  const { mostImproved, readTeam } = await import("../lib/team.ts");
+  const t = readTeam({
+    minimum: 100,
+    agents: [
+      { user_id: "a", first_name: "Amy", score: 110, last4: [40], last4_away: [true] },
+      { user_id: "b", first_name: "Ben", score: 90, last4: [80], away: false },
+      { user_id: "c", first_name: "Cal", score: 95, last4: [10], away: true },
+    ],
+  })!;
+  assert.equal(t.agents.find((x) => x.id === "c")!.away, true);
+  assert.deepEqual(t.agents.find((x) => x.id === "a")!.last4Away, [true]);
+  assert.equal(mostImproved(t)?.id, "b", "a jump after or during an away week does not count");
+});
