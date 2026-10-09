@@ -21,6 +21,8 @@ export interface Mate {
   streak: number;
   tickedToday: boolean;
   me: boolean;
+  /** Badges earned in ONE MOVE (§3u.2, optional), newest first, at most 3. */
+  earned: string[];
 }
 export interface Team {
   weekStart: string | null;
@@ -51,6 +53,10 @@ export function readTeam(j: unknown): Team | null {
       streak: num(x.streak_weeks) ?? 0,
       tickedToday: x.ticked_today === true,
       me: x.me === true,
+      earned: (Array.isArray(x.badges) ? x.badges : [])
+        .map((b: unknown) => (b && typeof b === "object" ? str((b as Record<string, unknown>).name, 40) : str(b, 40)))
+        .filter((b): b is string => !!b)
+        .slice(0, 3),
     });
   }
   agents.sort((a, b) => b.score - a.score || b.streak - a.streak || a.name.localeCompare(b.name));
@@ -120,7 +126,7 @@ export function demoTeam(weekStart: string): Team {
     week_start: weekStart,
     minimum: 100,
     agents: [
-      m("t1", "Jen", 112, [96, 104, 101, 98], 2, true),
+      m("t1", "Jen", 112, [96, 104, 101, 98], 9, true),
       m("t2", "Marcus", 104, [88, 92, 101, 77], 1, true),
       m("t3", "Sarah", 98, [101, 105, 99, 110], 0, true, true),
       m("t4", "Dave", 91, [70, 84, 79, 82], 0, false),
@@ -130,4 +136,28 @@ export function demoTeam(weekStart: string): Team {
       m("t8", "Lisa", 58, [41, 55, 60, 47], 0, false),
     ],
   })!;
+}
+
+export interface Badge {
+  id: string;
+  label: string;
+  icon: string;
+}
+
+/** Streak badges, longest first (weeks at the minimum in a row). */
+export const STREAK_TIERS = [12, 8, 4];
+
+/**
+ * A mate's badges on the Team screen: the week's own (top of the week at the minimum, most improved, the longest
+ * streak tier reached) first, then what they earned in ONE MOVE. Read only; good news, never a nag.
+ */
+export function badgesFor(t: Team, a: Mate): Badge[] {
+  const out: Badge[] = [];
+  const r = ranks(t).get(a.id);
+  if (r === 1 && a.score >= t.minimum) out.push({ id: "top", label: "Top of the week", icon: "★" });
+  if (mostImproved(t)?.id === a.id) out.push({ id: "improved", label: "Most improved", icon: "↑" });
+  const tier = STREAK_TIERS.find((n) => a.streak >= n);
+  if (tier) out.push({ id: `streak-${tier}`, label: `${tier}-week streak`, icon: "✦" });
+  for (const e of a.earned) out.push({ id: `earned-${e}`, label: e, icon: "◆" });
+  return out;
 }

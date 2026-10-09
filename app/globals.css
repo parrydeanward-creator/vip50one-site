@@ -1867,3 +1867,8 @@ a.link { display: block; text-decoration: none; }
 .to-form input { padding: 7px 9px; border: 1px solid rgba(160, 175, 210, 0.35); border-radius: 8px; background: rgba(11, 18, 38, 0.8); color: var(--text); font: inherit; font-size: 14px; color-scheme: dark; }
 .to-form .to-note { flex-basis: 100%; }
 .to-form .cc-err { flex-basis: 100%; margin: 0; }
+
+/* Team badges (§3u) */
+.tm-badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; padding: 0; list-style: none; }
+.tm-badges li { padding: 4px 10px; border: 1px solid rgba(245, 197, 66, 0.5); border-radius: 999px; color: var(--gold-2); font-size: 13px; }
+.tm-badge-mark { fill: #f5c542; font-size: 22px; filter: drop-shadow(0 0 4px rgba(245, 197, 66, 0.8)); pointer-events: none; }

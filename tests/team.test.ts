@@ -53,3 +53,21 @@ test("withTeamNode: a quiet orb under ONE YOU; none when locked, empty or not lo
   (locked.nodes[0] as GraphNode & { locked?: boolean }).locked = true;
   assert.equal(withTeamNode(locked, demoTeam("2026-10-05")).nodes.some((x) => x.id === TEAM_NODE), false);
 });
+
+test("badgesFor: top of the week at the minimum, most improved, the longest streak tier, then ONE MOVE's", async () => {
+  const { badgesFor, readTeam } = await import("../lib/team.ts");
+  const t = readTeam({
+    minimum: 100,
+    agents: [
+      { user_id: "a", first_name: "Amy", score: 112, last4: [100], streak_weeks: 9, badges: [{ name: "Call Champion" }, "Note Ninja", { name: "" }] },
+      { user_id: "b", first_name: "Ben", score: 98, last4: [60], streak_weeks: 4 },
+      { user_id: "c", first_name: "Cal", score: 70, last4: [75], streak_weeks: 0 },
+    ],
+  })!;
+  const by = (id: string) => badgesFor(t, t.agents.find((x) => x.id === id)!).map((b) => b.label);
+  assert.deepEqual(by("a"), ["Top of the week", "8-week streak", "Call Champion", "Note Ninja"]);
+  assert.deepEqual(by("b"), ["Most improved", "4-week streak"]);
+  assert.deepEqual(by("c"), []);
+  const low = readTeam({ minimum: 100, agents: [{ user_id: "a", first_name: "Amy", score: 90 }] })!;
+  assert.deepEqual(badgesFor(low, low.agents[0]), [], "first place under the minimum is not a badge");
+});

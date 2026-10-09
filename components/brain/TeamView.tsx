@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSvgCamera } from "./useSvgCamera.ts";
-import { TV_SECONDS, atMinimum, mostImproved, ranks, teamLine, type Mate, type Scope, type Team } from "@/lib/team.ts";
+import { TV_SECONDS, atMinimum, badgesFor, mostImproved, ranks, teamLine, type Mate, type Scope, type Team } from "@/lib/team.ts";
 
 // The Team screen in ONE YOU (VIP-SUMMARY §3u). The week's leaderboard as a ring of agents round the week, the top
 // three with gold, silver and bronze rings. Tap an agent and they come to the middle (Parry, 6 Oct, the rule for every
@@ -166,6 +166,9 @@ export default function TeamView({ team, demo, scope, onScope, onClose }: { team
                 <text className="pm-mark" x={x} y={y - 6} dy="0.36em" textAnchor="middle" fontSize={Math.max(14, r * 0.42)}>{initials(a.name)}</text>
                 <text className="pm-time-l" x={x} y={y + r * 0.5} textAnchor="middle" fontSize={14}>{a.score}</text>
                 <text className="pm-name-l" x={x} y={y + r + 24} textAnchor="middle">{`#${rank.get(a.id)} ${a.me ? "You" : a.name}`}</text>
+                {badgesFor(team, a).length ? (
+                  <text className="tm-badge-mark" x={x + r * 0.72} y={y - r * 0.72} dy="0.36em" textAnchor="middle" aria-hidden="true">{badgesFor(team, a)[0].icon}</text>
+                ) : null}
               </g>
             ))}
           </svg>
@@ -173,6 +176,7 @@ export default function TeamView({ team, demo, scope, onScope, onClose }: { team
             <div className="tm-tv-bar" aria-live="polite">
               <b>ONE · Team this week</b>
               {improved ? <span>Most improved: {improved.me ? "you" : improved.name}</span> : null}
+              {agents.filter((m) => m.streak >= 4).slice(0, 3).map((m) => <span key={m.id}>{`${m.me ? "You" : m.name}: ${weeks(m.streak)} at ${team.minimum}`}</span>)}
               <span>Press any key to leave</span>
             </div>
           ) : (
@@ -195,6 +199,13 @@ export default function TeamView({ team, demo, scope, onScope, onClose }: { team
               <>
                 <p className="d-sub">#{rank.get(sel.id)} of {agents.length} · {sel.score} this week{sel.tickedToday ? " · ticked today" : ""}</p>
                 <p className="d-sum">{middleWeek(sel)}{sel.streak ? `. ${weeks(sel.streak)} in a row at ${team.minimum}.` : "."}</p>
+                {badgesFor(team, sel).length ? (
+                  <ul className="tm-badges" aria-label="Badges">
+                    {badgesFor(team, sel).map((b) => (
+                      <li key={b.id}><span aria-hidden="true">{b.icon}</span> {b.label}</li>
+                    ))}
+                  </ul>
+                ) : null}
                 <button className="vr-classic" onClick={() => open(null)}>The whole team</button>
               </>
             ) : (
@@ -215,7 +226,10 @@ export default function TeamView({ team, demo, scope, onScope, onClose }: { team
                       <i className="pm-dot" style={{ background: ring(a) }} aria-hidden="true" />
                       <span className="pm-body">
                         <b>{`#${rank.get(a.id)} ${a.me ? "You" : a.name}: ${a.score}`}</b>
-                        <small>{a.streak ? `${weeks(a.streak)} at ${team.minimum}` : a.score >= team.minimum ? `At ${team.minimum}` : `${team.minimum - a.score} to ${team.minimum}`}</small>
+                        <small>
+                          {a.streak ? `${weeks(a.streak)} at ${team.minimum}` : a.score >= team.minimum ? `At ${team.minimum}` : `${team.minimum - a.score} to ${team.minimum}`}
+                          {badgesFor(team, a).map((b) => ` · ${b.icon} ${b.label}`).join("")}
+                        </small>
                       </span>
                       <span className="pm-acts">
                         <button onClick={() => open(a.id)} aria-label={`Open ${a.me ? "you" : a.name}`}>→</button>
