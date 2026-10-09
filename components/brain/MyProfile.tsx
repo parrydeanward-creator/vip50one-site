@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { LeadMailSection, OwnAISection } from "./ConnectSections.tsx";
 import { ABOUT, ABOUT_MAX, CONNECTIONS, FIELDS, TIME_ZONES, UPLOAD_MAX, aboutChanges, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, type Profile } from "@/lib/profile.ts";
 
 /** Draw the photo at most 1200px on the long side as a JPEG, so it fits ONE MOVE's 4 MB limit. */
@@ -236,6 +237,8 @@ export default function MyProfile({
             <small className="pf-sub">Off unless you switch it on. When it is off, your member card in the Lounge shows no phone, email or Call button.</small>
           </section>
         )}
+        <LeadMailSection />
+        <OwnAISection />
         <h2>Connections and settings</h2>
         <p className="pf-sub">Settings that belong to one product stay in that product.</p>
         {CONNECTIONS.map((c) => (
