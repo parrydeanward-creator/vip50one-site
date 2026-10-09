@@ -1,4 +1,5 @@
 import type { GraphEdge, GraphNode } from "./graph/types.ts";
+import { mondayOf } from "./habits.ts";
 
 // Commitments (Parry, 6 Oct; VIP-SUMMARY §3n): set the week on Monday, check in on Friday, set the
 // weekend on Friday and check it on Monday, as in his coaching. The agent and their coach see them; no
@@ -60,6 +61,8 @@ export interface Commitments {
   lastWeek: { kept: number; partly: number; missed: number } | null;
   keepRate8w: number | null;
   streak: number;
+  /** Daily commitments (§3n.6); absent until ONE MOVE answers with them. */
+  daily?: Daily | null;
 }
 
 const isDay = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -110,6 +113,7 @@ export function readCommitments(j: unknown): Commitments | null {
     lastWeek: lw && typeof lw === "object" ? { kept: n(lw.kept), partly: n(lw.partly), missed: n(lw.missed) } : null,
     keepRate8w: typeof r.keep_rate_8w === "number" && r.keep_rate_8w >= 0 && r.keep_rate_8w <= 1 ? r.keep_rate_8w : null,
     streak: n(r.streak),
+    daily: readDaily(r.daily),
   };
 }
 
@@ -209,16 +213,23 @@ export function withWeekNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] 
   const level = dueLevel(c.due, c.today, hour);
   const items = c.week?.items ?? [];
   const on = items.filter((i) => i.result === "kept" || reached(i)).length;
+  // Today's daily commitments pulse yellow until each is ticked (§3n.6); never red, a day is not overdue.
+  const d = c.daily;
+  const dailyLeft = d ? Math.max(0, d.today.due - d.today.done) : 0;
+  const stats = [
+    ...(items.length ? [{ label: "Commitments", value: `${on} / ${items.length}` }] : []),
+    ...(d && d.today.due ? [{ label: "Today", value: `${d.today.done} / ${d.today.due}` }] : []),
+  ];
   nodes.push({
     id: WEEK_NODE,
     type: "feature",
     label: "This week",
-    secondaryLabel: dueWords(c.due) ?? (items.length ? `${on} of ${items.length} commitments on track` : "No commitments yet"),
+    secondaryLabel: dueWords(c.due) ?? (dailyLeft ? dailyWords(d!) : items.length ? `${on} of ${items.length} commitments on track` : "No commitments yet"),
     parentId: "go",
     product: "go",
     importance: 1.04,
-    status: level === "now" ? "action" : level === "today" ? "attention" : items.length && on === items.length ? "healthy" : undefined,
-    stats: items.length ? [{ label: "Commitments", value: `${on} / ${items.length}` }] : undefined,
+    status: level === "now" ? "action" : level === "today" || dailyLeft ? "attention" : (items.length || d?.today.due) && on === items.length && !dailyLeft ? "healthy" : undefined,
+    stats: stats.length ? stats : undefined,
     summary: c.keepRate8w != null ? `You keep ${Math.round(c.keepRate8w * 100)}% of your commitments (last 8 weeks).${c.streak ? ` ${c.streak}-week streak.` : ""}` : "Set your commitments Monday, check in Friday, and the weekend too.",
   });
   edges.push({ id: `go>${WEEK_NODE}`, source: "go", target: WEEK_NODE, relationshipType: "belongs_to", strength: 1 });
@@ -247,6 +258,7 @@ export function demoCommitments(today: string): Commitments {
     lastWeek: { kept: 3, partly: 1, missed: 1 },
     keepRate8w: 0.72,
     streak: 4,
+    daily: demoDaily(today),
   };
 }
 
@@ -265,4 +277,173 @@ export function applyTick(c: Commitments, period: Period, id: string, done: bool
   const p = c[period];
   if (!p || !tickable(p, c.today)) return c;
   return { ...c, [period]: { ...p, items: p.items.map((i) => (i.id === id ? { ...i, result: done ? ("kept" as const) : null } : i)) } };
+}
+
+// ---- Daily commitments (Parry, 9 Oct: "we need the ability to add daily commitments that you can check to populate
+// every single week"; VIP-SUMMARY §3n.6). Up to 5 standing ones, Mon-Fri unless "every day", ticked per day: today, or
+// an earlier day this week caught up. Their own record ("4 of 5 days"); they never change the weekly keep rate or
+// streak. Agent and coach only. Only the agent ticks.
+
+export const DAILY_MAX = 5;
+export const dailyUrl = `${commitmentsUrl}/daily`;
+export const dailyDoneUrl = `${commitmentsUrl}/daily/done`;
+export type Days = "weekdays" | "every_day";
+export const DAYS_LABEL: Record<Days, string> = { weekdays: "Monday to Friday", every_day: "Every day" };
+
+export interface DailyDay {
+  day: string;
+  due: boolean;
+  done: boolean;
+}
+export interface DailyItem {
+  id: string;
+  text: string;
+  kind: Kind;
+  target: number | null;
+  days: Days;
+  today: { due: boolean; done: boolean; count: number | null };
+  week: DailyDay[];
+}
+export interface Tally {
+  due: number;
+  done: number;
+}
+export interface Daily {
+  items: DailyItem[];
+  today: Tally;
+  week: Tally;
+  lastWeek: Tally | null;
+}
+
+const count = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v) : 0);
+const tally = (v: unknown): Tally | null => (v && typeof v === "object" ? { due: count((v as Tally).due), done: count((v as Tally).done) } : null);
+
+/** The §3n.6 `daily` block, checked; null when it is not there (ONE MOVE before #133). */
+export function readDaily(j: unknown): Daily | null {
+  if (!j || typeof j !== "object") return null;
+  const r = j as Record<string, unknown>;
+  if (!Array.isArray(r.items)) return null;
+  const items: DailyItem[] = [];
+  for (const x of r.items as Record<string, unknown>[]) {
+    if (!x || typeof x.id !== "string" || typeof x.text !== "string" || !x.text.trim()) continue;
+    const kind = KINDS.includes(x.kind as Kind) ? (x.kind as Kind) : "yes_no";
+    const t = (x.today ?? {}) as Record<string, unknown>;
+    const week: DailyDay[] = [];
+    for (const w of (Array.isArray(x.week) ? x.week : []) as Record<string, unknown>[]) {
+      if (w && isDay(w.day)) week.push({ day: w.day, due: w.due === true, done: w.done === true });
+    }
+    week.sort((a, b) => a.day.localeCompare(b.day));
+    items.push({
+      id: x.id,
+      text: x.text.slice(0, TEXT_MAX),
+      kind,
+      target: kind === "yes_no" ? null : typeof x.target === "number" && x.target >= 1 ? Math.round(x.target) : null,
+      days: x.days === "every_day" ? "every_day" : "weekdays",
+      today: { due: t.due === true, done: t.done === true, count: kind === "yes_no" || typeof t.count !== "number" ? null : count(t.count) },
+      week: week.slice(0, 7),
+    });
+  }
+  const items5 = items.slice(0, DAILY_MAX);
+  // the totals are ONE MOVE's; if they are missing, count them from the items
+  const sum = (f: (i: DailyItem) => DailyDay[]) => ({ due: items5.reduce((n, i) => n + f(i).filter((d) => d.due).length, 0), done: items5.reduce((n, i) => n + f(i).filter((d) => d.due && d.done).length, 0) });
+  return {
+    items: items5,
+    today: tally(r.today) ?? { due: items5.filter((i) => i.today.due).length, done: items5.filter((i) => i.today.due && i.today.done).length },
+    week: tally(r.week) ?? sum((i) => i.week),
+    lastWeek: tally(r.last_week),
+  };
+}
+
+/** "2 of 3 daily commitments done today". */
+export function dailyWords(d: Daily): string {
+  if (!d.today.due) return d.items.length ? "No daily commitments due today" : "No daily commitments yet";
+  if (d.today.done >= d.today.due) return "Every daily commitment done today";
+  return `${d.today.done} of ${d.today.due} daily ${d.today.due === 1 ? "commitment" : "commitments"} done today`;
+}
+
+/** "4 of 5 days" for one item this week, counting days up to today. */
+export function daysKept(i: DailyItem, today: string): string {
+  const past = i.week.filter((d) => d.due && d.day <= today);
+  return `${past.filter((d) => d.done).length} of ${past.length} ${past.length === 1 ? "day" : "days"}`;
+}
+
+/** A day can be ticked when it was due, is today or earlier, and is in this week (ONE MOVE's rule). */
+export const dayTickable = (d: DailyDay, today: string) => d.due && d.day <= today;
+
+export interface DailyDraft {
+  text: string;
+  kind: Kind;
+  target: number | null;
+  days: Days;
+}
+
+/** The §3n.6 set body (0 to 5; an empty list clears them), or the plain-words reason it cannot be sent. */
+export function setDailyBody(drafts: DailyDraft[]): { items: DailyDraft[] } | { error: string } {
+  const items = drafts
+    .map((d) => ({ text: d.text.trim().slice(0, TEXT_MAX), kind: d.kind, target: d.kind === "yes_no" ? null : d.target, days: d.days }))
+    .filter((d) => d.text);
+  if (items.length > DAILY_MAX) return { error: `Up to ${DAILY_MAX} daily commitments.` };
+  for (const d of items) {
+    if (d.kind !== "yes_no" && (d.target == null || !Number.isInteger(d.target) || d.target < 1 || d.target > 100)) {
+      return { error: `Give "${d.text}" a number from 1 to 100.` };
+    }
+  }
+  return { items };
+}
+
+/** The example agent's tick on one day, without ONE MOVE; the totals follow. */
+export function applyDailyTick(c: Commitments, id: string, day: string, done: boolean): Commitments {
+  const d = c.daily;
+  if (!d) return c;
+  const target = d.items.find((i) => i.id === id)?.week.find((w) => w.day === day);
+  if (!target || !dayTickable(target, c.today)) return c;
+  const items = d.items.map((i) =>
+    i.id !== id ? i : { ...i, week: i.week.map((w) => (w.day === day ? { ...w, done } : w)), today: day === c.today ? { ...i.today, done } : i.today },
+  );
+  return { ...c, daily: retally({ ...d, items }, c.today) };
+}
+
+/** The example agent's new list, without ONE MOVE: same words, kind, target and days keep their ticks. */
+export function applyDailySet(c: Commitments, drafts: DailyDraft[]): Commitments {
+  const old = c.daily?.items ?? [];
+  const mon = mondayOf(c.today);
+  const items: DailyItem[] = drafts.map((x, k) => {
+    const same = old.find((i) => i.text === x.text && i.kind === x.kind && i.target === x.target && i.days === x.days);
+    if (same) return same;
+    const week = Array.from({ length: 7 }, (_, n) => {
+      const day = addDay(mon, n);
+      return { day, due: day >= c.today && (x.days === "every_day" || n < 5), done: false };
+    });
+    const due = week.find((w) => w.day === c.today)?.due ?? false;
+    return { id: `local-daily-${k}-${Date.now()}`, text: x.text, kind: x.kind, target: x.target, days: x.days, today: { due, done: false, count: x.kind === "yes_no" ? null : 0 }, week };
+  });
+  return { ...c, daily: retally({ items, today: { due: 0, done: 0 }, week: { due: 0, done: 0 }, lastWeek: c.daily?.lastWeek ?? null }, c.today) };
+}
+
+function retally(d: Daily, today: string): Daily {
+  const days = d.items.flatMap((i) => i.week.filter((w) => w.due && w.day <= today));
+  const now = d.items.flatMap((i) => i.week.filter((w) => w.due && w.day === today));
+  return { ...d, today: { due: now.length, done: now.filter((w) => w.done).length }, week: { due: days.length, done: days.filter((w) => w.done).length } };
+}
+
+const addDay = (d: string, k: number) => new Date(Date.parse(`${d}T12:00:00Z`) + k * 86_400_000).toISOString().slice(0, 10);
+
+/** The demo agent's daily list: two done earlier this week, today still to tick. */
+export function demoDaily(today: string): Daily {
+  const mon = mondayOf(today);
+  const mk = (id: string, text: string, kind: Kind, target: number | null, days: Days, doneBefore: (n: number) => boolean, count: number | null): DailyItem => {
+    const week = Array.from({ length: 7 }, (_, n) => {
+      const day = addDay(mon, n);
+      const due = days === "every_day" || n < 5;
+      return { day, due, done: due && day < today && doneBefore(n) };
+    });
+    const t = week.find((w) => w.day === today)!;
+    return { id, text, kind, target, days, today: { due: t.due, done: false, count }, week };
+  };
+  const items = [
+    mk("d1", "Five calls before 10am", "call", 5, "weekdays", () => true, 2),
+    mk("d2", "Read my VIP-50 list", "yes_no", null, "weekdays", (n) => n !== 2, null),
+    mk("d3", "Walk 30 minutes", "yes_no", null, "every_day", (n) => n % 2 === 0, null),
+  ];
+  return retally({ items, today: { due: 0, done: 0 }, week: { due: 0, done: 0 }, lastWeek: { due: 17, done: 13 } }, today);
 }

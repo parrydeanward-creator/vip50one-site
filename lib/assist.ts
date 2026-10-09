@@ -76,20 +76,37 @@ export function weekdaysLeft(today: string): number {
 export function commitmentWork(c: Commitments | null, today: string): PlanItem[] {
   const week = c?.week;
   const days = weekdaysLeft(today);
-  if (!week || !days) return [];
   const out: PlanItem[] = [];
-  for (const it of week.items) {
+  for (const it of week && days ? week.items : []) {
     const per = PER[it.kind];
     if (!per || it.target == null || it.result) continue;
     const short = Math.max(0, it.target - (it.count ?? 0));
     if (!short) continue;
-    const n = Math.ceil(short / days);
+    const n = Math.ceil(short / Math.max(days, 1));
     out.push({
       ref: `cm:${it.id}`,
       product: "go",
       kind: per.kind,
       // the kind first, so the few words that fit on the clock face say what it is
       title: `${cap(per.word[1])}: ${n} today, ${short} to go this week (commitment)`,
+      contactId: null,
+      link: null,
+      minutes: Math.min(120, n * per.min),
+      done: false,
+      urgency: "today",
+    });
+  }
+  // Daily commitments due today and not yet ticked (§3n.6): the rest of today's number.
+  for (const it of c?.daily?.items ?? []) {
+    const per = PER[it.kind];
+    if (!per || it.target == null || !it.today.due || it.today.done) continue;
+    const n = Math.max(0, it.target - (it.today.count ?? 0));
+    if (!n) continue;
+    out.push({
+      ref: `cmd:${it.id}`,
+      product: "go",
+      kind: per.kind,
+      title: `${cap(per.word[1])}: ${n} today (daily commitment)`,
       contactId: null,
       link: null,
       minutes: Math.min(120, n * per.min),
