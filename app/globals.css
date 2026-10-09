@@ -1844,3 +1844,11 @@ a.link { display: block; text-decoration: none; }
 /* Review calls (VIP-SUMMARY §3v) */
 .rc-say { margin: 4px 0 10px; padding: 10px 12px; border-left: 3px solid var(--gold); background: rgba(212, 175, 55, 0.06); border-radius: 8px; font-style: italic; color: var(--text); }
 .rc-rule { margin: 10px 0; padding: 10px 12px; border: 1px solid rgba(91, 184, 255, 0.4); border-radius: 8px; color: var(--text-2); font-size: 13px; }
+
+/* Energy check (VIP-SUMMARY §3w) */
+.en-rest { margin: 10px 0 4px; padding: 12px 14px; border: 1px solid rgba(255, 178, 94, 0.45); border-radius: 14px; background: rgba(255, 178, 94, 0.07); color: var(--text-2); font-size: 14px; line-height: 1.45; }
+.en-rest b { color: #ffb25e; }
+.en-strip { display: flex; align-items: flex-end; gap: 6px; height: 64px; margin: 6px 0 12px; padding: 0; list-style: none; }
+.en-strip li { flex: 1; display: flex; align-items: flex-end; height: 100%; }
+.en-strip i { display: block; width: 100%; border-radius: 4px 4px 2px 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
