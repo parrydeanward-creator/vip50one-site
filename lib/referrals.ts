@@ -8,6 +8,7 @@ const MOVE_URL = "https://move.vip50one.com";
 export const REFERRALS_NODE = "go-referrals";
 export const referralsUrl = (agent?: string) => `${MOVE_URL}/api/brain/referrals${agent ? `?agent=${encodeURIComponent(agent)}` : ""}`;
 export const askUrl = `${MOVE_URL}/api/brain/referrals/ask`;
+export const thankUrl = `${MOVE_URL}/api/brain/referrals/thank`;
 
 export type Why = "past_referrer_quiet" | "recent_closing" | "fully_touched";
 export const WHY_ORDER: Why[] = ["past_referrer_quiet", "recent_closing", "fully_touched"];
@@ -35,6 +36,10 @@ export interface Recent {
   at: string;
   closed: boolean;
   value: number | null;
+  /** §3r.3; null when ONE MOVE does not say (before v1.55). */
+  referralId: string | null;
+  thanked: boolean | null;
+  thankOpen: boolean;
 }
 export interface Candidate {
   id: string;
@@ -78,7 +83,7 @@ export function readReferrals(j: unknown): Referrals | null {
   for (const x of (Array.isArray(r.recent) ? r.recent : []) as Record<string, unknown>[]) {
     const at = day(x?.at), name = str(x?.referred_name);
     if (!at || !name) continue;
-    recent.push({ id: str(x.referred_contact_id) ?? `${name}:${at}`, name, by: str(x.referrer_contact_id), at, closed: x.closed === true, value: numOrNull(x.value) });
+    recent.push({ id: str(x.referred_contact_id) ?? `${name}:${at}`, name, by: str(x.referrer_contact_id), at, closed: x.closed === true, value: numOrNull(x.value), referralId: str(x.referral_id), thanked: typeof x.thanked === "boolean" ? x.thanked : null, thankOpen: x.thank_open === true });
   }
   recent.sort((a, b) => b.at.localeCompare(a.at));
   const seen = new Set<string>();
@@ -107,6 +112,23 @@ export function referralRate(r: Referrals): number | null {
   return r.vips.count ? r.vips.thisYear / r.vips.count : null;
 }
 
+const ago = (d: string, today: string) => Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${d}T12:00:00Z`)) / 86_400_000);
+
+/** Referrals not thanked yet (§3r.3): the last 90 days, no thank-you touch and no open thank-you task, oldest first
+ * (the longest wait first). Only when ONE MOVE says so: an unknown is never shown as unthanked. */
+export function unthanked(r: Referrals, today: string): Recent[] {
+  return r.recent.filter((x) => x.thanked === false && !x.thankOpen && x.referralId && ago(x.at, today) <= 90).sort((a, b) => a.at.localeCompare(b.at));
+}
+
+/** Who sent it, by name. */
+export const referrerName = (r: Referrals, x: Recent) => r.referrers.find((p) => p.id === x.by)?.name ?? null;
+
+/** "Thank Jane Smith for referring Tom Lee". */
+export const thankWords = (r: Referrals, x: Recent) => `Thank ${referrerName(r, x) ?? "them"} for referring ${x.name}`;
+
+/** The example agent's tap, without ONE MOVE: the task is open, so it leaves the list. */
+export const applyThank = (r: Referrals, referralId: string): Referrals => ({ ...r, recent: r.recent.map((x) => (x.referralId === referralId ? { ...x, thankOpen: true } : x)) });
+
 /** Ask-worthy now: a quiet past referrer or a recent closing. These make the orb pulse. */
 export const askNow = (r: Referrals) => r.candidates.filter((c) => c.why !== "fully_touched");
 
@@ -118,22 +140,23 @@ export function headline(r: Referrals): string {
 }
 
 /** The Referrals orb under ONE YOU: yellow when someone is worth asking now. */
-export function withReferralsNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, r: Referrals | null): G {
+export function withReferralsNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, r: Referrals | null, today: string = new Date().toISOString().slice(0, 10)): G {
   const go = g.nodes.find((n) => n.id === "go");
   const nodes = g.nodes.filter((n) => n.id !== REFERRALS_NODE);
   const edges = g.edges.filter((e) => e.target !== REFERRALS_NODE);
   if (!go || go.locked || !r) return { ...g, nodes, edges };
   const ask = askNow(r).length;
+  const thank = unthanked(r, today).length;
   const rate = referralRate(r);
   nodes.push({
     id: REFERRALS_NODE,
     type: "feature",
     label: "Referrals",
-    secondaryLabel: ask ? `${ask} worth asking now` : headline(r),
+    secondaryLabel: thank ? `${thank} to thank${ask ? ` · ${ask} worth asking` : ""}` : ask ? `${ask} worth asking now` : headline(r),
     parentId: "go",
     product: "go",
     importance: 1.0,
-    status: ask ? "attention" : "healthy",
+    status: ask || thank ? "attention" : "healthy",
     summary: `${headline(r)}.${rate != null ? ` ${Math.round(rate * 100)}% of your VIPs have referred this year.` : ""} Who sent you business, and who is likely next.`,
   });
   edges.push({ id: `go>${REFERRALS_NODE}`, source: "go", target: REFERRALS_NODE, relationshipType: "belongs_to", strength: 1 });
@@ -160,9 +183,9 @@ export function demoReferrals(today: string): Referrals {
       ref("r5", "Lisa Grant", 1, 1, 0, null, 90, 30),
     ],
     recent: [
-      { id: "n1", name: "Tom Lee", by: "r4", at: addDays(today, -12), closed: false, value: null },
-      { id: "n2", name: "Sara Kent", by: "r2", at: addDays(today, -21), closed: false, value: null },
-      { id: "n3", name: "Ben Ortiz", by: "r1", at: addDays(today, -54), closed: true, value: 425000 },
+      { id: "n1", name: "Tom Lee", by: "r4", at: addDays(today, -12), closed: false, value: null, referralId: "f1", thanked: false, thankOpen: false },
+      { id: "n2", name: "Sara Kent", by: "r2", at: addDays(today, -21), closed: false, value: null, referralId: "f2", thanked: true, thankOpen: false },
+      { id: "n3", name: "Ben Ortiz", by: "r1", at: addDays(today, -54), closed: true, value: 425000, referralId: "f3", thanked: true, thankOpen: false },
     ],
     vips: { count: 48, ever: 9, thisYear: 5 },
     candidates: [
