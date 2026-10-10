@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LeadMailSection, OwnAISection } from "./ConnectSections.tsx";
-import { ABOUT, ABOUT_MAX, CONNECTIONS, FIELDS, TIME_ZONES, UPLOAD_MAX, aboutChanges, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, type Profile } from "@/lib/profile.ts";
+import { LeadMailSection, OwnAISection, PulseModesSection } from "./ConnectSections.tsx";
+import { brokerageAsk, ABOUT, ABOUT_MAX, CONNECTIONS, FIELDS, TIME_ZONES, UPLOAD_MAX, aboutChanges, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, type Profile } from "@/lib/profile.ts";
 
 /** Draw the photo at most 1200px on the long side as a JPEG, so it fits ONE MOVE's 4 MB limit. */
 async function shrink(file: File): Promise<Blob> {
@@ -90,6 +90,24 @@ export default function MyProfile({
       setSaved(p);
       setDraft(p);
       setNote({ ok: true, text: "Saved. Every ONE product shows this now." });
+      onChanged();
+    } catch (e) {
+      setNote({ ok: false, text: e instanceof Error ? e.message : "That didn't save. Nothing was changed." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // The one-time legal-name confirm (PROFILE.md v1.1): saved on its own, never with other edits.
+  const confirmBrokerage = async () => {
+    if (!saved || busy) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      const p = await answer(await fetch(profileUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brokerage_confirmed: true }) }));
+      setSaved(p);
+      setDraft((d) => (d ? { ...d, brokerage_confirmed_at: p.brokerage_confirmed_at } : p));
+      setNote({ ok: true, text: "Confirmed. Thank you." });
       onChanged();
     } catch (e) {
       setNote({ ok: false, text: e instanceof Error ? e.message : "That didn't save. Nothing was changed." });
@@ -188,6 +206,16 @@ export default function MyProfile({
           </div>
         </section>
 
+        {saved && brokerageAsk(saved) ? (
+          <section className="pf-confirm" aria-label="Confirm your brokerage">
+            <b>Confirm your brokerage</b>
+            <p>{brokerageAsk(saved)}</p>
+            {saved.brokerage.trim() && !saved.brokerage_confirmed_at ? (
+              <button type="button" className="chip-btn primary" disabled={busy} onClick={() => void confirmBrokerage()}>Yes, that is the legal name</button>
+            ) : null}
+            <small>Change it below if it isn't. Every site, post and ad prints it exactly as typed.</small>
+          </section>
+        ) : null}
         <form className="pf-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
           {FIELDS.map((f) => (
             <label key={f.key} className={`pf-field${f.long ? " long" : ""}`}>
@@ -237,6 +265,7 @@ export default function MyProfile({
             <small className="pf-sub">Off unless you switch it on. When it is off, your member card in the Lounge shows no phone, email or Call button.</small>
           </section>
         )}
+        <PulseModesSection />
         <LeadMailSection />
         <OwnAISection />
         <h2>Connections and settings</h2>
