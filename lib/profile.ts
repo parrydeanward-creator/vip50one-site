@@ -10,6 +10,9 @@ export interface Profile {
   preferred_name: string;
   mobile: string;
   brokerage: string;
+  team_name: string;
+  brokerage_address: string;
+  principal_broker: string;
   license_no: string;
   license_state: string;
   time_zone: string;
@@ -20,6 +23,8 @@ export interface Profile {
   // VIP-SUMMARY §3j.4 (v1.39): null until ONE MOVE's route sends them, and then the Brain hides them.
   share_contact_info: boolean | null; // "Show my phone and email to members" (PROFILE.md §2, off by default)
   about: Record<AboutKey, string> | null; // the agent's own "Tell Us About You" answers
+  // PROFILE.md v1.1 (8 Oct): the brokerage's legal name is confirmed once; any change to it clears the confirm.
+  brokerage_confirmed_at: string | null;
 }
 
 // "Tell Us About You" (Parry, 5 Oct: settled, do not change): ONE GO's words and order (VIP50-app#72), the
@@ -45,12 +50,15 @@ export const ABOUT_MAX = 200;
 export const profileUrl = `${MOVE_URL}/api/brain/profile`;
 export const photoUrl = `${profileUrl}/photo`;
 
-export type Field = Exclude<keyof Profile, "email" | "photo_url" | "photo_version" | "share_contact_info" | "about">;
+export type Field = Exclude<keyof Profile, "email" | "photo_url" | "photo_version" | "share_contact_info" | "about" | "brokerage_confirmed_at">;
 export const FIELDS: { key: Field; label: string; max: number; long?: boolean; hint?: string }[] = [
   { key: "full_name", label: "Full name", max: 120, hint: "On packets, flyers and recaps." },
   { key: "preferred_name", label: "Preferred first name", max: 60, hint: "How ONE greets you." },
   { key: "mobile", label: "Mobile", max: 30 },
-  { key: "brokerage", label: "Brokerage", max: 120 },
+  { key: "brokerage", label: "Brokerage", max: 120, hint: "Its legal name exactly as on Utah Division of Real Estate records; every site and ad prints it as typed." },
+  { key: "team_name", label: "Team name", max: 120, hint: "Shown beside the brokerage, never instead of it." },
+  { key: "brokerage_address", label: "Brokerage address", max: 300, hint: "Printed at the foot of your marketing emails (the law asks for a postal address)." },
+  { key: "principal_broker", label: "Principal broker", max: 120, hint: "Never shown to clients." },
   { key: "license_no", label: "Licence number", max: 40 },
   { key: "license_state", label: "Licence state", max: 2, hint: "Two letters, e.g. UT." },
   { key: "title", label: "Title", max: 120, hint: "e.g. REALTOR, Team Lead." },
@@ -84,6 +92,9 @@ export function readProfile(raw: unknown): Profile | null {
     preferred_name: s(r.preferred_name, LIMIT("preferred_name")),
     mobile: s(r.mobile, LIMIT("mobile")),
     brokerage: s(r.brokerage, LIMIT("brokerage")),
+    team_name: s(r.team_name, LIMIT("team_name")),
+    brokerage_address: s(r.brokerage_address, LIMIT("brokerage_address")),
+    principal_broker: s(r.principal_broker, LIMIT("principal_broker")),
     license_no: s(r.license_no, LIMIT("license_no")),
     license_state: s(r.license_state, LIMIT("license_state")),
     time_zone: s(r.time_zone, 64) || "America/Denver",
@@ -93,6 +104,7 @@ export function readProfile(raw: unknown): Profile | null {
     photo_version: typeof r.photo_version === "string" ? r.photo_version : null,
     share_contact_info: typeof r.share_contact_info === "boolean" ? r.share_contact_info : null,
     about: readAbout(r.about),
+    brokerage_confirmed_at: typeof r.brokerage_confirmed_at === "string" ? r.brokerage_confirmed_at : null,
   };
 }
 
@@ -164,3 +176,11 @@ export const CONNECTIONS: { product: string; color: string; rows: { label: strin
   { product: "ONE Open", color: "#5aa9ff", rows: [{ label: "Open house settings (slot, texts, safety buddy, posts, follow-ups)", href: "https://open.vip-50.com/app/settings" }] },
   { product: "Showly", color: "#b07cff", rows: [{ label: "Lender sharing, buyer-answer emails, recap colour", href: "https://showly.net/app" }] },
 ];
+
+/** "Confirm your brokerage" (PROFILE.md v1.1-v1.2): while the legal name is unconfirmed or the address is missing. */
+export function brokerageAsk(p: Profile): string | null {
+  if (!p.brokerage.trim()) return "Add your brokerage's legal name and address.";
+  if (!p.brokerage_confirmed_at) return `Is "${p.brokerage.trim()}" your brokerage's legal name, exactly as on Utah Division of Real Estate records?`;
+  if (!p.brokerage_address.trim()) return "Add your brokerage's address. Your marketing emails wait until it is in.";
+  return null;
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { MODES, pulseModesUrl, readPulseModes, setBody, type Mode, type PulseModes } from "@/lib/pulseModes.ts";
 import { connectorLogUrl, connectorUrl, leadMailUrl, readConnector, readLeadMail, readLog, revokeUrl, when, type ConnectorState, type LeadMail, type LogLine } from "@/lib/connector.ts";
 
 // My Profile, two of the agent's own connections: the lead email address for Zillow, Realtor.com and Homes.com
@@ -150,6 +151,79 @@ export function OwnAISection() {
         </>
       ) : null}
       {note ? <p className="pf-note" role="status">{note}</p> : null}
+    </section>
+  );
+}
+
+// Pulse's helpers (LEADS §3.3a): one card per worker, three equal buttons, each tap saves. Autopilot asks once more and
+// is offered only when ONE MOVE says it can be (the hand-back test passed; Concierge on ONE Complete).
+export function PulseModesSection() {
+  const [m, setM] = useState<PulseModes | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    fetch(pulseModesUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setM(readPulseModes(j)))
+      .catch(() => {});
+  }, []);
+  if (!m || !m.workers.length) return null;
+  const set = async (worker: string, mode: Mode) => {
+    setBusy(worker);
+    setNote(null);
+    setConfirm(null);
+    try {
+      const r = await fetch(pulseModesUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(setBody(worker, mode)) });
+      const j = await r.json().catch(() => null);
+      const next = r.ok && (j as { ok?: boolean } | null)?.ok !== false ? readPulseModes(j) : null;
+      if (next) setM(next);
+      else setNote((j as { error?: string } | null)?.error || "That didn't save. Nothing was changed.");
+    } catch {
+      setNote("That didn't save. Nothing was changed.");
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <section className="pf-privacy" aria-label="Pulse">
+      <h2>Pulse</h2>
+      <small className="pf-sub">How Pulse helps with each kind of message. Everything starts Off; only you can change it.</small>
+      {m.workers.map((w) => (
+        <div key={w.worker} className="pm-card">
+          <b>{w.question}</b>
+          {w.example ? <small className="pf-sub">{w.example}</small> : null}
+          <div className="pm-modes" role="radiogroup" aria-label={w.question}>
+            {MODES.map((mode) => {
+              const blocked = mode === "autopilot" && !!w.blocked && w.mode !== "autopilot";
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={w.chosen && w.mode === mode}
+                  className={`chip-btn${w.chosen && w.mode === mode ? " on" : ""}`}
+                  disabled={busy === w.worker || blocked}
+                  onClick={() => (mode === "autopilot" && w.mode !== "autopilot" ? setConfirm(w.worker) : void set(w.worker, mode))}
+                >
+                  {m.label[mode]}
+                </button>
+              );
+            })}
+          </div>
+          <small className="pf-sub">{w.chosen ? m.line[w.mode] : "Not chosen yet: Off."}</small>
+          {w.blocked && w.mode !== "autopilot" ? <small className="pf-sub">{w.blocked}</small> : null}
+          {confirm === w.worker ? (
+            <div className="pm-confirm" role="alertdialog" aria-label="Turn on Autopilot?">
+              <p>{m.confirm}</p>
+              <button type="button" className="chip-btn primary" onClick={() => void set(w.worker, "autopilot")}>Yes, turn on Autopilot</button>
+              <button type="button" className="chip-btn" onClick={() => void set(w.worker, "ask_me")}>No, Ask me</button>
+            </div>
+          ) : null}
+        </div>
+      ))}
+      {m.handback ? <small className="pf-sub">{m.handback}</small> : null}
+      {note ? <p className="pf-note bad" role="status">{note}</p> : null}
     </section>
   );
 }
