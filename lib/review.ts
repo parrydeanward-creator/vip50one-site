@@ -1,3 +1,5 @@
+import { GROUP_TITLE, groupOf, type Win } from "./wins.ts";
+import { mondayOf } from "./habits.ts";
 import type { GraphEdge, GraphNode } from "./graph/types.ts";
 import { MONTH_BOXES } from "./contact.ts";
 import { audit } from "./audit.ts";
@@ -12,7 +14,7 @@ import type { VipPerson, VipRoster } from "./vips.ts";
 export const REVIEW_NODE = "go-review";
 export const WEEK_MINIMUM = 100; // Parry, 30 Sep: the weekly standard is 100 (was 150)
 
-export type ReviewKey = "score" | "touches" | "untouched" | "commitments" | "goals";
+export type ReviewKey = "score" | "wins" | "touches" | "untouched" | "commitments" | "goals";
 export type Level = "now" | "today" | null;
 
 export interface Goal {
@@ -28,6 +30,8 @@ export interface ReviewIn {
   roster: VipRoster | null;
   commitments: Commitments | null;
   goals: Goal[];
+  /** Wins (§3t), when ONE MOVE answers; the review shows this week's (PULSE-ROADMAP relationship #8). */
+  wins?: Win[] | null;
 }
 
 export interface Card {
@@ -62,6 +66,8 @@ export function monthShare(today: string): number {
 
 /** Oldest last touch first; never-touched first of all. */
 const byOldest = (a: VipPerson, b: VipPerson) => (a.last_touch_on ?? "").localeCompare(b.last_touch_on ?? "");
+
+const ONE_OF: Record<string, string> = { Closings: "Closing", Referrals: "Referral", "Five-star reviews": "Five-star review", "Weeks at 100": "Week at 100", Badges: "Badge", "Goals reached": "Goal reached" };
 
 export function review(i: ReviewIn): Review {
   const cards: Card[] = [];
@@ -159,6 +165,23 @@ export function review(i: ReviewIn): Review {
   }
 
   if (i.week && i.week.score < i.week.minimum && next.length < 3) next.push(`Reach ${i.week.minimum} next week: this week ended at ${i.week.score}.`);
+  // This week's wins (§3t): good news only, never a pulse (Parry: "good news never nags").
+  if (i.wins) {
+    const mon = mondayOf(i.today);
+    const mine = i.wins.filter((w) => w.at >= mon && w.at <= i.today).sort((a, b) => b.at.localeCompare(a.at));
+    const by = new Map<string, number>();
+    for (const w of mine) by.set(GROUP_TITLE[groupOf(w.kind)], (by.get(GROUP_TITLE[groupOf(w.kind)]) ?? 0) + 1);
+    const at = cards.findIndex((c) => c.key === "score");
+    cards.splice(at + 1, 0, {
+      key: "wins",
+      title: "Wins",
+      big: String(mine.length),
+      line: mine.length ? [...by].map(([t, n]) => `${n} ${(n === 1 ? ONE_OF[t] ?? t : t).toLowerCase()}`).join(", ") : "None logged this week yet",
+      level: null,
+      good: mine.length > 0,
+      rows: mine.length ? mine.slice(0, 8).map((w) => ({ text: w.title, sub: w.detail ?? undefined })) : [{ text: "Log a closing or a referral in ONE MOVE and it shows here." }],
+    });
+  }
   if (!next.length) next.push("Keep the same rhythm next week: every number above is on track.");
   return { cards, next: next.slice(0, 3) };
 }

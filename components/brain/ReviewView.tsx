@@ -18,7 +18,7 @@ const RING = 310;
 const R = 64;
 const GOLD = "#f5c542";
 const GREEN = "#3fbf7f";
-const ICON: Record<ReviewKey, string> = { score: "★", touches: "✆", untouched: "○", commitments: "✓", goals: "◎" };
+const ICON: Record<ReviewKey, string> = { score: "★", wins: "♛", touches: "✆", untouched: "○", commitments: "✓", goals: "◎" };
 
 function arc(cx: number, cy: number, r: number, share: number): string {
   const a = Math.max(0.001, Math.min(0.9999, share)) * Math.PI * 2;
