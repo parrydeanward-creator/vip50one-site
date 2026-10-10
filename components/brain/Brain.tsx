@@ -62,6 +62,7 @@ import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
 import { REVIEW_CALLS_NODE, agentsUrl, demoAgents, readAgents, withReviewCallsNode, type ReviewAgent } from "@/lib/reviewCalls.ts";
 import { TEAM_NODE, demoTeam, readTeam, teamUrl, withTeamNode, type Scope as TeamScope, type Team } from "@/lib/team.ts";
 import { TIME_OFF_NODE, demoTimeOff, readTimeOff, saveBody as timeOffBody, timeOffUrl, withTimeOffNode, type TimeOffState } from "@/lib/timeOff.ts";
+import { DAY_FILM_KEY } from "@/lib/dayFilm.ts";
 import { demoPulseReport, pulseReportUrl, readPulseReport, type PulseReport } from "@/lib/pulseReport.ts";
 import { LIFE_NODE, applyKeep, demoRadar, keepBody as lifeKeepBody, keepUrl as lifeKeepUrl, lifeEventsUrl, readRadar, withLifeEventsNode, type Found as LifeFound, type Radar } from "@/lib/lifeEvents.ts";
 import { ENERGY_NODE, applyCheck, demoEnergy, energyUrl, readEnergy, saveBody as energyBody, saveEnergyUrl, withEnergyNode, type Energy, type Level as EnergyLevel } from "@/lib/energy.ts";
@@ -2231,6 +2232,18 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               </ol>
               <button className="link" onClick={() => setDayMap((v) => !v)}>
                 {dayView ? "← Back to the map" : "▶ Show my day on the map"}
+              </button>
+              <button
+                className="link"
+                onClick={() => {
+                  // Watch Pulse work on your own day (PULSE-ROADMAP #16): today's plan, handed to /watch in this tab only
+                  try {
+                    sessionStorage.setItem(DAY_FILM_KEY, JSON.stringify({ first: agent.firstName || null, items: slots.map((x) => ({ start: x.start, what: x.what, product: x.product, minutes: x.minutes, done: x.done })) }));
+                  } catch {}
+                  window.location.href = "/watch?mine=1";
+                }}
+              >
+                ▶ Watch Pulse work on my day
               </button>
             </div>
           )}
