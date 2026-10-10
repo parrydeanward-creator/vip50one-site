@@ -1,5 +1,6 @@
 import { GROUP_TITLE, groupOf, type Win } from "./wins.ts";
 import { mondayOf } from "./habits.ts";
+import { reportLine, unseen, type PulseReport } from "./pulseReport.ts";
 import type { GraphEdge, GraphNode } from "./graph/types.ts";
 import { MONTH_BOXES } from "./contact.ts";
 import { audit } from "./audit.ts";
@@ -14,7 +15,7 @@ import type { VipPerson, VipRoster } from "./vips.ts";
 export const REVIEW_NODE = "go-review";
 export const WEEK_MINIMUM = 100; // Parry, 30 Sep: the weekly standard is 100 (was 150)
 
-export type ReviewKey = "score" | "wins" | "touches" | "untouched" | "commitments" | "goals";
+export type ReviewKey = "score" | "wins" | "pulse" | "touches" | "untouched" | "commitments" | "goals";
 export type Level = "now" | "today" | null;
 
 export interface Goal {
@@ -32,6 +33,8 @@ export interface ReviewIn {
   goals: Goal[];
   /** Wins (§3t), when ONE MOVE answers; the review shows this week's (PULSE-ROADMAP relationship #8). */
   wins?: Win[] | null;
+  /** "Pulse did this" (LEADS §6.1), when ONE MOVE answers. */
+  pulse?: PulseReport | null;
 }
 
 export interface Card {
@@ -181,6 +184,28 @@ export function review(i: ReviewIn): Review {
       good: mine.length > 0,
       rows: mine.length ? mine.slice(0, 8).map((w) => ({ text: w.title, sub: w.detail ?? undefined })) : [{ text: "Log a closing or a referral in ONE MOVE and it shows here." }],
     });
+  }
+  // "Pulse did this" (LEADS §6.1): yellow only while a hand-back is unopened; held sends are listed with their reason.
+  if (i.pulse) {
+    const p = i.pulse;
+    const open = unseen(p);
+    cards.push({
+      key: "pulse",
+      title: "Pulse did this",
+      big: String(p.sent),
+      line: reportLine(p),
+      level: open ? "today" : null,
+      good: !open,
+      rows: [
+        { text: p.summary },
+        ...p.handbacks.slice(0, 5).map((h) => ({ text: `Handed back: ${h.contact}, ${h.about.toLowerCase()}`, sub: h.excerpt ? `"${h.excerpt}"` : undefined })),
+        ...p.held.map((h) => ({ text: `Held back: ${h.words}`, sub: `${h.count} ${h.count === 1 ? "send" : "sends"}` })),
+        ...p.autopilot.slice(0, 5).map((a) => ({ text: `Sent: ${a.contact} (${a.worker})`, sub: a.what ?? undefined })),
+        ...(p.touches ? [{ text: p.touches }] : []),
+      ],
+    });
+    if (open && next.length < 3) next.push(`Answer what Pulse handed back: ${p.handbacks.filter((h) => !h.seen).map((h) => h.contact).slice(0, 3).join(", ")}.`);
+    if (p.held.some((h) => /brokerage address/i.test(h.words)) && next.length < 3) next.push("Add your brokerage address in My Profile so your marketing emails can go out.");
   }
   if (!next.length) next.push("Keep the same rhythm next week: every number above is on track.");
   return { cards, next: next.slice(0, 3) };
