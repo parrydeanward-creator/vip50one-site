@@ -1949,3 +1949,7 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 .pc-story-p.p-showly { color: #b48cff; }
 .pc-story-p.p-marquee { color: #7fa6ff; }
 .pc-story-p.p-web { color: #a9b0bd; }
+
+/* Market Pulse (§3aa): the exact note the agent sends. */
+.mp-note { margin-top: 12px; }
+.mp-text { white-space: pre-wrap; font: inherit; font-size: 14px; line-height: 1.5; color: var(--text); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 8px 0 12px; }
