@@ -8,6 +8,7 @@ import { SPOTS, WATCH_STEPS, graphAt, shownAt, watchGraph, watchPlaced } from "@
 import { FILM_SPOTS, FILM_STEPS, filmGraph } from "@/lib/film.ts";
 import { productFilm, type FilmProduct } from "@/lib/productFilms.ts";
 import type { BrainScene, SceneEdge, SceneNeed } from "./scene.ts";
+import type { DayFilm } from "@/lib/dayFilm.ts";
 import { SIGNAL_SPOTS, SIGNAL_STEPS, signalsGraph } from "@/lib/signalsFilm.ts";
 import { needsOf } from "@/lib/needs.ts";
 import { SignalDemoSvg } from "./SignalDemo.tsx";
@@ -19,14 +20,16 @@ import { SignalDemoSvg } from "./SignalDemo.tsx";
 const PHONE_QUERY = "(max-width: 719px)";
 const NOTE = "Example agent; people and addresses are invented. Coming: being connected now.";
 
-export default function Watch({ record = false, slow = 1, film = false, product, signals = false }: { record?: boolean; slow?: number; film?: boolean; product?: FilmProduct; signals?: boolean }) {
+export default function Watch({ record = false, slow = 1, film = false, product, signals = false, custom = null }: { record?: boolean; slow?: number; film?: boolean; product?: FilmProduct; signals?: boolean; custom?: DayFilm | null }) {
   // Which film: one product's, the long ONE film, or the short story.
   const pf = useMemo(() => (product ? productFilm(product) : null), [product]);
-  const STEPS = pf ? pf.steps : signals ? SIGNAL_STEPS : film ? FILM_STEPS : WATCH_STEPS;
-  const spots = pf ? pf.spots : signals ? SIGNAL_SPOTS : film ? FILM_SPOTS : SPOTS;
+  // The agent's own day (PULSE-ROADMAP #16) when the Brain handed one over; otherwise the scripted films.
+  const STEPS = custom ? custom.steps : pf ? pf.steps : signals ? SIGNAL_STEPS : film ? FILM_STEPS : WATCH_STEPS;
+  const spots = custom ? custom.spots : pf ? pf.spots : signals ? SIGNAL_SPOTS : film ? FILM_SPOTS : SPOTS;
+  const note = custom ? "Your own day, from today's plan. Only you see this." : NOTE;
   const center = pf ? pf.center : "one";
   const keep = pf ? pf.keep : undefined;
-  const base = useMemo(() => (pf ? pf.graph : signals ? signalsGraph() : film ? filmGraph() : watchGraph()), [pf, film, signals]);
+  const base = useMemo(() => (custom ? custom.graph : pf ? pf.graph : signals ? signalsGraph() : film ? filmGraph() : watchGraph()), [custom, pf, film, signals]);
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<BrainScene | null>(null);
   const [ready, setReady] = useState(false);
@@ -121,7 +124,7 @@ export default function Watch({ record = false, slow = 1, film = false, product,
         <a className="brand" href="/dashboard" aria-label="VIP-50 ONE, your dashboard">
           VIP-50 <b>ONE</b>
         </a>
-        <span className="crumbs">{signals ? "What everything means" : "Watch ONE Work"}</span>
+        <span className="crumbs">{custom ? "Watch Pulse work on your day" : signals ? "What everything means" : "Watch ONE Work"}</span>
         {!record && (
           <a className="watch-exit" href="/dashboard">
             Explore my business →
@@ -172,7 +175,7 @@ export default function Watch({ record = false, slow = 1, film = false, product,
                   <a href="/dashboard">Explore my business</a>
                 </div>
               )}
-              <p className="watch-end-note">{NOTE}</p>
+              <p className="watch-end-note">{note}</p>
             </div>
           )}
         </div>
@@ -190,7 +193,7 @@ export default function Watch({ record = false, slow = 1, film = false, product,
             </button>
           </div>
         )}
-        <p className="watch-note">{NOTE}</p>
+        <p className="watch-note">{note}</p>
       </section>
     </div>
   );
