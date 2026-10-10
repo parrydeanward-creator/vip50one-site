@@ -316,6 +316,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     coachRef.current = coached;
     setGraph((g) => withCoachNode(g, coached, denverHour()));
   }, [coached]);
+  // Wins (§3t), read below; declared here because the Weekly Review shows this week's.
+  const [wins, setWins] = useState<Wins | null>(null);
   // Weekly Review: the week's score (ONE MOVE's daily feed), the VIP-50 roster, commitments and goals.
   const [weekScore, setWeekScore] = useState<{ score: number; minimum: number } | null>(null);
   // The Habits ring: the Daily Tracker's "habits" boxes (same feed), ticked from the Brain like any box.
@@ -342,8 +344,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const goalKey = JSON.stringify(goalsFromGraph(graph.nodes));
   const goalNodes = useMemo(() => JSON.parse(goalKey) as ReturnType<typeof goalsFromGraph>, [goalKey]);
   const theReview = useMemo(
-    () => (weekScore || roster || commitments || goalNodes.length ? buildReview({ today: todayIn(), week: weekScore, roster, commitments, goals: goalNodes }) : null),
-    [weekScore, roster, commitments, goalNodes],
+    () => (weekScore || roster || commitments || goalNodes.length ? buildReview({ today: todayIn(), week: weekScore, roster, commitments, goals: goalNodes, wins: wins?.wins ?? null }) : null),
+    [weekScore, roster, commitments, goalNodes, wins],
   );
   useEffect(() => {
     reviewRef.current = theReview;
@@ -503,7 +505,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // Wins (§3t): every good thing in one place, from ONE MOVE; the example agent's in the demo. A win newer than the
   // agent's last look glows gold; the last look is kept in this browser only.
   const WINS_SEEN = "one.wins.seen";
-  const [wins, setWins] = useState<Wins | null>(null);
   const [winsOpen, setWinsOpen] = useState(false);
   const [winsSeen, setWinsSeen] = useState<string | null>(null);
   useEffect(() => {

@@ -92,3 +92,19 @@ test("nap, rest and break are personal time", () => {
   assert.equal(titleHue("Rest"), "personal");
   assert.equal(titleHue("Coffee break"), "meal");
 });
+
+test("wins (PULSE-ROADMAP #8): this week's wins sit next to the score, never pulse; absent when ONE MOVE has not answered", () => {
+  const w = (kind: "closing" | "referral" | "five_star", at: string, title: string) => ({ kind, at, title, detail: null, contactId: null, amount: null });
+  const r = review({
+    today: "2026-10-09",
+    week: { score: 104, minimum: 100 },
+    roster: null,
+    commitments: null,
+    goals: [],
+    wins: [w("closing", "2026-10-07", "1482 Maple Ridge closed"), w("referral", "2026-10-06", "Jane sent Tom"), w("referral", "2026-10-01", "Last week")],
+  });
+  const c = r.cards.find((x) => x.key === "wins")!;
+  assert.deepEqual([r.cards[0].key, r.cards[1].key], ["score", "wins"]);
+  assert.deepEqual([c.big, c.line, c.level], ["2", "1 closing, 1 referral", null]);
+  assert.equal(review({ today: "2026-10-09", week: null, roster: null, commitments: null, goals: [] }).cards.some((x) => x.key === "wins"), false);
+});
