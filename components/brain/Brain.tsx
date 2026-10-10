@@ -47,6 +47,7 @@ import WinsView from "./WinsView.tsx";
 import EnergyView from "./EnergyView.tsx";
 import LifeEventsView from "./LifeEventsView.tsx";
 import MarketPulseView from "./MarketPulseView.tsx";
+import MoveLikelyView from "./MoveLikelyView.tsx";
 import DealsView, { type SetStatus as DealSetStatus } from "./DealsView.tsx";
 import TimeOffView from "./TimeOffView.tsx";
 import TeamView from "./TeamView.tsx";
@@ -66,6 +67,7 @@ import { TEAM_NODE, demoTeam, readTeam, teamUrl, withTeamNode, type Scope as Tea
 import { TIME_OFF_NODE, demoTimeOff, readTimeOff, saveBody as timeOffBody, timeOffUrl, withTimeOffNode, type TimeOffState } from "@/lib/timeOff.ts";
 import { DAY_FILM_KEY } from "@/lib/dayFilm.ts";
 import { demoPulseReport, pulseReportUrl, readPulseReport, type PulseReport } from "@/lib/pulseReport.ts";
+import { LIKELY_NODE, demoMoveLikely, moveLikelyUrl, notUsefulUrl, readMoveLikely, withMoveLikelyNode, withoutPerson, type MoveLikely, type Person as LikelyPerson } from "@/lib/moveLikely.ts";
 import { MARKET_NODE, demoMarketPulse, marketPulseUrl, marketSendUrl, readMarketPulse, sendBody as marketSendBody, withMarketPulseNode, withSent as withMarketSent, type MarketPulse, type Vip as MarketVip } from "@/lib/marketPulse.ts";
 import { DEALS_NODE, dealUrl, dealsUrl, demoDeals, readClosingAsk, readDeals, statusBody as dealStatusBody, withDealsNode, withStatus as withDealStatus, type Deal } from "@/lib/deals.ts";
 import { LIFE_NODE, applyKeep, demoRadar, keepBody as lifeKeepBody, keepUrl as lifeKeepUrl, lifeEventsUrl, readRadar, withLifeEventsNode, type Found as LifeFound, type Radar } from "@/lib/lifeEvents.ts";
@@ -130,6 +132,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const lifeRef = useRef<Radar | null>(null);
   const dealsRef = useRef<Deal[] | null>(null);
   const marketRef = useRef<MarketPulse | null>(null);
+  const likelyRef = useRef<MoveLikely | null>(null);
   const timeOffRef = useRef<TimeOffState | null>(null);
   const teamRef = useRef<Team | null>(null);
   const rcRef = useRef(false);
@@ -146,7 +149,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withMoveCoach(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), admin);
+    const next = withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -599,6 +602,33 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         if (!ok) return false;
       }
       setLife((r) => (r ? applyKeep(r, f.contactId, f.event, state) : r));
+      return true;
+    },
+    [live],
+  );
+  // Likely to move (§3ab): from ONE MOVE once it answers (404 until then: no orb), the example agent's past clients in the demo.
+  const [likely, setLikely] = useState<MoveLikely | null>(null);
+  const [likelyOpen, setLikelyOpen] = useState(false);
+  useEffect(() => {
+    if (!live) return setLikely(demoMoveLikely());
+    fetch(moveLikelyUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setLikely(j ? readMoveLikely(j) : null))
+      .catch(() => {});
+  }, [live]);
+  useEffect(() => {
+    likelyRef.current = likely;
+    setGraph((g) => withMoveLikelyNode(g, likely));
+  }, [likely]);
+  const likelyNotUseful = useCallback(
+    async (p: LikelyPerson): Promise<boolean> => {
+      if (live) {
+        const ok = await fetch(notUsefulUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contact_id: p.contactId }) })
+          .then((r) => r.ok)
+          .catch(() => false);
+        if (!ok) return false;
+      }
+      setLikely((m) => (m ? withoutPerson(m, p.contactId) : m));
       return true;
     },
     [live],
@@ -1510,6 +1540,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === LIFE_NODE) return setLifeOpen(true);
     if (id === DEALS_NODE) return setDealsOpen(true);
     if (id === MARKET_NODE) return setMarketOpen(true);
+    if (id === LIKELY_NODE) return setLikelyOpen(true);
     if (id === TIME_OFF_NODE) return setTimeOffOpen(true);
     if (id === TEAM_NODE) return setTeamOpen(true);
     if (id === REVIEW_CALLS_NODE) return setRcOpen(true);
@@ -2171,6 +2202,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               </span>
             </button>
           )}
+          {focus.id === LIKELY_NODE && likely && !tour && (
+            <button className="pi-film pm-open" onClick={() => setLikelyOpen(true)}>
+              <span className="pi-play" aria-hidden="true">⌂</span>
+              <span>
+                <b>Open likely to move</b>
+                <span>Past clients whose homes suggest a move may be coming, with the reasons and a check-in.</span>
+              </span>
+            </button>
+          )}
           {focus.id === MARKET_NODE && market && !tour && (
             <button className="pi-film pm-open" onClick={() => setMarketOpen(true)}>
               <span className="pi-play" aria-hidden="true">∿</span>
@@ -2609,6 +2649,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       {rcOpen && rcAgents ? <ReviewCallsView agents={rcAgents} demo={!live} onClose={() => setRcOpen(false)} onSearch={loadRcAgents} /> : null}
       {teamOpen && team ? <TeamView team={team} demo={!live} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} /> : null}
       {timeOffOpen && timeOff ? <TimeOffView data={timeOff} demo={!live} onSave={saveTimeOff} onCancel={cancelTimeOff} onClose={() => setTimeOffOpen(false)} /> : null}
+      {likelyOpen && likely ? <MoveLikelyView data={likely} demo={!live} onNotUseful={likelyNotUseful} onClose={() => setLikelyOpen(false)} /> : null}
       {marketOpen && market ? <MarketPulseView data={market} demo={!live} onSend={sendMarket} onClose={() => setMarketOpen(false)} /> : null}
       {dealsOpen && deals ? <DealsView deals={deals} today={todayIn()} demo={!live} onStatus={setDealStatus} onClose={() => setDealsOpen(false)} /> : null}
       {lifeOpen && life ? <LifeEventsView data={life} demo={!live} onKeep={keepLife} onClose={() => setLifeOpen(false)} /> : null}
