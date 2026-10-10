@@ -1936,3 +1936,11 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 /* Team pace in the Coach view (PULSE-ROADMAP #18) */
 .tp { margin: 6px 0 12px; }
 .tp-help { color: var(--gold-2); }
+/* Life story on the contact card (PULSE-ROADMAP #17) */
+.pc-story-filter { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.pc-story-p.p-move { color: #3fbf7f; }
+.pc-story-p.p-go { color: #f5c542; }
+.pc-story-p.p-open { color: #ff7a6b; }
+.pc-story-p.p-showly { color: #b48cff; }
+.pc-story-p.p-marquee { color: #7fa6ff; }
+.pc-story-p.p-web { color: #a9b0bd; }
