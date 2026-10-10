@@ -62,6 +62,7 @@ import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
 import { REVIEW_CALLS_NODE, agentsUrl, demoAgents, readAgents, withReviewCallsNode, type ReviewAgent } from "@/lib/reviewCalls.ts";
 import { TEAM_NODE, demoTeam, readTeam, teamUrl, withTeamNode, type Scope as TeamScope, type Team } from "@/lib/team.ts";
 import { TIME_OFF_NODE, demoTimeOff, readTimeOff, saveBody as timeOffBody, timeOffUrl, withTimeOffNode, type TimeOffState } from "@/lib/timeOff.ts";
+import { demoPulseReport, pulseReportUrl, readPulseReport, type PulseReport } from "@/lib/pulseReport.ts";
 import { LIFE_NODE, applyKeep, demoRadar, keepBody as lifeKeepBody, keepUrl as lifeKeepUrl, lifeEventsUrl, readRadar, withLifeEventsNode, type Found as LifeFound, type Radar } from "@/lib/lifeEvents.ts";
 import { ENERGY_NODE, applyCheck, demoEnergy, energyUrl, readEnergy, saveBody as energyBody, saveEnergyUrl, withEnergyNode, type Energy, type Level as EnergyLevel } from "@/lib/energy.ts";
 import { WINS_NODE, demoWins, newSince, readWins, winsUrl, withWinsNode, type Wins } from "@/lib/wins.ts";
@@ -316,6 +317,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     coachRef.current = coached;
     setGraph((g) => withCoachNode(g, coached, denverHour()));
   }, [coached]);
+  // "Pulse did this" (LEADS §6.1): the week's report for the Weekly Review; the example agent's in the demo.
+  const [pulseReport, setPulseReport] = useState<PulseReport | null>(null);
+  useEffect(() => {
+    if (!live) return setPulseReport(demoPulseReport(todayIn()));
+    fetch(pulseReportUrl(), { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setPulseReport(j ? readPulseReport(j) : null))
+      .catch(() => {});
+  }, [live]);
   // Wins (§3t), read below; declared here because the Weekly Review shows this week's.
   const [wins, setWins] = useState<Wins | null>(null);
   // Weekly Review: the week's score (ONE MOVE's daily feed), the VIP-50 roster, commitments and goals.
@@ -344,8 +354,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const goalKey = JSON.stringify(goalsFromGraph(graph.nodes));
   const goalNodes = useMemo(() => JSON.parse(goalKey) as ReturnType<typeof goalsFromGraph>, [goalKey]);
   const theReview = useMemo(
-    () => (weekScore || roster || commitments || goalNodes.length ? buildReview({ today: todayIn(), week: weekScore, roster, commitments, goals: goalNodes, wins: wins?.wins ?? null }) : null),
-    [weekScore, roster, commitments, goalNodes, wins],
+    () => (weekScore || roster || commitments || goalNodes.length ? buildReview({ today: todayIn(), week: weekScore, roster, commitments, goals: goalNodes, wins: wins?.wins ?? null, pulse: pulseReport }) : null),
+    [weekScore, roster, commitments, goalNodes, wins, pulseReport],
   );
   useEffect(() => {
     reviewRef.current = theReview;
