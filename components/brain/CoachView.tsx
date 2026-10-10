@@ -1,5 +1,7 @@
 "use client";
 
+import { mateOf, paceOf, teamPace } from "@/lib/teamPace.ts";
+import type { Team } from "@/lib/team.ts";
 import { useEffect, useRef, useState } from "react";
 import PulseRing, { PULSE_COLOR } from "./PulseRing.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
@@ -49,7 +51,7 @@ function ItemRow({ i }: { i: Item }) {
   );
 }
 
-export default function CoachView({ agents, hour, demo, onClose, onPulse }: { agents: Coached[]; hour: number; demo: boolean; onClose: () => void; onPulse?: (a: Coached) => Promise<string | null> }) {
+export default function CoachView({ agents, hour, demo, onClose, onPulse, squad }: { agents: Coached[]; hour: number; demo: boolean; onClose: () => void; onPulse?: (a: Coached) => Promise<string | null>; squad?: Team | null }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
@@ -189,6 +191,17 @@ export default function CoachView({ agents, hour, demo, onClose, onPulse }: { ag
                 Keeps {pct(sel.c.keepRate8w)} of commitments over 8 weeks{sel.c.streak ? ` · ${sel.c.streak}-week streak` : ""}.
                 {lastWeekShare(sel) != null ? ` Last week: ${sel.c.lastWeek!.kept} kept, ${sel.c.lastWeek!.partly} partly, ${sel.c.lastWeek!.missed} missed.` : ""}
               </p>
+              {(() => {
+                const m = mateOf(squad ?? null, sel.id);
+                if (!m || !squad) return null;
+                const p = paceOf(m, squad.minimum);
+                return (
+                  <p className="d-sum">
+                    <b>Pace:</b> {p.line}
+                    {p.help ? <span className="tp-help"> · {p.help}</span> : null}
+                  </p>
+                );
+              })()}
               <h2>This week</h2>
               {sel.c.week?.items.length ? (
                 <ul className="pm-list pm-compact">{sel.c.week.items.map((i) => <ItemRow key={i.id} i={i} />)}</ul>
@@ -218,6 +231,39 @@ export default function CoachView({ agents, hour, demo, onClose, onPulse }: { ag
                 {n} {n === 1 ? "agent" : "agents"} · team keep rate {pct(team)}
               </p>
               <p className="d-sum">The ones who need a word from you come first. Their gold ring is how many commitments they keep.</p>
+              {squad
+                ? (() => {
+                    const tp = teamPace(squad, new Set(agents.map((a) => a.id)));
+                    return (
+                      <section className="tp" aria-label="Team pace">
+                        <h2>Team pace</h2>
+                        <p className="d-sum">
+                          {tp.average != null ? `Average ${tp.average} this week; ${tp.atMinimum} of ${tp.counted} at ${squad.minimum} so far.` : "No scores this week yet."} Scores only, never anyone&apos;s notes or contacts.
+                        </p>
+                        {tp.help.length ? (
+                          <ul className="pm-list pm-compact">
+                            {tp.help.map(({ mate, words }) => (
+                              <li key={mate.id}>
+                                <i className="pm-dot" style={{ background: PULSE_COLOR.today }} aria-hidden="true" />
+                                <span className="pm-body">
+                                  <b>{mate.name}</b>
+                                  <small>{words}</small>
+                                </span>
+                                {agents.some((a) => a.id === mate.id) ? (
+                                  <span className="pm-acts">
+                                    <button onClick={() => open(mate.id)} aria-label={`Open ${mate.name}`}>→</button>
+                                  </span>
+                                ) : null}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="pm-empty">No one is behind on pace.</p>
+                        )}
+                      </section>
+                    );
+                  })()
+                : null}
               <ul className="pm-list pm-compact">
                 {order.map((a) => {
                   const at = attention(a, hour);

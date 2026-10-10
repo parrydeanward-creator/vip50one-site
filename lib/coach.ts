@@ -111,9 +111,9 @@ export function demoCoached(today: string): Coached[] {
   const item = (id: string, text: string, kind: Kind, target: number | null, count: number | null): Item => ({ id, text, kind, target, count, result: null, note: null });
   const week = (id: string, items: Item[]) => ({ id, starts: today, setAt: `${today}T14:00:00Z`, checkedAt: null, items });
   return [
-    { id: "d1", name: "Marcus Lee", c: base({ due: "set_week", keepRate8w: 0.45, streak: 0, lastWeek: { kept: 1, partly: 1, missed: 3 } }) },
-    { id: "d2", name: "Jen Alvarez", c: base({ week: week("w2", [item("a", "Call 15 VIPs", "call", 15, 11), item("b", "Two coffees", "face_to_face", 2, 2), item("c", "Finish my listing presentation", "yes_no", null, null)]), keepRate8w: 0.83, streak: 6, lastWeek: { kept: 4, partly: 1, missed: 0 } }) },
-    { id: "d3", name: "Dave Kim", c: base({ week: week("w3", [item("a", "Three handwritten notes", "handwritten_note", 3, 1), item("b", "Call 10 VIPs", "call", 10, 2)]), keepRate8w: 0.6, streak: 1, lastWeek: { kept: 2, partly: 1, missed: 2 } }) },
-    { id: "d4", name: "Amy Chen", c: base({ week: week("w4", [item("a", "Book my open house", "yes_no", null, null), item("b", "Five video texts", "video_text", 5, 5)]), keepRate8w: 0.92, streak: 9, lastWeek: { kept: 5, partly: 0, missed: 0 } }) },
+    { id: "t2", name: "Marcus Lee", c: base({ due: "set_week", keepRate8w: 0.45, streak: 0, lastWeek: { kept: 1, partly: 1, missed: 3 } }) },
+    { id: "t1", name: "Jen Alvarez", c: base({ week: week("w2", [item("a", "Call 15 VIPs", "call", 15, 11), item("b", "Two coffees", "face_to_face", 2, 2), item("c", "Finish my listing presentation", "yes_no", null, null)]), keepRate8w: 0.83, streak: 6, lastWeek: { kept: 4, partly: 1, missed: 0 } }) },
+    { id: "t4", name: "Dave Kim", c: base({ week: week("w3", [item("a", "Three handwritten notes", "handwritten_note", 3, 1), item("b", "Call 10 VIPs", "call", 10, 2)]), keepRate8w: 0.6, streak: 1, lastWeek: { kept: 2, partly: 1, missed: 2 } }) },
+    { id: "t5", name: "Amy Chen", c: base({ week: week("w4", [item("a", "Book my open house", "yes_no", null, null), item("b", "Five video texts", "video_text", 5, 5)]), keepRate8w: 0.92, streak: 9, lastWeek: { kept: 5, partly: 0, missed: 0 } }) },
   ];
 }

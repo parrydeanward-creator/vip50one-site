@@ -1933,3 +1933,6 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 .ag-list li .pm-body { flex: 1; min-width: 0; }
 .ag-list li small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ag-list li.done { opacity: 0.55; }
+/* Team pace in the Coach view (PULSE-ROADMAP #18) */
+.tp { margin: 6px 0 12px; }
+.tp-help { color: var(--gold-2); }
