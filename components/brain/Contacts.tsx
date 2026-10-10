@@ -1,5 +1,6 @@
 "use client";
 
+import { STORY_LABEL, filterStory, productsIn, storyProduct, type StoryProduct } from "@/lib/lifeStory.ts";
 import AskGroupSection from "./AskGroupSection.tsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { dialable, mailable } from "@/lib/contact.ts";
@@ -78,6 +79,7 @@ export default function Contacts({
   const [focusFld, setFocusFld] = useState<string | null>(null);
   const [edit, setEdit] = useState<{ key: string; text: string } | null>(null);
   const [timeline, setTimeline] = useState<Timeline | null>(null);
+  const [storyOnly, setStoryOnly] = useState<StoryProduct | null>(null);
   const [adding, setAdding] = useState<{ first_name: string; last_name: string; phone: string; email: string; tier: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -130,6 +132,7 @@ export default function Contacts({
     setEdit(null);
     setAdding(null);
     setTimeline(null);
+    setStoryOnly(null);
     const r = await getJson(personUrl(id));
     setOpening(null);
     const p = r?.status === 200 ? readPerson(r.body) : null;
@@ -748,16 +751,26 @@ export default function Contacts({
                 aria-expanded={!!timeline}
                 onClick={() => (timeline ? setTimeline(null) : loadTimeline())}
               >
-                <span style={{ color: "#c8d0e6" }}>History</span>
+                <span style={{ color: "#c8d0e6" }}>Life story</span>
                 <small>{person.timelineCount ? `${person.timelineCount} things` : "nothing yet"}</small>
               </button>
+              {timeline && productsIn(timeline.events).length > 1 && (
+                <div className="pc-story-filter" role="group" aria-label="Show the story from">
+                  <button className={`chip-btn${storyOnly ? "" : " primary"}`} aria-pressed={!storyOnly} onClick={() => setStoryOnly(null)}>All</button>
+                  {productsIn(timeline.events).map(({ product, count }) => (
+                    <button key={product} className={`chip-btn${storyOnly === product ? " primary" : ""}`} aria-pressed={storyOnly === product} onClick={() => setStoryOnly(storyOnly === product ? null : product)}>
+                      {STORY_LABEL[product]} · {count}
+                    </button>
+                  ))}
+                </div>
+              )}
               {timeline && (
                 <ul className="pc-time">
-                  {timeline.events.map((e, i) => (
+                  {filterStory(timeline.events, storyOnly).map((e, i) => (
                     <li key={`${e.at}-${i}`}>
                       <time>{e.at.slice(0, 10)}</time>
                       <span>{e.title}</span>
-                      {e.detail && <small>{e.detail}</small>}
+                      <small className={`pc-story-p p-${storyProduct(e)}`}>{STORY_LABEL[storyProduct(e)]}{e.detail ? ` · ${e.detail}` : ""}</small>
                     </li>
                   ))}
                   {timeline.events.length === 0 && <li><span>Nothing recorded yet.</span></li>}
