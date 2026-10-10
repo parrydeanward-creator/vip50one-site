@@ -1926,3 +1926,10 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 .pf-confirm { display: grid; gap: 6px; padding: 12px; margin-bottom: 12px; border: 1px solid var(--gold-2); border-radius: 12px; background: rgba(245, 197, 66, 0.06); }
 .pf-confirm p { margin: 0; }
 .pf-confirm small { color: var(--text-3); }
+/* Ask a group for permission (LEADS §2.3a) */
+.ag { display: grid; gap: 8px; margin: 10px 0 14px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+.ag-groups { display: flex; flex-wrap: wrap; gap: 6px; }
+.ag-list li { display: flex; gap: 8px; align-items: center; }
+.ag-list li .pm-body { flex: 1; min-width: 0; }
+.ag-list li small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-list li.done { opacity: 0.55; }

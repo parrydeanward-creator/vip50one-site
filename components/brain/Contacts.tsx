@@ -1,5 +1,6 @@
 "use client";
 
+import AskGroupSection from "./AskGroupSection.tsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { dialable, mailable } from "@/lib/contact.ts";
 import { editText, editValue, gapsIn, groupColor, listUrl, peopleUrl, personTag, personUrl, readGroups, readPage, readPerson, readTimeline, sectionColor, showValue, timelineUrl, type Field, type Groups, type Person, type PersonItem, type Section, type Timeline } from "@/lib/people.ts";
@@ -777,6 +778,7 @@ export default function Contacts({
             <div className="ta-log">
               <button className="chip-btn primary" onClick={() => setAdding({ first_name: "", last_name: "", phone: "", email: "", tier: "contact" })}>+ Add a person</button>
             </div>
+            {!group && <AskGroupSection />}
             {!group && (groups.gaps.vipNoBirthday > 0 || groups.gaps.toSort > 0 || groups.gaps.possibleDuplicates > 0) && (
               <div className="pc-gaps">
                 {groups.gaps.vipNoBirthday > 0 && <button className="chip-btn" onClick={() => openGroup("vip50")}>{`${groups.gaps.vipNoBirthday} VIPs with no birthday`}</button>}
