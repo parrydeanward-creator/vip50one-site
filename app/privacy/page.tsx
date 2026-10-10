@@ -119,6 +119,7 @@ export default function Privacy() {
         <span>© VIP-50 LLC</span>
         <a href="/">Home</a>
         <a href="/terms">Terms</a>
+        <a href="/accessibility">Accessibility</a>
         <a href="/login">Sign in</a>
       </footer>
     </div>
