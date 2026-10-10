@@ -225,6 +225,7 @@ export default function Home() {
         <a href="/login">Sign in</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
+        <a href="/accessibility">Accessibility</a>
         <span>Screens show an example agent; people, businesses and addresses are invented.</span>
       </footer>
     </div>

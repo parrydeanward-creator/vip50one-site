@@ -7,7 +7,7 @@
   --line: rgba(169, 176, 189, 0.14);
   --text: #ffffff;
   --text-2: #a9b0bd;
-  --text-3: #6f7890;
+  --text-3: #8089a2; /* 4.5:1 on the darkest panels (WCAG 2.1 AA; was #6f7890, 4.3:1) */
   --gold: #d4af37;
   --gold-2: #f5c542;
   color-scheme: dark;
@@ -928,7 +928,7 @@ a.link { display: block; text-decoration: none; }
 .sp-story blockquote { margin: 0; font-size: 17px; line-height: 1.6; color: var(--text); }
 .sp-story figcaption { display: flex; flex-direction: column; gap: 2px; }
 .sp-story figcaption span { color: var(--text-2); font-size: 14px; }
-.sp-story figcaption small { color: var(--text-3); font-size: 12.5px; margin-top: 4px; }
+.sp-story figcaption small { color: var(--text-2); font-size: 12.5px; margin-top: 4px; }
 
 .sp-pack-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 40px; align-items: stretch; }
 .sp-pack { position: relative; display: flex; flex-direction: column; padding: 30px 26px; border-radius: 20px; background: var(--panel); border: 1px solid var(--line); }
@@ -979,7 +979,7 @@ a.link { display: block; text-decoration: none; }
 .sp-story figcaption { flex-direction: row !important; align-items: center; gap: 12px !important; margin-top: auto; }
 .sp-who { display: flex; flex-direction: column; gap: 2px; }
 .sp-who span { color: var(--text-2); font-size: 14px; }
-.sp-who small { color: var(--text-3); font-size: 12.5px; margin-top: 2px; }
+.sp-who small { color: var(--text-2); font-size: 12.5px; margin-top: 2px; }
 .sp-face { flex: none; width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(212, 175, 55, 0.5); }
 .sp-initials { display: grid; place-items: center; font-weight: 800; color: var(--gold); background: rgba(212, 175, 55, 0.08); }
 .sp-founders h2 { font-size: clamp(40px, 5vw, 64px); margin-bottom: 28px; }
