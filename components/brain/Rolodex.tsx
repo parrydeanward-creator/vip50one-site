@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { askCommunity, askExamples, type AskAnswer } from "@/lib/rolodexAsk.ts";
 import { dialable, mailable } from "@/lib/contact.ts";
 import { DRAFT_FIELDS, FAMILIES, FAMILY_COLOR, FAN_MAX, bizInitials, draftOf, draftProblem, familyLabel, fanOrder, groupSeats, placedLine, readRolodex, recommendedLine, rolodexUrl, saveBody, withShared, type CommunityBiz, type Draft, type FamilyKey, type MineBiz, type Rolodex as RolodexData } from "@/lib/rolodex.ts";
 import { ringRows } from "@/lib/vips.ts";
@@ -52,6 +53,8 @@ export default function Rolodex({
   const [edit, setEdit] = useState<{ was: MineBiz | null; draft: Draft } | null>(null);
   const [confirmDel, setConfirmDel] = useState(false);
   const [q, setQ] = useState("");
+  const [askQ, setAskQ] = useState("");
+  const [answer, setAnswer] = useState<AskAnswer | null>(null);
   const [classicOnly, setClassicOnly] = useState(false);
   const cam = useSvgCamera(SIZE);
 
@@ -531,6 +534,36 @@ export default function Rolodex({
                   ? `${data.mine.length} businesses · ${data.mine.filter((b) => b.shared).length} shared with the community`
                   : `${data.community.length} businesses VIP-50 agents recommend${data.myCity ? `, ${data.myCity} first` : ""}`}
             </p>
+            {view === "community" && !group && data.community.length > 0 && (
+              <form
+                className="rx-ask"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setAnswer(askQ.trim() ? askCommunity(askQ, data.community, data.myCity) : null);
+                }}
+              >
+                <label htmlFor="rx-ask-q">Ask Pulse who agents trust</label>
+                <div className="rx-ask-row">
+                  <input id="rx-ask-q" type="search" placeholder={`e.g. ${askExamples(data.community, data.myCity)[0] ?? "roofer in Draper"}`} value={askQ} maxLength={120} onChange={(e) => { setAskQ(e.target.value); if (!e.target.value.trim()) setAnswer(null); }} />
+                  <button className="chip-btn primary" type="submit">Ask</button>
+                </div>
+                {answer && (
+                  <div aria-live="polite">
+                    <p className="d-sum"><b>Pulse:</b> {answer.line}</p>
+                    {answer.hits.length > 0 && (
+                      <ul className="ta-list">
+                        {answer.hits.map((h) => (
+                          <li key={h.biz.key}>
+                            <button className="ta-name" onClick={() => setPick(h.biz.key)}>{h.biz.name}</button>
+                            <span>{[h.biz.city, h.trust > 1 ? `${h.trust} agents` : null, h.biz.in_mine ? "in yours" : null].filter(Boolean).join(" · ")}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </form>
+            )}
             {view === "mine" && !group && (
               <div className="ta-log">
                 <button className="chip-btn primary" onClick={() => startEdit(null)}>+ Add a business</button>

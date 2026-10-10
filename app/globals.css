@@ -1367,6 +1367,11 @@ a.link { display: block; text-decoration: none; }
 .rx-h:hover { text-decoration: underline; }
 .rx-search { width: 100%; margin: 12px 0 4px; font: inherit; font-size: 14px; color: var(--text); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; }
 .rx-search:focus { outline: none; border-color: var(--gold); }
+.rx-ask { margin: 14px 0 6px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(245, 197, 66, 0.04); }
+.rx-ask label { display: block; font-size: 13px; color: var(--gold); margin-bottom: 8px; }
+.rx-ask-row { display: flex; gap: 8px; }
+.rx-ask-row input { flex: 1; min-width: 0; font: inherit; font-size: 14px; color: var(--text); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; }
+.rx-ask-row input:focus { outline: none; border-color: var(--gold); }
 .rx-form { display: flex; flex-direction: column; gap: 12px; }
 .rx-move { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
 .rx-move select { font: inherit; font-size: 13px; color: var(--text); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; }
