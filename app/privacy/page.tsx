@@ -49,7 +49,7 @@ export default function Privacy() {
           sending for that plan yourself.
         </p>
 
-        <h2>Google</h2>
+        <h2 id="google">Google</h2>
         <p>If you choose to connect your Google account, ONE asks Google for read-only access to your Google Contacts. We use it for one thing: to match the people in your
           Google Contacts with your contacts in ONE and copy their photos across, so you see faces instead of initials.</p>
         <ul>

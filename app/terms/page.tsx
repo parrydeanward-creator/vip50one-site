@@ -8,7 +8,7 @@ export const metadata = {
 };
 
 const CONTACT_EMAIL = "info@VIP-50.com"; // Parry, 4 Oct
-const UPDATED = "4 October 2026";
+const UPDATED = "10 October 2026";
 
 export default function Terms() {
   return (
@@ -70,6 +70,14 @@ export default function Terms() {
         <p>
           Your contacts, notes, listings and everything else you put into ONE are yours. You give us permission to store and process them only to run ONE for you, as the{" "}
           <a href="/privacy">privacy page</a> explains. You are responsible for having the right to keep and contact the people in your book.
+        </p>
+
+        <h2>Google</h2>
+        <p>
+          If you connect Google Contacts or Google Calendar, ONE uses them only as described on the{" "}
+          <a href="/privacy#google">privacy page, under Google</a>, and follows the{" "}
+          <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a>, including the
+          Limited Use requirements. You can disconnect either at any time in My Profile.
         </p>
 
         <h2>What ONE sends for you</h2>
