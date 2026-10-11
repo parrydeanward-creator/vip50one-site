@@ -606,6 +606,23 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     },
     [live],
   );
+  // Edit my website (ENTITLEMENT §6a): shown only when MASTER knows the agent's site; a one-time ticket on press.
+  const [siteHost, setSiteHost] = useState<string | null>(null);
+  const [siteNote, setSiteNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (!live) return;
+    fetch("/api/site", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setSiteHost(typeof j?.site_host === "string" ? j.site_host : null))
+      .catch(() => {});
+  }, [live]);
+  const editSite = useCallback(async () => {
+    setSiteNote(null);
+    const r = await fetch("/api/site", { method: "POST", cache: "no-store" }).catch(() => null);
+    const j = r ? await r.json().catch(() => null) : null;
+    if (r?.ok && typeof j?.url === "string") return window.location.assign(j.url);
+    setSiteNote(typeof j?.error === "string" ? j.error : "Your website could not be opened just now. Please try again.");
+  }, []);
   // Likely to move (§3ab): from ONE MOVE once it answers (404 until then: no orb), the example agent's past clients in the demo.
   const [likely, setLikely] = useState<MoveLikely | null>(null);
   const [likelyOpen, setLikelyOpen] = useState(false);
@@ -1700,12 +1717,23 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             <button type="button" className="me me-btn" onClick={() => goTo(movePageId("/profile"))} title="My Profile" aria-label={`My Profile, ${agent.label}`}>
               {agent.photo ? <img className="me-pic" src={agent.photo} alt="" /> : agent.initials}
             </button>
+            {siteHost && (
+              <button type="button" className="signout" onClick={() => void editSite()} title={`Edit ${siteHost}`}>
+                Edit my website
+              </button>
+            )}
             <button className="signout" type="submit">Sign out</button>
           </form>
         ) : (
           <span className="me" aria-label={agent.label}>{agent.initials}</span>
         )}
       </header>
+      {siteNote && (
+        <div className="vr-bar pop" role="status">
+          <span>{siteNote}</span>
+          <button className="chip-btn" onClick={() => setSiteNote(null)}>OK</button>
+        </div>
+      )}
 
       <div className="stage">
         <section className="canvas-wrap" aria-label="ONE Brain map">
