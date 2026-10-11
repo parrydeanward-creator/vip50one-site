@@ -11,8 +11,8 @@ export const moveLikelyUrl = `${MOVE_URL}/api/brain/move-likely`;
 export const notUsefulUrl = `${MOVE_URL}/api/brain/move-likely/not-useful`;
 
 export type Level = "high" | "medium" | "low";
-export interface Person { contactId: string; name: string; level: Level | null; label: string; reasons: string[]; youNoted: { event: string; at: string }[] }
-export interface MoveLikely { ready: boolean; updatedAt: string | null; people: Person[]; lowCount: number; missingHome: { contactId: string; name: string }[] }
+export interface Person { contactId: string; name: string; level: Level | null; label: string; reasons: string[]; youNoted: { event: string; words: string | null; at: string }[] }
+export interface MoveLikely { ready: boolean; notLinked: boolean; updatedAt: string | null; people: Person[]; lowCount: number; missingHome: { contactId: string; name: string }[] }
 
 const str = (v: unknown, max = 200): string | null => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
 const LEVELS: Level[] = ["high", "medium", "low"];
@@ -36,7 +36,7 @@ export function readMoveLikely(raw: unknown): MoveLikely | null {
           if (!x || typeof x !== "object") return [];
           const e = str((x as Record<string, unknown>).event, 40);
           const at = str((x as Record<string, unknown>).at, 40);
-          return e && at ? [{ event: e, at }] : [];
+          return e && at ? [{ event: e, words: str((x as Record<string, unknown>).words, 60), at }] : [];
         })
       : [];
     return [{ contactId, name, level, label: str(o.label, 30) ?? "Suggested", reasons, youNoted }];
@@ -50,15 +50,21 @@ export function readMoveLikely(raw: unknown): MoveLikely | null {
       })
     : [];
   const low = typeof r.low_count === "number" && Number.isFinite(r.low_count) ? Math.max(0, Math.round(r.low_count)) : 0;
-  return { ready: r.ready === true, updatedAt: str(r.updated_at, 40), people, lowCount: low, missingHome };
+  return { ready: r.ready === true, notLinked: r.not_linked === true, updatedAt: str(r.updated_at, 40), people, lowCount: low, missingHome };
 }
 
 /** "High", "Medium", "Low", or "No MLS history yet" when ONE Property has no record of the house. */
 export const levelWord = (l: Level | null) => (l ? l[0].toUpperCase() + l.slice(1) : "No MLS history yet");
 
 const EVENT_WORD: Record<string, string> = { baby: "new baby", wedding: "wedding", new_job: "new job", retirement: "retiring", empty_nest: "kids left home", new_home: "new home", loss: "a loss", hard_time: "a hard time" };
-/** "you noted: new baby" from the agent's own notes (§3y); shown beside the level, never in it. */
-export const notedLine = (p: Person) => (p.youNoted.length ? `you noted: ${p.youNoted.map((n) => EVENT_WORD[n.event] ?? n.event.replace(/_/g, " ")).join(", ")}` : null);
+/** "you noted: new baby" from the agent's own notes (§3y); shown beside the level, never in it. ONE MOVE's words first. */
+export const notedLine = (p: Person) => (p.youNoted.length ? `you noted: ${p.youNoted.map((n) => n.words?.toLowerCase() ?? EVENT_WORD[n.event] ?? n.event.replace(/_/g, " ")).join(", ")}` : null);
+
+/** The level line: ONE MOVE sends the whole line ("High · Suggested"); an older answer sent only "Suggested". */
+export function levelLine(p: Person): string {
+  if (!p.level) return levelWord(null);
+  return p.label.toLowerCase().startsWith(p.level) ? p.label : `${levelWord(p.level)} · ${p.label}`;
+}
 
 /** The touch: a check-in, never a pitch. */
 export const touchLine = (p: Person) => `Check in with ${p.name.split(" ")[0]}: ask how the house is working for them now. No pitch.`;

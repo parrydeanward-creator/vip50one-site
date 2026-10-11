@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSvgCamera } from "./useSvgCamera.ts";
-import { levelWord, notedLine, touchLine, type Level, type MoveLikely, type Person } from "@/lib/moveLikely.ts";
+import { levelLine, levelWord, notedLine, touchLine, type Level, type MoveLikely, type Person } from "@/lib/moveLikely.ts";
 
 // Likely to move (VIP-SUMMARY §3ab). Past clients round a centre that counts the High ones. Tap one: it comes to the
 // middle (Parry, 6 Oct, the rule for every orb) with the level, ONE Property's reasons (property facts only, labelled
@@ -129,11 +129,13 @@ export default function MoveLikelyView({ data, demo, onNotUseful, onClose }: { d
             <span className="chip" style={{ color: "#3fbf7f", borderColor: "#3fbf7f" }}>ONE MOVE</span>
           </div>
           <h1 className="d-title" id="ml-title">{picked ? picked.name : "Likely to move"}</h1>
-          {!data.ready ? (
+          {data.notLinked ? (
+            <p className="d-sum">Confirm your MLS member id in My Profile, and ONE can look at your past clients&apos; homes.</p>
+          ) : !data.ready ? (
             <p className="d-sum">This starts when the MLS feed is live. Then, once a week, ONE looks at your past clients&apos; homes (how long they have owned, whether the home was listed, how fast the area turns over) and shows who may be getting ready to move.</p>
           ) : picked ? (
             <section className="cm-form">
-              <p className="d-sub">{levelWord(picked.level)}{picked.level ? ` · ${picked.label}` : ""}</p>
+              <p className="d-sub">{levelLine(picked)}</p>
               {picked.reasons.length > 0 && (
                 <ul className="pm-list pm-compact">
                   {picked.reasons.map((r) => (
