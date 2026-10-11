@@ -73,7 +73,7 @@ import { DEALS_NODE, dealUrl, dealsUrl, demoDeals, readClosingAsk, readDeals, st
 import { LIFE_NODE, applyKeep, demoRadar, keepBody as lifeKeepBody, keepUrl as lifeKeepUrl, lifeEventsUrl, readRadar, withLifeEventsNode, type Found as LifeFound, type Radar } from "@/lib/lifeEvents.ts";
 import { ENERGY_NODE, applyCheck, demoEnergy, energyUrl, readEnergy, saveBody as energyBody, saveEnergyUrl, withEnergyNode, type Energy, type Level as EnergyLevel } from "@/lib/energy.ts";
 import { WINS_NODE, demoWins, newSince, readWins, winsUrl, withWinsNode, type Wins } from "@/lib/wins.ts";
-import { PARTNERS_NODE, demoPartners, partnersActionUrl, partnersUrl, readPartners, withPartnersNode, type PartnersState } from "@/lib/partners.ts";
+import { PARTNERS_NODE, demoPartners, partnersActionUrl, partnersUrl, readPartners, unseenNudges, withAllSeen, withPartnersNode, type PartnersState } from "@/lib/partners.ts";
 import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, mondayOf, type HabitToday } from "@/lib/habits.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
 import { REFERRALS_NODE, applyThank, askUrl, demoReferrals, thankUrl, readReferrals, referralsUrl, withReferralsNode, type Referrals } from "@/lib/referrals.ts";
@@ -747,6 +747,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     partnersRef.current = partners;
     setGraph((g) => withPartnersNode(g, partners, todayIn()));
   }, [partners]);
+  // Opening Partners marks the nudges seen (§3s.4 v1.67), so the orb stops pulsing for them.
+  useEffect(() => {
+    if (!partnersOpen || !partners || !unseenNudges(partners)) return;
+    if (live) fetch(partnersActionUrl("seen"), { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
+    setPartners((s) => (s ? withAllSeen(s) : s));
+  }, [partnersOpen, partners, live]);
   const partnerAct = useCallback(
     async (a: { action: "respond" | "end" | "nudge"; pairId: string; accept?: boolean; kind?: string }): Promise<string | null> => {
       if (!live) {

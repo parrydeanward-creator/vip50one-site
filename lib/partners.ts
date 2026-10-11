@@ -7,7 +7,7 @@ import type { GraphEdge, GraphNode } from "./graph/types.ts";
 const MOVE_URL = "https://move.vip50one.com";
 export const PARTNERS_NODE = "go-partners";
 export const partnersUrl = `${MOVE_URL}/api/brain/partners`;
-export const partnersActionUrl = (a: "invite" | "respond" | "end" | "nudge") => `${MOVE_URL}/api/brain/partners/${a}`;
+export const partnersActionUrl = (a: "invite" | "respond" | "end" | "nudge" | "seen") => `${MOVE_URL}/api/brain/partners/${a}`;
 export const MAX_PARTNERS = 3;
 
 export const NUDGES = {
@@ -35,7 +35,7 @@ export interface PartnersState {
   partners: Partner[];
   invitesIn: { pairId: string; name: string }[];
   invitesOut: { pairId: string; name: string; expires: string | null }[];
-  nudges: { from: string; kind: NudgeKind; at: string }[];
+  nudges: { from: string; kind: NudgeKind; at: string; seen: boolean }[];
 }
 
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 60) : null);
@@ -70,7 +70,7 @@ export function readPartners(j: unknown): PartnersState | null {
     invitesIn: pairs(r.invites_in).flatMap((x) => (str(x?.pair_id) && str(x?.first_name) ? [{ pairId: str(x.pair_id)!, name: str(x.first_name)! }] : [])),
     invitesOut: pairs(r.invites_out).flatMap((x) => (str(x?.pair_id) && str(x?.first_name) ? [{ pairId: str(x.pair_id)!, name: str(x.first_name)!, expires: typeof x.expires_at === "string" ? x.expires_at.slice(0, 10) : null }] : [])),
     nudges: pairs(r.nudges)
-      .flatMap((x) => (str(x?.from_first_name) && isKind(x?.kind) && typeof x?.sent_at === "string" ? [{ from: str(x.from_first_name)!, kind: x.kind as NudgeKind, at: x.sent_at as string }] : []))
+      .flatMap((x) => (str(x?.from_first_name) && isKind(x?.kind) && typeof x?.sent_at === "string" ? [{ from: str(x.from_first_name)!, kind: x.kind as NudgeKind, at: x.sent_at as string, seen: typeof x.seen_at === "string" }] : []))
       .sort((a, b) => b.at.localeCompare(a.at))
       .slice(0, 10),
   };
@@ -79,10 +79,14 @@ export function readPartners(j: unknown): PartnersState | null {
 /** One nudge per partner per day (§3s.3). `today` is the agent's own date. */
 export const nudgedToday = (p: Partner, today: string) => !!p.lastNudgeFromMe && p.lastNudgeFromMe.slice(0, 10) === today;
 
-/** Something waiting on the agent: an invite to answer, or a nudge from today. */
+/** Something waiting on the agent: an invite to answer, or a nudge from today not yet seen. */
 export function waiting(s: PartnersState, today: string): number {
-  return s.invitesIn.length + s.nudges.filter((n) => n.at.slice(0, 10) === today).length;
+  return s.invitesIn.length + s.nudges.filter((n) => !n.seen && n.at.slice(0, 10) === today).length;
 }
+
+/** After the agent opens Partners (POST partners/seen, §3s.4 v1.67): every nudge seen, so the orb stops pulsing. */
+export const unseenNudges = (s: PartnersState) => s.nudges.filter((n) => !n.seen).length;
+export const withAllSeen = (s: PartnersState): PartnersState => ({ ...s, nudges: s.nudges.map((n) => ({ ...n, seen: true })) });
 
 export function partnerLine(p: Partner): string {
   if (p.score == null) return "No score yet this week";
@@ -121,6 +125,6 @@ export function demoPartners(today: string): PartnersState {
     ],
     invitesIn: [{ pairId: "p3", name: "Dave" }],
     invitesOut: [],
-    nudges: [{ from: "Jen", kind: "both_100", at: `${today}T14:10:00Z` }],
+    nudges: [{ from: "Jen", kind: "both_100", at: `${today}T14:10:00Z`, seen: false }],
   };
 }
