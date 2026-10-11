@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { LIKELY_NODE, demoMoveLikely, levelWord, notedLine, readMoveLikely, withMoveLikelyNode, withoutPerson } from "../lib/moveLikely.ts";
+import { LIKELY_NODE, levelLine, demoMoveLikely, levelWord, notedLine, readMoveLikely, withMoveLikelyNode, withoutPerson } from "../lib/moveLikely.ts";
 
 const g = { nodes: [{ id: "move", type: "product", label: "ONE MOVE", parentId: null, product: "move", importance: 1 }], edges: [] } as never;
 const node = (m: ReturnType<typeof demoMoveLikely> | null) => (withMoveLikelyNode(g, m) as { nodes: { id: string; status?: string; secondaryLabel?: string }[] }).nodes.find((n) => n.id === LIKELY_NODE);
@@ -33,4 +33,15 @@ test("the orb: a gold opportunity when someone is High, never a pulse; not ready
   assert.equal(node(null), undefined);
   const after = withoutPerson(withoutPerson(demoMoveLikely(), "r6"), "r9");
   assert.equal(node(after)!.status, undefined);
+});
+
+test("as built: the whole label line, ONE MOVE's words for notes, not_linked", () => {
+  const m = readMoveLikely({ ready: false, not_linked: true, people: [
+    { contact_id: "a", name: "Ann", level: "high", label: "High · Suggested", you_noted: [{ event: "baby", words: "New baby", at: "2026-10-01" }] },
+    { contact_id: "b", name: "Bo", level: "medium", label: "Suggested" },
+    { contact_id: "c", name: "Cy", level: null, label: "No MLS history yet" },
+  ] })!;
+  assert.equal(m.notLinked, true);
+  assert.deepEqual(m.people.map(levelLine), ["High · Suggested", "Medium · Suggested", "No MLS history yet"]);
+  assert.equal(notedLine(m.people[0]), "you noted: new baby");
 });
