@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
-import { MAX_PARTNERS, PARTNERS_NODE, demoPartners, nudgedToday, partnerLine, readPartners, waiting, withPartnersNode } from "../lib/partners.ts";
+import { MAX_PARTNERS, PARTNERS_NODE, demoPartners, nudgedToday, partnerLine, readPartners, waiting, withPartnersNode, unseenNudges, withAllSeen } from "../lib/partners.ts";
 
 const today = "2026-10-08";
 
@@ -42,6 +42,14 @@ test("lines, one nudge a day, and what is waiting", () => {
   assert.equal(nudgedToday({ ...s.partners[0], lastNudgeFromMe: "2026-10-07T23:00:00Z" }, today), false);
   assert.equal(waiting(s, today), 2); // Dave's invite and Jen's nudge today
   assert.equal(waiting(s, "2026-10-09"), 1);
+  assert.equal(waiting(withAllSeen(s), today), 1); // a seen nudge no longer waits (§3s.4 v1.67)
+  assert.equal(unseenNudges(withAllSeen(s)), 0);
+});
+
+test("seen_at from ONE MOVE marks a nudge seen", () => {
+  const s = readPartners({ partners: [], nudges: [{ from_first_name: "Jen", kind: "proud", sent_at: `${today}T10:00:00Z`, seen_at: `${today}T11:00:00Z` }, { from_first_name: "Jen", kind: "got_this", sent_at: `${today}T12:00:00Z`, seen_at: null }] })!;
+  assert.deepEqual(s.nudges.map((n) => n.seen), [false, true]);
+  assert.equal(waiting(s, today), 1);
 });
 
 test("withPartnersNode: one orb under ONE YOU, yellow when an invite or today's nudge waits", () => {
