@@ -88,3 +88,14 @@ test("withIncomeNode: one orb under ONE YOU, gone when locked or no goal", () =>
   assert.equal(withIncomeNode(base, null).nodes.length, 1);
   assert.equal(withIncomeNode({ ...base, nodes: [{ ...base.nodes[0], locked: true }] }, m).nodes.length, 1);
 });
+
+import { goalPace as paceWithReferrals, referralNote } from "../lib/goals.ts";
+
+test("closings goal says own deals only, with referral closings beside it (Parry, 12 Oct)", () => {
+  const g = { key: "closings_goal" as const, label: "Closings", value: 5, max: 20, pace: null, from_referrals: 3 };
+  assert.equal(referralNote(g), "Your own deals only. 3 more closed from referrals.");
+  assert.match(paceWithReferrals(g, "2026-10-12")!.detail, /3 more closed from referrals/);
+  assert.equal(referralNote({ ...g, from_referrals: 0 }), null);
+  assert.equal(referralNote({ ...g, from_referrals: undefined }), null);
+  assert.equal(referralNote({ ...g, key: "referrals_goal" as const }), null);
+});

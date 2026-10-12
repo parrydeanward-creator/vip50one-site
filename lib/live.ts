@@ -20,6 +20,7 @@ export interface SummaryStat {
   pace?: number | null;
   from?: string;
   to?: string;
+  from_referrals?: number | null; // closings_goal only: closings that came from referrals (not in value)
   // ONE Open's next_open_house carries the house itself (VIP-SUMMARY §5).
   address?: string | null;
   starts_at?: string | null;
@@ -368,7 +369,7 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
     goItems.forEach((it, k) => itemNode(add, it, "go-today", "go", 1 - k * 0.03));
     addGoals(
       add,
-      goals.map((g) => ({ key: g.key as GoalKey, label: g.label, value: g.value, max: g.max ?? null, pace: g.pace ?? null, from: g.from, to: g.to })),
+      goals.map((g) => ({ key: g.key as GoalKey, label: g.label, value: g.value, max: g.max ?? null, pace: g.pace ?? null, from: g.from, to: g.to, from_referrals: g.from_referrals ?? null })),
       o.today,
     );
   }
