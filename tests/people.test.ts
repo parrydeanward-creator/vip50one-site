@@ -132,3 +132,9 @@ test("§3k.7: red or yellow from ONE MOVE, safe when it is not sent yet", () => 
   const one = readPerson({ id: ID, name: "Tom", pulse: { line: "Call Tom", urgency: "now" }, sections: [{ key: "contact", label: "Contact", fields: [] }] })!;
   assert.equal(one.pulse?.urgency, "now");
 });
+
+import { byName } from "../lib/people.ts";
+
+test("byName sorts A-Z, ignoring case and accents", () => {
+  assert.deepEqual(byName([{ name: "zoe" }, { name: "Émile" }, { name: "Amy" }, { name: "bob" }]).map((p) => p.name), ["Amy", "bob", "Émile", "zoe"]);
+});
