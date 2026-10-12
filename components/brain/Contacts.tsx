@@ -4,7 +4,7 @@ import { STORY_LABEL, filterStory, productsIn, storyProduct, type StoryProduct }
 import AskGroupSection from "./AskGroupSection.tsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { dialable, mailable } from "@/lib/contact.ts";
-import { editText, editValue, gapsIn, groupColor, listUrl, peopleUrl, personTag, personUrl, readGroups, readPage, readPerson, readTimeline, sectionColor, showValue, timelineUrl, type Field, type Groups, type Person, type PersonItem, type Section, type Timeline } from "@/lib/people.ts";
+import { byName, editText, editValue, gapsIn, groupColor, listUrl, peopleUrl, personTag, personUrl, readGroups, readPage, readPerson, readTimeline, sectionColor, showValue, timelineUrl, type Field, type Groups, type Person, type PersonItem, type Section, type Timeline } from "@/lib/people.ts";
 import { initialsOf, ringRows } from "@/lib/vips.ts";
 import { focusFace, focusRings } from "@/lib/orbs.ts";
 import { useSvgCamera } from "./useSvgCamera.ts";
@@ -99,15 +99,16 @@ export default function Contacts({
 
   useEffect(() => {
     loadGroups();
-    // Pulse's due list: who needs the agent first, across every group.
+    // Pulse's due list: the 30 who need the agent most, across every group, shown A-Z (Parry, 12 Oct); the pulse
+    // marks still show who is most urgent.
     getJson(listUrl({ sort: "pulse", limit: 30 })).then((r) => {
       const p = r?.status === 200 ? readPage(r.body) : null;
-      if (p) setDue(p.items.filter((i) => i.pulse));
+      if (p) setDue(byName(p.items.filter((i) => i.pulse)));
     });
   }, [loadGroups]);
 
   const loadGroup = useCallback(async (key: string, cursor: string | null = null) => {
-    const r = await getJson(listUrl({ group: key, sort: "pulse", cursor, limit: PAGE }));
+    const r = await getJson(listUrl({ group: key, sort: "name", cursor, limit: PAGE }));
     const p = r?.status === 200 ? readPage(r.body) : null;
     if (!p) return setNote("ONE couldn't load that group just now.");
     setPeople((was) => (cursor ? [...was, ...p.items.filter((i) => !was.some((w) => w.id === i.id))] : p.items));

@@ -323,3 +323,7 @@ export function personTag(p: { tier: string | null; cls: string | null; source: 
   const cls = p.cls ? p.cls[0].toUpperCase() + p.cls.slice(1) : null;
   return [tier, cls, !tier && !cls ? p.source : null].filter(Boolean).join(" · ");
 }
+
+/** A-Z by name, ignoring case and accents (Parry, 12 Oct: "names on the right in alphabetical order"). */
+export const byName = <T extends { name: string }>(list: T[]): T[] =>
+  [...list].sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
