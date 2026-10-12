@@ -303,6 +303,8 @@ export default function PowerHourView({
       {prep && prep.contactId && (
         <CallPrepCard
           contactId={prep.contactId}
+          dialRef={prep.id !== prep.contactId ? prep.id : null}
+          demo={!live}
           onClose={() => setPrep(null)}
           onDial={() => setPrep(null)}
         />
