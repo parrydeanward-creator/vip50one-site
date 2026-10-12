@@ -1954,3 +1954,6 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 .mp-note { margin-top: 12px; }
 .mp-text { white-space: pre-wrap; font: inherit; font-size: 14px; line-height: 1.5; color: var(--text); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 8px 0 12px; }
 .cop-line { display: block; flex-basis: 100%; margin-top: 6px; font-size: 13px; color: var(--text-2); }
+.tk-words { width: 100%; box-sizing: border-box; border-radius: 10px; padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--line, rgba(255,255,255,0.14)); color: var(--text); font: inherit; resize: vertical; }
+.tk-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; font-size: 14px; color: var(--text); }
+.tk-list small { color: var(--text-2); }
