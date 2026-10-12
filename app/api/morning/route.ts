@@ -5,6 +5,8 @@ import { phoneMorning } from "@/lib/phoneMorning.ts";
 import { rankToday } from "@/lib/rank.ts";
 import { profileByEmail } from "@/lib/server/byEmail.ts";
 import { liveBundle, signedInBundle } from "@/lib/server/live.ts";
+import { rulesNote } from "@/lib/note.ts";
+import { within } from "@/lib/within.ts";
 
 // Morning Pulse on the phone (VIP-SUMMARY §3ac): the Brain's own morning note as plain text for ONE GO.
 // - ONE GO: the agent's MASTER session as a bearer, as /api/ask takes it.
@@ -18,7 +20,11 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const asked = url.searchParams.get("email");
   let bundle;
+  // ONE MOVE's 7:00 push waits 8 s per agent (vip50-web-crm#187). The AI note gets 4 s here; past that the plain-rules
+  // note (instant, same data) answers, so the push carries the agent's real first line, never the bare fallback.
+  let aiMs = 20_000;
   if (asked !== null) {
+    aiMs = 4_000;
     if (!serverCallOk(req.headers.get("x-one-morning"), process.env.ONE_MORNING_SECRET)) {
       return Response.json({ error: "unauthorized" }, { status: 401, headers: NO_STORE });
     }
@@ -31,7 +37,9 @@ export async function GET(req: Request) {
     if (!live?.bundle) return Response.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE });
     bundle = live.bundle;
   }
-  const note = await morningNote(bundle.data, rankToday(bundle.data));
+  const ranked = rankToday(bundle.data);
+  const data = bundle.data;
+  const note = await within(morningNote(data, ranked), aiMs, () => rulesNote(data, ranked));
   const date = new Date().toLocaleDateString("en-CA", { timeZone: "America/Denver" });
   return Response.json(phoneMorning(note, bundle.graph.nodes, date), { headers: NO_STORE });
 }
