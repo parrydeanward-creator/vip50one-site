@@ -16,6 +16,9 @@ export interface GoalFacts {
   pace: number | null; // where MASTER says the agent should be by today
   from?: string; // YYYY-MM-DD, the goal year
   to?: string;
+  // Closings only: closings that came from a referral this goal year. The closings goal counts the agent's own deals
+  // only (Parry, 12 Oct: "differentiate between actual closed deals and referrals"; vip50-web-crm#196).
+  from_referrals?: number | null;
 }
 
 export interface YearShare {
@@ -54,8 +57,21 @@ export function perWeekWords(key: GoalKey, left: number, weeks: number): string 
 /** Below this share of the year a projection says too little (two weeks in, one closing is not 26). */
 const EARLY = 0.04;
 
+/** "Your own deals only. 3 more closed from referrals." under the closings goal; null when none. */
+export function referralNote(g: GoalFacts): string | null {
+  if (g.key !== "closings_goal") return null;
+  const n = typeof g.from_referrals === "number" && Number.isFinite(g.from_referrals) ? Math.max(0, Math.round(g.from_referrals)) : 0;
+  return n ? `Your own deals only. ${n} more closed from referrals.` : null;
+}
+
 /** The pace line under a goal: where the year is heading, and what the rest of it asks. */
 export function goalPace(g: GoalFacts, today: string): { headline: string; detail: string; projected: number | null } | undefined {
+  const p = paceOf(g, today);
+  const note = referralNote(g);
+  return p && note ? { ...p, detail: `${p.detail} ${note}` } : p;
+}
+
+function paceOf(g: GoalFacts, today: string): { headline: string; detail: string; projected: number | null } | undefined {
   if (g.max == null || g.max <= 0) return undefined;
   const value = Math.max(0, g.value ?? 0);
   const y = yearShare(g.from, g.to, today);
