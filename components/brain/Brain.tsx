@@ -67,6 +67,8 @@ import { TEAM_NODE, demoTeam, readTeam, teamUrl, withTeamNode, type Scope as Tea
 import { TIME_OFF_NODE, demoTimeOff, readTimeOff, saveBody as timeOffBody, timeOffUrl, withTimeOffNode, type TimeOffState } from "@/lib/timeOff.ts";
 import { DAY_FILM_KEY } from "@/lib/dayFilm.ts";
 import { demoPulseReport, pulseReportUrl, readPulseReport, type PulseReport } from "@/lib/pulseReport.ts";
+import AskAiView from "./AskAiView.tsx";
+import { ASK_AI_NODE, monthOf, readResults, resultKey, withAskAiNode, type Answer as AiAnswer, type Engine as AiEngine, type Results as AiResults } from "@/lib/aiCheck.ts";
 import { LIKELY_NODE, demoMoveLikely, moveLikelyUrl, notUsefulUrl, readMoveLikely, withMoveLikelyNode, withoutPerson, type MoveLikely, type Person as LikelyPerson } from "@/lib/moveLikely.ts";
 import { MARKET_NODE, demoMarketPulse, marketPulseUrl, marketSendUrl, readMarketPulse, sendBody as marketSendBody, withMarketPulseNode, withSent as withMarketSent, type MarketPulse, type Vip as MarketVip } from "@/lib/marketPulse.ts";
 import { DEALS_NODE, dealUrl, dealsUrl, demoDeals, readClosingAsk, readDeals, statusBody as dealStatusBody, withDealsNode, withStatus as withDealStatus, type Deal } from "@/lib/deals.ts";
@@ -133,6 +135,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const dealsRef = useRef<Deal[] | null>(null);
   const marketRef = useRef<MarketPulse | null>(null);
   const likelyRef = useRef<MoveLikely | null>(null);
+  const aiRef = useRef<AiResults | null>(null);
   const timeOffRef = useRef<TimeOffState | null>(null);
   const teamRef = useRef<Team | null>(null);
   const rcRef = useRef(false);
@@ -149,7 +152,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin);
+    const next = withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -624,6 +627,39 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     setSiteNote(typeof j?.error === "string" ? j.error : "Your website could not be opened just now. Please try again.");
   }, []);
   // Likely to move (§3ab): from ONE MOVE once it answers (404 until then: no orb), the example agent's past clients in the demo.
+  // Ask AI about you (Scout 54): this month's marks and the agent's area, kept in this browser only.
+  const [askAi, setAskAi] = useState<AiResults | null>(null);
+  const [askArea, setAskArea] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
+  const askMonth = monthOf(todayIn());
+  useEffect(() => {
+    try {
+      setAskAi(readResults(JSON.parse(localStorage.getItem(`ask-ai:${askMonth}`) ?? "{}")));
+      setAskArea(localStorage.getItem("ask-ai:area") ?? "");
+    } catch {
+      setAskAi({});
+    }
+  }, [askMonth]);
+  useEffect(() => {
+    aiRef.current = askAi;
+    setGraph((g) => withAskAiNode(g, askAi));
+  }, [askAi]);
+  const markAi = (q: string, e: AiEngine, a: AiAnswer | null) =>
+    setAskAi((r) => {
+      const next = { ...(r ?? {}) };
+      if (a) next[resultKey(q, e)] = a;
+      else delete next[resultKey(q, e)];
+      try {
+        localStorage.setItem(`ask-ai:${askMonth}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  const saveArea = (a: string) => {
+    setAskArea(a);
+    try {
+      localStorage.setItem("ask-ai:area", a);
+    } catch {}
+  };
   const [likely, setLikely] = useState<MoveLikely | null>(null);
   const [likelyOpen, setLikelyOpen] = useState(false);
   useEffect(() => {
@@ -1564,6 +1600,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === DEALS_NODE) return setDealsOpen(true);
     if (id === MARKET_NODE) return setMarketOpen(true);
     if (id === LIKELY_NODE) return setLikelyOpen(true);
+    if (id === ASK_AI_NODE) return setAiOpen(true);
     if (id === TIME_OFF_NODE) return setTimeOffOpen(true);
     if (id === TEAM_NODE) return setTeamOpen(true);
     if (id === REVIEW_CALLS_NODE) return setRcOpen(true);
@@ -2236,6 +2273,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               </span>
             </button>
           )}
+          {focus.id === ASK_AI_NODE && askAi && !tour && (
+            <button className="pi-film pm-open" onClick={() => setAiOpen(true)}>
+              <span className="pi-play" aria-hidden="true">?</span>
+              <span>
+                <b>Open Ask AI about you</b>
+                <span>Do ChatGPT, Perplexity and Google name you? Three questions, one tap each.</span>
+              </span>
+            </button>
+          )}
           {focus.id === LIKELY_NODE && likely && !tour && (
             <button className="pi-film pm-open" onClick={() => setLikelyOpen(true)}>
               <span className="pi-play" aria-hidden="true">⌂</span>
@@ -2683,6 +2729,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       {rcOpen && rcAgents ? <ReviewCallsView agents={rcAgents} demo={!live} onClose={() => setRcOpen(false)} onSearch={loadRcAgents} /> : null}
       {teamOpen && team ? <TeamView team={team} demo={!live} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} /> : null}
       {timeOffOpen && timeOff ? <TimeOffView data={timeOff} demo={!live} onSave={saveTimeOff} onCancel={cancelTimeOff} onClose={() => setTimeOffOpen(false)} /> : null}
+      {aiOpen && askAi ? <AskAiView name={live ? agent.label.split(",")[0] : "Sarah Bennett"} area={askArea} results={askAi} demo={!live} onArea={saveArea} onMark={markAi} onClose={() => setAiOpen(false)} /> : null}
       {likelyOpen && likely ? <MoveLikelyView data={likely} demo={!live} onNotUseful={likelyNotUseful} onClose={() => setLikelyOpen(false)} /> : null}
       {marketOpen && market ? <MarketPulseView data={market} demo={!live} onSend={sendMarket} onClose={() => setMarketOpen(false)} /> : null}
       {dealsOpen && deals ? <DealsView deals={deals} today={todayIn()} demo={!live} onStatus={setDealStatus} onClose={() => setDealsOpen(false)} /> : null}

@@ -1957,3 +1957,5 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 .tk-words { width: 100%; box-sizing: border-box; border-radius: 10px; padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--line, rgba(255,255,255,0.14)); color: var(--text); font: inherit; resize: vertical; }
 .tk-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; font-size: 14px; color: var(--text); }
 .tk-list small { color: var(--text-2); }
+.pm-field { display: grid; gap: 6px; margin: 12px 0; font-size: 13px; color: var(--text-2); }
+.pm-field input { border-radius: 10px; padding: 9px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--line, rgba(255,255,255,0.14)); color: var(--text); font: inherit; }
