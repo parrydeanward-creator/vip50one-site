@@ -6,7 +6,7 @@ import { useSvgCamera } from "./useSvgCamera.ts";
 import { PULSE_COLOR } from "./PulseRing.tsx";
 import { clock, duration, type DayItem } from "@/lib/day.ts";
 import { todayIn } from "@/lib/hwc.ts";
-import { dropIndex, firstPlan, orbMark, placeAt, planKey, planSeats, planUrl, pointsLeft, poolSeats, putBody, readPlan, shift, suggest, timed, totalMinutes, PLAN_MAX, type Plan, type PlanItem } from "@/lib/plan.ts";
+import { dropIndex, firstPlan, orbMark, placeAt, planKey, planSeats, planUrl, pointsLeft, poolSeats, putBody, readPlan, shift, suggest, timed, totalMinutes, PLAN_MAX, taskLimit, type Plan, type PlanItem } from "@/lib/plan.ts";
 
 // Plan My Day (Parry, 5 Oct; VIP-SUMMARY §3l): plan on the desktop, do on the phone. Pulse lays
 // out what is pulsing today; the agent orders it, cuts what will not happen and sends it to ONE GO.
@@ -55,7 +55,9 @@ export default function PlanMyDay({
   onTick?: (ref: string, done: boolean) => void;
 }) {
   const date = useMemo(() => todayIn(), []);
-  const pool = useMemo(() => suggest(today), [today]);
+  // 15 tasks at once, or 17 when ONE MOVE marks a bigger list (Parry, 12 Oct).
+  const [cap, setCap] = useState(PLAN_MAX);
+  const pool = useMemo(() => suggest(today, cap), [today, cap]);
   const [items, setItems] = useState<PlanItem[]>(() => firstPlan(pool));
   const [start, setStart] = useState("08:00");
   const [sentAt, setSentAt] = useState<string | null>(null);
@@ -87,6 +89,7 @@ export default function PlanMyDay({
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => {
           const p = readPlan(j, pool);
+          if (!gone && j && typeof j === "object") setCap(taskLimit((j as { task_limit?: unknown }).task_limit));
           if (gone || !p || p.date !== date || !p.sentAt) return;
           setItems(p.items);
           setStart(p.start);
@@ -125,7 +128,7 @@ export default function PlanMyDay({
   };
 
   const send = async () => {
-    const plan: Plan = { date, sentAt: new Date().toISOString(), start, items };
+    const plan: Plan = { date, sentAt: new Date().toISOString(), start, items, limit: cap };
     try {
       localStorage.setItem(planKey(date), JSON.stringify({ date, sent_at: plan.sentAt, start, items: putBody(plan).items.map((x, i) => ({ ...x, done: items[i].done })) }));
     } catch {}
@@ -176,7 +179,7 @@ export default function PlanMyDay({
   };
   const add = (ref: string) => {
     const p = byRef.get(ref);
-    if (p && items.length < PLAN_MAX && !inPlan.has(ref)) edit([...items, p]);
+    if (p && items.length < cap && !inPlan.has(ref)) edit([...items, p]);
   };
   const remove = (ref: string) => {
     edit(items.filter((p) => p.ref !== ref));
@@ -211,8 +214,8 @@ export default function PlanMyDay({
       if (d.from === "plan" && dist > CORE) remove(d.ref); // dragged off the ring: off the plan
       return;
     }
-    if (d.from === "pool" && items.length >= PLAN_MAX) return;
-    edit(placeAt(items, item, at));
+    if (d.from === "pool" && items.length >= cap) return;
+    edit(placeAt(items, item, at, cap));
   };
   const svgHandlers = {
     ...cam.handlers,
@@ -476,7 +479,7 @@ export default function PlanMyDay({
                     </small>
                   </span>
                   <span className="pm-acts">
-                    <button onClick={() => add(x.ref)} disabled={items.length >= PLAN_MAX} aria-label={`Add to the plan: ${x.title}`}>+</button>
+                    <button onClick={() => add(x.ref)} disabled={items.length >= cap} aria-label={`Add to the plan: ${x.title}`}>+</button>
                   </span>
                 </li>
               ))}

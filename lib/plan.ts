@@ -10,6 +10,10 @@ import type { ProductKey } from "./graph/types.ts";
 // plan and the Day Clock all hold at most 15, the most urgent first.
 export const MAX_TASKS_SHOWN = 15;
 export const PLAN_MAX = MAX_TASKS_SHOWN;
+// Bigger lists (Parry, 12 Oct: "allow the 17 for bigger lists"): ONE MOVE says so with `task_limit: 17` on the plan.
+export const BIG_LIST_MAX = 17;
+/** 17 when ONE MOVE marks the agent's list as bigger, otherwise 15; anything else is ignored. */
+export const taskLimit = (v: unknown): number => (v === BIG_LIST_MAX ? BIG_LIST_MAX : MAX_TASKS_SHOWN);
 const MOVE_URL = "https://move.vip50one.com";
 export const planUrl = `${MOVE_URL}/api/brain/plan`;
 const KINDS: readonly DayKind[] = ["call", "text", "note", "approval", "meeting", "rating", "follow_up", "report", "other"];
@@ -35,6 +39,7 @@ export interface Plan {
   sentAt: string | null;
   start: string; // "HH:MM"
   items: PlanItem[];
+  limit?: number; // tasks shown at once: 15, or 17 for a bigger list (ONE MOVE's task_limit)
 }
 
 /** A day item as a plan item. Its ref is the summary item id (the Brain's day ids are "day:<id>"). */
@@ -59,7 +64,7 @@ const rank = (p: PlanItem) => (p.urgency === "alert" ? 0 : p.special ? 1 : p.urg
 
 /** Pulse suggests: what is pulsing today, red first, then special days, then yellow; the products' own
  * order kept inside each; at most 15 (the rest wait until these are done). */
-export function suggest(today: DayItem[]): PlanItem[] {
+export function suggest(today: DayItem[], max = MAX_TASKS_SHOWN): PlanItem[] {
   const seen = new Set<string>();
   return today
     .map(fromDay)
@@ -67,16 +72,16 @@ export function suggest(today: DayItem[]): PlanItem[] {
     .map((p, n) => ({ p, n }))
     .sort((a, b) => rank(a.p) - rank(b.p) || a.n - b.n)
     .map(({ p }) => p)
-    .slice(0, MAX_TASKS_SHOWN);
+    .slice(0, max);
 }
 
 /** A first plan when the agent has none: Pulse's order, everything red and special, then yellow up to
  * about three hours of work, never more than PLAN_MAX. */
-export function firstPlan(suggestions: PlanItem[], budget = 180, start = "08:00"): PlanItem[] {
+export function firstPlan(suggestions: PlanItem[], budget = 180, start = "08:00", max = PLAN_MAX): PlanItem[] {
   const out: PlanItem[] = [];
   let used = 0;
   for (const p of suggestions) {
-    if (out.length >= PLAN_MAX) break;
+    if (out.length >= max) break;
     const must = rank(p) < 2;
     if (!must && used + p.minutes > budget) continue;
     out.push(p);
@@ -125,10 +130,10 @@ export function shift<T>(list: T[], i: number, dir: -1 | 1): T[] {
 const https = (u: string | null) => (u && /^https:\/\//.test(u) ? u : null);
 
 /** The §3l.2 body. */
-export function putBody(plan: { start: string; items: PlanItem[] }) {
+export function putBody(plan: { start: string; items: PlanItem[]; limit?: number }) {
   return {
     start: isTime(plan.start) ? plan.start : "08:00",
-    items: plan.items.slice(0, PLAN_MAX).map((p) => ({
+    items: plan.items.slice(0, taskLimit(plan.limit)).map((p) => ({
       ref: p.ref,
       product: p.product,
       kind: p.kind,
@@ -166,7 +171,7 @@ export function readPlan(j: unknown, known: Pick<PlanItem, "ref" | "nodeId" | "u
       special: k?.special,
     });
   }
-  return { date: r.date, sentAt: typeof r.sent_at === "string" ? r.sent_at : null, start: isTime(r.start) ? r.start : "08:00", items };
+  return { date: r.date, sentAt: typeof r.sent_at === "string" ? r.sent_at : null, start: isTime(r.start) ? r.start : "08:00", items, limit: taskLimit(r.task_limit) };
 }
 
 export const planKey = (date: string) => `one.plan.${date}`;
@@ -234,10 +239,10 @@ export function dropIndex(x: number, y: number, cx: number, cy: number, ring: nu
 
 /** Put `item` at position `index` (where it lands after the move): moved within the plan, or inserted
  * from Pulse suggests. */
-export function placeAt(items: PlanItem[], item: PlanItem, index: number): PlanItem[] {
+export function placeAt(items: PlanItem[], item: PlanItem, index: number, max = PLAN_MAX): PlanItem[] {
   const rest = items.filter((p) => p.ref !== item.ref);
   rest.splice(Math.max(0, Math.min(rest.length, index)), 0, item);
-  return rest.slice(0, PLAN_MAX);
+  return rest.slice(0, max);
 }
 
 /** Two letters for an orb: the person's initials from "Call Jen Alvarez", else the kind. */

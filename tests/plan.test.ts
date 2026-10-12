@@ -171,3 +171,15 @@ test("the demo's ONE YOU holds only the agent's own pieces; the films keep the w
   assert.ok(full.nodes.some((n) => n.id === "go-daily"), "the full demo is untouched");
   assert.ok(g.nodes.some((n) => n.id === "move" ) && g.nodes.length < full.nodes.length);
 });
+
+import { BIG_LIST_MAX, taskLimit, suggest as suggestCap, readPlan as readPlanCap } from "../lib/plan.ts";
+
+test("task limit: 17 only when ONE MOVE says 17, else 15 (Parry, 12 Oct)", () => {
+  assert.equal(taskLimit(17), BIG_LIST_MAX);
+  assert.equal(taskLimit(15), 15);
+  assert.equal(taskLimit(99), 15);
+  assert.equal(taskLimit(undefined), 15);
+  assert.equal(readPlanCap({ date: "2026-10-12", items: [], task_limit: 17 })?.limit, 17);
+  assert.equal(readPlanCap({ date: "2026-10-12", items: [] })?.limit, 15);
+  assert.equal(suggestCap([], 17).length, 0);
+});
