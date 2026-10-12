@@ -5,7 +5,7 @@ import PulseMark from "./PulseMark.tsx";
 import { callPrep, type CallPrep } from "@/lib/callPrep.ts";
 import { personUrl, readPerson, readTimeline, timelineUrl } from "@/lib/people.ts";
 import { dialable } from "@/lib/contact.ts";
-import { DIAL_LINE, POLL_MS, POLL_TRIES, dialBody, dialStatusUrl, dialUrl, readDial, readDialStatus } from "@/lib/dial.ts";
+import CallOnPhone from "./CallOnPhone.tsx";
 
 // Call Prep (PULSE-ROADMAP #1): tap Call and this card comes first, ten seconds of what matters,
 // then "Call now" dials. Everything on it comes from ONE MOVE (§3k.3, §3k.6); nothing is made up.
@@ -14,33 +14,6 @@ export default function CallPrepCard({ contactId, phone, onClose, onDial, dialRe
   const [tel, setTel] = useState<string | null>(dialable(phone ?? null));
   const [err, setErr] = useState(false);
   const callRef = useRef<HTMLAnchorElement>(null);
-  // §3ad: "Call on my phone" sends one push to the agent's own ONE GO; the phone dials only on their tap.
-  const [phoneLine, setPhoneLine] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (pollRef.current) clearTimeout(pollRef.current);
-  }, []);
-  const toPhone = async () => {
-    if (pollRef.current) clearTimeout(pollRef.current);
-    if (demo) return setPhoneLine(`Example agent: ${DIAL_LINE.sent}`);
-    setSending(true);
-    setPhoneLine(null);
-    const r = await fetch(dialUrl, { method: "POST", credentials: "include", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(dialBody(contactId, dialRef)) }).catch(() => null);
-    const sent = readDial(r ? await r.json().catch(() => null) : null);
-    setSending(false);
-    if (!sent.ok) return setPhoneLine(sent.line);
-    setPhoneLine(DIAL_LINE.sent);
-    let tries = 0;
-    const poll = async () => {
-      tries += 1;
-      const s = await fetch(dialStatusUrl(sent.id), { credentials: "include", cache: "no-store" }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
-      const state = readDialStatus(s);
-      if (state && state !== "sent") return setPhoneLine(DIAL_LINE[state]);
-      if (tries < POLL_TRIES) pollRef.current = setTimeout(poll, POLL_MS);
-    };
-    pollRef.current = setTimeout(poll, POLL_MS);
-  };
   useEffect(() => {
     let dead = false;
     (async () => {
@@ -118,12 +91,9 @@ export default function CallPrepCard({ contactId, phone, onClose, onDial, dialRe
           ) : (
             <span className="pi-btn" aria-disabled="true">No phone number</span>
           )}
-          {tel && (
-            <button className="pi-btn" disabled={sending} onClick={() => void toPhone()}>Call on my phone</button>
-          )}
+          {tel && <CallOnPhone contactId={contactId} dialRef={dialRef} demo={demo} />}
           <button className="pi-btn" onClick={onClose}>Not now</button>
         </div>
-        {phoneLine && <p className="cp-wait" role="status">{phoneLine}</p>}
       </section>
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import CallOnPhone from "./CallOnPhone.tsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { dialable } from "@/lib/contact.ts";
 import { CLASSES, CLASS_OF, addBody, addProblem, blankPerson, hwcUrl, readMatches, type NewPerson, moveQuestion, noteDay, phoneLine, readHwc, reminderLine, shortDay, todayIn, trend, warmth, withMoved, type Hwc, type HwcClass } from "@/lib/hwc.ts";
@@ -557,6 +558,7 @@ export default function HotWarmCold({
                 <>
                   <a className="chip-btn primary" href={`tel:${tel}`} onClick={() => credit("call")}>Call</a>
                   <a className="chip-btn" href={`sms:${tel}`} onClick={() => credit("text")}>Text</a>
+                  <CallOnPhone contactId={who.id} dialRef={`hwc:${who.cls}`} className="chip-btn" />
                 </>
               ) : (
                 <p className="d-sum">No phone number yet. Add one on the Classic page.</p>
