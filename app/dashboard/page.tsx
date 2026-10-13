@@ -5,6 +5,7 @@ import { PACKAGE_LABEL } from "@/lib/products.ts";
 import { signedInBundle } from "@/lib/server/live.ts";
 import type { PackageId } from "@/lib/types.ts";
 import { redirect } from "next/navigation";
+import { pageFromAddress } from "@/lib/moveMenu.ts";
 
 // ONE Brain is the dashboard (Parry, 29 Sep; vip50-ecosystem research/ONE-BRAIN.md).
 // Signed in: the agent's own business from MASTER's vip_summary (ONE GO and
@@ -14,12 +15,16 @@ import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function Dashboard({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+export default async function Dashboard({ searchParams, params }: { searchParams: Promise<Record<string, string | string[] | undefined>>; params?: Promise<{ page?: string[] }> }) {
   const sp = await searchParams;
+  // /dashboard/team-leads, /dashboard/profile, ...: open on that page from the first paint (Parry, 13 Oct: Team Leads
+  // showed the main page first, then flew over).
+  const parts = (await params)?.page;
+  const startPage = parts?.length ? pageFromAddress(`/dashboard/${parts.join("/")}`) : null;
   if (sp.demo === "1") {
     const p = typeof sp.package === "string" ? sp.package : "";
     const pkg: PackageId = p in PACKAGE_LABEL ? (p as PackageId) : "complete";
-    return <Brain graph={oneYouView(demoGraph(pkg))} pkg={pkg} />;
+    return <Brain graph={oneYouView(demoGraph(pkg))} pkg={pkg} startPage={startPage} />;
   }
   const live = await signedInBundle();
   if (!live) redirect("/login");
@@ -47,5 +52,5 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   }
   const { graph } = bundle;
   const label = `${me.displayName}, ${PACKAGE_LABEL[me.pkg]}${me.founding ? ", founding member" : ""}`;
-  return <Brain graph={graph} pkg={me.pkg} live agent={{ firstName: me.firstName, initials: me.initials, label, photo: me.photo, admin: me.admin }} />;
+  return <Brain graph={graph} pkg={me.pkg} live startPage={startPage} agent={{ firstName: me.firstName, initials: me.initials, label, photo: me.photo, admin: me.admin }} />;
 }
