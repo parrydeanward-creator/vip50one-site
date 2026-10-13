@@ -10,10 +10,45 @@ const MOVE_URL = "https://move.vip50one.com";
 export const coachedUrl = `${MOVE_URL}/api/brain/commitments/coached`;
 export const COACH_NODE = "go-coach";
 
+/** §3ag.2: setup progress, eight (or seven) yes/no steps from MASTER. `since` is the agent's start day when sent. */
+export interface SetupStep { key: string; label: string; done: boolean; count: number | null }
+export interface Setup { done: number; of: number; steps: SetupStep[]; since: string | null }
+
 export interface Coached {
   id: string;
   name: string;
   c: Commitments;
+  setup: Setup | null;
+}
+
+/** §3ag answer for one agent, checked; null when absent or the wrong shape. */
+export function readSetup(v: unknown): Setup | null {
+  if (!v || typeof v !== "object") return null;
+  const r = v as Record<string, unknown>;
+  if (!Array.isArray(r.steps)) return null;
+  const steps: SetupStep[] = [];
+  for (const x of r.steps as Record<string, unknown>[]) {
+    if (!x || typeof x.key !== "string" || typeof x.label !== "string") continue;
+    steps.push({ key: x.key, label: x.label.slice(0, 60), done: x.done === true, count: typeof x.count === "number" && x.count >= 0 ? Math.round(x.count) : null });
+  }
+  if (!steps.length) return null;
+  const since = typeof r.since === "string" && /^\d{4}-\d{2}-\d{2}/.test(r.since) ? r.since.slice(0, 10) : null;
+  return { done: steps.filter((x) => x.done).length, of: steps.length, steps, since };
+}
+
+/** §3ag.4: under half set up 14 days or more after starting is yellow for the coach. No start day, no yellow. */
+export const SETUP_DAYS = 14;
+export function setupLate(st: Setup | null, today: string): boolean {
+  if (!st || !st.since || st.done * 2 >= st.of) return false;
+  return (Date.parse(`${today}T12:00:00Z`) - Date.parse(`${st.since}T12:00:00Z`)) / 86_400_000 >= SETUP_DAYS;
+}
+
+export const setupWords = (st: Setup) => (st.done === st.of ? "Fully set up" : `${st.done} of ${st.of} set up`);
+
+/** The team's setup: agents fully set up, of those with setup data. */
+export function teamSetup(agents: Coached[]): { full: number; of: number } | null {
+  const w = agents.filter((a) => a.setup);
+  return w.length ? { full: w.filter((a) => a.setup!.done === a.setup!.of).length, of: w.length } : null;
 }
 
 export type Attention = { level: "now" | "today" | null; words: string };
@@ -28,7 +63,7 @@ export function readCoached(j: unknown, today: string): Coached[] {
     const c = readCommitments({ ...a, today });
     if (!c) continue;
     const name = typeof a.name === "string" && a.name.trim() ? a.name.trim().slice(0, 60) : "Agent";
-    out.push({ id: a.agent_id, name: name.includes("@") ? name.split("@")[0] : name, c });
+    out.push({ id: a.agent_id, name: name.includes("@") ? name.split("@")[0] : name, c, setup: readSetup(a.setup) });
   }
   return out;
 }
@@ -87,7 +122,7 @@ export function withCoachNode<G extends { nodes: GraphNode[]; edges: GraphEdge[]
   const edges = g.edges.filter((e) => e.target !== COACH_NODE);
   if (!go || go.locked || !agents?.length) return { ...g, nodes, edges };
   const late = agents.filter((a) => attention(a, hour).level === "now").length;
-  const today = agents.filter((a) => attention(a, hour).level === "today").length;
+  const today = agents.filter((a) => attention(a, hour).level === "today" || setupLate(a.setup, a.c.today)).length;
   const rate = teamKeepRate(agents);
   nodes.push({
     id: COACH_NODE,
@@ -99,7 +134,7 @@ export function withCoachNode<G extends { nodes: GraphNode[]; edges: GraphEdge[]
     importance: 1.02,
     status: late ? "action" : today ? "attention" : "healthy",
     stats: [{ label: "Agents", value: String(agents.length) }],
-    summary: "The commitments of the agents you coach: who has set the week, who checked in, and who kept them. Read only.",
+    summary: "The commitments and setup of the agents you coach: who has set the week, who checked in, who kept them and what is left to set up. Read only.",
   });
   edges.push({ id: `go>${COACH_NODE}`, source: "go", target: COACH_NODE, relationshipType: "belongs_to", strength: 1 });
   return { ...g, nodes, edges };
@@ -110,10 +145,26 @@ export function demoCoached(today: string): Coached[] {
   const base = (over: Partial<Commitments>): Commitments => ({ today, due: null, week: null, weekend: null, lastWeek: null, keepRate8w: null, streak: 0, ...over });
   const item = (id: string, text: string, kind: Kind, target: number | null, count: number | null): Item => ({ id, text, kind, target, count, result: null, note: null });
   const week = (id: string, items: Item[]) => ({ id, starts: today, setAt: `${today}T14:00:00Z`, checkedAt: null, items });
-  return [
+  const st = (done: string[], since: string | null, counts: Record<string, number> = {}) =>
+    readSetup({
+      since,
+      steps: [
+        ["profile", "Photo and name in My Profile"], ["phone_app", "Phone app with notifications on"], ["contacts", "50 contacts in ONE MOVE"],
+        ["vip50", "25 people in the VIP-50"], ["pulse_modes", "Pulse settings chosen"], ["calendar", "Calendar connected"], ["first_week", "A week at 100 points"],
+      ].map(([key, label]) => ({ key, label, done: done.includes(key), count: counts[key] })),
+    });
+  const ago = (d: number) => new Date(Date.parse(`${today}T12:00:00Z`) - d * 86_400_000).toISOString().slice(0, 10);
+  const list: Omit<Coached, "setup">[] = [
     { id: "t2", name: "Marcus Lee", c: base({ due: "set_week", keepRate8w: 0.45, streak: 0, lastWeek: { kept: 1, partly: 1, missed: 3 } }) },
     { id: "t1", name: "Jen Alvarez", c: base({ week: week("w2", [item("a", "Call 15 VIPs", "call", 15, 11), item("b", "Two coffees", "face_to_face", 2, 2), item("c", "Finish my listing presentation", "yes_no", null, null)]), keepRate8w: 0.83, streak: 6, lastWeek: { kept: 4, partly: 1, missed: 0 } }) },
     { id: "t4", name: "Dave Kim", c: base({ week: week("w3", [item("a", "Three handwritten notes", "handwritten_note", 3, 1), item("b", "Call 10 VIPs", "call", 10, 2)]), keepRate8w: 0.6, streak: 1, lastWeek: { kept: 2, partly: 1, missed: 2 } }) },
     { id: "t5", name: "Amy Chen", c: base({ week: week("w4", [item("a", "Book my open house", "yes_no", null, null), item("b", "Five video texts", "video_text", 5, 5)]), keepRate8w: 0.92, streak: 9, lastWeek: { kept: 5, partly: 0, missed: 0 } }) },
   ];
+  const setups: Record<string, Setup | null> = {
+    t2: st(["profile", "phone_app"], ago(21), { contacts: 12, vip50: 3 }),
+    t1: st(["profile", "phone_app", "contacts", "vip50", "pulse_modes", "calendar", "first_week"], ago(200), { contacts: 412, vip50: 50 }),
+    t4: st(["profile", "contacts", "pulse_modes", "first_week"], ago(60), { contacts: 96, vip50: 18 }),
+    t5: st(["profile", "phone_app", "contacts", "vip50", "pulse_modes", "first_week"], ago(120), { contacts: 230, vip50: 41 }),
+  };
+  return list.map((a) => ({ ...a, setup: setups[a.id] ?? null }));
 }

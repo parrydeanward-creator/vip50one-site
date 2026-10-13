@@ -5,7 +5,7 @@ import type { Team } from "@/lib/team.ts";
 import { useEffect, useRef, useState } from "react";
 import PulseRing, { PULSE_COLOR } from "./PulseRing.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
-import { attention, coachOrder, lastWeekShare, teamKeepRate, type Coached } from "@/lib/coach.ts";
+import { attention, coachOrder, lastWeekShare, setupLate, setupWords, teamKeepRate, teamSetup, type Coached, type Setup } from "@/lib/coach.ts";
 import { KIND_LABEL, progressWords, reached, resultWord, type Item, type Result } from "@/lib/commitments.ts";
 
 // The Coach view (VIP-SUMMARY §3n.4, §3n.7): the agents you coach round you, each orb's gold ring their keep
@@ -202,6 +202,7 @@ export default function CoachView({ agents, hour, demo, onClose, onPulse, squad 
                   </p>
                 );
               })()}
+              {sel.setup ? <SetupBlock st={sel.setup} late={setupLate(sel.setup, sel.c.today)} /> : null}
               <h2>This week</h2>
               {sel.c.week?.items.length ? (
                 <ul className="pm-list pm-compact">{sel.c.week.items.map((i) => <ItemRow key={i.id} i={i} />)}</ul>
@@ -229,6 +230,10 @@ export default function CoachView({ agents, hour, demo, onClose, onPulse, squad 
               <h1 className="d-title" id="cv-title">Coaching</h1>
               <p className="d-sub">
                 {n} {n === 1 ? "agent" : "agents"} · team keep rate {pct(team)}
+                {(() => {
+                  const ts = teamSetup(agents);
+                  return ts ? ` · ${ts.full} of ${ts.of} fully set up` : "";
+                })()}
               </p>
               <p className="d-sum">The ones who need a word from you come first. Their gold ring is how many commitments they keep.</p>
               {squad
@@ -267,12 +272,13 @@ export default function CoachView({ agents, hour, demo, onClose, onPulse, squad 
               <ul className="pm-list pm-compact">
                 {order.map((a) => {
                   const at = attention(a, hour);
+                  const sl = setupLate(a.setup, a.c.today);
                   return (
                     <li key={a.id}>
-                      <i className="pm-dot" style={{ background: at.level === "now" ? PULSE_COLOR.now : at.level === "today" ? PULSE_COLOR.today : "rgba(255,255,255,0.35)" }} aria-hidden="true" />
+                      <i className="pm-dot" style={{ background: at.level === "now" ? PULSE_COLOR.now : at.level === "today" || sl ? PULSE_COLOR.today : "rgba(255,255,255,0.35)" }} aria-hidden="true" />
                       <span className="pm-body">
                         <b>{a.name}</b>
-                        <small>{at.words} · keeps {pct(a.c.keepRate8w)}</small>
+                        <small>{at.words} · keeps {pct(a.c.keepRate8w)}{a.setup ? ` · ${setupWords(a.setup)}` : ""}</small>
                       </span>
                       <span className="pm-acts">
                         <button onClick={() => open(a.id)} aria-label={`Open ${a.name}`}>→</button>
@@ -284,10 +290,37 @@ export default function CoachView({ agents, hour, demo, onClose, onPulse, squad 
             </>
           )}
           <p className="pm-promise">
-            {demo ? "Example agents. " : ""}Read only: only the agent sets and marks their commitments. Nobody but the agent and their coach sees them.
+            {demo ? "Example agents. " : ""}Read only: only the agent sets and marks their commitments. Nobody but the agent and their coach sees them. Setup is yes or no and counts, never anything about a client.
           </p>
         </aside>
       </div>
     </div>
+  );
+}
+
+/** §3ag: setup progress for one agent: a bar, then the steps left with their counts. Facts only. */
+function SetupBlock({ st, late }: { st: Setup; late: boolean }) {
+  const left = st.steps.filter((x) => !x.done);
+  return (
+    <section className="cs" aria-label="Setup">
+      <h2>Getting set up</h2>
+      <div className="cs-bar" role="img" aria-label={setupWords(st)}>
+        {st.steps.map((x) => <i key={x.key} className={x.done ? "on" : undefined} />)}
+      </div>
+      <p className="d-sum">{setupWords(st)}{late ? ` · under half after ${14} days` : ""}</p>
+      {left.length ? (
+        <ul className="pm-list pm-compact">
+          {left.map((x) => (
+            <li key={x.key}>
+              <i className="pm-dot" style={{ background: "rgba(255,255,255,0.35)" }} aria-hidden="true" />
+              <span className="pm-body">
+                <b>{x.label}</b>
+                {x.count != null ? <small>{x.count} so far</small> : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
   );
 }
