@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import PulseRing, { PULSE_COLOR, type PulseLevel } from "./PulseRing.tsx";
-import { SLOW_MINUTES, TEAM_LEADS_PAGE, agentLines, dealLevel, denverDay, leadLevel, minutesWords, totals, waited, warLine, type AgentLine, type WarDeal, type WarLead, type WarRoom } from "@/lib/warroom.ts";
+import { SLOW_MINUTES, agentLines, dealLevel, denverDay, leadLevel, minutesWords, totals, waited, warLine, type AgentLine, type WarDeal, type WarLead, type WarRoom } from "@/lib/warroom.ts";
 
 // The team war room (PULSE-ROADMAP K22). The team in the middle, each agent round it with their team leads, and the
 // lead pool. Red: a lead not reached in 15 minutes. Yellow: one waiting inside the window, or in the pool. A still
@@ -23,7 +23,7 @@ const leads = (n: number) => `${n} ${n === 1 ? "lead" : "leads"}`;
 
 const agentLevel = (a: AgentLine): PulseLevel | null => (a.late ? "now" : a.waiting ? "today" : a.leads ? "good" : null);
 
-export default function WarRoomView({ room, demo, onClose }: { room: WarRoom; demo: boolean; onClose: () => void }) {
+export default function WarRoomView({ room, demo, onClose, onTeamLeads }: { room: WarRoom; demo: boolean; onClose: () => void; onTeamLeads: () => void }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
@@ -203,7 +203,7 @@ export default function WarRoomView({ room, demo, onClose }: { room: WarRoom; de
                 </>
               ) : null}
               <div className="decide-btns">
-                <a className="chip-btn primary" href={TEAM_LEADS_PAGE} target="_blank" rel="noreferrer">{sel.id === POOL ? "Assign in ONE MOVE" : "Reassign in ONE MOVE"}</a>
+                <button type="button" className="chip-btn primary" onClick={onTeamLeads}>{sel.id === POOL ? "Assign in Team Leads" : "Reassign in Team Leads"}</button>
                 <button type="button" className="chip-btn" onClick={() => open(null)}>The whole team</button>
               </div>
             </>
@@ -259,7 +259,7 @@ export default function WarRoomView({ room, demo, onClose }: { room: WarRoom; de
                 </>
               ) : null}
               <div className="decide-btns">
-                <a className="chip-btn primary" href={TEAM_LEADS_PAGE} target="_blank" rel="noreferrer">Team leads in ONE MOVE</a>
+                <button type="button" className="chip-btn primary" onClick={onTeamLeads}>Open Team Leads</button>
               </div>
             </>
           )}

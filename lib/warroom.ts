@@ -10,7 +10,8 @@ export const WAR_NODE = "go-warroom";
 export const leadsUrl = (days = 7) => `${MOVE_URL}/api/brain/team/leads?days=${days}`;
 export const logUrl = () => `${MOVE_URL}/api/brain/team/log`;
 export const teamDealsUrl = () => `${MOVE_URL}/api/brain/team/deals`;
-export const TEAM_LEADS_PAGE = `${MOVE_URL}/team-leads`;
+/** ONE MOVE's Team Leads page, opened inside the Brain (moveMenu.ts TEAM_LEADS_PAGE), never the classic site. */
+export const TEAM_LEADS_PATH = "/team-leads";
 /** A lead not reached in this many minutes turns red: the team's next-up window (§3ae.3 default). */
 export const SLOW_MINUTES = 15;
 

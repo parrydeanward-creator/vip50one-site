@@ -57,8 +57,11 @@ test("no ONE MOVE account: the pages still show, nothing lit", () => {
 // except Dashboard (Classic's home, which has no orb).
 test("every ONE MOVE menu page opens inside the Brain; other orbs do not", async () => {
   const { inBrainPage, movePageId, IN_BRAIN } = await import("../lib/moveMenu.ts");
-  // 22 agent pages, plus the 7 Coach pages for admins (Parry, 8 Oct: the admin pages belong in the Brain too)
-  assert.equal(IN_BRAIN.size, 29);
+  // 22 agent pages, plus the 7 Coach pages for admins (Parry, 8 Oct: the admin pages belong in the Brain too), plus
+  // Team Leads for team members (13 Oct: Parry's "leads" click went to the classic site; it opens inside the Brain now)
+  assert.equal(IN_BRAIN.size, 30);
+  assert.ok(IN_BRAIN.has("/team-leads"));
+  assert.equal(inBrainPage(movePageId("/team-leads"))?.label, "Team Leads");
   assert.ok(!IN_BRAIN.has("/dashboard")); // Classic's home stays a link
   assert.equal(inBrainPage(movePageId("/contacts/vip"))?.label, "VIP Management");
   assert.equal(inBrainPage(movePageId("/contacts"))?.label, "Contacts");
@@ -80,4 +83,13 @@ test("group orbs and plain page orbs are told apart (no Open button, no hover ca
 test("pages inside the Brain ask ONE MOVE for its embed look up front", async () => {
   const { moveEmbedHref } = await import("../lib/moveMenu.ts");
   assert.equal(moveEmbedHref("/contacts"), "https://move.vip50one.com/contacts?embed=1");
+});
+
+test("the Team Leads orb shows under People for a team member only", async () => {
+  const { withTeamLeadsPage, movePageId } = await import("../lib/moveMenu.ts");
+  const g = liveGraph(MASTER, opts, {});
+  const id = movePageId("/team-leads");
+  const on = withTeamLeadsPage(g, true).nodes.find((n) => n.id === id);
+  assert.equal(on?.parentId, "move-g-people");
+  assert.equal(withTeamLeadsPage(g, false).nodes.some((n) => n.id === id), false);
 });

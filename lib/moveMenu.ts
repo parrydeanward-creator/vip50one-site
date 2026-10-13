@@ -135,9 +135,24 @@ export const movePageId = (path: string) =>
 /** ONE MOVE's desktop layout needs this many pixels (its lg breakpoint, 1024, plus room). */
 export const MOVE_PAGE_WIDTH = 1280;
 
-export const IN_BRAIN: ReadonlySet<string> = new Set(MOVE_MENU_PATHS());
+/** ONE MOVE's Team Leads (MOVE-MENU.md People; VIP-SUMMARY §3ae): an orb only for agents on a team. */
+export const TEAM_LEADS_PAGE: MovePage = { label: "Team Leads", path: "/team-leads" };
 
-const PATH_BY_ID = new Map([...MOVE_MENU, ...MOVE_COACH.pages].map((m) => [movePageId(m.path), m]));
+export const IN_BRAIN: ReadonlySet<string> = new Set([...MOVE_MENU_PATHS(), TEAM_LEADS_PAGE.path]);
+
+const PATH_BY_ID = new Map([...MOVE_MENU, ...MOVE_COACH.pages, TEAM_LEADS_PAGE].map((m) => [movePageId(m.path), m]));
+
+/** The Team Leads orb under People, for a team member only (the war room's answer says whether they are on one). */
+export function withTeamLeadsPage<G extends { nodes: import("./graph/types.ts").GraphNode[]; edges: import("./graph/types.ts").GraphEdge[] }>(g: G, onTeam: boolean): G {
+  const id = movePageId(TEAM_LEADS_PAGE.path);
+  const gid = moveGroupId("people");
+  const nodes = g.nodes.filter((n) => n.id !== id);
+  const edges = g.edges.filter((e) => e.target !== id);
+  if (!onTeam || !g.nodes.some((n) => n.id === gid)) return { ...g, nodes, edges };
+  nodes.push({ id, type: "feature", label: TEAM_LEADS_PAGE.label, parentId: gid, product: "move", importance: 0.69, href: moveMenuHref(TEAM_LEADS_PAGE.path) });
+  edges.push({ id: `${gid}>${id}`, source: gid, target: id, relationshipType: "belongs_to", strength: 1 });
+  return { ...g, nodes, edges };
+}
 
 /** The page a focused orb opens inside the Brain, if any. */
 export function inBrainPage(nodeId: string): MovePage | null {
