@@ -746,6 +746,7 @@ export function firstNameOf(displayName: string | null | undefined, email: strin
 // coaching, then Complete. A legacy member with no plan has GO + MOVE.
 export function packageOf(onePlan: string | null | undefined): PackageId {
   const p = (onePlan ?? "").toLowerCase();
+  if (p === "growth") return "growth";
   return p === "complete" || p === "elite" ? "complete" : "relationship";
 }
 

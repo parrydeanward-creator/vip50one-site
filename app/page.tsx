@@ -1,5 +1,5 @@
 import InlineFilm from "@/components/sales/InlineFilm.tsx";
-import { FAQ, JOIN, PACKAGES, PRODUCTS, joinFor, shownTestimonials } from "@/lib/sales.ts";
+import { EXTRA_PLANS, FAQ, GROWTH_JOIN, JOIN, PACKAGES, PRODUCTS, joinFor, shownTestimonials } from "@/lib/sales.ts";
 
 // vip50one.com (Parry, 29 Sep): visitors see the sales page; signed-in
 // clients go straight to their dashboard, ONE Brain (middleware.ts does that,
@@ -174,6 +174,33 @@ export default function Home() {
                   {p.trial ? "Start 7 days free" : "Start Elite"}
                 </a>
                 {p.trial && <small className="sp-fine">7 days free, then {p.founding}/month founding. One trial per person.</small>}
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section id="growth" className="sp-packages">
+          <p className="sp-eyebrow center">Grow and build a team</p>
+          <h2 className="center">ONE Growth and team plans</h2>
+          <p className="sp-sub center">ONE Growth is for any agent, anywhere. Team plans put your whole team on one system. Web signup only.</p>
+          <div className="sp-pack-grid">
+            {EXTRA_PLANS.map((p) => (
+              <article key={p.id} className="sp-pack">
+                <h3>{p.name}</h3>
+                <p className="sp-tag">{p.tag}</p>
+                <p className="sp-price">
+                  <b>{p.price}</b>
+                  <span>{p.per}</span>
+                </p>
+                {p.more.map((m) => (
+                  <p key={m} className="sp-annual">{m}</p>
+                ))}
+                <ul>
+                  {p.includes.map((x) => (
+                    <li key={x}>{x}</li>
+                  ))}
+                </ul>
+                <a className="sp-ghost" href={GROWTH_JOIN}>{p.cta}</a>
               </article>
             ))}
           </div>

@@ -110,6 +110,7 @@ export interface BrainAgent {
   label: string; // spoken name for the account button
   photo?: string; // the agent's own photo (MASTER user_profiles.avatar_url)
   admin?: boolean; // MASTER is_admin / is_super_admin: the Coach menu and Review calls
+  growth?: boolean; // has ONE Growth (plan or add-on); Complete/Elite without it see the add-on offer in Meet Pulse
 }
 
 // The made-up agent the demo, films and screenshots use.
@@ -2829,6 +2830,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       {intro && (
         <PulseIntro
           pkg={pkg}
+          growth={agent.growth === true}
           total={needs.get(graph.rootId)}
           onClose={() => setIntro(false)}
           onAsk={() => {

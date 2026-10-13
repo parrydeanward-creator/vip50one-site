@@ -4,7 +4,7 @@
 
 export type ProductId = "go" | "move" | "marquee" | "open" | "showly";
 
-export type PackageId = "relationship" | "complete" | "elite";
+export type PackageId = "relationship" | "complete" | "elite" | "growth";
 
 // alert: safety, money or something broken. today: due today or overdue.
 // soon: coming up, worth knowing.

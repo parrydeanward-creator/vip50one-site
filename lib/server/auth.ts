@@ -53,6 +53,8 @@ export interface SignedIn {
   photo?: string;
   /** MASTER is_admin or is_super_admin: shows the Coach menu and Review calls (the pages check again). */
   admin: boolean;
+  /** Has ONE Growth: the Growth plan itself or the add-on on Complete/Elite (ENTITLEMENT §3 v1.4). */
+  growth: boolean;
 }
 
 export interface Identity {
@@ -76,7 +78,7 @@ export async function profileOf(who: Identity, token?: string): Promise<SignedIn
   // Own row only (RLS: user_id = auth.uid()); only the columns ONE needs.
   const { data: p } = await sb
     .from("user_profiles")
-    .select("display_name, avatar_url, one_plan, vip_access, subscription_status, founding_member, is_admin, is_super_admin")
+    .select("display_name, avatar_url, one_plan, vip_access, subscription_status, founding_member, is_admin, is_super_admin, growth_addon")
     .eq("user_id", who.id)
     .maybeSingle();
   const displayName = (p?.display_name as string | null)?.trim() || "";
@@ -91,6 +93,7 @@ export async function profileOf(who: Identity, token?: string): Promise<SignedIn
     photo: safeImage(p?.avatar_url as string | null),
     member: p ? isMember(p as { vip_access?: boolean; subscription_status?: string }) : false,
     admin: p?.is_admin === true || p?.is_super_admin === true,
+    growth: (p?.one_plan as string | null)?.toLowerCase() === "growth" || p?.growth_addon === true,
   };
 }
 
