@@ -161,6 +161,52 @@ export const PACKAGES: Package[] = [
   },
 ];
 
+/** ONE Growth and the team plans (Parry, 13 Oct; ECOSYSTEM §7.1, GROWTH.md §2): on sale 13 Oct ("growth on"), sold
+ * through ONE MOVE's checkout. List price only, no founding price; what each card says is what the checkout sells. */
+export const GROWTH_JOIN = "https://move.vip50one.com/join/growth";
+export interface ExtraPlan {
+  id: "growth" | "team" | "team_complete";
+  name: string;
+  tag: string;
+  price: string;
+  per: string;
+  more: string[];
+  includes: string[];
+  cta: string;
+}
+export const EXTRA_PLANS: ExtraPlan[] = [
+  {
+    id: "growth",
+    name: "ONE Growth",
+    tag: "Lead generation for any agent, anywhere",
+    price: "$499",
+    per: "/month",
+    more: ["7 days free, then $499/month. One trial per person.", "$199/month added to ONE Complete or Elite", "Month-to-month. Ad spend paid by you to Google and Meta, at cost. No per-lead fees."],
+    includes: ["Pulse Ads on your own ad accounts, approved by you", "Farm Mode for the areas you choose", "Landing pages and home value requests", "Pulse answers new leads in seconds", "ONE MOVE and your agent website"],
+    cta: "Start 7 days free",
+  },
+  {
+    id: "team",
+    name: "ONE Team",
+    tag: "Your team on one system",
+    price: "$799",
+    per: "/month",
+    more: ["Team site and 5 seats, then $50/month per seat", "or $7,990 a year: two months free", "Add ONE Growth for the whole team: $499/month, once per team"],
+    includes: ["Team website, every agent's page reached from it", "ONE GO and ONE MOVE for every seat", "Lead routing, the lead pool and the war room"],
+    cta: "Start ONE Team",
+  },
+  {
+    id: "team_complete",
+    name: "ONE Team Complete",
+    tag: "Every seat on ONE Complete",
+    price: "$1,299",
+    per: "/month",
+    more: ["5 ONE Complete seats, then $99/month per seat", "or $12,990 a year: two months free", "Add ONE Growth for the whole team: $499/month, once per team"],
+    includes: ["Everything in ONE Team", "Marquee, ONE Open and Showly for every seat"],
+    cta: "Start ONE Team Complete",
+  },
+];
+
 export interface Testimonial {
   name: string;
   role?: string; // title, brokerage, city, as the person's page shows it

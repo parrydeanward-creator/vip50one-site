@@ -2,11 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import PulseMark from "./PulseMark.tsx";
-import { COMING, LIVE, PROMISE, packageLine, todayLine } from "@/lib/pulseIntro.ts";
+import { COMING, GROWTH_ADD_URL, LIVE, PROMISE, growthOffer, packageLine, todayLine } from "@/lib/pulseIntro.ts";
 import type { Need } from "@/lib/needs.ts";
 
 // Meet Pulse: opens from the centre ONE orb (and once, on a first visit).
-export default function PulseIntro({ pkg, total, onClose, onAsk, onMorning, onGuide }: { pkg?: string; total?: Need; onClose: () => void; onAsk: () => void; onMorning: () => void; onGuide: () => void }) {
+export default function PulseIntro({ pkg, growth = false, total, onClose, onAsk, onMorning, onGuide }: { pkg?: string; growth?: boolean; total?: Need; onClose: () => void; onAsk: () => void; onMorning: () => void; onGuide: () => void }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   // The dashboard re-renders while this is open (the clock, live signals): a new onClose each time must
   // not re-run this, or the cursor jumps to the close button mid-typing and the next key closes the view.
@@ -62,6 +62,12 @@ export default function PulseIntro({ pkg, total, onClose, onAsk, onMorning, onGu
               ))}
             </ul>
             {pkgLine && <p className="pi-pkg">{pkgLine}</p>}
+            {growthOffer(pkg, growth) ? (
+              <p className="pi-pkg">
+                {growthOffer(pkg, growth)}{" "}
+                <a href={GROWTH_ADD_URL} target="_blank" rel="noreferrer">Add ONE Growth</a>
+              </p>
+            ) : null}
           </div>
         </div>
         <p className="pi-promise">{PROMISE}</p>

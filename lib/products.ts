@@ -46,6 +46,8 @@ const INCLUDES: Record<PackageId, ProductId[]> = {
   relationship: ["go", "move"],
   complete: ["go", "move", "marquee", "open", "showly"],
   elite: ["go", "move", "marquee", "open", "showly"],
+  // ONE Growth alone (ENTITLEMENT §3 v1.4: includes move, website, growth): ONE MOVE, never ONE GO.
+  growth: ["move"],
 };
 
 export function includes(pkg: PackageId, product: ProductId): boolean {
@@ -56,6 +58,7 @@ export const PACKAGE_LABEL: Record<PackageId, string> = {
   relationship: "Relationship",
   complete: "Complete",
   elite: "Elite",
+  growth: "ONE Growth",
 };
 
 export function productName(id: ProductId): string {

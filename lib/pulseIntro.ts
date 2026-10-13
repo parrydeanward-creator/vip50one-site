@@ -42,7 +42,16 @@ const PRODUCTS: Record<string, string> = {
 export function packageLine(pkg: string | undefined): string {
   if (pkg === "complete") return `Your ONE Complete gives Pulse all five: ${PRODUCTS.complete}.`;
   if (pkg === "relationship") return `Your ONE Relationship gives Pulse ${PRODUCTS.relationship}. Marquee, ONE Open and Showly join it with ONE Complete.`;
+  if (pkg === "growth") return "Your ONE Growth gives Pulse ONE MOVE, your website and your ads.";
   return "";
+}
+
+/** ONE Growth's checkout (sold from 13 Oct, "growth on"; GROWTH.md §2). */
+export const GROWTH_ADD_URL = "https://move.vip50one.com/join/growth";
+/** The add-on offer for a Complete or Elite agent without ONE Growth (GROWTH.md §2: $199/mo); null for anyone else. */
+export function growthOffer(pkg: string | undefined, hasGrowth: boolean): string | null {
+  if (hasGrowth || (pkg !== "complete" && pkg !== "elite")) return null;
+  return "Add ONE Growth for $199/month: Pulse runs your ads, farms your areas and answers new leads in seconds. Ad spend is paid by you, at cost. Month-to-month.";
 }
 
 /** The first line of the card, from what needs the agent right now. */

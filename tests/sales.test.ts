@@ -109,3 +109,20 @@ test("each package button opens checkout with that package selected (CHECKOUT.md
   assert.match(readFileSync("app/page.tsx", "utf8"), /href=\{joinFor\(p\.id\)\}/);
   for (const p of PACKAGES) assert.ok(!/code=/i.test(joinFor(p.id)), "never a code in the link");
 });
+
+test("ONE Growth and team plans: prices as ECOSYSTEM §7.1, bought through ONE MOVE's growth checkout", async () => {
+  const { EXTRA_PLANS, GROWTH_JOIN } = await import("../lib/sales.ts");
+  const p = Object.fromEntries(EXTRA_PLANS.map((x) => [x.id, x]));
+  assert.equal(p.growth.price, "$499");
+  assert.ok(p.growth.more.some((m) => m.includes("$199/month added to ONE Complete or Elite")));
+  assert.equal(p.team.price, "$799");
+  assert.ok(p.team.more.some((m) => m.includes("$50/month per seat")) && p.team.more.some((m) => m.includes("$7,990")));
+  assert.equal(p.team_complete.price, "$1,299");
+  assert.ok(p.team_complete.more.some((m) => m.includes("$99/month per seat")) && p.team_complete.more.some((m) => m.includes("$12,990")));
+  assert.equal(GROWTH_JOIN, "https://move.vip50one.com/join/growth");
+  // Rewritten 13 Oct: ONE Growth alone has the 7-day trial (GROWTH.md §2, vip50-web-crm#223 merged by Parry); the add-on
+  // and the team plans have none, and nothing here has a founding price.
+  assert.ok(p.growth.more.some((m) => m.startsWith("7 days free")));
+  assert.ok([p.team, p.team_complete].every((x) => !JSON.stringify(x).match(/trial|days free/i)));
+  assert.ok(EXTRA_PLANS.every((x) => !JSON.stringify(x).match(/founding/i)));
+});
