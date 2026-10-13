@@ -1505,10 +1505,21 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       u.searchParams.delete("open");
       window.history.replaceState(null, "", u.toString());
     }
-    goTo(movePageId(fromPath ?? "/profile"));
+    const want = movePageId(fromPath ?? "/profile");
+    // A page whose orb arrives a moment later (Team Leads waits for the team answer) opens when it appears
+    // (Parry, 13 Oct: /dashboard/team-leads landed on the main dashboard).
+    if (ix.byId.has(want)) goTo(want);
+    else pendingPage.current = want;
     // once, on arrival
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const pendingPage = useRef<string | null>(null);
+  useEffect(() => {
+    const want = pendingPage.current;
+    if (!want || !ix.byId.has(want)) return;
+    pendingPage.current = null;
+    goTo(want);
+  }, [ix, goTo]);
 
   useEffect(() => {
     const g = returnNote(window.location.search);
