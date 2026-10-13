@@ -64,7 +64,7 @@ import { ASSUME_DEFAULT, INCOME_NODE, goalFacts, incomeKey, incomeMap, readAssum
 import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
 import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
 import { REVIEW_CALLS_NODE, agentsUrl, demoAgents, readAgents, withReviewCallsNode, type ReviewAgent } from "@/lib/reviewCalls.ts";
-import { WAR_NODE, demoWarRoom, leadsUrl, logUrl, readWarRoom, withWarRoomNode, type WarRoom } from "@/lib/warroom.ts";
+import { WAR_NODE, demoWarRoom, teamDealsUrl, leadsUrl, logUrl, readWarRoom, withWarRoomNode, type WarRoom } from "@/lib/warroom.ts";
 import { TEAM_NODE, demoTeam, readTeam, teamUrl, withTeamNode, type Scope as TeamScope, type Team } from "@/lib/team.ts";
 import { TIME_OFF_NODE, demoTimeOff, readTimeOff, saveBody as timeOffBody, timeOffUrl, withTimeOffNode, type TimeOffState } from "@/lib/timeOff.ts";
 import { DAY_FILM_KEY } from "@/lib/dayFilm.ts";
@@ -537,7 +537,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const loadWar = useCallback(() => {
     if (!live) return setWar(demoWarRoom(Date.now()));
     const get = (u: string) => fetch(u, { credentials: "include", cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    Promise.all([get(leadsUrl(7)), get(logUrl())]).then(([l, g]) => setWar(l ? readWarRoom(l, g) : null));
+    Promise.all([get(leadsUrl(7)), get(logUrl()), get(teamDealsUrl())]).then(([l, g, d]) => setWar(l ? readWarRoom(l, g, d) : null));
   }, [live]);
   useEffect(() => {
     loadWar();
