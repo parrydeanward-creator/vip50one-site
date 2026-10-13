@@ -25,3 +25,19 @@ test("refusals in plain words", () => {
   assert.equal(ticketProblem({ ok: false, reason: "no_site" }), "Your website is not set up yet.");
   assert.match(ticketProblem(null), /could not be opened/);
 });
+
+test("team sites: owner and admin only, clean hosts, one per host", async () => {
+  const { readTeamSites } = await import("../lib/siteEdit.ts");
+  const rows = [
+    { role: "owner", teams: { slug: "luxury-agency", site_host: "luxury-agency.vip50homes.com" } },
+    { role: "agent", teams: { slug: "x", site_host: "x.vip50homes.com" } },
+    { role: "admin", teams: { slug: "y", site_host: "not a host" } },
+    { role: "admin", teams: { slug: "luxury-agency", site_host: "LUXURY-AGENCY.vip50homes.com" } },
+    { slug: "z", host: "z.vip50homes.com", role: "admin" },
+  ];
+  assert.deepEqual(readTeamSites(rows), [
+    { slug: "luxury-agency", host: "luxury-agency.vip50homes.com", role: "owner" },
+    { slug: "z", host: "z.vip50homes.com", role: "admin" },
+  ]);
+  assert.deepEqual(readTeamSites(null), []);
+});

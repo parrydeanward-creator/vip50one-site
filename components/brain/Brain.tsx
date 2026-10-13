@@ -69,6 +69,7 @@ import { DAY_FILM_KEY } from "@/lib/dayFilm.ts";
 import { demoPulseReport, pulseReportUrl, readPulseReport, type PulseReport } from "@/lib/pulseReport.ts";
 import AskAiView from "./AskAiView.tsx";
 import ListenNote from "./ListenNote.tsx";
+import { readTeamSites, type TeamSite } from "@/lib/siteEdit.ts";
 import { ASK_AI_NODE, monthOf, readResults, resultKey, withAskAiNode, type Answer as AiAnswer, type Engine as AiEngine, type Results as AiResults } from "@/lib/aiCheck.ts";
 import { LIKELY_NODE, demoMoveLikely, moveLikelyUrl, notUsefulUrl, readMoveLikely, withMoveLikelyNode, withoutPerson, type MoveLikely, type Person as LikelyPerson } from "@/lib/moveLikely.ts";
 import { MARKET_NODE, demoMarketPulse, marketPulseUrl, marketSendUrl, readMarketPulse, sendBody as marketSendBody, withMarketPulseNode, withSent as withMarketSent, type MarketPulse, type Vip as MarketVip } from "@/lib/marketPulse.ts";
@@ -613,16 +614,25 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // Edit my website (ENTITLEMENT §6a): shown only when MASTER knows the agent's site; a one-time ticket on press.
   const [siteHost, setSiteHost] = useState<string | null>(null);
   const [siteNote, setSiteNote] = useState<string | null>(null);
+  const [teamSites, setTeamSites] = useState<TeamSite[]>([]);
   useEffect(() => {
     if (!live) return;
     fetch("/api/site", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => setSiteHost(typeof j?.site_host === "string" ? j.site_host : null))
+      .then((j) => {
+        setSiteHost(typeof j?.site_host === "string" ? j.site_host : null);
+        setTeamSites(readTeamSites(j?.team_sites));
+      })
       .catch(() => {});
   }, [live]);
-  const editSite = useCallback(async () => {
+  const editSite = useCallback(async (site?: string) => {
     setSiteNote(null);
-    const r = await fetch("/api/site", { method: "POST", cache: "no-store" }).catch(() => null);
+    const r = await fetch("/api/site", {
+      method: "POST",
+      cache: "no-store",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(site ? { site } : {}),
+    }).catch(() => null);
     const j = r ? await r.json().catch(() => null) : null;
     if (r?.ok && typeof j?.url === "string") return window.location.assign(j.url);
     setSiteNote(typeof j?.error === "string" ? j.error : "Your website could not be opened just now. Please try again.");
@@ -1760,6 +1770,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                 Edit my website
               </button>
             )}
+            {teamSites.map((t) => (
+              <button key={t.host} type="button" className="signout" onClick={() => void editSite(t.host)} title={`Edit ${t.host}`}>
+                Edit the team website
+              </button>
+            ))}
             <button className="signout" type="submit">Sign out</button>
           </form>
         ) : (
