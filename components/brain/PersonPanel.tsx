@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ContactPanel from "./ContactPanel.tsx";
+import { readSignals, signalKind, signalsUrl } from "@/lib/webSignals.ts";
 import { contactsSearchUrl, nameFromTitle, taskDoneUrl, taskLinkUrl, TIER_LABEL, type ContactHit } from "@/lib/contact.ts";
 
 // A ONE MOVE item about a person. With a contact: the card, Call / Text /
@@ -13,12 +14,15 @@ export default function PersonPanel({
   title,
   onChanged,
   openContacts,
+  onOpenPage,
 }: {
   contactId?: string;
   taskId?: string;
   title: string;
   onChanged: () => void;
   openContacts: () => void;
+  /** Open a ONE MOVE page inside the Brain, filled in for this contact (`?contact=<id>`). */
+  onOpenPage?: (path: string, query: string) => void;
 }) {
   const [linked, setLinked] = useState<string | undefined>(contactId);
   const [q, setQ] = useState(() => nameFromTitle(title));
@@ -81,7 +85,24 @@ export default function PersonPanel({
     }
   };
 
-  if (linked) return <ContactPanel key={linked} contactId={linked} taskId={taskId} onLogged={onChanged} />;
+  if (linked)
+    return (
+      <>
+        <ContactPanel key={linked} contactId={linked} taskId={taskId} onLogged={onChanged} />
+        <WebHotLine contactId={linked} />
+        {onOpenPage ? (
+          <div className="decide-btns pp-more">
+            {/* VIP-SUMMARY §3af and §3ah: both pages open filled in for this person (vip50-web-crm#224) */}
+            <button type="button" className="chip-btn" onClick={() => onOpenPage("/referral-network", `contact=${encodeURIComponent(linked)}`)}>
+              Refer to a ONE agent
+            </button>
+            <button type="button" className="chip-btn" onClick={() => onOpenPage("/buyer-needs", `contact=${encodeURIComponent(linked)}`)}>
+              Post a buyer need
+            </button>
+          </div>
+        ) : null}
+      </>
+    );
   if (!taskId) return null;
 
   return (
@@ -120,4 +141,23 @@ export default function PersonPanel({
       {msg && <p className="cc-done" role="status">{msg}</p>}
     </div>
   );
+}
+
+/** "Hot on your website" for this one person (LOFTY-PARITY P3): ONE MOVE's words, or nothing. Read only. */
+function WebHotLine({ contactId }: { contactId: string }) {
+  const [line, setLine] = useState<string | null>(null);
+  useEffect(() => {
+    let on = true;
+    fetch(`${signalsUrl}?contact_id=${encodeURIComponent(contactId)}`, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const s = readSignals(j)?.find((x) => x.contactId === contactId);
+        if (on) setLine(s ? `${signalKind(s)}: ${s.words}` : null);
+      })
+      .catch(() => {});
+    return () => {
+      on = false;
+    };
+  }, [contactId]);
+  return line ? <p className="pc-pulse-line"><b>WEBSITE</b>{line}</p> : null;
 }
