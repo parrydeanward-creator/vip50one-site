@@ -9,6 +9,7 @@ const MOVE_URL = "https://move.vip50one.com";
 export const WAR_NODE = "go-warroom";
 export const leadsUrl = (days = 7) => `${MOVE_URL}/api/brain/team/leads?days=${days}`;
 export const logUrl = () => `${MOVE_URL}/api/brain/team/log`;
+export const teamDealsUrl = () => `${MOVE_URL}/api/brain/team/deals`;
 export const TEAM_LEADS_PAGE = `${MOVE_URL}/team-leads`;
 /** A lead not reached in this many minutes turns red: the team's next-up window (§3ae.3 default). */
 export const SLOW_MINUTES = 15;
@@ -41,12 +42,23 @@ export interface WarLine {
   from: string | null;
   to: string | null;
 }
+/** A deal that began as a team lead (§3ae.14): under contract, or closed in the last 30 days. */
+export interface WarDeal {
+  id: string;
+  agentId: string;
+  agentName: string;
+  client: string;
+  side: string | null;
+  status: "under_contract" | "closed";
+  next: { label: string; on: string } | null;
+}
 export interface WarRoom {
   team: { slug: string; name: string; role: Role };
   leads: WarLead[];
   pond: WarLead[];
   members: WarMember[];
   log: WarLine[];
+  deals: WarDeal[];
 }
 
 const str = (v: unknown, max = 80) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
@@ -75,8 +87,29 @@ function readLead(x: unknown): WarLead | null {
   };
 }
 
-/** ONE MOVE's `/api/brain/team/leads` and `/api/brain/team/log` answers, checked; null when not on a team. */
-export function readWarRoom(leadsJ: unknown, logJ: unknown): WarRoom | null {
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+/** ONE MOVE's `/api/brain/team/deals` answer (§3ae.14), checked; nearest deadline first, closed last. */
+export function readTeamDeals(j: unknown): WarDeal[] {
+  const list = j && typeof j === "object" && Array.isArray((j as Record<string, unknown>).deals) ? ((j as Record<string, unknown>).deals as unknown[]) : [];
+  const out: WarDeal[] = [];
+  for (const x of list) {
+    const r = (x ?? {}) as Record<string, unknown>;
+    const a = (r.agent ?? {}) as Record<string, unknown>;
+    const id = str(r.id), agentId = str(a.user_id);
+    if (!id || !agentId || (r.status !== "under_contract" && r.status !== "closed")) continue;
+    const n = (r.next ?? null) as Record<string, unknown> | null;
+    const next = n && str(n.label, 60) && typeof n.on === "string" && DAY.test(n.on) ? { label: str(n.label, 60)!, on: n.on } : null;
+    out.push({ id, agentId, agentName: str(a.name, 60) ?? "Agent", client: str(r.client, 60) ?? "No name", side: str(r.side, 10), status: r.status, next: r.status === "closed" ? null : next });
+  }
+  const key = (d: WarDeal) => (d.status === "closed" ? "9" : d.next ? `0${d.next.on}` : "5");
+  return out.sort((a, b) => key(a).localeCompare(key(b))).slice(0, 100);
+}
+
+/** A deal's deadline urgency: "today" when the next date is today or already here, else null. */
+export const dealLevel = (d: WarDeal, today: string): "today" | null => (d.next && d.next.on <= today ? "today" : null);
+
+/** ONE MOVE's `/api/brain/team/leads`, `/log` and `/deals` answers, checked; null when not on a team. */
+export function readWarRoom(leadsJ: unknown, logJ: unknown, dealsJ: unknown = null): WarRoom | null {
   if (!leadsJ || typeof leadsJ !== "object") return null;
   const j = leadsJ as Record<string, unknown>;
   const t = j.team as Record<string, unknown> | null;
@@ -103,7 +136,7 @@ export function readWarRoom(leadsJ: unknown, logJ: unknown): WarRoom | null {
     })
     .filter((l): l is WarLine => !!l)
     .slice(0, 100);
-  return { team: { slug, name, role }, leads: list(j.leads).sort(byNew), pond: list(j.pond).sort(byNew), members, log };
+  return { team: { slug, name, role }, leads: list(j.leads).sort(byNew), pond: list(j.pond).sort(byNew), members, log, deals: readTeamDeals(dealsJ) };
 }
 
 /** Minutes a lead has waited, from arrival to now. */
@@ -166,6 +199,9 @@ export interface WarTotals {
   pond: number;
   reached: number;
   median: number | null;
+  /** Deals under contract, and how many have a deadline today. */
+  deals: number;
+  dueToday: number;
 }
 export function totals(w: WarRoom, now: number): WarTotals {
   const day = denverDay(now);
@@ -178,6 +214,8 @@ export function totals(w: WarRoom, now: number): WarTotals {
     pond: w.pond.length,
     reached: reached.length,
     median: median(reached.map((l) => l.minutes).filter((m): m is number => m != null)),
+    deals: w.deals.filter((d) => d.status === "under_contract").length,
+    dueToday: w.deals.filter((d) => dealLevel(d, day)).length,
   };
 }
 
@@ -187,6 +225,7 @@ export function warLine(t: WarTotals): string {
   if (t.late) return `${t.late} not reached in ${SLOW_MINUTES} min`;
   if (t.waiting) return `${t.waiting} waiting to be reached`;
   if (t.pond) return `${t.pond} in the lead pool`;
+  if (t.dueToday) return `${t.dueToday} deal ${t.dueToday === 1 ? "deadline" : "deadlines"} today`;
   return t.today ? `${t.today} today, all reached` : "All team leads reached";
 }
 
@@ -200,7 +239,7 @@ export function withWarRoomNode<G extends { nodes: GraphNode[]; edges: GraphEdge
   const edges = g.edges.filter((e) => e.target !== WAR_NODE);
   if (!go || go.locked || !w || !isManager(w.team.role)) return { ...g, nodes, edges };
   const t = totals(w, now);
-  const need = t.waiting + t.pond;
+  const need = t.waiting + t.pond + t.dueToday;
   nodes.push({
     id: WAR_NODE,
     type: "feature",
@@ -248,6 +287,13 @@ export function demoWarRoom(now: number): WarRoom {
         { id: 2, at: ago(25), event: "to_pond", words: "To the lead pool" },
         { id: 3, at: ago(42), event: "assigned", words: "Assigned", to: "Annette" },
         { id: 4, at: ago(186), event: "contacted", words: "Contacted", to: "Annette" },
+      ],
+    },
+    {
+      deals: [
+        { id: "d1", agent: { user_id: "a3", name: "Aaron" }, client: "Sam Reyes", side: "buy", status: "under_contract", next: { label: "Due diligence", on: denverDay(now + 3 * 86_400_000) } },
+        { id: "d2", agent: { user_id: "a1", name: "Annette" }, client: "Lena Ford", side: "sell", status: "under_contract", next: { label: "Settlement", on: denverDay(now + 11 * 86_400_000) } },
+        { id: "d3", agent: { user_id: "a2", name: "Travis" }, client: "Omar Hale", side: "buy", status: "closed", next: null },
       ],
     },
   )!;

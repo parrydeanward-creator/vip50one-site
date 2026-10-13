@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import PulseRing, { PULSE_COLOR, type PulseLevel } from "./PulseRing.tsx";
-import { SLOW_MINUTES, TEAM_LEADS_PAGE, agentLines, leadLevel, minutesWords, totals, waited, warLine, type AgentLine, type WarLead, type WarRoom } from "@/lib/warroom.ts";
+import { SLOW_MINUTES, TEAM_LEADS_PAGE, agentLines, dealLevel, denverDay, leadLevel, minutesWords, totals, waited, warLine, type AgentLine, type WarDeal, type WarLead, type WarRoom } from "@/lib/warroom.ts";
 
 // The team war room (PULSE-ROADMAP K22). The team in the middle, each agent round it with their team leads, and the
 // lead pool. Red: a lead not reached in 15 minutes. Yellow: one waiting inside the window, or in the pool. A still
@@ -84,6 +84,23 @@ export default function WarRoomView({ room, demo, onClose }: { room: WarRoom; de
   const selLeads: WarLead[] = !sel ? [] : sel.id === POOL ? room.pond : room.leads.filter((l) => l.assignedTo === sel.id);
   const selLine = sel && sel.id !== POOL ? lines.find((a) => a.id === sel.id) ?? null : null;
   const waitingAll = room.leads.filter((l) => !l.contacted).sort((a, b) => a.arrivedAt.localeCompare(b.arrivedAt));
+
+  const today = denverDay(now);
+  const selDeals: WarDeal[] = !sel || sel.id === POOL ? [] : room.deals.filter((d) => d.agentId === sel.id);
+  const dayWords = (on: string) => new Date(`${on}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" });
+  const dealRow = (d: WarDeal, showAgent: boolean) => {
+    const lv = dealLevel(d, today);
+    const side = d.side === "buy" ? "Buyer" : d.side === "sell" ? "Seller" : d.side ?? "";
+    return (
+      <li key={d.id}>
+        <i className="pm-dot" style={{ background: lv ? PULSE_COLOR.today : d.status === "closed" ? GOLD : PULSE_COLOR.good }} aria-hidden="true" />
+        <span className="pm-body">
+          <b>{d.client}{showAgent ? ` · ${d.agentName}` : ""}</b>
+          <small>{d.status === "closed" ? `Closed${side ? ` · ${side}` : ""}` : `${side ? `${side} · ` : ""}${d.next ? `${d.next.label} ${d.next.on <= today ? "today" : dayWords(d.next.on)}` : "Under contract"}`}</small>
+        </span>
+      </li>
+    );
+  };
 
   const leadRow = (l: WarLead, showAgent: boolean) => {
     const lv = leadLevel(l, now);
@@ -179,6 +196,12 @@ export default function WarRoomView({ room, demo, onClose }: { room: WarRoom; de
                     : ""}
               </p>
               {selLeads.length ? <ul className="pm-list pm-compact">{selLeads.map((l) => leadRow(l, false))}</ul> : <p className="d-sum">No team leads in the last 7 days.</p>}
+              {selDeals.length ? (
+                <>
+                  <h2 className="wr-h">Deals from team leads</h2>
+                  <ul className="pm-list pm-compact">{selDeals.map((d) => dealRow(d, false))}</ul>
+                </>
+              ) : null}
               <div className="decide-btns">
                 <a className="chip-btn primary" href={TEAM_LEADS_PAGE} target="_blank" rel="noreferrer">{sel.id === POOL ? "Assign in ONE MOVE" : "Reassign in ONE MOVE"}</a>
                 <button type="button" className="chip-btn" onClick={() => open(null)}>The whole team</button>
@@ -193,11 +216,18 @@ export default function WarRoomView({ room, demo, onClose }: { room: WarRoom; de
                 <li><b>{t.waiting}</b> waiting</li>
                 <li><b>{t.pond}</b> in the pool</li>
                 <li><b>{t.median != null ? minutesWords(t.median) : "–"}</b> median to reach</li>
+                <li><b style={{ color: t.dueToday ? PULSE_COLOR.today : undefined }}>{t.deals}</b> under contract</li>
               </ul>
               {waitingAll.length ? (
                 <>
                   <h2 className="wr-h">Waiting to be reached</h2>
                   <ul className="pm-list pm-compact">{waitingAll.map((l) => leadRow(l, true))}</ul>
+                </>
+              ) : null}
+              {room.deals.length ? (
+                <>
+                  <h2 className="wr-h">Deals from team leads</h2>
+                  <ul className="pm-list pm-compact">{room.deals.map((d) => dealRow(d, true))}</ul>
                 </>
               ) : null}
               <h2 className="wr-h">Agents</h2>
@@ -222,7 +252,7 @@ export default function WarRoomView({ room, demo, onClose }: { room: WarRoom; de
                     {room.log.slice(0, 10).map((l) => (
                       <li key={l.id}>
                         <time dateTime={l.at}>{new Date(l.at).toLocaleTimeString("en-US", { timeZone: "America/Denver", hour: "numeric", minute: "2-digit" })}</time> {l.words}
-                        {l.from ? ` from ${l.from}` : ""}{l.to ? ` to ${l.to}` : ""}
+                        {l.from ? ` from ${l.from}` : ""}{l.to ? (l.event === "contacted" || l.event === "claimed" ? ` by ${l.to}` : ` to ${l.to}`) : ""}
                       </li>
                     ))}
                   </ul>

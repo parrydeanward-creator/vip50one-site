@@ -54,7 +54,8 @@ test("totals and the plain line", () => {
   assert.equal(t.today, 5); // all but the one from 25 hours ago (still 12 Oct in Denver)
   assert.equal(warLine(t), "1 not reached in 15 min");
   assert.equal(warLine({ ...t, late: 0 }), "2 waiting to be reached");
-  assert.equal(warLine({ today: 0, waiting: 0, late: 0, pond: 0, reached: 0, median: null }), "All team leads reached");
+  assert.equal(warLine({ today: 0, waiting: 0, late: 0, pond: 0, reached: 0, median: null, deals: 0, dueToday: 0 }), "All team leads reached");
+  assert.equal(warLine({ today: 0, waiting: 0, late: 0, pond: 0, reached: 0, median: null, deals: 1, dueToday: 1 }), "1 deal deadline today");
 });
 
 test("agent lines put the late first and keep quiet members", () => {
@@ -91,4 +92,26 @@ test("the orb shows for owners and admins only, red, yellow or green", () => {
   assert.equal(withWarRoomNode(g, null, now).nodes.some((n) => n.id === WAR_NODE), false);
   const locked = { nodes: [{ ...g.nodes[0], locked: true }], edges: [] };
   assert.equal(withWarRoomNode(locked, w, now).nodes.some((n) => n.id === WAR_NODE), false);
+});
+
+test("team deals: checked, nearest deadline first, closed last, a deadline today counts", async () => {
+  const { readTeamDeals, dealLevel } = await import("../lib/warroom.ts");
+  const d = readTeamDeals({
+    deals: [
+      { id: "c", agent: { user_id: "u1", name: "Annette" }, client: "Closed One", side: "sell", status: "closed", next: { label: "Settlement", on: "2026-10-01" } },
+      { id: "b", agent: { user_id: "u2", name: "Travis" }, client: "Later", side: "buy", status: "under_contract", next: { label: "Settlement", on: "2026-10-30" } },
+      { id: "a", agent: { user_id: "u1", name: "Annette" }, client: "Soon", side: "buy", status: "under_contract", next: { label: "Due diligence", on: "2026-10-13" } },
+      { id: "x", agent: { user_id: "u1" }, status: "fell_through" },
+      { id: "y", status: "under_contract" },
+    ],
+  });
+  assert.deepEqual(d.map((x) => x.id), ["a", "b", "c"]);
+  assert.equal(d[2].next, null);
+  assert.equal(dealLevel(d[0], "2026-10-13"), "today");
+  assert.equal(dealLevel(d[1], "2026-10-13"), null);
+  assert.deepEqual(readTeamDeals(null), []);
+  assert.deepEqual(readTeamDeals({ error: "Only the team lead or an admin can see the team deals." }), []);
+  const w = demoWarRoom(now);
+  assert.equal(totals(w, now).deals, 2);
+  assert.equal(totals(w, now).dueToday, 0);
 });
