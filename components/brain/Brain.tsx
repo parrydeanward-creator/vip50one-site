@@ -1789,13 +1789,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               {agent.photo ? <img className="me-pic" src={agent.photo} alt="" /> : agent.initials}
             </button>
             {siteHost && (
-              <button type="button" className="signout" onClick={() => void editSite()} title={`Edit ${siteHost}`}>
-                Edit my website
+              <button type="button" className="signout" onClick={() => void editSite()} title={`Website home for ${siteHost}`}>
+                Website home
               </button>
             )}
             {teamSites.map((t) => (
-              <button key={t.host} type="button" className="signout" onClick={() => void editSite(t.host)} title={`Edit ${t.host}`}>
-                Edit the team website
+              <button key={t.host} type="button" className="signout" onClick={() => void editSite(t.host)} title={`Website home for ${t.host}`}>
+                Team website home
               </button>
             ))}
             <button className="signout" type="submit">Sign out</button>
