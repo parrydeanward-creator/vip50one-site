@@ -1959,3 +1959,5 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 .tk-list small { color: var(--text-2); }
 .pm-field { display: grid; gap: 6px; margin: 12px 0; font-size: 13px; color: var(--text-2); }
 .pm-field input { border-radius: 10px; padding: 9px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--line, rgba(255,255,255,0.14)); color: var(--text); font: inherit; }
+.ln-btn { margin: 8px 0 0; display: inline-flex; gap: 6px; align-items: center; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line, rgba(255,255,255,0.14)); background: rgba(255,255,255,0.04); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.ln-btn:hover, .ln-btn[aria-pressed="true"] { border-color: var(--gold, #d4a93a); }

@@ -68,6 +68,7 @@ import { TIME_OFF_NODE, demoTimeOff, readTimeOff, saveBody as timeOffBody, timeO
 import { DAY_FILM_KEY } from "@/lib/dayFilm.ts";
 import { demoPulseReport, pulseReportUrl, readPulseReport, type PulseReport } from "@/lib/pulseReport.ts";
 import AskAiView from "./AskAiView.tsx";
+import ListenNote from "./ListenNote.tsx";
 import { ASK_AI_NODE, monthOf, readResults, resultKey, withAskAiNode, type Answer as AiAnswer, type Engine as AiEngine, type Results as AiResults } from "@/lib/aiCheck.ts";
 import { LIKELY_NODE, demoMoveLikely, moveLikelyUrl, notUsefulUrl, readMoveLikely, withMoveLikelyNode, withoutPerson, type MoveLikely, type Person as LikelyPerson } from "@/lib/moveLikely.ts";
 import { MARKET_NODE, demoMarketPulse, marketPulseUrl, marketSendUrl, readMarketPulse, sendBody as marketSendBody, withMarketPulseNode, withSent as withMarketSent, type MarketPulse, type Vip as MarketVip } from "@/lib/marketPulse.ts";
@@ -2176,6 +2177,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             <>
               <p className="d-sum">{note.note}</p>
               {note.source === "ai" && <p className="d-src">Pulse wrote this for you this morning</p>}
+              <ListenNote greeting={greeting()} firstName={agent.firstName} note={note.note} />
             </>
           ) : (
             focus.summary && !isMoveGroup(focus.id) && <p className="d-sum">{focus.summary}</p>
