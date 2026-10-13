@@ -196,3 +196,36 @@ export function demoReferrals(today: string): Referrals {
     ],
   };
 }
+
+/** VIP-SUMMARY §3af: referrals between ONE agents (the VIP-50 network), counted for the Scoreboard. */
+export const networkUrl = `${MOVE_URL}/api/brain/network`;
+export interface NetworkCounts {
+  sent: number;
+  sentAccepted: number;
+  sentClosed: number;
+  received: number;
+  receivedOpen: number;
+  receivedClosed: number;
+}
+/** `GET /api/brain/network` answer, counted; null when it is not one. Only counts leave this function. */
+export function readNetwork(j: unknown): NetworkCounts | null {
+  if (!j || typeof j !== "object") return null;
+  const r = j as { sent?: unknown; received?: unknown };
+  if (!Array.isArray(r.sent) || !Array.isArray(r.received)) return null;
+  const items = (v: unknown[]) => v.filter((x): x is Record<string, unknown> => !!x && typeof x === "object");
+  const sent = items(r.sent), received = items(r.received);
+  const accepted = (x: Record<string, unknown>) => typeof x.accepted_at === "string" && !!x.accepted_at;
+  return {
+    sent: sent.length,
+    sentAccepted: sent.filter(accepted).length,
+    sentClosed: sent.filter((x) => x.status === "closed").length,
+    received: received.length,
+    // waiting for this agent's answer: MASTER's status 'sent' (agent_referrals check: sent, declined, cancelled,
+    // expired, accepted, working, under_contract, closed, lost)
+    receivedOpen: received.filter((x) => x.status === "sent").length,
+    receivedClosed: received.filter((x) => x.status === "closed").length,
+  };
+}
+export const networkLine = (n: NetworkCounts) =>
+  `Sent ${n.sent} (${n.sentAccepted} accepted, ${n.sentClosed} closed) · received ${n.received} (${n.receivedClosed} closed)`;
+export const demoNetwork = (): NetworkCounts => ({ sent: 3, sentAccepted: 2, sentClosed: 1, received: 2, receivedOpen: 1, receivedClosed: 0 });

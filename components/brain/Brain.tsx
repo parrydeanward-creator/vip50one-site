@@ -83,7 +83,7 @@ import { WINS_NODE, demoWins, newSince, readWins, winsUrl, withWinsNode, type Wi
 import { PARTNERS_NODE, demoPartners, partnersActionUrl, partnersUrl, readPartners, unseenNudges, withAllSeen, withPartnersNode, type PartnersState } from "@/lib/partners.ts";
 import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, mondayOf, type HabitToday } from "@/lib/habits.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
-import { REFERRALS_NODE, applyThank, askUrl, demoReferrals, thankUrl, readReferrals, referralsUrl, withReferralsNode, type Referrals } from "@/lib/referrals.ts";
+import { REFERRALS_NODE, applyThank, askUrl, demoReferrals, thankUrl, readReferrals, referralsUrl, withReferralsNode, type Referrals, demoNetwork, networkUrl, readNetwork, type NetworkCounts } from "@/lib/referrals.ts";
 import { COACH_NODE, coachedUrl, demoCoached, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
 import { WEEK_NODE, commitmentsUrl, demoCommitments, readCommitments, withWeekNode, type Commitments } from "@/lib/commitments.ts";
 import { PLAN_NODE, planKey, planUrl, readPlan, timed, withPlanNode, type Plan } from "@/lib/plan.ts";
@@ -416,6 +416,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // Referral Scoreboard (§3r): who sent business and who is likely next, from ONE MOVE; the example agent's until it answers.
   const [refs, setRefs] = useState<Referrals | null>(null);
   const [refsOpen, setRefsOpen] = useState(false);
+  // §3af: referrals with other ONE agents, counts only, on the Scoreboard.
+  const [network, setNetwork] = useState<NetworkCounts | null>(null);
+  useEffect(() => {
+    if (!live) return setNetwork(demoNetwork());
+    fetch(networkUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setNetwork(j ? readNetwork(j) : null))
+      .catch(() => {});
+  }, [live]);
   useEffect(() => {
     if (!live) return setRefs(demoReferrals(todayIn()));
     fetch(referralsUrl(), { credentials: "include", cache: "no-store" })
@@ -2852,7 +2861,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       ) : null}
       {partnersOpen && partners ? <PartnersView state={partners} me={weekScore} today={todayIn()} demo={!live} onClose={() => setPartnersOpen(false)} onAct={partnerAct} /> : null}
       {habitsOpen && theHabits.length ? <HabitsView habits={theHabits} demo={!live} onClose={() => setHabitsOpen(false)} onTick={tickHabit} /> : null}
-      {refsOpen && refs ? <ReferralsView data={refs} today={todayIn()} demo={!live} onClose={() => setRefsOpen(false)} onAsk={askReferral} onThank={thankReferral} /> : null}
+      {refsOpen && refs ? <ReferralsView network={network} data={refs} today={todayIn()} demo={!live} onClose={() => setRefsOpen(false)} onAsk={askReferral} onThank={thankReferral} /> : null}
       {agentRead ? <PulseCoachView read={agentRead.read} who={agentRead.who} demo={!live} onClose={() => setAgentRead(null)} /> : null}
       {cmOpen && commitments && (
         <CommitmentsView initial={commitments} live={live} hour={denverHour()} onClose={() => setCmOpen(false)} onChanged={setCommitments} />

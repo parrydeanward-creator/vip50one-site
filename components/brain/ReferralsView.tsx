@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import PulseRing, { PULSE_COLOR } from "./PulseRing.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
-import { WHY_TITLE, askNow, headline, referralRate, thankWords, unthanked, type Candidate, type Recent, type Referrals, type Referrer } from "@/lib/referrals.ts";
+import { WHY_TITLE, askNow, headline, referralRate, thankWords, unthanked, type Candidate, type Recent, type Referrals, type Referrer, networkLine, type NetworkCounts } from "@/lib/referrals.ts";
 
 // The Referral Scoreboard in ONE YOU (VIP-SUMMARY §3r; Parry, 7 Oct). The year's referrals against the goal in the
 // middle; round it, the people who sent business (gold ring: how many) and the ones likely to send the next
@@ -42,7 +42,7 @@ function arc(cx: number, cy: number, r: number, share: number): string {
   return `M ${cx} ${cy - r} A ${r} ${r} 0 ${a > Math.PI ? 1 : 0} 1 ${x} ${y}`;
 }
 
-export default function ReferralsView({ data, today, demo, onClose, onAsk, onThank }: { data: Referrals; today: string; demo: boolean; onClose: () => void; onAsk?: (contactId: string) => Promise<string>; onThank?: (referralId: string) => Promise<string> }) {
+export default function ReferralsView({ data, today, demo, onClose, onAsk, onThank, network }: { data: Referrals; today: string; demo: boolean; onClose: () => void; onAsk?: (contactId: string) => Promise<string>; onThank?: (referralId: string) => Promise<string>; network?: NetworkCounts | null }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
@@ -278,6 +278,12 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk, onTha
             <>
               <h1 className="d-title" id="rf-title">Referrals</h1>
               <p className="d-sub">{headline(data)}</p>
+              {network && (network.sent || network.received) ? (
+                <p className="d-sum">
+                  <b>VIP-50 network:</b> {networkLine(network)}
+                  {network.receivedOpen ? `. ${network.receivedOpen} waiting for your answer in ONE MOVE.` : "."}
+                </p>
+              ) : null}
               {rate != null ? (
                 <p className="d-sum">
                   {data.vips.thisYear} of your {data.vips.count} VIPs have referred this goal year ({Math.round(rate * 100)}%); {data.vips.ever} ever.
