@@ -42,7 +42,7 @@ function arc(cx: number, cy: number, r: number, share: number): string {
   return `M ${cx} ${cy - r} A ${r} ${r} 0 ${a > Math.PI ? 1 : 0} 1 ${x} ${y}`;
 }
 
-export default function ReferralsView({ data, today, demo, onClose, onAsk, onThank, network }: { data: Referrals; today: string; demo: boolean; onClose: () => void; onAsk?: (contactId: string) => Promise<string>; onThank?: (referralId: string) => Promise<string>; network?: NetworkCounts | null }) {
+export default function ReferralsView({ data, today, demo, onClose, onAsk, onThank, network, onNetwork }: { data: Referrals; today: string; demo: boolean; onClose: () => void; onAsk?: (contactId: string) => Promise<string>; onThank?: (referralId: string) => Promise<string>; network?: NetworkCounts | null; onNetwork?: () => void }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
@@ -281,8 +281,15 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk, onTha
               {network && (network.sent || network.received) ? (
                 <p className="d-sum">
                   <b>VIP-50 network:</b> {networkLine(network)}
-                  {network.receivedOpen ? `. ${network.receivedOpen} waiting for your answer in ONE MOVE.` : "."}
+                  {network.receivedOpen ? `. ${network.receivedOpen} waiting for your answer.` : "."}
                 </p>
+              ) : null}
+              {onNetwork ? (
+                <div className="decide-btns">
+                  <button type="button" className="chip-btn primary" onClick={onNetwork}>
+                    {network?.receivedOpen ? `Open Referral Network (${network.receivedOpen} waiting)` : "Open Referral Network"}
+                  </button>
+                </div>
               ) : null}
               {rate != null ? (
                 <p className="d-sum">

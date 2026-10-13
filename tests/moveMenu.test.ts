@@ -6,12 +6,14 @@ import { liveGraph, type SummaryEnvelope, type SummaryItem } from "../lib/live.t
 // Rewritten 3 Oct: the menu was one flat list in Classic order; Parry asked for
 // the same 23 pages in five groups (People, Trackers, Events, Outreach, Learn),
 // Dashboard on top and The Lounge and My Profile at the bottom.
-test("ONE MOVE menu: all 23 Classic pages, in Parry's groups, no admin items", () => {
-  assert.equal(MOVE_MENU.length, 23);
+// Rewritten 13 Oct: 25 pages. Referral Network and Buyer Needs join People (Parry: "you keep adding shit to the classic
+// or old version and not the new one brain..you need to add to both. make that a hard rule.").
+test("ONE MOVE menu: all 25 Classic pages, in Parry's groups, no admin items", () => {
+  assert.equal(MOVE_MENU.length, 25);
   assert.deepEqual(MOVE_TOP.map((m) => m.label), ["Dashboard"]);
   assert.deepEqual(MOVE_GROUPS.map((g) => g.label), ["People", "Trackers", "Events", "Outreach", "Learn"]);
   assert.deepEqual(MOVE_BOTTOM.map((m) => m.label), ["The Lounge", "My Profile"]);
-  assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "New to Sort", "Hot/Warm/Cold", "Business Rolodex"]);
+  assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "New to Sort", "Hot/Warm/Cold", "Business Rolodex", "Referral Network", "Buyer Needs"]);
   assert.ok(MOVE_MENU.every((m) => m.path.startsWith("/") && !m.path.startsWith("/admin") && m.path !== "/users"));
   assert.equal(new Set(MOVE_MENU.map((m) => m.path)).size, MOVE_MENU.length);
 });
@@ -57,9 +59,11 @@ test("no ONE MOVE account: the pages still show, nothing lit", () => {
 // except Dashboard (Classic's home, which has no orb).
 test("every ONE MOVE menu page opens inside the Brain; other orbs do not", async () => {
   const { inBrainPage, movePageId, IN_BRAIN } = await import("../lib/moveMenu.ts");
-  // 22 agent pages, plus the 7 Coach pages for admins (Parry, 8 Oct: the admin pages belong in the Brain too), plus
-  // Team Leads for team members (13 Oct: Parry's "leads" click went to the classic site; it opens inside the Brain now)
-  assert.equal(IN_BRAIN.size, 30);
+  // 24 agent pages (Referral Network and Buyer Needs added 13 Oct), plus the 7 Coach pages for admins (Parry, 8 Oct:
+  // the admin pages belong in the Brain too), plus Team Leads for team members (13 Oct)
+  assert.equal(IN_BRAIN.size, 32);
+  assert.equal(inBrainPage(movePageId("/referral-network"))?.label, "Referral Network");
+  assert.equal(inBrainPage(movePageId("/buyer-needs"))?.label, "Buyer Needs");
   assert.ok(IN_BRAIN.has("/team-leads"));
   assert.equal(inBrainPage(movePageId("/team-leads"))?.label, "Team Leads");
   assert.ok(!IN_BRAIN.has("/dashboard")); // Classic's home stays a link
