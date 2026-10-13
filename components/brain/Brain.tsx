@@ -1481,6 +1481,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // "Go to" a person opens that person in Contacts (Parry, 6 Oct: "the go to that contact doesnt work
   // to take you to that contact"); anything else moves the map there.
   const [contactOpen, setContactOpen] = useState<{ id: string; k: number } | null>(null);
+  const [pageQuery, setPageQuery] = useState<{ path: string; query: string } | null>(null);
   const goToNode = (id: string) => {
     const n = ix.byId.get(id);
     const page = movePageId("/contacts");
@@ -1758,11 +1759,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   };
   // A ONE MOVE page that opens inside the Brain (lib/moveMenu.ts IN_BRAIN).
   const pagePanel = !ask && !tour ? inBrainPage(state.focusId) : null;
+  // A page opened for one person (the person panel's Refer / Post a need): its query rides on the frame's address.
   // Each opening starts behind the veil again, even for the same page.
   const panelPath = pagePanel?.path ?? null;
   useEffect(() => {
     setFrameReady(null);
     setVipClassic(false);
+    setPageQuery((q) => (q && q.path === panelPath ? q : null));
   }, [panelPath]);
   // The address follows the open page: /dashboard/profile, /dashboard/weekly...
   const arrived = useRef(false);
@@ -2300,6 +2303,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               title={focus.label}
               onChanged={refreshLive}
               openContacts={() => goTo(movePageId("/contacts"))}
+              onOpenPage={(path, query) => {
+                setPageQuery({ path, query });
+                goTo(movePageId(path));
+              }}
             />
           )}
 
@@ -2806,7 +2813,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               )}
               <iframe
                 className={`page-panel-frame ${frameReady === pagePanel.path ? "ready" : ""}`}
-                src={moveEmbedHref(pagePanel.path)}
+                src={moveEmbedHref(pageQuery?.path === pagePanel.path ? `${pagePanel.path}?${pageQuery.query}` : pagePanel.path)}
                 title={`${pagePanel.label} in ONE MOVE`}
                 onLoad={() => {
                   // ONE MOVE switches to the Brain look as it starts; give it a
