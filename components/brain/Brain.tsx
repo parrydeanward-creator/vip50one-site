@@ -51,6 +51,7 @@ import MoveLikelyView from "./MoveLikelyView.tsx";
 import DealsView, { type SetStatus as DealSetStatus } from "./DealsView.tsx";
 import TimeOffView from "./TimeOffView.tsx";
 import TeamView from "./TeamView.tsx";
+import WarRoomView from "./WarRoomView.tsx";
 import ReviewCallsView from "./ReviewCallsView.tsx";
 import HabitsView from "./HabitsView.tsx";
 import PartnersView from "./PartnersView.tsx";
@@ -63,6 +64,7 @@ import { ASSUME_DEFAULT, INCOME_NODE, goalFacts, incomeKey, incomeMap, readAssum
 import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
 import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
 import { REVIEW_CALLS_NODE, agentsUrl, demoAgents, readAgents, withReviewCallsNode, type ReviewAgent } from "@/lib/reviewCalls.ts";
+import { WAR_NODE, demoWarRoom, leadsUrl, logUrl, readWarRoom, withWarRoomNode, type WarRoom } from "@/lib/warroom.ts";
 import { TEAM_NODE, demoTeam, readTeam, teamUrl, withTeamNode, type Scope as TeamScope, type Team } from "@/lib/team.ts";
 import { TIME_OFF_NODE, demoTimeOff, readTimeOff, saveBody as timeOffBody, timeOffUrl, withTimeOffNode, type TimeOffState } from "@/lib/timeOff.ts";
 import { DAY_FILM_KEY } from "@/lib/dayFilm.ts";
@@ -140,6 +142,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const aiRef = useRef<AiResults | null>(null);
   const timeOffRef = useRef<TimeOffState | null>(null);
   const teamRef = useRef<Team | null>(null);
+  const warRef = useRef<WarRoom | null>(null);
   const rcRef = useRef(false);
   // ONE YOU's Pulse Coach orb (§3q): the weekly read on the agent's own numbers.
   const pcRef = useRef<PulseRead | null>(null);
@@ -154,7 +157,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current);
+    const next = withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now());
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -527,6 +530,25 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     teamRef.current = team;
     setGraph((g) => withTeamNode(g, team));
   }, [team]);
+  // War room (K22, §3ae): the team leads, who has them and how fast they were reached, for a team's owner and admins.
+  // ONE MOVE answers `team: null` for anyone not on a team, and the orb shows only for owners and admins.
+  const [war, setWar] = useState<WarRoom | null>(null);
+  const [warOpen, setWarOpen] = useState(false);
+  const loadWar = useCallback(() => {
+    if (!live) return setWar(demoWarRoom(Date.now()));
+    const get = (u: string) => fetch(u, { credentials: "include", cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    Promise.all([get(leadsUrl(7)), get(logUrl())]).then(([l, g]) => setWar(l ? readWarRoom(l, g) : null));
+  }, [live]);
+  useEffect(() => {
+    loadWar();
+    if (!live) return;
+    const t = setInterval(loadWar, 60_000);
+    return () => clearInterval(t);
+  }, [live, loadWar]);
+  useEffect(() => {
+    warRef.current = war;
+    setGraph((g) => withWarRoomNode(g, war, Date.now()));
+  }, [war]);
   // Wins (§3t): every good thing in one place, from ONE MOVE; the example agent's in the demo. A win newer than the
   // agent's last look glows gold; the last look is kept in this browser only.
   const WINS_SEEN = "one.wins.seen";
@@ -1614,6 +1636,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === ASK_AI_NODE) return setAiOpen(true);
     if (id === TIME_OFF_NODE) return setTimeOffOpen(true);
     if (id === TEAM_NODE) return setTeamOpen(true);
+    if (id === WAR_NODE) return setWarOpen(true);
     if (id === REVIEW_CALLS_NODE) return setRcOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
     if (id !== state.focusId) goTo(id);
@@ -2272,6 +2295,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               </span>
             </button>
           )}
+          {focus.id === WAR_NODE && war && !tour && (
+            <button className="pi-film pm-open" onClick={() => setWarOpen(true)}>
+              <span className="pi-play" aria-hidden="true">!</span>
+              <span>
+                <b>Open the war room</b>
+                <span>Team leads, who has them and how fast they were reached. Reassign in ONE MOVE.</span>
+              </span>
+            </button>
+          )}
           {focus.id === TEAM_NODE && team && !tour && (
             <button className="pi-film pm-open" onClick={() => setTeamOpen(true)}>
               <span className="pi-play" aria-hidden="true">#</span>
@@ -2744,6 +2776,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} demo={!live} onAssume={saveAssume} onClose={() => setIncomeOpen(false)} /> : null}
       {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} squad={team} /> : null}
       {rcOpen && rcAgents ? <ReviewCallsView agents={rcAgents} demo={!live} onClose={() => setRcOpen(false)} onSearch={loadRcAgents} /> : null}
+      {warOpen && war ? <WarRoomView room={war} demo={!live} onClose={() => setWarOpen(false)} /> : null}
       {teamOpen && team ? <TeamView team={team} demo={!live} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} /> : null}
       {timeOffOpen && timeOff ? <TimeOffView data={timeOff} demo={!live} onSave={saveTimeOff} onCancel={cancelTimeOff} onClose={() => setTimeOffOpen(false)} /> : null}
       {aiOpen && askAi ? <AskAiView name={live ? agent.label.split(",")[0] : "Sarah Bennett"} area={askArea} results={askAi} demo={!live} onArea={saveArea} onMark={markAi} onClose={() => setAiOpen(false)} /> : null}
