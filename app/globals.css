@@ -1985,3 +1985,9 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 .fc-table { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .fc-how { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6; color: #d7deeb; }
 @media (max-width: 480px) { .fc-bars li { grid-template-columns: 52px 1fr 72px; gap: 6px; } }
+
+/* Coach mode: setup progress (K24, §3ag) */
+.cs { margin: 12px 0 4px; }
+.cs-bar { display: flex; gap: 3px; margin: 6px 0 4px; }
+.cs-bar i { flex: 1; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.12); }
+.cs-bar i.on { background: #f5c542; }
