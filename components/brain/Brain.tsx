@@ -120,7 +120,9 @@ function denverHour(now = new Date()): number {
   return Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", hour: "numeric", hourCycle: "h23" }).format(now));
 }
 
-export default function Brain({ graph: initialGraph, pkg = "complete", agent = DEMO_AGENT, live = false }: { graph: BusinessGraph; pkg?: string; agent?: BrainAgent; live?: boolean }) {
+export default function Brain({ graph: initialGraph, pkg = "complete", agent = DEMO_AGENT, live = false, startPage = null }: { graph: BusinessGraph; pkg?: string; agent?: BrainAgent; live?: boolean; startPage?: string | null }) {
+  // Arriving on Team Leads means the agent is on a team: its orb is there before the team answer comes back.
+  const teamLeadsHint = startPage === TEAM_LEADS_PATH;
   const hello = `${greeting()}, ${agent.firstName}.`;
   // The graph changes while the page is open (live signals tick its numbers).
   // ONE GO's Today's plan orb follows the plan (Parry, 6 Oct: "shouldnt there be a plan my day orb off of go").
@@ -154,7 +156,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // ONE YOU's Power Hour orb: today's calls lined up.
   const powerRef = useRef<{ calls: Call[]; session: PowerSession | null } | null>(null);
   const admin = agent.admin === true;
-  const [graph, setGraph] = useState(() => withMoveCoach(withPlanNode(initialGraph, null), admin));
+  const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(initialGraph, null), admin), teamLeadsHint));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
   // this, a refresh after logging a call changed nothing on screen.
@@ -162,7 +164,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current), webRef.current);
+    const next = withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -238,7 +240,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     }
     setIntro(true);
   }, [live]);
-  const [state, setState] = useState(() => nav.start(graph.rootId));
+  const [state, setState] = useState(() => {
+    const s = nav.start(graph.rootId);
+    const want = startPage ? movePageId(startPage) : null;
+    return want && graph.nodes.some((n) => n.id === want) ? nav.go(s, want) : s;
+  });
   const [phone, setPhone] = useState(false);
   const [ready, setReady] = useState(false);
   const [highlight, setHighlight] = useState<string[] | null>(null);
@@ -561,7 +567,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   }, [live, loadWar]);
   useEffect(() => {
     warRef.current = war;
-    setGraph((g) => withTeamLeadsPage(withWarRoomNode(g, war, Date.now()), !!war));
+    setGraph((g) => withTeamLeadsPage(withWarRoomNode(g, war, Date.now()), !!war || teamLeadsHint));
   }, [war]);
   // Wins (§3t): every good thing in one place, from ONE MOVE; the example agent's in the demo. A win newer than the
   // agent's last look glows gold; the last look is kept in this browser only.
@@ -1181,6 +1187,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
 
   useEffect(() => {
     if (!ready) return;
+    // Arriving on a page (a link to /dashboard/team-leads) opens that page, never the morning fly-through over it; the
+    // visit is not counted, so the fly-through still plays the next time the Brain itself is opened today.
+    if (startPage) return;
     let prev: string | null = null;
     try {
       prev = localStorage.getItem("one.lastVisit");
