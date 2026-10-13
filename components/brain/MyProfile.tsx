@@ -265,6 +265,7 @@ export default function MyProfile({
             <small className="pf-sub">Off unless you switch it on. When it is off, your member card in the Lounge shows no phone, email or Call button.</small>
           </section>
         )}
+        <ReferralsSection />
         <PulseModesSection />
         <LeadMailSection />
         <OwnAISection />
@@ -289,5 +290,46 @@ export default function MyProfile({
         </div>
       </aside>
     </div>
+  );
+}
+
+/** VIP-SUMMARY §3af.1: "Receive referrals from ONE agents" (default on). Off also hides the agent from Buyer Needs. */
+const listedUrl = "https://move.vip50one.com/api/brain/network/listed";
+function ReferralsSection() {
+  const [on, setOn] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  useEffect(() => {
+    fetch(listedUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setOn(j && typeof j.listed === "boolean" ? j.listed : null))
+      .catch(() => {});
+  }, []);
+  const save = async (next: boolean) => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await fetch(listedUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ listed: next }) });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j?.ok) throw new Error(j?.error || "That didn't save. Nothing was changed.");
+      setOn(j.listed === true);
+      setMsg(next ? "ONE agents can send you referrals." : "You are hidden from the referral picker and the Buyer Needs board.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "That didn't save. Nothing was changed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (on === null) return null;
+  return (
+    <section className="pf-privacy" aria-label="Referrals">
+      <h2>Referrals</h2>
+      <label className="dc-switch">
+        <input type="checkbox" checked={on} disabled={busy} onChange={(e) => save(e.target.checked)} />
+        Receive referrals from ONE agents
+      </label>
+      <small className="pf-sub">On unless you switch it off. Other agents see your name, photo, city, team and licence state, never your clients.</small>
+      {msg ? <small className="pf-sub" role="status">{msg}</small> : null}
+    </section>
   );
 }
