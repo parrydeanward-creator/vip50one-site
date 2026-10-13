@@ -33,6 +33,9 @@ export const MOVE_GROUPS: MoveGroup[] = [
       { label: "New to Sort", path: "/contacts/visitors" },
       { label: "Hot/Warm/Cold", path: "/hot-warm-cold" },
       { label: "Business Rolodex", path: "/rolodex" },
+      // VIP-SUMMARY §3af and §3ah (13 Oct; Parry: every feature in the Brain as well as Classic)
+      { label: "Referral Network", path: "/referral-network" },
+      { label: "Buyer Needs", path: "/buyer-needs" },
     ],
   },
   {
