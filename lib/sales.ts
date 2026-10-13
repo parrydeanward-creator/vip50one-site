@@ -181,9 +181,9 @@ export const EXTRA_PLANS: ExtraPlan[] = [
     tag: "Lead generation for any agent, anywhere",
     price: "$499",
     per: "/month",
-    more: ["$199/month added to ONE Complete or Elite", "Month-to-month. Ad spend paid by you to Google and Meta, at cost. No per-lead fees."],
+    more: ["7 days free, then $499/month. One trial per person.", "$199/month added to ONE Complete or Elite", "Month-to-month. Ad spend paid by you to Google and Meta, at cost. No per-lead fees."],
     includes: ["Pulse Ads on your own ad accounts, approved by you", "Farm Mode for the areas you choose", "Landing pages and home value requests", "Pulse answers new leads in seconds", "ONE MOVE and your agent website"],
-    cta: "Start ONE Growth",
+    cta: "Start 7 days free",
   },
   {
     id: "team",

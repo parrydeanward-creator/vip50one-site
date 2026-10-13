@@ -120,6 +120,9 @@ test("ONE Growth and team plans: prices as ECOSYSTEM §7.1, bought through ONE M
   assert.equal(p.team_complete.price, "$1,299");
   assert.ok(p.team_complete.more.some((m) => m.includes("$99/month per seat")) && p.team_complete.more.some((m) => m.includes("$12,990")));
   assert.equal(GROWTH_JOIN, "https://move.vip50one.com/join/growth");
-  // no trial or founding promised: the checkout sells list price only (CHECKOUT §5c)
-  assert.ok(EXTRA_PLANS.every((x) => !JSON.stringify(x).match(/trial|founding|free for/i)));
+  // Rewritten 13 Oct: ONE Growth alone has the 7-day trial (GROWTH.md §2, vip50-web-crm#223 merged by Parry); the add-on
+  // and the team plans have none, and nothing here has a founding price.
+  assert.ok(p.growth.more.some((m) => m.startsWith("7 days free")));
+  assert.ok([p.team, p.team_complete].every((x) => !JSON.stringify(x).match(/trial|days free/i)));
+  assert.ok(EXTRA_PLANS.every((x) => !JSON.stringify(x).match(/founding/i)));
 });
