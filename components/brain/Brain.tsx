@@ -41,6 +41,7 @@ import { soundsLikeDay } from "@/lib/overview.ts";
 import CommitmentsView from "./CommitmentsView.tsx";
 import ReviewView from "./ReviewView.tsx";
 import IncomeMapView from "./IncomeMapView.tsx";
+import ForecastView from "./ForecastView.tsx";
 import PulseCoachView from "./PulseCoachView.tsx";
 import ReferralsView from "./ReferralsView.tsx";
 import WinsView from "./WinsView.tsx";
@@ -60,7 +61,7 @@ import CoachView from "./CoachView.tsx";
 import { commitmentWork } from "@/lib/assist.ts";
 import { PULSE_COACH_NODE, demoHistory, historyUrl, pulseRead, readHistory, withPulseCoachNode, type History, type Read as PulseRead } from "@/lib/pulseCoach.ts";
 import { POWER_NODE, lineUp, newSession, powerKey, readSession, withPowerNode, type Call, type Session as PowerSession } from "@/lib/powerHour.ts";
-import { ASSUME_DEFAULT, INCOME_NODE, goalFacts, incomeKey, incomeMap, readAssume, withIncomeNode, type Assume, type IncomeMap } from "@/lib/goals.ts";
+import { ASSUME_DEFAULT, INCOME_NODE, START as INCOME_START, goalFacts, incomeKey, incomeMap, readAssume, withIncomeNode, type Assume, type IncomeMap } from "@/lib/goals.ts";
 import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
 import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
 import { REVIEW_CALLS_NODE, agentsUrl, demoAgents, readAgents, withReviewCallsNode, type ReviewAgent } from "@/lib/reviewCalls.ts";
@@ -86,7 +87,8 @@ import { REFERRALS_NODE, applyThank, askUrl, demoReferrals, thankUrl, readReferr
 import { COACH_NODE, coachedUrl, demoCoached, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
 import { WEEK_NODE, commitmentsUrl, demoCommitments, readCommitments, withWeekNode, type Commitments } from "@/lib/commitments.ts";
 import { PLAN_NODE, planKey, planUrl, readPlan, timed, withPlanNode, type Plan } from "@/lib/plan.ts";
-import { todayIn } from "@/lib/hwc.ts";
+import { hwcUrl, readHwc, todayIn, type HwcClass } from "@/lib/hwc.ts";
+import { FORECAST_NODE, demoClasses, forecast, withForecastNode, type Forecast } from "@/lib/forecast.ts";
 import { needWords, needsOf, type Need } from "@/lib/needs.ts";
 import { SEEN_KEY } from "@/lib/pulseIntro.ts";
 import type { SceneNeed } from "./scene.ts";
@@ -130,6 +132,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const reviewRef = useRef<Review | null>(null);
   // ONE YOU's Income Map orb: the income goal worked back to the week.
   const incomeRef = useRef<IncomeMap | null>(null);
+  const forecastRef = useRef<Forecast | null>(null);
   const refsRef = useRef<Referrals | null>(null);
   const habitsRef = useRef<HabitToday[] | null>(null);
   const partnersRef = useRef<PartnersState | null>(null);
@@ -157,7 +160,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now());
+    const next = withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -760,6 +763,23 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     dealsRef.current = deals;
     setGraph((g) => withDealsNode(g, deals, todayIn()));
   }, [deals]);
+  // Income forecast (K20): deals under contract and the Hot/Warm/Cold list as expected GCI by month, at the Income
+  // Map's average GCI per closing. Only the classes are read from the list; nothing about a person is kept here.
+  const [classes, setClasses] = useState<HwcClass[] | null>(null);
+  const [forecastOpen, setForecastOpen] = useState(false);
+  useEffect(() => {
+    if (!live) return setClasses(demoClasses());
+    fetch(hwcUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setClasses(readHwc(j)?.people.map((p) => p.cls) ?? null))
+      .catch(() => {});
+  }, [live]);
+  const forecastAvg = theIncome?.avgGci ?? { value: INCOME_START.avgGci, from: "start" as const };
+  const theForecast = useMemo(() => forecast(deals, classes, forecastAvg.value, todayIn()), [deals, classes, forecastAvg.value]);
+  useEffect(() => {
+    forecastRef.current = theForecast;
+    setGraph((g) => withForecastNode(g, theForecast));
+  }, [theForecast]);
   const setDealStatus: DealSetStatus = useCallback(
     async (d, status, closing) => {
       if (live) {
@@ -1622,6 +1642,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === COACH_NODE) return setCoachOpen(true);
     if (id === REVIEW_NODE) return setReviewOpen(true);
     if (id === INCOME_NODE) return setIncomeOpen(true);
+    if (id === FORECAST_NODE) return setForecastOpen(true);
     if (id === POWER_NODE) return setPowerOpen(true);
     if (id === PULSE_COACH_NODE) return setPcOpen(true);
     if (id === REFERRALS_NODE) return setRefsOpen(true);
@@ -2412,6 +2433,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               </span>
             </button>
           )}
+          {focus.id === FORECAST_NODE && theForecast && !tour && (
+            <button className="pi-film pm-open" onClick={() => setForecastOpen(true)}>
+              <span className="pi-play" aria-hidden="true">$</span>
+              <span>
+                <b>Open the income forecast</b>
+                <span>Deals under contract and your Hot, Warm and Cold people as expected GCI by month.</span>
+              </span>
+            </button>
+          )}
           {focus.id === INCOME_NODE && theIncome && !tour && (
             <button className="pi-film pm-open" onClick={() => setIncomeOpen(true)}>
               <span className="pi-play" aria-hidden="true">$</span>
@@ -2772,6 +2802,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       {pcOpen && thePulseRead ? <PulseCoachView read={thePulseRead} demo={!live} onClose={() => setPcOpen(false)} /> : null}
       {powerOpen ? (
         <PowerHourView calls={calls} session={session} live={live} onSession={savePower} onTick={(ref, on) => tickDay(`day:${ref}`, on)} onClose={() => setPowerOpen(false)} />
+      ) : null}
+      {forecastOpen && theForecast ? (
+        <ForecastView
+          f={theForecast}
+          avgFrom={forecastAvg.from === "you" ? "your number in the Income Map" : forecastAvg.from === "closings" ? "your average so far" : "a starting number: set yours in the Income Map"}
+          demo={!live}
+          onClose={() => setForecastOpen(false)}
+        />
       ) : null}
       {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} demo={!live} onAssume={saveAssume} onClose={() => setIncomeOpen(false)} /> : null}
       {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} squad={team} /> : null}
