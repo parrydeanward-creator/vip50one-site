@@ -2096,6 +2096,11 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 
 /* Brain landing at phone width (audit stage 2, 14 Oct): one menu, the Now strip, the Pulse bar, a controls row. */
 .me-menu { display: none; }
+/* One menu at every width (Parry, 14 Oct: "i thought we were putting all these in a drop down menu???") */
+.bar .me-form > :not(.me-menu) { display: none; }
+.me-menu { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 12px 4px 4px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); cursor: pointer; }
+.me-menu .me-pic, .me-menu .me-ini { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; display: grid; place-items: center; background: rgba(212, 175, 55, 0.18); font-size: 13px; font-weight: 700; }
+.me-burger { font-size: 18px; }
 .orb-hint { position: absolute; left: 50%; bottom: 74px; transform: translateX(calc(-50% - 200px)); margin: 0; z-index: 3; font-size: 12.5px; color: var(--text-3); text-align: center; pointer-events: none; white-space: nowrap; }
 @media (max-width: 1100px) { .orb-hint { transform: translateX(-50%); } }
 .pmenu-back { position: fixed; inset: 0; z-index: 60; background: rgba(2, 4, 12, 0.6); display: flex; justify-content: flex-end; }
@@ -2129,3 +2134,9 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .row-mark.now { color: #fff; box-shadow: 0 0 8px rgba(228, 87, 74, 0.7); }
 .row-mark.today { box-shadow: 0 0 8px rgba(229, 184, 58, 0.6); }
 .row-mark.ok { width: 14px; min-width: 14px; height: 14px; padding: 0; border: 2px solid; background: transparent; }
+
+/* desktop: the one menu drops down under the photo */
+@media (min-width: 720px) {
+  .pmenu-back { background: transparent; }
+  .pmenu { position: absolute; top: 64px; right: 16px; width: 320px; height: auto; max-height: calc(100dvh - 80px); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55); }
+}
