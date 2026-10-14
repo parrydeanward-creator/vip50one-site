@@ -96,6 +96,8 @@ import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, ty
 import LaunchPanel from "./LaunchPanel.tsx";
 import ClosedCards from "./ClosedCards.tsx";
 import { LAST_COOKIE, LAST_MAX_AGE } from "@/lib/landing.ts";
+import { HINT, menuRows, type MenuRow } from "@/lib/phoneMenu.ts";
+import { ROW_COLOR, rowState } from "@/lib/rowState.ts";
 import { FORECAST_NODE, demoClasses, forecast, withForecastNode, type Forecast } from "@/lib/forecast.ts";
 import { needWords, needsOf, type Need } from "@/lib/needs.ts";
 import { SEEN_KEY } from "@/lib/pulseIntro.ts";
@@ -235,8 +237,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     for (const [id, need] of needs) m.set(id, { ...need, leaf: !parents.has(id) });
     return m;
   }, [graph, needs]);
-  // The centre ONE orb plays the voiced film, What everything means (Parry, 5 Oct); Meet Pulse opens
-  // from the film, and a signed-in agent sees Meet Pulse once on a first visit.
+  // The centre ONE orb opens Meet Pulse (Parry, 14 Oct); the film, What everything means, is a card inside it, and a
+  // signed-in agent sees Meet Pulse once on a first visit.
   const [intro, setIntro] = useState(false);
   const [guide, setGuide] = useState(false); // What everything means
   const [oneFilm, setOneFilm] = useState(false); // Watch ONE Work, voiced
@@ -666,6 +668,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // Edit my website (ENTITLEMENT §6a): shown only when MASTER knows the agent's site; a one-time ticket on press.
   const [siteHost, setSiteHost] = useState<string | null>(null);
   const [siteNote, setSiteNote] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [teamSites, setTeamSites] = useState<TeamSite[]>([]);
   // §6a v1.4 (Parry, 14 Oct: "yes on team sign in for their own ads"): a team agent asks the team lead for an ad.
   const [agentSites, setAgentSites] = useState<AgentTeamSite[]>([]);
@@ -1188,7 +1191,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const fitNow = useCallback(
     (animate: boolean) => {
       const b = bounds(placed, 20);
-      if (phone) return frameOn(b, animate, { top: 76, bottom: 70 }); // the Ask ONE bar; the controls and timeline row
+      if (phone) return frameOn(b, animate, { top: 84, bottom: 150 }); // the Pulse bar; the hint, the controls row and the timeline row
       b.maxY += 90; // keep clear of the controls and the timeline
       b.minY -= 70; // and of the Ask ONE bar across the top
       frameOn(b, animate);
@@ -1765,7 +1768,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     if (id === TEAM_NODE) return setTeamOpen(true);
     if (id === WAR_NODE) return setWarOpen(true);
     if (id === REVIEW_CALLS_NODE) return setRcOpen(true);
-    if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setGuide(true);
+    if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setIntro(true); // Parry, 14 Oct: "centre orb opens meet pulse"
     if (id !== state.focusId) goTo(id);
   };
 
@@ -1934,9 +1937,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                 <button type="button" className="signout" onClick={() => void editSite(t.host)} title={`Website home for ${t.host}`}>
                   Team website home
                 </button>
-                <button type="button" className="signout" onClick={() => void editSite(t.host, "/manage/ad-requests")} title="Ads your agents have asked for">
-                  Ad requests
-                </button>
+                {agent.growth && (
+                  <button type="button" className="signout" onClick={() => void editSite(t.host, "/manage/ad-requests")} title="Ads your agents have asked for">
+                    Ad requests
+                  </button>
+                )}
               </span>
             ))}
             {agentSites.map((t) => (
@@ -1945,11 +1950,58 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               </a>
             ))}
             <button className="signout" type="submit">Sign out</button>
+            <button type="button" className="me-menu" onClick={() => setMenuOpen(true)} aria-haspopup="dialog" aria-expanded={menuOpen} aria-label={`Menu, ${agent.label}`}>
+              {agent.photo ? <img className="me-pic" src={agent.photo} alt="" /> : <span className="me-ini">{agent.initials}</span>}
+              <span className="me-burger" aria-hidden="true">☰</span>
+            </button>
           </form>
         ) : (
           <span className="me" aria-label={agent.label}>{agent.initials}</span>
         )}
       </header>
+    {menuOpen && (
+      <div className="pmenu-back" onClick={() => setMenuOpen(false)}>
+        <div className="pmenu pop" role="dialog" aria-modal="true" aria-label="Menu" onClick={(e) => e.stopPropagation()}>
+          <div className="pmenu-head">
+            <b>{agent.label}</b>
+            <button type="button" className="pmenu-x" onClick={() => setMenuOpen(false)} aria-label="Close">×</button>
+          </div>
+          <ul>
+            {menuRows({ live, growth: agent.growth === true, siteHost, teamHosts: teamSites.map((t) => t.host), agentTeamHrefs: agentSites.map((t) => siteOpenHref(t.slug)), classicUrl: CLASSIC_DASHBOARD_URL }).map((r: MenuRow) => (
+              <li key={r.key}>
+                {r.action.kind === "signout" ? (
+                  <form method="post" action="/auth/signout">
+                    <button type="submit" className="pmenu-row">
+                      <b>{r.label}</b>
+                      <small>{r.line}</small>
+                    </button>
+                  </form>
+                ) : r.action.kind === "href" ? (
+                  <a className="pmenu-row" href={r.action.href}>
+                    <b>{r.label}</b>
+                    <small>{r.line}</small>
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    className="pmenu-row"
+                    onClick={() => {
+                      const a = r.action;
+                      setMenuOpen(false);
+                      if (a.kind === "profile") goTo(movePageId("/profile"));
+                      else if (a.kind === "site") void editSite(a.host, a.next);
+                    }}
+                  >
+                    <b>{r.label}</b>
+                    <small>{r.line}</small>
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    )}
       {siteNote && (
         <div className="vr-bar pop" role="status">
           <span>{siteNote}</span>
@@ -2086,7 +2138,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                         <span>{k.label}</span>
                         {k.locked ? <small>Included in Complete</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
                       </span>
-                      {k.status && !k.locked && <i className="rail-dot" style={{ background: hex(STATUS[k.status].color) }} aria-label={STATUS[k.status].label} />}
+                      <RowMark n={k} need={needs.get(k.id)} />
                     </button>
                   </li>
                 ))}
@@ -2241,15 +2293,17 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             )}
           </div>
 
+          {focus.id === graph.rootId && !tour && !ask && !timeline && <p className="orb-hint">{HINT}</p>}
+
           <div className="controls" role="toolbar" aria-label="Map controls">
             <button onClick={goBack} disabled={!ask && focus.id === graph.rootId} aria-label="Back">
               ←
             </button>
-            <button className="zoom-btn" onClick={() => zoom(1.25)} aria-label="Zoom in">
-              +
-            </button>
             <button className="zoom-btn" onClick={() => zoom(0.8)} aria-label="Zoom out">
               −
+            </button>
+            <button className="zoom-btn" onClick={() => zoom(1.25)} aria-label="Zoom in">
+              +
             </button>
             <button onClick={goHome} aria-label="Centre on ONE">
               ◎
@@ -2825,7 +2879,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                         <b>{k.label}</b>
                         {k.locked ? <small>Included in Complete</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
                       </span>
-                      {k.status && !k.locked && <em style={{ color: hex(STATUS[k.status].color) }}>{STATUS[k.status].label}</em>}
+                      <RowMark n={k} need={needs.get(k.id)} />
                     </button>
                   </li>
                 ))}
@@ -3074,6 +3128,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         />
       )}
     </div>
+  );
+}
+
+/** The row's mark: the orb's own colour and count (red 27, yellow 3), a still green ring when all is good. */
+function RowMark({ n, need }: { n: GraphNode; need: Need | undefined }) {
+  const r = rowState(n, need);
+  if (r.kind === "none") return null;
+  if (r.kind === "ok") return <i className="row-mark ok" style={{ borderColor: ROW_COLOR.ok }} aria-label={r.label} title={r.label} />;
+  if (r.kind === "opportunity") return <i className="rail-dot" style={{ background: ROW_COLOR.opportunity }} aria-label={r.label} title={r.label} />;
+  return (
+    <b className={`row-mark ${r.kind}`} style={{ background: ROW_COLOR[r.kind] }} aria-label={r.label} title={r.label}>
+      {r.count}
+    </b>
   );
 }
 

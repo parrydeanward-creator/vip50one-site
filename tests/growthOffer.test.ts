@@ -8,7 +8,8 @@ test("a Growth-only agent is not treated as Relationship: ONE MOVE yes, ONE GO n
   assert.equal(packageOf("growth"), "growth");
   assert.equal(includes("growth", "move"), true);
   assert.equal(includes("growth", "go"), false);
-  assert.equal(packageLine("growth"), "Your ONE Growth gives Pulse ONE MOVE, your website and your ads.");
+  // Rewritten 14 Oct: the plan line now reads "Your plan: ..." (Meet Pulse, short).
+  assert.equal(packageLine("growth"), "Your plan: ONE Growth. Pulse works across ONE MOVE, your website and your Growth ads and leads.");
 });
 
 test("the add-on offer shows only to Complete or Elite without Growth", () => {

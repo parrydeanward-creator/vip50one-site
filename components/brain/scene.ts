@@ -64,7 +64,8 @@ export interface SceneEdge {
   kind: "tree" | "link";
 }
 
-const HALO_WORDS = ["UNDERSTANDS", "REMEMBERS", "CONNECTS", "PRIORITIZES", "RECOMMENDS", "ACTS"];
+// The centre orb reads ONE / PULSE (Parry, 14 Oct: "yes on ai intelligence and understands with pulse"); the old
+// rotating halo words are gone.
 const FONT = "Inter Tight, Inter, system-ui, sans-serif";
 
 function initials(label: string) {
@@ -104,7 +105,6 @@ export class BrainScene {
   private idleFor = 0;
   private ready = false;
   private haloWord!: Text;
-  private haloIndex = 0;
   private bgSize = "";
   reducedMotion = false;
   // Below 1 slows every motion (used only to record Watch ONE Work smoothly
@@ -319,7 +319,7 @@ export class BrainScene {
       const one = new Text({ text: "ONE", style: { fontFamily: "Bebas Neue, Inter Tight, sans-serif", fontSize: Math.round(r * 0.62), fill: WHITE, letterSpacing: r * 0.04, dropShadow: { color: 0xffd86a, blur: 8, distance: 0, alpha: 0.6 } }, resolution: 3 });
       one.anchor.set(0.5);
       one.y = -r * 0.1;
-      const tag = new Text({ text: "AI INTELLIGENCE", style: { fontFamily: FONT, fontSize: Math.max(7, r * 0.1), fontWeight: "700", fill: 0xf6e7b8, letterSpacing: 2 }, resolution: 3 });
+      const tag = new Text({ text: "PULSE", style: { fontFamily: FONT, fontSize: Math.max(7, r * 0.1), fontWeight: "700", fill: 0xf6e7b8, letterSpacing: 2 }, resolution: 3 });
       tag.anchor.set(0.5);
       tag.y = r * 0.3;
       tag.visible = role !== "ancestor";
@@ -425,7 +425,7 @@ export class BrainScene {
   }
 
   private buildHalo() {
-    this.haloWord = new Text({ text: HALO_WORDS[0], style: { fontFamily: FONT, fontSize: 9, fontWeight: "700", fill: GOLD_LIGHT, letterSpacing: 2.6 }, resolution: 3 });
+    this.haloWord = new Text({ text: "", style: { fontFamily: FONT, fontSize: 9, fontWeight: "700", fill: GOLD_LIGHT, letterSpacing: 2.6 }, resolution: 3 });
     this.haloWord.anchor.set(0.5);
     this.haloWord.y = 118;
     this.halo.addChild(this.haloWord);
@@ -446,15 +446,7 @@ export class BrainScene {
   }
 
   private tickHalo() {
-    const period = 3.2;
-    const phase = this.time % period;
-    const i = Math.floor(this.time / period) % HALO_WORDS.length;
-    if (i !== this.haloIndex) {
-      this.haloIndex = i;
-      this.haloWord.text = HALO_WORDS[i];
-    }
-    const fade = Math.min(1, phase / 0.6, (period - phase) / 0.6);
-    this.haloWord.alpha = this.reducedMotion ? 0.7 : 0.7 * fade;
+    this.haloWord.visible = false;
   }
 
   private drawBackground() {

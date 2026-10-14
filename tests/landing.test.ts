@@ -29,3 +29,14 @@ test("Pulse helpers: Ask me refused without Growth reads through", () => {
   const m = readPulseModes({ workers: [{ worker: "concierge", question: "q", ask_me_blocked: "Comes with ONE Growth" }] })!;
   assert.equal(m.workers[0].askBlocked, "Comes with ONE Growth");
 });
+
+test("phone menu: one list; Growth rows only with Growth; team rows only for team members", async () => {
+  const { menuRows, HINT } = await import("../lib/phoneMenu.ts");
+  const base = { live: true, growth: false, siteHost: "pat.vip50homes.com", teamHosts: [] as string[], agentTeamHrefs: [] as string[], classicUrl: "https://move.vip50one.com/dashboard" };
+  assert.deepEqual(menuRows(base).map((r) => r.label), ["My Profile", "My website", "Classic view", "Sign out"]);
+  assert.deepEqual(menuRows({ ...base, growth: true, teamHosts: ["team.vip50homes.com"] }).map((r) => r.label), ["My Profile", "My website", "Growth results", "Team website", "Ad requests", "Classic view", "Sign out"]);
+  assert.deepEqual(menuRows({ ...base, teamHosts: ["team.vip50homes.com"] }).map((r) => r.label), ["My Profile", "My website", "Team website", "Classic view", "Sign out"]);
+  assert.ok(menuRows(base).every((r) => r.line.length > 10), "every row has a plain line");
+  assert.deepEqual(menuRows({ ...base, live: false }), []);
+  assert.equal(HINT, "Tap any orb to see what needs you. Red means right now.");
+});

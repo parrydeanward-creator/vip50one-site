@@ -9,7 +9,7 @@ import { totalMs, type WatchStep } from "./watch.ts";
 // The words must match what scene.ts and the pages draw.
 
 const PRODUCTS: [ProductKey, string, string][] = [
-  ["go", "ONE GO", "Daily execution"],
+  ["go", "ONE YOU", "Your plan, your week, your goals"],
   ["move", "ONE MOVE", "Relationship intelligence"],
   ["marquee", "MARQUEE", "Listing intelligence"],
   ["showly", "SHOWLY", "Buyer experience"],
