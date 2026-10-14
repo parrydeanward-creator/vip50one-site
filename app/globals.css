@@ -2142,3 +2142,18 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 }
 /* The logo on sign-in cards (14 Oct): the image, not the typed mark */
 .login-card .card-logo { margin: 0 0 8px; }
+
+/* Looks Hot (CONNECTIONS 5.1) */
+.heat-why { margin: 4px 0 10px; color: var(--text); }
+.heat-homes { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.heat-homes li { display: flex; gap: 10px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 12px; }
+.heat-homes img, .heat-nophoto { width: 64px; height: 48px; border-radius: 8px; object-fit: cover; flex: none; display: grid; place-items: center; background: rgba(255, 255, 255, 0.05); color: var(--text-3); font-size: 22px; }
+.heat-homes span { display: grid; gap: 2px; min-width: 0; }
+.heat-homes small { color: var(--text-3); }
+.heat-note { display: block; margin-top: 10px; color: var(--text-3); font-size: 12px; }
+/* Team: Add a member (TEAM-ONBOARDING 1a) */
+.tm-add { display: grid; gap: 8px; margin: 10px 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+.tm-add h3 { margin: 0; }
+.tm-add label { display: grid; gap: 4px; font-size: 13px; color: var(--text-2); }
+.tm-add input:not([type="checkbox"]), .tm-add select { padding: 9px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); font: inherit; }
+.tm-add .dc-switch { display: flex; align-items: center; gap: 8px; }

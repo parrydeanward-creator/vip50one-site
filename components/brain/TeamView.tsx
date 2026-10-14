@@ -1,5 +1,6 @@
 "use client";
 
+import AddMember from "./AddMember.tsx";
 import { useEffect, useRef, useState } from "react";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import { TV_SECONDS, atMinimum, badgesFor, mostImproved, ranks, teamLine, type Mate, type Scope, type Team } from "@/lib/team.ts";
@@ -20,7 +21,7 @@ const DIM = "rgba(160,175,210,0.45)";
 const initials = (n: string) => n.slice(0, 2).toUpperCase();
 const weeks = (n: number) => `${n} ${n === 1 ? "week" : "weeks"}`;
 
-export default function TeamView({ team, demo, scope, onScope, onClose }: { team: Team; demo: boolean; scope: Scope; onScope?: (s: Scope) => void; onClose: () => void }) {
+export default function TeamView({ team, demo, scope, onScope, onClose, canAdd = false }: { team: Team; demo: boolean; scope: Scope; onScope?: (s: Scope) => void; onClose: () => void; canAdd?: boolean }) {
   const cam = useSvgCamera(SIZE);
   const rootRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -214,6 +215,7 @@ export default function TeamView({ team, demo, scope, onScope, onClose }: { team
                 <div className="decide-btns">
                   <button type="button" className="chip-btn primary" onClick={goTv}>Show on the office TV</button>
                 </div>
+                {canAdd ? <AddMember live={!demo} /> : null}
                 {onScope ? (
                   <div className="decide-btns" role="group" aria-label="Who to show">
                     <button type="button" className={`chip-btn${scope === "all" ? " primary" : ""}`} aria-pressed={scope === "all"} onClick={() => onScope("all")}>All VIP-50 agents</button>
