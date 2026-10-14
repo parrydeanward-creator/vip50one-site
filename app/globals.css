@@ -2157,3 +2157,7 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .tm-add label { display: grid; gap: 4px; font-size: 13px; color: var(--text-2); }
 .tm-add input:not([type="checkbox"]), .tm-add select { padding: 9px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); font: inherit; }
 .tm-add .dc-switch { display: flex; align-items: center; gap: 8px; }
+/* Today in each product: quiet "all good" rows and "+N more" (audit stage 2) */
+.pick-quiet { display: flex; align-items: center; gap: 12px; padding: 8px 12px; font-size: 13px; color: var(--text-3); }
+.pick-quiet span { display: grid; gap: 2px; }
+.pick-more { color: var(--text-3); font-size: 12px; }
