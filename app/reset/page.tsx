@@ -1,3 +1,4 @@
+import Logo from "@/components/brand/Logo.tsx";
 import { requestReset } from "./actions.ts";
 
 export const metadata = { title: "Reset your password | VIP-50 ONE" };
@@ -15,9 +16,7 @@ export default async function Reset({ searchParams }: { searchParams: Promise<Re
   return (
     <main className="login">
       <form className="login-card" action={requestReset}>
-        <p className="brand" aria-label="VIP-50 ONE">
-          VIP-50 <b>ONE</b>
-        </p>
+        <Logo label="VIP-50 ONE" size={56} />
         <h1>{sent ? "Check your email" : "Reset your password"}</h1>
         {sent ? (
           <p className="login-sub" role="status">

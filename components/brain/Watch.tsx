@@ -1,5 +1,6 @@
 "use client";
 
+import Logo from "@/components/brand/Logo.tsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bounds } from "@/lib/brain/layout.ts";
 import { fit } from "@/lib/brain/camera.ts";
@@ -121,9 +122,7 @@ export default function Watch({ record = false, slow = 1, film = false, product,
   return (
     <div className={`brain watch${record ? " recording" : ""}${last ? " ended" : ""}`}>
       <header className="bar">
-        <a className="brand" href="/dashboard" aria-label="VIP-50 ONE, your dashboard">
-          VIP-50 <b>ONE</b>
-        </a>
+        <Logo href="/dashboard" label="VIP-50 ONE, your dashboard" />
         <span className="crumbs">{custom ? "Watch Pulse work on your day" : signals ? "What everything means" : "Watch ONE Work"}</span>
         {!record && (
           <a className="watch-exit" href="/dashboard">

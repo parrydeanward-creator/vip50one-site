@@ -1,3 +1,4 @@
+import Logo from "@/components/brand/Logo.tsx";
 import { redirect } from "next/navigation";
 import PasswordField from "@/components/auth/PasswordField.tsx";
 import { identity } from "@/lib/server/auth.ts";
@@ -15,9 +16,7 @@ export default async function NewPassword({ searchParams }: { searchParams: Prom
   return (
     <main className="login">
       <form className="login-card" action={setNewPassword}>
-        <p className="brand" aria-label="VIP-50 ONE">
-          VIP-50 <b>ONE</b>
-        </p>
+        <Logo label="VIP-50 ONE" size={56} />
         <h1>Choose a new password</h1>
         <p className="login-sub">
           For {who.email}. It works in ONE GO, ONE MOVE and here. At least {MIN_PASSWORD} characters.

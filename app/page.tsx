@@ -1,3 +1,4 @@
+import Logo from "@/components/brand/Logo.tsx";
 import InlineFilm from "@/components/sales/InlineFilm.tsx";
 import TalkForm from "@/components/sales/TalkForm.tsx";
 import TrialBar from "@/components/sales/TrialBar.tsx";
@@ -19,9 +20,7 @@ export default function Home() {
   return (
     <div className="sp">
       <header className="sp-bar">
-        <a className="brand" href="/" aria-label="VIP-50 ONE, home" style={{ textDecoration: "none" }}>
-          VIP-50 <b>ONE</b>
-        </a>
+        <Logo href="/" label="VIP-50 ONE, home" />
         <nav className="sp-nav" aria-label="Sections">
           <a href="#products">Products</a>
           <a href="#packages">Packages</a>

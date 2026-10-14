@@ -1,5 +1,6 @@
 "use client";
 
+import Logo from "@/components/brand/Logo.tsx";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
 // A product showcase film: the product's own screens on the device it runs on
@@ -42,9 +43,7 @@ export default function Showcase({ name, accent, steps, outro, render, tabs, tab
   return (
     <div className="ga" style={{ ["--s" as string]: String(slow), ["--acc" as string]: accent } as CSSProperties}>
       <header className="bar">
-        <a className="brand" href="/dashboard" aria-label="VIP-50 ONE, your dashboard" style={{ color: "var(--text)", textDecoration: "none" }}>
-          VIP-50 <b>ONE</b>
-        </a>
+        <Logo href="/dashboard" label="VIP-50 ONE, your dashboard" />
         <span className="crumbs" style={{ color: "var(--text)", fontWeight: 600 }}>{name}</span>
       </header>
       <div className="ga-stage">

@@ -57,3 +57,14 @@ test("a sign-in code that lands on / , /login or /dashboard goes on to /auth/con
   assert.match(m, /to\.pathname = "\/auth\/confirm"/);
   assert.match(m, /matcher: \["\/", "\/dashboard\/:path\*", "\/login"/);
 });
+
+test("the real logo on every page: no typed 'VIP-50 ONE' text marks come back (Parry, 14 Oct)", async () => {
+  const { readFileSync, readdirSync, statSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const walk = (d: string): string[] => readdirSync(d).flatMap((f) => { const p = join(d, f); return statSync(p).isDirectory() ? walk(p) : /\.tsx$/.test(p) ? [p] : []; });
+  for (const f of [...walk("app"), ...walk("components")]) {
+    const s = readFileSync(f, "utf8");
+    assert.ok(!/className="brand"[^>]*>\s*VIP-50 <b>ONE<\/b>/.test(s), `${f} still types the text mark`);
+  }
+  assert.match(readFileSync("components/brand/Logo.tsx", "utf8"), /\/brand\/vip50-one\.webp/);
+});

@@ -1,3 +1,4 @@
+import Logo from "@/components/brand/Logo.tsx";
 import { emailLink, google, signIn } from "./actions.ts";
 import { RESET_URL } from "@/lib/master.ts";
 import { GOOGLE_SIGNIN } from "@/lib/landing.ts";
@@ -21,9 +22,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<Re
   return (
     <main className="login">
       <div className="login-card">
-        <p className="brand" aria-label="VIP-50 ONE">
-          VIP-50 <b>ONE</b>
-        </p>
+        <Logo label="VIP-50 ONE" size={56} />
         <h1>{sent ? "Check your email" : "Sign in"}</h1>
         {sent ? (
           <p className="login-sub" role="status">
