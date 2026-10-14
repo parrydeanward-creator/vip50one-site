@@ -2195,3 +2195,12 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 /* Since you were last here, grouped (audit stage 2) */
 .since-group h3 { margin: 10px 0 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
 .rz-line { margin: 0 0 10px; color: var(--text); }
+/* Onboarding board (TEAM-ONBOARDING §2.3) */
+.ob-panel { display: grid; gap: 10px; margin-top: 8px; }
+.ob-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ob-steps li { padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; color: var(--text-2); }
+.ob-steps li.done { color: var(--text); border-color: rgba(126, 226, 168, 0.4); }
+.ob-steps li.done span[aria-hidden] { color: #7ee2a8; }
+.ob-ready { margin: 0; color: var(--text); }
+.ob-nudge { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--gold-2); border-radius: 12px; background: rgba(245, 197, 66, 0.06); }
+.ob-nudge p { margin: 0; }
