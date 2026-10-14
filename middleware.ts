@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookieDomainFor } from "./lib/host.ts";
 import { MASTER_PUBLISHABLE_KEY, MASTER_URL } from "./lib/master.ts";
 import { LAST_COOKIE, afterSignIn } from "./lib/landing.ts";
+import { cleanupHeaders } from "./lib/staleCookies.ts";
 
 // Keeps the MASTER session fresh and sends signed-out visitors from the
 // dashboard to sign-in. ?demo=1 keeps the made-up agent reachable for the
@@ -43,20 +44,28 @@ export async function middleware(req: NextRequest) {
   });
   // getClaims checks the token's signature without a round trip to MASTER
   // whenever it can, refreshing the session first when it has expired.
-  const { data } = await sb.auth.getClaims();
+  const { data, error } = await sb.auth.getClaims();
   const user = data?.claims?.sub ? data.claims : null;
+  // A stale copy of the sign-in cookie (see lib/staleCookies.ts) is removed on every answer below.
+  // Only on a plain page load: never while a sign-in is being written (POST /login), so a fresh session is never cleared.
+  const refreshFailed = !user && req.method === "GET" && path !== "/login" && (error as { code?: string } | null)?.code === "refresh_token_not_found";
+  const clean = cleanupHeaders(req.headers.get("cookie"), domain, refreshFailed);
+  const done = (r: NextResponse) => {
+    for (const h of clean) r.headers.append("Set-Cookie", h);
+    return r;
+  };
   const demo = req.nextUrl.searchParams.get("demo") === "1";
   if (user && path === "/") {
     const to = req.nextUrl.clone();
     to.pathname = "/dashboard";
     to.search = "";
-    return NextResponse.redirect(to);
+    return done(NextResponse.redirect(to));
   }
   if (!user && path.startsWith("/dashboard") && !demo) {
     const to = req.nextUrl.clone();
     to.pathname = "/login";
     to.search = "";
-    return NextResponse.redirect(to);
+    return done(NextResponse.redirect(to));
   }
   if (user && path === "/login") {
     // Already signed in: the place asked for, else where they last were, else the Brain (lib/landing.ts).
@@ -65,9 +74,9 @@ export async function middleware(req: NextRequest) {
     const to = req.nextUrl.clone();
     to.pathname = p;
     to.search = q ? `?${q}` : "";
-    return NextResponse.redirect(to);
+    return done(NextResponse.redirect(to));
   }
-  return res;
+  return done(res);
 }
 
 export const config = { matcher: ["/", "/dashboard/:path*", "/login", "/reset/new", "/api/note", "/api/ask"] };
