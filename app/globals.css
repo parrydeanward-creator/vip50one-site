@@ -2015,3 +2015,26 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 .cc-offers { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; padding: 10px; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; }
 .cc-offers.is-suggested { border-color: #f5c542; }
 .cc-offers-h { width: 100%; margin: 0 0 2px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #f5c542; }
+
+/* Sales page, audit stage 1 (14 Oct): which one, Growth alone, teams form, phone trial bar. */
+.sp-pack-grid.one { grid-template-columns: minmax(0, 560px); justify-content: center; }
+.sp-which { max-width: 1080px; margin: 0 auto; padding: 24px 16px 8px; }
+.sp-which-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.sp-which-grid p { margin: 0; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, 0.03); color: var(--text-2, var(--text)); line-height: 1.5; }
+.sp-which-grid b { display: block; color: var(--text); margin-bottom: 6px; }
+.sp-talk { display: grid; gap: 10px; margin-top: 8px; }
+.sp-talk label { display: grid; gap: 4px; font-size: 14px; color: var(--text-3); }
+.sp-talk input { padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); font-size: 16px; }
+.sp-talk .sp-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.sp-talk-error { color: #f06a5a; margin: 0; }
+.sp-talk-done { margin-top: 8px; color: var(--text); font-weight: 600; }
+.sp-trialbar { display: none; }
+@media (max-width: 720px) {
+  .sp-which-grid { grid-template-columns: 1fr; }
+  .sp-trialbar { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: rgba(10, 12, 18, 0.94); border-top: 1px solid var(--line); transform: translateY(110%); transition: transform 0.25s ease; }
+  .sp-trialbar.show { transform: none; }
+  .sp-trialbar .sp-cta { display: block; width: 100%; text-align: center; }
+}
+@media (prefers-reduced-motion: reduce) { .sp-trialbar { transition: none; } }
+button.sp-cta { border: 0; cursor: pointer; font-family: inherit; }
+button.sp-cta:disabled { opacity: 0.6; cursor: default; }
