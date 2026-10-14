@@ -96,6 +96,8 @@ import { perProduct } from "@/lib/perProduct.ts";
 import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, type Launch } from "@/lib/launch.ts";
 import LaunchPanel from "./LaunchPanel.tsx";
 import HeatPanel from "./HeatPanel.tsx";
+import OnboardingPanel from "./OnboardingPanel.tsx";
+import { demoOnboarding, onbIdOf, onboardingUrl, readOnboarding, withOnboardingNodes, type OnbMember } from "@/lib/onboarding.ts";
 import { demoHeat, heatIdOf, heatUrl, readHeat, withHeatNodes, type HeatSuggestion } from "@/lib/heat.ts";
 import ClosedCards from "./ClosedCards.tsx";
 import { LAST_COOKIE, LAST_MAX_AGE } from "@/lib/landing.ts";
@@ -152,6 +154,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const webRef = useRef<WebSignal[] | null>(null);
   const newLeadsRef = useRef<NewLeads | null>(null);
   const heatRef = useRef<HeatSuggestion[] | null>(null);
+  const onbRef = useRef<OnbMember[] | null>(null);
   const launchRef = useRef<Launch[] | null>(null);
   const refsRef = useRef<Referrals | null>(null);
   const habitsRef = useRef<HabitToday[] | null>(null);
@@ -180,7 +183,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current);
+    const next = withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -860,6 +863,23 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     heatRef.current = heat;
     setGraph((g) => withHeatNodes(g, heat));
   }, [heat]);
+  // Onboarding board (TEAM-ONBOARDING §2.3, vip50-web-crm#250): team lead and admins only; anyone else gets a 403 and no orb.
+  const [onb, setOnb] = useState<OnbMember[] | null>(null);
+  useEffect(() => {
+    if (!live) return setOnb(demoOnboarding());
+    const load = () =>
+      fetch(onboardingUrl, { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => setOnb(j ? readOnboarding(j) : null))
+        .catch(() => {});
+    load();
+    const t = setInterval(load, 600_000);
+    return () => clearInterval(t);
+  }, [live]);
+  useEffect(() => {
+    onbRef.current = onb;
+    setGraph((g) => withOnboardingNodes(g, onb));
+  }, [onb]);
   // One-tap listing launch (K21, LAUNCH.md v0.2): a Launch orb under each launched listing, yellow while a draft waits
   // for the agent, red on a failure. ONE MOVE's route answers once GO/MOVE ships it; until then nothing is drawn.
   const [launches, setLaunches] = useState<Launch[] | null>(null);
@@ -2482,6 +2502,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               }}
             />
           )}
+
+          {onbIdOf(focus.id) && !ask && (() => {
+            const m = onb?.find((x) => x.id === onbIdOf(focus.id));
+            return m ? <OnboardingPanel key={focus.id} m={m} /> : null;
+          })()}
 
           {heatIdOf(focus.id) && !ask && (() => {
             const hs = heat?.find((x) => x.id === heatIdOf(focus.id));
