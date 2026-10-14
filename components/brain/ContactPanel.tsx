@@ -7,6 +7,8 @@ import {
   QUARTER_BOXES,
   TIER_LABEL,
   contactUrl,
+  homesMailto,
+  readOffers,
   dialable,
   mailable,
   touchUrl,
@@ -117,6 +119,24 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
           <span>No touches yet</span>
         )}
       </div>
+      {(() => {
+        // CONNECTIONS §5.2: a next step for an open house buyer. Each opens where the agent acts; nothing is sent from ONE.
+        const offers = readOffers(card.offers);
+        if (!offers.length) return null;
+        const suggested = offers.some((o) => o.suggested);
+        return (
+          <div className={`cc-offers${suggested ? " is-suggested" : ""}`}>
+            {suggested && <p className="cc-offers-h">Pulse suggests a next step</p>}
+            {offers.map((o) =>
+              o.kind === "showly_tour" ? (
+                <a key={o.kind} className="btn ghost-btn" href={o.url} target="_blank" rel="noopener noreferrer">{o.label}</a>
+              ) : (
+                <a key={o.kind} className="btn ghost-btn" href={homesMailto(card.email ?? null, first, o.url)}>{o.label}</a>
+              ),
+            )}
+          </div>
+        );
+      })()}
       {(card.phone || card.email) && (
         <p className="cc-lines">
           {card.phone && <span>{card.phone}</span>}
