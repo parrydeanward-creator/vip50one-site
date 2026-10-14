@@ -82,6 +82,8 @@ export interface SummaryOpenHouse {
   hosting?: string | null;
   image?: string | null;
   link?: string | null;
+  /** People who signed up ahead (K3; VIP-SUMMARY §5 ONE Open, 14 Oct). A count, never names. */
+  signed_up_ahead?: number | null;
 }
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
@@ -105,14 +107,16 @@ export function openHouseItems(env: SummaryEnvelope | undefined, today: string):
     const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date(h.starts_at));
     const when = openHouseWhen(h.starts_at);
     const isToday = day === today;
+    const ahead = typeof h.signed_up_ahead === "number" && h.signed_up_ahead > 0 ? Math.round(h.signed_up_ahead) : 0;
+    const aheadWords = ahead ? `${ahead} signed up ahead` : null;
     return [{
       id: `open:upcoming:${h.id}`,
       kind: "open_house",
       title: h.address,
-      detail: isToday ? `Today, ${when.split(", ")[1]}` : when,
+      detail: [isToday ? `Today, ${when.split(", ")[1]}` : when, aheadWords].filter(Boolean).join(" · "),
       urgency: isToday ? "today" : "soon",
       due: day < today ? today : day,
-      why: [isToday ? `Your open house at ${h.address} is today.` : `Open house ${when} at ${h.address}.`, h.hosting === "other" ? "You are hosting another agent's listing." : "Open it in ONE Open to check the plan, the sign-in and the follow-up."],
+      why: [isToday ? `Your open house at ${h.address} is today.` : `Open house ${when} at ${h.address}.`, ...(aheadWords ? [`${aheadWords}. They are in ONE MOVE, tagged with this open house.`] : []), h.hosting === "other" ? "You are hosting another agent's listing." : "Open it in ONE Open to check the plan, the sign-in and the follow-up."],
       link,
       image: safeImage(h.image ?? null),
     } as SummaryItem];
@@ -195,6 +199,9 @@ function otherItems(p: OtherKey, a: OtherAnswer | undefined): SummaryItem[] {
   if (!a?.reachable || !a.env?.found) return [];
   const xs = (a.env.items ?? []).map((i) => ({ ...i, id: i.id.startsWith(`${p}:`) ? i.id : `${p}:${i.id}` }));
   if (p !== "open") return xs;
+  // The sign-ups-ahead item says what the open house orb already shows (its count); keep one, the orb.
+  const shown = a.env.open_houses?.some((h) => typeof h.signed_up_ahead === "number");
+  if (shown) return [...openHouseItems(a.env, new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date())), ...xs.filter((i) => !i.id.startsWith("open:rsvps:"))];
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date());
   return [...openHouseItems(a.env, today), ...xs];
 }

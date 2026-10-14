@@ -48,3 +48,13 @@ test("ONE OPEN shows an Upcoming open houses group with the house as a property"
   assert.equal(house?.label, "450 E 100 S #20");
   assert.equal(house?.href, "https://open.vip-50.com/app/events/abc");
 });
+
+test("sign-ups ahead show on the open house orb as a count, never names", async () => {
+  const { openHouseItems } = await import("../lib/live.ts");
+  const env = { v: 1, product: "open", found: true, stats: [], items: [], open_houses: [{ id: "e1", address: "123 Test St", starts_at: "2026-10-18T18:00:00Z", link: "https://open.vip-50.com/oh/e1", signed_up_ahead: 2 }] };
+  const [it] = openHouseItems(env as never, "2026-10-14");
+  assert.ok(it.detail?.includes("2 signed up ahead"));
+  assert.ok(it.why.some((w) => w.startsWith("2 signed up ahead")));
+  const none = openHouseItems({ ...env, open_houses: [{ ...env.open_houses[0], signed_up_ahead: 0 }] } as never, "2026-10-14");
+  assert.ok(!none[0].detail?.includes("signed up"));
+});
