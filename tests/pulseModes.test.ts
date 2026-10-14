@@ -21,3 +21,14 @@ test("pulse modes: checked; unknown modes read as Off; ONE MOVE's words kept; th
   assert.deepEqual(setBody("birthdays", "off"), { set_via: "profile", modes: { birthdays: "off" } });
   assert.equal(readPulseModes({ nope: 1 }), null);
 });
+
+test("answer A (14 Oct): a worker outside the package shows locked with a link to ONE Growth, no mode buttons", () => {
+  const m = readPulseModes({ workers: [
+    { worker: "concierge", question: "New leads", mode: "off", locked: "Speed to lead comes with ONE Growth" },
+    { worker: "concierge2", question: "x", locked: "Comes with ONE Growth", locked_url: "javascript:alert(1)" },
+    { worker: "followup", question: "Follow-ups", mode: "ask_me", chosen: true },
+  ] })!;
+  assert.deepEqual(m.workers[0].locked, { line: "Speed to lead comes with ONE Growth", href: "https://move.vip50one.com/join/growth" });
+  assert.equal(m.workers[1].locked!.href, "https://move.vip50one.com/join/growth");
+  assert.equal(m.workers[2].locked, null);
+});

@@ -14,6 +14,8 @@ export interface WorkerCard {
   mode: Mode;
   chosen: boolean;
   blocked: string | null;
+  /** Not in the agent's package (Parry, 14 Oct, answer A: speed to lead is ONE Growth only): the line, and where to add it. */
+  locked: { line: string; href: string } | null;
 }
 export interface PulseModes {
   askedAt: string | null;
@@ -28,6 +30,15 @@ const str = (v: unknown, n = 400) => (typeof v === "string" && v.trim() ? v.trim
 const isMode = (v: unknown): v is Mode => v === "off" || v === "ask_me" || v === "autopilot";
 const LABEL: Record<Mode, string> = { off: "Off", ask_me: "Ask me", autopilot: "Autopilot" };
 
+export const GROWTH_JOIN = "https://move.vip50one.com/join/growth";
+/** `locked: "Speed to lead comes with ONE Growth"` (and an optional https `locked_url`) from ONE MOVE. */
+function readLocked(x: Record<string, unknown>): { line: string; href: string } | null {
+  const line = str(x.locked, 200);
+  if (!line) return null;
+  const u = str(x.locked_url, 300);
+  return { line, href: u && u.startsWith("https://") ? u : GROWTH_JOIN };
+}
+
 /** ONE MOVE's answer, checked; null when it is not one. Words come from ONE MOVE so both places say the same. */
 export function readPulseModes(j: unknown): PulseModes | null {
   if (!j || typeof j !== "object") return null;
@@ -39,7 +50,7 @@ export function readPulseModes(j: unknown): PulseModes | null {
   for (const x of r.workers as Record<string, unknown>[]) {
     const worker = str(x?.worker, 40), question = str(x?.question, 200);
     if (!worker || !question) continue;
-    workers.push({ worker, question, example: str(x.example, 300) ?? "", mode: isMode(x.mode) ? x.mode : "off", chosen: x.chosen === true, blocked: str(x.autopilot_blocked, 200) });
+    workers.push({ worker, question, example: str(x.example, 300) ?? "", mode: isMode(x.mode) ? x.mode : "off", chosen: x.chosen === true, blocked: str(x.autopilot_blocked, 200), locked: readLocked(x) });
   }
   return {
     askedAt: str(r.asked_at, 40),
