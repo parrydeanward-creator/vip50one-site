@@ -36,7 +36,8 @@ import PlanMyDay from "./PlanMyDay.tsx";
 import DayClock from "./DayClock.tsx";
 import { useDay } from "./useDay.ts";
 import { chimeOn, dueChimes, notify, playChime, unlockChime } from "@/lib/chime.ts";
-import { nextLine, toMin, toTime } from "@/lib/schedule.ts";
+import { clock12, nextLine, toMin, toTime } from "@/lib/schedule.ts";
+import { groupHead, groupRows, nowStrip, slideSlots } from "@/lib/dayView.ts";
 import { soundsLikeDay } from "@/lib/overview.ts";
 import CommitmentsView from "./CommitmentsView.tsx";
 import ReviewView from "./ReviewView.tsx";
@@ -1376,7 +1377,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
 
   // The Day Clock (§3o.9): the day planned round the calendar. The Next line and the chimes follow it
   // while the dashboard is open (§3o.11).
-  const next = theDay.now ? nextLine(theDay.plan.blocks, theDay.now) : null;
+  const dayGroups = useMemo(() => groupRows(slideSlots(slots, theDay.now)), [slots, theDay.now]);
+  const next = theDay.now ? (slots.length ? nowStrip(dayGroups) : nextLine(theDay.plan.blocks, theDay.now)) : null;
+  const [doneAt, setDoneAt] = useState<Record<string, string>>({});
   const [ringing, setRinging] = useState(false);
   const rung = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -2701,15 +2704,23 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </button>
           )}
 
-          {(focus.type === "core" || focus.id === "go") && !tour && (
+          {(focus.type === "core" || focus.id === "go") && !tour && (theDay.approvedAt ? (
+            // Approved: the card steps aside to one green line (audit stage 2).
+            <div className="plan-ok">
+              <span>
+                <i aria-hidden="true">✓</i> Plan approved{/^\d{4}-/.test(theDay.approvedAt) ? ` ${clock12(new Intl.DateTimeFormat("en-GB", { timeZone: "America/Denver", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(theDay.approvedAt)))}` : ""}
+              </span>
+              <button className="link" onClick={() => setClockOpen(true)}>Change order</button>
+            </div>
+          ) : (
             <button className="pi-film pm-open" onClick={() => setClockOpen(true)}>
               <span className="pi-play" aria-hidden="true">☰</span>
               <span>
-                <b>{theDay.approvedAt ? "Your day" : "Plan my day"}</b>
-                <span>{theDay.approvedAt ? next ?? "Your day is planned." : "Pulse planned today round your calendar. Look it over and tap Looks good."}</span>
+                <b>Plan my day</b>
+                <span>Pulse planned today round your calendar. Look it over and tap Looks good.</span>
               </span>
             </button>
-          )}
+          ))}
 
           {focus.type === "core" && slots.length > 0 && (
             <div className="day">
@@ -2723,34 +2734,49 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                   </p>
                 </div>
               ) : (
-                <p className="day-when">
-                  {day.done} of {day.total} done · about {duration(day.minutesLeft)} left
-                </p>
+                <>
+                  <p className="day-when">
+                    {day.done} of {day.total} done · about {duration(day.minutesLeft)} left
+                  </p>
+                  <div className="day-bar" role="progressbar" aria-valuemin={0} aria-valuemax={day.total} aria-valuenow={day.done} aria-label="Done today">
+                    <i style={{ width: `${day.total ? Math.round((day.done / day.total) * 100) : 0}%` }} />
+                  </div>
+                </>
               )}
-              <ol>
-                {slots.map((x) => (
-                  <li key={x.id} className={x.done ? "is-done" : undefined}>
-                    <button
-                      className="day-tick"
-                      aria-pressed={x.done}
-                      aria-label={x.done ? `Done: ${x.what} Tap to undo.` : `Mark done: ${x.what}`}
-                      onClick={() => tickDay(x.id, !x.done)}
-                    >
-                      {x.done ? "✓" : ""}
-                    </button>
-                    <button className="day-item" onClick={() => goTo(x.nodeId)}>
-                      <span className="day-time">{clock(x.start)}</span>
-                      <span className="day-body">
-                        <small style={{ color: hex(PRODUCT_COLOR[x.product]) }}>
-                          {productName(x.product)} · {duration(x.minutes)}
-                        </small>
-                        {x.what}
-                      </span>
-                      <em aria-hidden="true">→</em>
-                    </button>
-                  </li>
-                ))}
-              </ol>
+              {dayGroups.map((g) => (
+                <section key={g.key} className={`day-group${g.now ? " is-now" : ""}`} aria-label={groupHead(g)}>
+                  <h3 className="day-head">{groupHead(g)}</h3>
+                  <ol>
+                    {g.rows.map((x) => (
+                      <li key={x.id} className={`${x.done ? "is-done" : ""}${x.isNow ? " is-now" : ""}`}>
+                        <button
+                          className="day-done"
+                          aria-pressed={x.done}
+                          aria-label={x.done ? `Done: ${x.what}. Tap to undo.` : `Mark done: ${x.what}`}
+                          onClick={() => {
+                            if (!x.done) setDoneAt((m) => ({ ...m, [x.id]: theDay.now ?? "" }));
+                            tickDay(x.id, !x.done);
+                          }}
+                        >
+                          <span aria-hidden="true">✓</span>
+                          <small>{x.done ? (doneAt[x.id] ? `Done ${clock12(doneAt[x.id])}` : "Done") : "Done"}</small>
+                        </button>
+                        <button className="day-item" onClick={() => goTo(x.nodeId)}>
+                          <span className="day-time">{x.isNow ? "NOW" : clock(x.start)}</span>
+                          <span className="day-body">
+                            <small style={{ color: hex(PRODUCT_COLOR[x.product]) }}>
+                              {productName(x.product)} · {duration(x.minutes)}
+                              {x.movedFrom ? ` · Moved from ${clock(x.movedFrom)}` : ""}
+                            </small>
+                            {x.what}
+                          </span>
+                          <em aria-hidden="true">→</em>
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              ))}
               <button className="link" onClick={() => setDayMap((v) => !v)}>
                 {dayView ? "← Back to the map" : "▶ Show my day on the map"}
               </button>
