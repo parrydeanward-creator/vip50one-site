@@ -9,41 +9,43 @@ export interface IntroItem {
   line: string;
 }
 
-export const LIVE: readonly IntroItem[] = [
-  { title: "Follow the pulse", line: "Pulsing red needs you right now: overdue or urgent. Pulsing yellow needs your attention today. A still green ring means all is good and in order. Every orb above a pulse pulses too, with a count, so you can follow it straight to the person." },
-  { title: "Who needs you today", line: "Pulse reads your VIP-50, your Hot, Warm and Cold lists and your whole database, and puts the right people in front of you." },
-  { title: "Special days", line: "Birthdays, anniversaries and home anniversaries glow gold and come first, so you are the one who remembered." },
-  { title: "Morning Pulse", line: "A short walk through your day: what changed, who needs you, and the one move that matters most." },
-  { title: "Ask Pulse", line: "Plain questions, straight answers from your own business. \"Who haven't I called in 60 days?\"" },
-  { title: "Always the why", line: "Every suggestion shows its reason. You never have to guess why someone is in front of you." },
-  { title: "Live numbers", line: "Your trackers, VIP touches and goals update within a minute as you work in ONE GO and ONE MOVE." },
-  { title: "Call Prep", line: "Tap Call and a ten-second card comes first: when you last spoke, their family, their favourites, what is coming up, and three things to ask." },
-  { title: "Plan my day", line: "Pulse lays out everything pulsing today. Put it in your order and cut what won't happen; your plan becomes Your day." },
-  { title: "Every person, every detail", line: "Open anyone in the middle of the screen: their family, favourites, history and every touch." },
+/** Meet Pulse, short (Parry, 14 Oct: "i like it...go with it."; audit stage 2). No "Coming next": Pulse Match and
+ * Market Pulse join this list the day they are live (PULSE-ROADMAP rows 19-20). */
+export const LEDE: readonly string[] = [
+  "Pulse is the AI inside ONE.",
+  "It watches your whole business and puts the few things that matter in front of you.",
+  "It suggests and writes. You decide what goes out.",
 ];
 
-export const COMING: readonly IntroItem[] = [
-  { title: "Today's plan on your phone", line: "Send your plan to ONE GO: it opens to your list, in your order, and a tick on the phone shows here." },
-  { title: "Pulse Drafts", line: "Every text, email, video-text script and handwritten note written in your voice. You edit and send." },
-  { title: "Talk, don't type", line: "After a call, just speak. Pulse files the notes and sets the follow-up." },
-  { title: "Referral and life-event radar", line: "Who sends you business, who will, and the moments that matter in their lives." },
-  { title: "Goal pacing and a weekly coach", line: "Exactly what this week needs to keep you on pace for your year." },
-  { title: "Pulse Match and Market Pulse", line: "The right homes for every buyer, and a market report for every VIP, from the MLS." },
+export const LIVE: readonly IntroItem[] = [
+  { title: "Follow the pulse", line: "Tap whatever is red. It leads you to the person." },
+  { title: "Morning Pulse", line: "Your day in one minute, and the one move that matters most." },
+  { title: "Ask Pulse", line: "\"Who haven't I called in 60 days?\" Straight answers from your business." },
+  { title: "Written for you", line: "Texts, emails and notes in your voice. You edit and send." },
+  { title: "Plan my day", line: "Built round your calendar, sent to ONE GO on your phone." },
 ];
 
 export const PROMISE = "Pulse suggests and writes. You decide what goes out. Nothing is texted, emailed or posted for you unless you chose it.";
 
-const PRODUCTS: Record<string, string> = {
-  complete: "ONE GO, ONE MOVE, Marquee, ONE Open and Showly",
-  relationship: "ONE GO and ONE MOVE",
+const NAME: Record<string, string> = { relationship: "ONE Relationship", complete: "ONE Complete", elite: "Elite", growth: "ONE Growth" };
+const PRODUCTS: Record<string, string[]> = {
+  relationship: ["ONE GO", "ONE MOVE"],
+  complete: ["ONE GO", "ONE MOVE", "Marquee", "ONE Open", "Showly"],
+  elite: ["ONE GO", "ONE MOVE", "Marquee", "ONE Open", "Showly"],
+  growth: ["ONE MOVE", "your website"],
 };
+const list = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 
-/** "Your ONE Complete gives Pulse all five products." Unknown packages say nothing. */
-export function packageLine(pkg: string | undefined): string {
-  if (pkg === "complete") return `Your ONE Complete gives Pulse all five: ${PRODUCTS.complete}.`;
-  if (pkg === "relationship") return `Your ONE Relationship gives Pulse ${PRODUCTS.relationship}. Marquee, ONE Open and Showly join it with ONE Complete.`;
-  if (pkg === "growth") return "Your ONE Growth gives Pulse ONE MOVE, your website and your ads.";
-  return "";
+/** "Your plan: ONE Complete + ONE Growth. Pulse works across ..." from MASTER's one_plan and growth_addon; names only
+ * what the agent has. Unknown packages say nothing. */
+export function packageLine(pkg: string | undefined, growth = false): string {
+  if (!pkg || !PRODUCTS[pkg]) return "";
+  const addGrowth = growth && pkg !== "growth";
+  const plan = `${NAME[pkg]}${addGrowth ? " + ONE Growth" : ""}`;
+  const across = [...PRODUCTS[pkg]];
+  if (pkg === "growth" || addGrowth) across.push(pkg === "growth" ? "your Growth ads and leads" : "your Growth ads and leads");
+  const glue = addGrowth ? `${across.slice(0, -1).join(", ")}, and ${across[across.length - 1]}` : list(across);
+  return `Your plan: ${plan}. Pulse works across ${glue}.`;
 }
 
 /** ONE Growth's checkout (sold from 13 Oct, "growth on"; GROWTH.md §2). */
@@ -58,7 +60,7 @@ export function growthOffer(pkg: string | undefined, hasGrowth: boolean): string
 export function todayLine(total: Need | undefined): string {
   if (!total) return "Nothing needs you right now. Pulse is watching.";
   const n = total.count;
-  return `${n} ${n === 1 ? "thing needs" : "things need"} you${total.level === "now" ? ", some overdue" : " today"}. Follow the pulse.`;
+  return `${n} ${n === 1 ? "thing needs" : "things need"} you${total.level === "now" ? ", some overdue" : " today"}.`;
 }
 
 export const SEEN_KEY = "one.pulseIntro.seen";
