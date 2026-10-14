@@ -19,7 +19,7 @@ export function LeadMailSection() {
   }, []);
   if (!mail) return null;
   return (
-    <section className="pf-privacy" aria-label="Lead email address">
+    <section className="pf-card" aria-label="Lead email address">
       <h2>Lead email address</h2>
       <small className="pf-sub">
         Put this in Zillow, Realtor.com and Homes.com as where your leads are emailed, or forward lead emails to it. Each lead lands in ONE MOVE, tagged with where it came
@@ -95,7 +95,7 @@ export function OwnAISection() {
     }
   };
   return (
-    <section className="pf-privacy" aria-label="Your own AI">
+    <section className="pf-card" aria-label="Your own AI">
       <h2>Your own AI</h2>
       <label className="dc-switch">
         <input type="checkbox" checked={s.on} disabled={busy} onChange={(e) => void post(connectorUrl, { on: e.target.checked }, e.target.checked ? "On. Add the address below in your AI app." : "Off. Every connected AI was disconnected.")} />
@@ -186,7 +186,7 @@ export function PulseModesSection() {
     }
   };
   return (
-    <section className="pf-privacy" aria-label="Pulse">
+    <section className="pf-card" aria-label="Pulse">
       <h2>Pulse</h2>
       <small className="pf-sub">How Pulse helps with each kind of message. Everything starts Off; only you can change it.</small>
       {m.workers.map((w) => (

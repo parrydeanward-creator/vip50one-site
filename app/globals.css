@@ -1311,7 +1311,22 @@ a.link { display: block; text-decoration: none; }
 .rx-small { font-size: 13px; }
 
 /* My Profile (§3j): the one profile, in ONE Brain. */
-.pf { position: absolute; inset: 0; overflow: auto; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; padding: 28px 28px 90px; }
+/* My Profile (Parry, 14 Oct, hard rule): two columns on desktop, never one long column; one column on a phone. */
+.pf { position: absolute; inset: 0; overflow: auto; padding: 28px 28px 90px; }
+.pf > * { max-width: 1180px; margin-left: auto; margin-right: auto; }
+.pf-fields { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.pf-fields .pf-about { margin: 0; }
+.pf-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 24px; align-items: start; }
+.pf-card { display: grid; gap: 6px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--panel); min-width: 0; }
+.pf-card h2 { margin: 0 0 4px; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-2); }
+.pf-card .pf-sub.warn { color: #ffb36b; }
+.pf-big { margin: 0; font-size: 20px; font-weight: 700; }
+.pf-line { margin: 4px 0 0; color: var(--text); }
+.pf-btns { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+.pf-btns a.chip-btn { text-decoration: none; }
+.pf-card .dc-switch small { display: block; }
+.pf-wide { margin-top: 16px; }
+.pf-wide > .pf-card { max-width: none; }
 .pf-col { min-width: 0; }
 .pf-hero { display: flex; gap: 24px; align-items: center; margin-bottom: 22px; }
 .pf-photo { position: relative; flex: none; width: 132px; height: 132px; border-radius: 50%; padding: 0; border: 3px solid var(--gold); background: radial-gradient(circle at 35% 30%, #2a2f4a, #0b1020 70%); box-shadow: 0 0 28px rgba(245, 197, 66, 0.35); overflow: hidden; cursor: pointer; display: grid; place-items: center; color: #ffe08a; font-size: 40px; font-weight: 700; }
@@ -1342,7 +1357,8 @@ a.link { display: block; text-decoration: none; }
 .pf-row small { color: var(--text-3); font-size: 12px; }
 .pf-controls { position: static; margin-top: 16px; }
 @media (max-width: 899px) {
-  .pf { grid-template-columns: 1fr; padding: 18px 14px 90px; }
+  .pf { padding: 18px 14px 90px; }
+  .pf-cards { grid-template-columns: 1fr; }
   .pf-hero { flex-direction: column; text-align: center; }
   .pf-form { grid-template-columns: 1fr; }
 }
