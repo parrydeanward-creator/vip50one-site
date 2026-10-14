@@ -95,6 +95,7 @@ import { perProduct } from "@/lib/perProduct.ts";
 import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, type Launch } from "@/lib/launch.ts";
 import LaunchPanel from "./LaunchPanel.tsx";
 import ClosedCards from "./ClosedCards.tsx";
+import { LAST_COOKIE, LAST_MAX_AGE } from "@/lib/landing.ts";
 import { FORECAST_NODE, demoClasses, forecast, withForecastNode, type Forecast } from "@/lib/forecast.ts";
 import { needWords, needsOf, type Need } from "@/lib/needs.ts";
 import { SEEN_KEY } from "@/lib/pulseIntro.ts";
@@ -1833,7 +1834,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     }
     const want = pageAddress(panelPath);
     if (window.location.pathname !== want) window.history.replaceState(null, "", want + window.location.search + window.location.hash);
-  }, [panelPath]);
+    // Land where they last were (audit stage 1, 14 Oct): the next sign-in comes back to this page.
+    if (live) document.cookie = `${LAST_COOKIE}=${encodeURIComponent(want)}; path=/; max-age=${LAST_MAX_AGE}; samesite=lax${location.protocol === "https:" ? "; secure" : ""}`;
+  }, [panelPath, live]);
   // ONE MOVE pages drawn natively: VIP Management (the VIP rings, §3d) and the
   // Daily Tracker (§3e). The Classic page stays one click away, and is the
   // fallback until ONE MOVE's route answers.

@@ -2064,3 +2064,9 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .since.closed-cards li small { font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none; color: rgba(255, 255, 255, 0.65); }
 .since.closed-cards li span { display: block; }
 .since.closed-cards li span b { display: block; }
+
+/* Sign-in: forms inside the card (14 Oct, password or emailed link), Welcome back */
+.login-form { display: flex; flex-direction: column; gap: 8px; }
+.login-card .login-form button[type="submit"] { margin-top: 14px; padding: 13px; border-radius: 12px; border: 0; background: var(--gold); color: #120d00; font-weight: 700; cursor: pointer; }
+.login-card button.login-alt[type="submit"] { margin-top: 0; width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+.login-card a.cta { margin-top: 12px; padding: 13px 18px; border-radius: 12px; background: var(--gold); color: #120d00; font-weight: 700; text-decoration: none; text-align: center; }

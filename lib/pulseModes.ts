@@ -14,6 +14,8 @@ export interface WorkerCard {
   mode: Mode;
   chosen: boolean;
   blocked: string | null;
+  /** ONE MOVE refuses Ask me too (no Growth for Concierge; vip50-web-crm#239): the reason, or null. */
+  askBlocked: string | null;
   /** Not in the agent's package (Parry, 14 Oct, answer A: speed to lead is ONE Growth only): the line, and where to add it. */
   locked: { line: string; href: string } | null;
 }
@@ -50,7 +52,7 @@ export function readPulseModes(j: unknown): PulseModes | null {
   for (const x of r.workers as Record<string, unknown>[]) {
     const worker = str(x?.worker, 40), question = str(x?.question, 200);
     if (!worker || !question) continue;
-    workers.push({ worker, question, example: str(x.example, 300) ?? "", mode: isMode(x.mode) ? x.mode : "off", chosen: x.chosen === true, blocked: str(x.autopilot_blocked, 200), locked: readLocked(x) });
+    workers.push({ worker, question, example: str(x.example, 300) ?? "", mode: isMode(x.mode) ? x.mode : "off", chosen: x.chosen === true, blocked: str(x.autopilot_blocked, 200), askBlocked: str(x.ask_me_blocked, 200), locked: readLocked(x) });
   }
   return {
     askedAt: str(r.asked_at, 40),

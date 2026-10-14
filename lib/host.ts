@@ -19,7 +19,9 @@ export const CLASSIC_DASHBOARD_URL = `${MOVE_URL}/dashboard`;
  * (CHECKOUT.md §4). The query (package, interval, code) goes with them.
  * Temporary redirects, so a browser never remembers where they land.
  */
-export const HANDOVER = ["/join", "/reactivate", "/app"] as const;
+export const HANDOVER = ["/join"] as const;
+// /reactivate and /app are this site's own pages since 14 Oct (audit stage 1): a ONE "Welcome back" page, and /app
+// opening the Brain. Plain /join with no package goes to the packages first (next.config.ts).
 
 /**
  * Proxied, not redirected: Lofty subscriptions, Twilio text replies, one-click
