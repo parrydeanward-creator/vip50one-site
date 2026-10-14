@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookieDomainFor } from "./lib/host.ts";
 import { MASTER_PUBLISHABLE_KEY, MASTER_URL } from "./lib/master.ts";
+import { LAST_COOKIE, afterSignIn } from "./lib/landing.ts";
 
 // Keeps the MASTER session fresh and sends signed-out visitors from the
 // dashboard to sign-in. ?demo=1 keeps the made-up agent reachable for the
@@ -48,9 +49,12 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(to);
   }
   if (user && path === "/login") {
+    // Already signed in: the place asked for, else where they last were, else the Brain (lib/landing.ts).
+    const want = afterSignIn(req.nextUrl.searchParams.get("next"), req.cookies.get(LAST_COOKIE)?.value);
+    const [p, q = ""] = want.split("?");
     const to = req.nextUrl.clone();
-    to.pathname = "/dashboard";
-    to.search = "";
+    to.pathname = p;
+    to.search = q ? `?${q}` : "";
     return NextResponse.redirect(to);
   }
   return res;

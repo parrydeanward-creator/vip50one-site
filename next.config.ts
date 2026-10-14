@@ -1,13 +1,16 @@
 import type { NextConfig } from "next";
 import { HANDOVER, MOVE_URL, PROXIED } from "./lib/host.ts";
+import { JOIN_NO_PACKAGE } from "./lib/landing.ts";
 
 const config: NextConfig = {
   poweredByHeader: false,
   async redirects() {
-    return HANDOVER.flatMap((p) => [
+    // Plain /join (no package chosen): pick a package first (audit stage 1, 14 Oct).
+    const pickFirst = { source: "/join", missing: [{ type: "query" as const, key: "package" }], destination: JOIN_NO_PACKAGE, permanent: false };
+    return [pickFirst, ...HANDOVER.flatMap((p) => [
       { source: p, destination: `${MOVE_URL}${p}`, permanent: false },
       { source: `${p}/:path*`, destination: `${MOVE_URL}${p}/:path*`, permanent: false },
-    ]);
+    ])];
   },
   async rewrites() {
     // afterFiles: this site's own routes (/api/note, /api/ask) win; the rest

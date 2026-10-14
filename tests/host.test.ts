@@ -9,10 +9,14 @@ test("ONE MOVE lives at move.vip50one.com", () => {
   assert.equal(MOVE_URL, "https://move.vip50one.com");
 });
 
-test("join, reactivate and app hand over to ONE MOVE with their query", () => {
-  assert.deepEqual([...HANDOVER], ["/join", "/reactivate", "/app"]);
+// Rewritten 14 Oct (audit stage 1, Parry: "fix all of the above issues"): /reactivate and /app no longer hand over to
+// ONE MOVE Classic's sign-in. They are this site's own pages; only /join (with a package) still hands over to sign-up.
+test("join with a package hands over to ONE MOVE; plain join goes to the packages; reactivate and app are ours", () => {
+  assert.deepEqual([...HANDOVER], ["/join"]);
   const cfg = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
   assert.match(cfg, /permanent: false/);
+  assert.match(cfg, /missing: \[\{ type: "query" as const, key: "package" \}\], destination: JOIN_NO_PACKAGE/);
+  for (const f of ["../app/reactivate/page.tsx", "../app/app/route.ts"]) assert.ok(existsSync(new URL(f, import.meta.url)), f);
 });
 
 test("ONE MOVE's api and newsletter icons are proxied, not redirected", () => {
