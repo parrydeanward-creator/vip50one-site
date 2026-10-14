@@ -1,5 +1,6 @@
 import type { GraphNode } from "./graph/types.ts";
 import type { MorningNote } from "./note.ts";
+import { perProduct, pickLine } from "./perProduct.ts";
 
 // Morning Pulse on the phone (Pulse roadmap #15, VIP-SUMMARY §3ac): the same morning note the Brain shows, as plain
 // text for ONE GO's home card and its 7:00 push. Nothing is sent from here; ONE GO shows it to the agent only.
@@ -10,6 +11,8 @@ export interface PhoneMorning {
   lines: string[];
   counts: { red: number; yellow: number };
   link: string;
+  /** One morning (CONNECTIONS gap 7): the one thing per product, "Marquee: 2 pieces to approve". Additive. */
+  by_product: string[];
 }
 
 export const MORNING_LINK = "https://www.vip50one.com/dashboard";
@@ -42,5 +45,5 @@ export function needCounts(nodes: readonly GraphNode[]): { red: number; yellow: 
 }
 
 export function phoneMorning(note: MorningNote, nodes: readonly GraphNode[], date: string): PhoneMorning {
-  return { date, title: "Morning Pulse", lines: noteLines(note), counts: needCounts(nodes), link: MORNING_LINK };
+  return { date, title: "Morning Pulse", lines: noteLines(note), counts: needCounts(nodes), link: MORNING_LINK, by_product: perProduct(nodes).map(pickLine) };
 }

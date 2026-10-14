@@ -91,6 +91,7 @@ import { hwcUrl, readHwc, todayIn, type HwcClass } from "@/lib/hwc.ts";
 import { demoSignals, readSignals, signalsUrl, withSignalsNode, type WebSignal } from "@/lib/webSignals.ts";
 import { demoNewLeads, readNewLeads, todayUrl, withNewLeadsNode, type NewLeads } from "@/lib/newLeads.ts";
 import { postDay, type TeamPost } from "@/lib/teamPosts.ts";
+import { perProduct } from "@/lib/perProduct.ts";
 import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, type Launch } from "@/lib/launch.ts";
 import LaunchPanel from "./LaunchPanel.tsx";
 import { FORECAST_NODE, demoClasses, forecast, withForecastNode, type Forecast } from "@/lib/forecast.ts";
@@ -2667,6 +2668,30 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               </button>
             </div>
           )}
+
+          {focus.type === "core" && !ask && (() => {
+            // One morning (CONNECTIONS gap 7): the one thing in each product that needs you today.
+            const picks = perProduct(graph.nodes);
+            return picks.length ? (
+              <div className="since one-morning">
+                <h2>Today in each product</h2>
+                <ul>
+                  {picks.map((p) => (
+                    <li key={p.product}>
+                      <button onClick={() => goTo(p.id)}>
+                        <i style={{ background: hex(STATUS[p.level].color) }} aria-hidden="true" />
+                        <span>
+                          <small style={{ color: hex(PRODUCT_COLOR[p.product]) }}>{p.productName}</small>
+                          {p.label}{p.line ? `, ${p.line}` : ""}
+                        </span>
+                        <em aria-label={`Go to ${p.label}`}>→</em>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null;
+          })()}
 
           {focus.type === "core" && since && (
             <div className="since">
