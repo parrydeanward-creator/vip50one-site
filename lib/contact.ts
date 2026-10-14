@@ -21,6 +21,38 @@ export interface ContactCard {
   quarter?: Record<string, boolean> | null;
   open_tasks?: { id: string; title: string; due?: string | null }[] | null;
   link?: string | null;
+  offers?: ContactOffer[] | null;
+}
+
+// CONNECTIONS §5.2 (14 Oct, vip50-web-crm#232): a next step for an open house buyer, from ONE MOVE's contact read.
+export interface ContactOffer { kind: "showly_tour" | "site_search"; label: string; url: string; suggested: boolean }
+
+/** The offers, checked: known kinds, https only, Showly on showly.net, a site search on a /homes page. */
+export function readOffers(raw: unknown): ContactOffer[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ContactOffer[] = [];
+  for (const o of raw as Record<string, unknown>[]) {
+    if (!o || (o.kind !== "showly_tour" && o.kind !== "site_search") || typeof o.url !== "string") continue;
+    let u: URL;
+    try {
+      u = new URL(o.url);
+    } catch {
+      continue;
+    }
+    if (u.protocol !== "https:") continue;
+    if (o.kind === "showly_tour" && u.hostname !== "showly.net") continue;
+    if (o.kind === "site_search" && !u.pathname.startsWith("/homes")) continue;
+    const label = typeof o.label === "string" && o.label.trim() ? o.label.trim().slice(0, 60) : o.kind === "showly_tour" ? "Invite to a Showly tour" : "Send homes like this";
+    out.push({ kind: o.kind, label, url: u.toString(), suggested: o.suggested === true });
+  }
+  return out;
+}
+
+/** "Send homes like this": the agent's own email, with the search link filled in. Nothing is sent from ONE. */
+export function homesMailto(email: string | null, first: string, url: string): string {
+  const to = mailable(email) ?? "";
+  const body = `Hi ${first},\n\nHere are homes like the one you saw: ${url}\n\n`;
+  return `mailto:${to}?subject=${encodeURIComponent("Homes like the one you saw")}&body=${encodeURIComponent(body)}`;
 }
 
 export const contactUrl = (id: string) => `${MOVE_URL}/api/brain/contact?id=${encodeURIComponent(id)}`;

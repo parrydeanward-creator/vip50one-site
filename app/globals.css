@@ -2010,3 +2010,8 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 .since-posts a { display: grid; gap: 1px; color: inherit; text-decoration: none; padding: 6px 8px; border-radius: 8px; }
 .since-posts a:hover, .since-posts a:focus-visible { background: rgba(255,255,255,0.06); }
 .since-posts small { color: rgba(255,255,255,0.55); font-size: 11.5px; }
+
+/* CONNECTIONS §5.2: next steps for an open house buyer on the contact card */
+.cc-offers { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; padding: 10px; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; }
+.cc-offers.is-suggested { border-color: #f5c542; }
+.cc-offers-h { width: 100%; margin: 0 0 2px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #f5c542; }

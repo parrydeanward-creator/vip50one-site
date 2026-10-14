@@ -15,6 +15,8 @@ export interface Profile {
   principal_broker: string;
   license_no: string;
   license_state: string;
+  legal_name: string;
+  ure_member_id: string;
   time_zone: string;
   title: string;
   bio: string;
@@ -61,6 +63,9 @@ export const FIELDS: { key: Field; label: string; max: number; long?: boolean; h
   { key: "principal_broker", label: "Principal broker", max: 120, hint: "Never shown to clients." },
   { key: "license_no", label: "Licence number", max: 40 },
   { key: "license_state", label: "Licence state", max: 2, hint: "Two letters, e.g. UT." },
+  // PROFILE.md v1.3 (14 Oct, vip50-web-crm#231): for the URE member list (TEAM-ONBOARDING §3 step 1).
+  { key: "legal_name", label: "Full legal name", max: 120, hint: "For VIP-50 and the MLS only; never shown to clients." },
+  { key: "ure_member_id", label: "URE member ID", max: 40, hint: "For VIP-50 and the MLS only; never shown to clients." },
   { key: "title", label: "Title", max: 120, hint: "e.g. REALTOR, Team Lead." },
   { key: "time_zone", label: "Time zone", max: 64 },
   { key: "bio", label: "Short bio", max: 1000, long: true, hint: "Used on agent pages buyers see." },
@@ -97,6 +102,8 @@ export function readProfile(raw: unknown): Profile | null {
     principal_broker: s(r.principal_broker, LIMIT("principal_broker")),
     license_no: s(r.license_no, LIMIT("license_no")),
     license_state: s(r.license_state, LIMIT("license_state")),
+    legal_name: s(r.legal_name, LIMIT("legal_name")),
+    ure_member_id: s(r.ure_member_id, LIMIT("ure_member_id")),
     time_zone: s(r.time_zone, 64) || "America/Denver",
     title: s(r.title, LIMIT("title")),
     bio: s(r.bio, LIMIT("bio")),
