@@ -668,13 +668,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       })
       .catch(() => {});
   }, [live]);
-  const editSite = useCallback(async (site?: string) => {
+  const editSite = useCallback(async (site?: string, next?: string) => {
     setSiteNote(null);
     const r = await fetch("/api/site", {
       method: "POST",
       cache: "no-store",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(site ? { site } : {}),
+      body: JSON.stringify({ ...(site ? { site } : {}), ...(next ? { next } : {}) }),
     }).catch(() => null);
     const j = r ? await r.json().catch(() => null) : null;
     if (r?.ok && typeof j?.url === "string") return window.location.assign(j.url);
@@ -1866,10 +1866,20 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                 Website home
               </button>
             )}
-            {teamSites.map((t) => (
-              <button key={t.host} type="button" className="signout" onClick={() => void editSite(t.host)} title={`Website home for ${t.host}`}>
-                Team website home
+            {siteHost && agent.growth && (
+              <button type="button" className="signout" onClick={() => void editSite(undefined, "/manage/results")} title="ONE Growth results: leads, appointments and closings by source">
+                Growth results
               </button>
+            )}
+            {teamSites.map((t) => (
+              <span key={t.host} style={{ display: "contents" }}>
+                <button type="button" className="signout" onClick={() => void editSite(t.host)} title={`Website home for ${t.host}`}>
+                  Team website home
+                </button>
+                <button type="button" className="signout" onClick={() => void editSite(t.host, "/manage/ad-requests")} title="Ads your agents have asked for">
+                  Ad requests
+                </button>
+              </span>
             ))}
             <button className="signout" type="submit">Sign out</button>
           </form>

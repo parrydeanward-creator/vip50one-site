@@ -41,3 +41,10 @@ test("team sites: owner and admin only, clean hosts, one per host", async () => 
   ]);
   assert.deepEqual(readTeamSites(null), []);
 });
+
+test("enterUrl: a studio page rides as ?next= before the ticket; anything else is dropped", () => {
+  assert.equal(enterUrl("https://jane.vip50homes.com", T, "/manage/results"), `https://jane.vip50homes.com/builder/enter?next=/manage/results#t=${T}`);
+  assert.equal(enterUrl("https://luxury-agency.vip50homes.com", T, "/manage/ad-requests"), `https://luxury-agency.vip50homes.com/builder/enter?next=/manage/ad-requests#t=${T}`);
+  assert.equal(enterUrl("https://jane.vip50homes.com", T, "https://evil.example"), `https://jane.vip50homes.com/builder/enter#t=${T}`);
+  assert.equal(enterUrl("https://jane.vip50homes.com", T, "/admin"), `https://jane.vip50homes.com/builder/enter#t=${T}`);
+});

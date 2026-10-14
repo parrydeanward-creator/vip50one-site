@@ -9,8 +9,13 @@ export function cleanHost(v: unknown): string | null {
   return /^(?=.{3,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(h) ? h : null;
 }
 
-/** Where the browser goes: `<site>/builder/enter#t=<ticket>`. Only an https site and a hex ticket; else null. */
-export function enterUrl(siteUrl: unknown, ticket: unknown): string | null {
+/** Studio pages a sign-in may land on (one-websites#108, #109); anything else goes to the Website home. */
+export const SITE_NEXT = ["/manage", "/manage/results", "/manage/ad-requests", "/builder"] as const;
+export type SiteNext = (typeof SITE_NEXT)[number];
+export const cleanNext = (v: unknown): SiteNext | null => (typeof v === "string" && (SITE_NEXT as readonly string[]).includes(v) ? (v as SiteNext) : null);
+
+/** Where the browser goes: `<site>/builder/enter[?next=<page>]#t=<ticket>`. Only an https site and a hex ticket; else null. */
+export function enterUrl(siteUrl: unknown, ticket: unknown, next: unknown = null): string | null {
   if (typeof siteUrl !== "string" || typeof ticket !== "string" || !/^[0-9a-f]{64}$/.test(ticket)) return null;
   let u: URL;
   try {
@@ -19,7 +24,8 @@ export function enterUrl(siteUrl: unknown, ticket: unknown): string | null {
     return null;
   }
   if (u.protocol !== "https:" || !cleanHost(u.hostname)) return null;
-  return `https://${u.hostname}/builder/enter#t=${ticket}`;
+  const n = cleanNext(next);
+  return `https://${u.hostname}/builder/enter${n ? `?next=${n}` : ""}#t=${ticket}`;
 }
 
 /** MASTER's refusal words, kept short and plain; anything else becomes one plain line. */
