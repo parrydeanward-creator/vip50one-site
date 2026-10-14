@@ -193,6 +193,12 @@ export function PulseModesSection() {
         <div key={w.worker} className="pm-card">
           <b>{w.question}</b>
           {w.example ? <small className="pf-sub">{w.example}</small> : null}
+          {w.locked ? (
+            <p className="pf-sub pm-locked">
+              {w.locked.line}.{" "}
+              <a href={w.locked.href} target="_blank" rel="noopener noreferrer">Add ONE Growth ↗</a>
+            </p>
+          ) : (
           <div className="pm-modes" role="radiogroup" aria-label={w.question}>
             {MODES.map((mode) => {
               const blocked = mode === "autopilot" && !!w.blocked && w.mode !== "autopilot";
@@ -211,8 +217,9 @@ export function PulseModesSection() {
               );
             })}
           </div>
-          <small className="pf-sub">{w.chosen ? m.line[w.mode] : "Not chosen yet: Off."}</small>
-          {w.blocked && w.mode !== "autopilot" ? <small className="pf-sub">{w.blocked}</small> : null}
+          )}
+          {!w.locked && <small className="pf-sub">{w.chosen ? m.line[w.mode] : "Not chosen yet: Off."}</small>}
+          {!w.locked && w.blocked && w.mode !== "autopilot" ? <small className="pf-sub">{w.blocked}</small> : null}
           {confirm === w.worker ? (
             <div className="pm-confirm" role="alertdialog" aria-label="Turn on Autopilot?">
               <p>{m.confirm}</p>
