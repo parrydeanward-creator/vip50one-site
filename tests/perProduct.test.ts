@@ -18,7 +18,20 @@ test("one pick per product: red before yellow, then importance; groups, locked a
   ];
   const picks = perProduct(nodes);
   assert.deepEqual(picks.map((p) => `${p.product}:${p.id}`), ["move:m2", "marquee:q2"]);
-  assert.equal(pickLine(picks[0]), "ONE MOVE: m2, overdue 2 days");
-  assert.equal(pickLine(picks[1]), "Marquee: 2 pieces to approve");
+  // Rewritten 14 Oct (audit stage 2): the rest of a product's items show as a count.
+  assert.equal(pickLine(picks[0]), "ONE MOVE: m2, overdue 2 days (+1 more)");
+  assert.equal(pickLine(picks[1]), "Marquee: 2 pieces to approve (+1 more)");
   assert.deepEqual(perProduct([]), []);
+});
+
+test("audit stage 2: the item holding the most people wins; a product with nothing due says all good", () => {
+  const nodes = [
+    n({ id: "open", type: "product", product: "open" }),
+    n({ id: "showly", type: "product", product: "showly" }),
+    n({ id: "o-setup", product: "open", status: "attention", importance: 0.95, label: "Set Up Open House" }),
+    n({ id: "o-vis", product: "open", status: "attention", importance: 0.5, needCount: 9, label: "9 visitors waiting on a Day 0 video text" }),
+  ];
+  const picks = perProduct(nodes);
+  assert.deepEqual(picks.map((p) => [p.product, p.id, p.level, p.more]), [["open", "o-vis", "attention", 1], ["showly", "showly", "ok", 0]]);
+  assert.equal(pickLine(picks[1]), "Showly: all good");
 });

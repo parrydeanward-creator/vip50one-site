@@ -1,5 +1,6 @@
 "use client";
 
+import { namesPerson } from "@/lib/personTask.ts";
 import { useEffect, useState } from "react";
 import ContactPanel from "./ContactPanel.tsx";
 import { readSignals, signalKind, signalsUrl } from "@/lib/webSignals.ts";
@@ -103,7 +104,7 @@ export default function PersonPanel({
         ) : null}
       </>
     );
-  if (!taskId) return null;
+  if (!taskId || !namesPerson(title)) return null; // Agent Attraction and other non-person tasks: no "Who is this?"
 
   return (
     <div className="pp">

@@ -1763,6 +1763,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     const rect = hostRef.current!.getBoundingClientRect();
     s.setCamera(zoomAt(s.camera, s.viewport, Math.exp(-e.deltaY * 0.0015), e.clientX - rect.left, e.clientY - rect.top), false);
   };
+  // A row in a list opens its orb exactly as a tap on the orb does (audit stage 2: the "This week" row showed a panel
+  // with no way to set commitments, while the orb opens Commitments).
+  const openOrb = (id: string) => {
+    drag.current.moved = false;
+    clickNode(id);
+  };
   const clickNode = (id: string) => {
     if (drag.current.moved) return; // that was a drag, not a tap
     if (ask) return id === graph.rootId ? goHome() : goTo(id);
@@ -2772,18 +2778,31 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               <div className="since one-morning">
                 <h2>Today in each product</h2>
                 <ul>
-                  {picks.map((p) => (
-                    <li key={p.product}>
-                      <button onClick={() => goTo(p.id)}>
-                        <i style={{ background: hex(STATUS[p.level].color) }} aria-hidden="true" />
-                        <span>
-                          <small style={{ color: hex(PRODUCT_COLOR[p.product]) }}>{p.productName}</small>
-                          {p.label}{p.line ? `, ${p.line}` : ""}
+                  {picks.map((p) =>
+                    p.level === "ok" ? (
+                      <li key={p.product} className="pick-ok">
+                        <span className="pick-quiet">
+                          <i className="row-mark ok" style={{ borderColor: "#3fbf7f" }} aria-hidden="true" />
+                          <span>
+                            <small style={{ color: hex(PRODUCT_COLOR[p.product]) }}>{p.productName}</small>
+                            All good
+                          </span>
                         </span>
-                        <em aria-label={`Go to ${p.label}`}>→</em>
-                      </button>
-                    </li>
-                  ))}
+                      </li>
+                    ) : (
+                      <li key={p.product}>
+                        <button onClick={() => openOrb(p.id)}>
+                          <i style={{ background: hex(STATUS[p.level].color) }} aria-hidden="true" />
+                          <span>
+                            <small style={{ color: hex(PRODUCT_COLOR[p.product]) }}>{p.productName}</small>
+                            {p.label}{p.line ? `, ${p.line}` : ""}
+                            {p.more ? <span className="pick-more"> +{p.more} more</span> : null}
+                          </span>
+                          <em aria-label={`Open ${p.label}`}>→</em>
+                        </button>
+                      </li>
+                    ),
+                  )}
                 </ul>
               </div>
             ) : null;
@@ -2890,11 +2909,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                       <p className="rec-kicker">Recommended action</p>
                       <p className="rec-title">{r.title}</p>
                       <div className="rec-actions">
-                        {target && (
+                        {target && target.id !== focus.id ? (
                           <button className="link" onClick={() => goToNode(target.id)}>
                             {target.contactId ? "Open" : "Go to"} {target.label.replace(/^(Call|Text|Face-to-face:|Send note to)\s*/i, "")} →
                           </button>
-                        )}
+                        ) : null /* already here: the orb's own "Open in <product>" button covers it (audit stage 2) */}
                       </div>
                     </li>
                   );
