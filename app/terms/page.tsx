@@ -1,3 +1,4 @@
+import Logo from "@/components/brand/Logo.tsx";
 // Terms of service (Parry, 4 Oct). Google's sign-in setup asks for a terms
 // link next to the privacy page. Plain words; prices and trial rules are the
 // settled ones (vip50-ecosystem ECOSYSTEM.md §7, CHECKOUT.md §5a).
@@ -14,9 +15,7 @@ export default function Terms() {
   return (
     <div className="sp">
       <header className="sp-bar">
-        <a className="brand" href="/" aria-label="VIP-50 ONE, home" style={{ textDecoration: "none" }}>
-          VIP-50 <b>ONE</b>
-        </a>
+        <Logo href="/" label="VIP-50 ONE, home" />
         <nav className="sp-nav" aria-label="Sections" />
         <a className="sp-signin" href="/login">
           Sign in

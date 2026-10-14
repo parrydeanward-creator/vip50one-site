@@ -1,3 +1,4 @@
+import Logo from "@/components/brand/Logo.tsx";
 // Accessibility statement (Scout 40, research/scout/2026-10-10-queue-site-accessibility.md): the standard we build to,
 // how we check, and how to reach a person when something gets in the way.
 
@@ -13,9 +14,7 @@ export default function Accessibility() {
   return (
     <div className="sp">
       <header className="sp-bar">
-        <a className="brand" href="/" aria-label="VIP-50 ONE, home" style={{ textDecoration: "none" }}>
-          VIP-50 <b>ONE</b>
-        </a>
+        <Logo href="/" label="VIP-50 ONE, home" />
         <nav className="sp-nav" aria-label="Sections" />
         <a className="sp-signin" href="/login">
           Sign in

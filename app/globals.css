@@ -2140,3 +2140,5 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
   .pmenu-back { background: transparent; }
   .pmenu { position: absolute; top: 64px; right: 16px; width: 320px; height: auto; max-height: calc(100dvh - 80px); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55); }
 }
+/* The logo on sign-in cards (14 Oct): the image, not the typed mark */
+.login-card .card-logo { margin: 0 0 8px; }

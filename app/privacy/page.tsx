@@ -1,3 +1,4 @@
+import Logo from "@/components/brand/Logo.tsx";
 // The privacy page (Parry, 4 Oct). Google asks for one before agents can
 // connect Google Contacts to bring their contacts' photos into ONE. Plain
 // words; what each product really does with data, checked against the code.
@@ -15,9 +16,7 @@ export default function Privacy() {
   return (
     <div className="sp">
       <header className="sp-bar">
-        <a className="brand" href="/" aria-label="VIP-50 ONE, home" style={{ textDecoration: "none" }}>
-          VIP-50 <b>ONE</b>
-        </a>
+        <Logo href="/" label="VIP-50 ONE, home" />
         <nav className="sp-nav" aria-label="Sections" />
         <a className="sp-signin" href="/login">
           Sign in

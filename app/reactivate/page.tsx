@@ -1,3 +1,4 @@
+import Logo from "@/components/brand/Logo.tsx";
 import { signedIn } from "@/lib/server/auth.ts";
 import { MOVE_URL } from "@/lib/host.ts";
 import { PACKAGE_LABEL } from "@/lib/products.ts";
@@ -5,6 +6,10 @@ import { PACKAGE_LABEL } from "@/lib/products.ts";
 // vip50one.com/reactivate (audit stage 1, 14 Oct): a ONE "Welcome back" page, never Classic's bare sign-in. Signed
 // out: sign in first and come back here. Signed in: the plan they had, and one tap to the plan page (ONE MOVE's
 // /upgrade, where restarting is the agent's own tap and Stripe's checkout; nothing is charged here).
+/** The whole plan from MASTER, Growth included (as Meet Pulse names it). */
+const FULL: Record<keyof typeof PACKAGE_LABEL, string> = { relationship: "ONE Relationship", complete: "ONE Complete", elite: "Elite", growth: "ONE Growth" };
+const planName = (pkg: keyof typeof PACKAGE_LABEL, growth: boolean) => `${FULL[pkg]}${growth && pkg !== "growth" ? " + ONE Growth" : ""}`;
+
 export const metadata = { title: "Welcome back | VIP-50 ONE" };
 export const dynamic = "force-dynamic";
 
@@ -25,9 +30,7 @@ export default async function Reactivate({ searchParams }: { searchParams: Promi
   return (
     <main className="login">
       <div className="login-card">
-        <p className="brand" aria-label="VIP-50 ONE">
-          VIP-50 <b>ONE</b>
-        </p>
+        <Logo label="VIP-50 ONE" size={56} />
         <h1>{me ? `Welcome back, ${me.firstName}` : "Welcome back"}</h1>
         {!me ? (
           <>
@@ -41,13 +44,13 @@ export default async function Reactivate({ searchParams }: { searchParams: Promi
           </>
         ) : me.member ? (
           <>
-            <p className="login-sub">Your {PACKAGE_LABEL[me.pkg]} plan is already active. Nothing to restart.</p>
+            <p className="login-sub">Your {planName(me.pkg, me.growth)} plan is already active. Nothing to restart.</p>
             <a className="cta" href="/dashboard">Open ONE</a>
           </>
         ) : (
           <>
             <p className="login-sub">
-              Your plan was <b>{PACKAGE_LABEL[me.pkg]}</b>
+              Your plan was <b>{planName(me.pkg, me.growth)}</b>
               {me.founding ? ", and your founding price is kept for you" : ""}. Your contacts, VIPs and history are all still here.
             </p>
             <a className="cta" href={`${MOVE_URL}/upgrade${q}`}>Restart my plan</a>
