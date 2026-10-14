@@ -57,3 +57,37 @@ export function readTeamSites(raw: unknown): TeamSite[] {
   }
   return out;
 }
+
+// ENTITLEMENT §6a v1.4 (14 Oct; Parry: "yes on team sign in for their own ads"): a team agent gets a ticket for the team
+// site that opens only their own ad requests (`/manage/ad-requests`). MASTER decides; the Brain only lists the team.
+export interface AgentTeamSite { slug: string; host: string }
+
+/** Team sites where the caller is an active agent (not owner or admin, who already get the full studio). */
+export function readAgentTeamSites(raw: unknown): AgentTeamSite[] {
+  if (!Array.isArray(raw)) return [];
+  const out: AgentTeamSite[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== "object") continue;
+    const row = r as Record<string, unknown>;
+    const team = (row.teams ?? row.team ?? row) as Record<string, unknown>;
+    const host = cleanHost(team?.site_host ?? row.host);
+    const slug = cleanSlug(team?.slug ?? row.slug);
+    // MASTER rows carry `role`; the /api/site answer is already this list, without it.
+    if ((row.role !== undefined && row.role !== "agent") || row.active === false || !host || !slug || out.some((t) => t.host === host)) continue;
+    out.push({ slug, host });
+  }
+  return out;
+}
+
+export const cleanSlug = (v: unknown): string | null => (typeof v === "string" && /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/.test(v) ? v : null);
+
+/** The signed-in link a launch's team ad piece opens (LAUNCH §6): the Brain asks for the ticket, then forwards. */
+export const siteOpenHref = (slug: string, next: SiteNext = "/manage/ad-requests") =>
+  `https://www.vip50one.com/site/open?team=${encodeURIComponent(slug)}&next=${encodeURIComponent(next)}`;
+
+/** MASTER's refusal for a team agent before the scope is live, or when they are not on that team. */
+export function teamTicketProblem(raw: unknown): string {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  if (r.reason === "not_team_admin" || r.reason === "not_allowed" || r.reason === "forbidden") return "Asking for an ad from the team site opens shortly. Your team lead can see your launch request already.";
+  return ticketProblem(raw);
+}

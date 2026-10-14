@@ -72,7 +72,7 @@ import { DAY_FILM_KEY } from "@/lib/dayFilm.ts";
 import { demoPulseReport, pulseReportUrl, readPulseReport, type PulseReport } from "@/lib/pulseReport.ts";
 import AskAiView from "./AskAiView.tsx";
 import ListenNote from "./ListenNote.tsx";
-import { readTeamSites, type TeamSite } from "@/lib/siteEdit.ts";
+import { readTeamSites, type TeamSite, readAgentTeamSites, siteOpenHref, type AgentTeamSite } from "@/lib/siteEdit.ts";
 import { ASK_AI_NODE, monthOf, readResults, resultKey, withAskAiNode, type Answer as AiAnswer, type Engine as AiEngine, type Results as AiResults } from "@/lib/aiCheck.ts";
 import { LIKELY_NODE, demoMoveLikely, moveLikelyUrl, notUsefulUrl, readMoveLikely, withMoveLikelyNode, withoutPerson, type MoveLikely, type Person as LikelyPerson } from "@/lib/moveLikely.ts";
 import { MARKET_NODE, demoMarketPulse, marketPulseUrl, marketSendUrl, readMarketPulse, sendBody as marketSendBody, withMarketPulseNode, withSent as withMarketSent, type MarketPulse, type Vip as MarketVip } from "@/lib/marketPulse.ts";
@@ -663,6 +663,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const [siteHost, setSiteHost] = useState<string | null>(null);
   const [siteNote, setSiteNote] = useState<string | null>(null);
   const [teamSites, setTeamSites] = useState<TeamSite[]>([]);
+  // §6a v1.4 (Parry, 14 Oct: "yes on team sign in for their own ads"): a team agent asks the team lead for an ad.
+  const [agentSites, setAgentSites] = useState<AgentTeamSite[]>([]);
   useEffect(() => {
     if (!live) return;
     fetch("/api/site", { cache: "no-store" })
@@ -670,6 +672,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       .then((j) => {
         setSiteHost(typeof j?.site_host === "string" ? j.site_host : null);
         setTeamSites(readTeamSites(j?.team_sites));
+        setAgentSites(readAgentTeamSites(j?.agent_team_sites));
       })
       .catch(() => {});
   }, [live]);
@@ -1920,6 +1923,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                   Ad requests
                 </button>
               </span>
+            ))}
+            {agentSites.map((t) => (
+              <a key={t.host} className="signout" href={siteOpenHref(t.slug)} title="Ask your team lead for an ad, and see the ads you have asked for">
+                Ask for an ad
+              </a>
             ))}
             <button className="signout" type="submit">Sign out</button>
           </form>

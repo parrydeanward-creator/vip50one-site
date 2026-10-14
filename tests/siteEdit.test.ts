@@ -48,3 +48,20 @@ test("enterUrl: a studio page rides as ?next= before the ticket; anything else i
   assert.equal(enterUrl("https://jane.vip50homes.com", T, "https://evil.example"), `https://jane.vip50homes.com/builder/enter#t=${T}`);
   assert.equal(enterUrl("https://jane.vip50homes.com", T, "/admin"), `https://jane.vip50homes.com/builder/enter#t=${T}`);
 });
+
+test("team agents (§6a v1.4): only active agent rows, one per site; the answer reads back the same", async () => {
+  const { readAgentTeamSites, siteOpenHref, cleanSlug, teamTicketProblem } = await import("../lib/siteEdit.ts");
+  const rows = [
+    { role: "agent", active: true, teams: { slug: "luxury-agency", site_host: "luxury-agency.vip50homes.com" } },
+    { role: "owner", active: true, teams: { slug: "other", site_host: "other.vip50homes.com" } },
+    { role: "agent", active: false, teams: { slug: "left", site_host: "left.vip50homes.com" } },
+    { role: "agent", active: true, teams: { slug: "Bad Slug", site_host: "x.vip50homes.com" } },
+    { role: "agent", active: true, teams: { slug: "luxury-agency", site_host: "luxury-agency.vip50homes.com" } },
+  ];
+  const sites = readAgentTeamSites(rows);
+  assert.deepEqual(sites, [{ slug: "luxury-agency", host: "luxury-agency.vip50homes.com" }]);
+  assert.deepEqual(readAgentTeamSites(JSON.parse(JSON.stringify(sites))), sites);
+  assert.equal(siteOpenHref("luxury-agency"), "https://www.vip50one.com/site/open?team=luxury-agency&next=%2Fmanage%2Fad-requests");
+  assert.equal(cleanSlug("../x"), null);
+  assert.match(teamTicketProblem({ reason: "not_allowed" }), /opens shortly/);
+});
