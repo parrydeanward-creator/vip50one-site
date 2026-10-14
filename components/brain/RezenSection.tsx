@@ -79,7 +79,7 @@ export default function RezenSection() {
   };
 
   return (
-    <section className="pf-privacy rz" aria-label="reZEN">
+    <section className="pf-card rz" aria-label="reZEN">
       <h2>reZEN</h2>
       {!s.connected ? (
         <>

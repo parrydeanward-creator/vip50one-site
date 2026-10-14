@@ -27,6 +27,17 @@ export interface Profile {
   about: Record<AboutKey, string> | null; // the agent's own "Tell Us About You" answers
   // PROFILE.md v1.1 (8 Oct): the brokerage's legal name is confirmed once; any change to it clears the confirm.
   brokerage_confirmed_at: string | null;
+  // VIP-50 Wins (Classic My Profile, Parry 14 Oct: every item on both pages): null until ONE MOVE's route sends it.
+  vip_50_wins: string | null;
+}
+
+export const WINS_MAX = 2000;
+
+/** The Wins text when it changed (blank clears to null); undefined when it did not or the route does not send it. */
+export function winsChange(before: Profile, draft: Profile): string | null | undefined {
+  if (before.vip_50_wins === null || draft.vip_50_wins === null) return undefined;
+  const a = before.vip_50_wins.trim(), b = draft.vip_50_wins.trim();
+  return a === b ? undefined : b || null;
 }
 
 // "Tell Us About You" (Parry, 5 Oct: settled, do not change): ONE GO's words and order (VIP50-app#72), the
@@ -52,7 +63,7 @@ export const ABOUT_MAX = 200;
 export const profileUrl = `${MOVE_URL}/api/brain/profile`;
 export const photoUrl = `${profileUrl}/photo`;
 
-export type Field = Exclude<keyof Profile, "email" | "photo_url" | "photo_version" | "share_contact_info" | "about" | "brokerage_confirmed_at">;
+export type Field = Exclude<keyof Profile, "email" | "photo_url" | "photo_version" | "share_contact_info" | "about" | "brokerage_confirmed_at" | "vip_50_wins">;
 export const FIELDS: { key: Field; label: string; max: number; long?: boolean; hint?: string }[] = [
   { key: "full_name", label: "Full name", max: 120, hint: "On packets, flyers and recaps." },
   { key: "preferred_name", label: "Preferred first name", max: 60, hint: "How ONE greets you." },
@@ -112,6 +123,7 @@ export function readProfile(raw: unknown): Profile | null {
     share_contact_info: typeof r.share_contact_info === "boolean" ? r.share_contact_info : null,
     about: readAbout(r.about),
     brokerage_confirmed_at: typeof r.brokerage_confirmed_at === "string" ? r.brokerage_confirmed_at : null,
+    vip_50_wins: "vip_50_wins" in r ? s(r.vip_50_wins, WINS_MAX) : null,
   };
 }
 
@@ -177,7 +189,7 @@ export const greetingName = (p: Profile) => p.preferred_name.trim() || p.full_na
 
 /** PROFILE.md §7: each product's own settings, reached from the one profile. */
 export const CONNECTIONS: { product: string; color: string; rows: { label: string; href?: string; classic?: boolean; note?: string }[] }[] = [
-  { product: "ONE MOVE", color: "#2fb7a3", rows: [{ label: "Google photos, Lofty, notifications, contact sharing, billing", classic: true }, { label: "Goals", href: `${MOVE_URL}/profile/goals` }, { label: "Agent Hub (your public page)", href: `${MOVE_URL}/profile/agent-hub` }] },
+  { product: "ONE MOVE", color: "#2fb7a3", rows: [{ label: "Goals", href: `${MOVE_URL}/profile/goals` }, { label: "Agent Hub (your public page)", href: `${MOVE_URL}/profile/agent-hub` }] },
   { product: "ONE GO", color: "#f5c542", rows: [{ label: "Phone notifications and the daily VIP reminder", note: "In the ONE GO app: Profile, Notification Settings." }] },
   { product: "Marquee", color: "#e05a8a", rows: [{ label: "Instagram and Facebook", href: "https://marquee.vip-50.com/go?open=connections" }, { label: "Writing voice", href: "https://marquee.vip-50.com/go?open=voice" }, { label: "Your team", href: "https://marquee.vip-50.com/go?open=team" }] },
   { product: "ONE Open", color: "#5aa9ff", rows: [{ label: "Open house settings (slot, texts, safety buddy, posts, follow-ups)", href: "https://open.vip-50.com/app/settings" }] },

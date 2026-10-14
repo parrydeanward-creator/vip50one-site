@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LeadMailSection, OwnAISection, PulseModesSection } from "./ConnectSections.tsx";
 import RezenSection from "./RezenSection.tsx";
-import { brokerageAsk, ABOUT, ABOUT_MAX, CONNECTIONS, FIELDS, TIME_ZONES, UPLOAD_MAX, aboutChanges, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, type Profile } from "@/lib/profile.ts";
+import { GoogleSections, MembershipSection, NotificationsSection } from "./ProfileCards.tsx";
+import { brokerageAsk, ABOUT, ABOUT_MAX, CONNECTIONS, FIELDS, TIME_ZONES, UPLOAD_MAX, aboutChanges, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, winsChange, WINS_MAX, type Profile } from "@/lib/profile.ts";
 
 /** Draw the photo at most 1200px on the long side as a JPEG, so it fits ONE MOVE's 4 MB limit. */
 async function shrink(file: File): Promise<Blob> {
@@ -82,7 +83,8 @@ export default function MyProfile({
     const bad = problem(draft);
     if (bad) return setNote({ ok: false, text: bad });
     const about = aboutChanges(saved.about, draft.about);
-    const body = { ...changes(saved, draft), ...(about ? { about } : {}) };
+    const wins = winsChange(saved, draft);
+    const body = { ...changes(saved, draft), ...(about ? { about } : {}), ...(wins !== undefined ? { vip_50_wins: wins } : {}) };
     if (!Object.keys(body).length) return setNote({ ok: true, text: "Nothing to save." });
     setBusy(true);
     setNote(null);
@@ -181,12 +183,11 @@ export default function MyProfile({
   }
 
   const shown = pending?.preview ?? (saved.photo_url ? `${saved.photo_url}${saved.photo_url.includes("?") ? "&" : "?"}v=${saved.photo_version ?? ""}` : null);
-  const dirty = Object.keys(changes(saved, draft)).length > 0 || !!aboutChanges(saved.about, draft.about);
+  const dirty = Object.keys(changes(saved, draft)).length > 0 || !!aboutChanges(saved.about, draft.about) || winsChange(saved, draft) !== undefined;
   const initials = (draft.full_name || saved.email).split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
   return (
     <div className="pf" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
-      <div className="pf-col">
         <section className="pf-hero">
           <button type="button" className="pf-photo" onClick={() => fileRef.current?.click()} aria-label="Change your photo">
             {shown ? <img src={shown} alt="" /> : <span>{initials}</span>}
@@ -218,6 +219,7 @@ export default function MyProfile({
           </section>
         ) : null}
         <form className="pf-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
+          <div className="pf-fields">
           {FIELDS.map((f) => (
             <label key={f.key} className={`pf-field${f.long ? " long" : ""}`}>
               <span>{f.label}</span>
@@ -227,7 +229,7 @@ export default function MyProfile({
                   {TIME_ZONES.map((z) => <option key={z.value} value={z.value}>{z.label}</option>)}
                 </select>
               ) : f.long ? (
-                <><textarea value={draft[f.key]} maxLength={f.max} rows={8} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} />
+                <><textarea value={draft[f.key]} maxLength={f.max} rows={5} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} />
                 <span className="pf-count">{draft[f.key].length} / {f.max}</span></>
               ) : (
                 <input value={draft[f.key]} maxLength={f.max} inputMode={f.key === "mobile" ? "tel" : undefined} autoComplete={f.key === "full_name" ? "name" : f.key === "mobile" ? "tel" : "off"} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} />
@@ -235,6 +237,15 @@ export default function MyProfile({
               {f.hint && <small>{f.hint}</small>}
             </label>
           ))}
+          </div>
+          <div className="pf-fields">
+          {draft.vip_50_wins !== null && (
+            <label className="pf-field long">
+              <span>VIP-50 Wins</span>
+              <textarea value={draft.vip_50_wins} maxLength={WINS_MAX} rows={4} onChange={(e) => setDraft({ ...draft, vip_50_wins: e.target.value })} />
+              <small>Your milestone wins with the VIP-50 system. Shown on your member card in the Lounge.</small>
+            </label>
+          )}
           {draft.about && (
             <fieldset className="pf-about">
               <legend>Tell Us About You</legend>
@@ -247,18 +258,24 @@ export default function MyProfile({
               ))}
             </fieldset>
           )}
+          </div>
           <div className="pf-actions">
             <button type="submit" className="chip-btn primary" disabled={busy || !dirty}>{busy ? "Saving…" : "Save"}</button>
             {dirty && <button type="button" className="chip-btn" onClick={() => setDraft(saved)} disabled={busy}>Undo changes</button>}
           </div>
         </form>
         {note && <p className={`pf-note${note.ok ? "" : " bad"}`} role="status">{note.text}</p>}
-      </div>
 
-      <aside className="pf-col pf-side" aria-label="Connections and settings">
+      <div className="pf-cards" aria-label="Connections and settings">
+        <RezenSection />
+        <MembershipSection />
+        <LeadMailSection />
+        <GoogleSections />
+        <OwnAISection />
+        <NotificationsSection />
         {saved.share_contact_info !== null && (
-          <section className="pf-privacy" aria-label="Privacy">
-            <h2>Privacy</h2>
+          <section className="pf-card" aria-label="Contact sharing">
+            <h2>Contact sharing</h2>
             <label className="dc-switch">
               <input type="checkbox" checked={!!saved.share_contact_info} disabled={busy} onChange={(e) => setShare(e.target.checked)} />
               Show my phone and email to members
@@ -267,19 +284,19 @@ export default function MyProfile({
           </section>
         )}
         <ReferralsSection />
-        <PulseModesSection />
-        <RezenSection />
-        <LeadMailSection />
-        <OwnAISection />
-        <h2>Connections and settings</h2>
-        <p className="pf-sub">Settings that belong to one product stay in that product.</p>
+        <section className="pf-card" aria-label="Lofty and the Lounge">
+          <h2>Lofty and the Lounge</h2>
+          <small className="pf-sub">Lofty stays connected in ONE MOVE until your ONE site replaces it. Your posts and the community feed are in the Lounge.</small>
+          <div className="pf-btns">
+            <a className="chip-btn" href="/dashboard/lounge?tab=feed">Open the Lounge</a>
+            <button type="button" className="chip-btn" onClick={onClassic}>Lofty in ONE MOVE</button>
+          </div>
+        </section>
         {CONNECTIONS.map((c) => (
-          <section key={c.product} className="pf-conn">
+          <section key={c.product} className="pf-card pf-conn">
             <h3 style={{ color: c.color }}>{c.product}</h3>
             {c.rows.map((r) =>
-              r.classic ? (
-                <button key={r.label} type="button" className="pf-row" onClick={onClassic}>{r.label}<span>›</span></button>
-              ) : r.href ? (
+              r.href ? (
                 <a key={r.label} className="pf-row" href={r.href} target="_blank" rel="noopener noreferrer">{r.label}<span>↗</span></a>
               ) : (
                 <p key={r.label} className="pf-row static">{r.label}<small>{r.note}</small></p>
@@ -287,10 +304,13 @@ export default function MyProfile({
             )}
           </section>
         ))}
-        <div className="controls pf-controls" role="toolbar" aria-label="Back">
-          <button onClick={onBack} aria-label="Back">←</button>
-        </div>
-      </aside>
+      </div>
+      <div className="pf-wide">
+        <PulseModesSection />
+      </div>
+      <div className="controls pf-controls" role="toolbar" aria-label="Back">
+        <button onClick={onBack} aria-label="Back">←</button>
+      </div>
     </div>
   );
 }
@@ -324,7 +344,7 @@ function ReferralsSection() {
   };
   if (on === null) return null;
   return (
-    <section className="pf-privacy" aria-label="Referrals">
+    <section className="pf-card" aria-label="Referrals">
       <h2>Referrals</h2>
       <label className="dc-switch">
         <input type="checkbox" checked={on} disabled={busy} onChange={(e) => save(e.target.checked)} />
