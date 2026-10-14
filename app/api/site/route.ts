@@ -1,5 +1,5 @@
 import { masterClient } from "@/lib/server/auth.ts";
-import { cleanHost, enterUrl, readTeamSites, ticketProblem } from "@/lib/siteEdit.ts";
+import { cleanHost, cleanNext, enterUrl, readTeamSites, ticketProblem } from "@/lib/siteEdit.ts";
 
 // ENTITLEMENT.md §6a: GET says whether the signed-in agent has a site (MASTER `user_profiles.site_host`, their own row);
 // POST asks MASTER for a one-time ticket as that agent and answers with the address to open. No secret here.
@@ -26,11 +26,11 @@ export async function POST(req: Request) {
   const { data: claims } = await sb.auth.getClaims();
   if (!claims?.claims?.sub) return Response.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE });
   // A team site is asked for by host; MASTER checks the caller is that team's owner or admin (§6a v1.3).
-  const body = (await req.json().catch(() => null)) as { site?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { site?: unknown; next?: unknown } | null;
   const site = cleanHost(body?.site);
   const { data, error } = site ? await sb.rpc("vip_site_ticket", { p_site: site }) : await sb.rpc("vip_site_ticket");
   const r = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
-  const url = !error && r.ok === true ? enterUrl(r.site_url, r.ticket) : null;
+  const url = !error && r.ok === true ? enterUrl(r.site_url, r.ticket, cleanNext(body?.next)) : null;
   if (!url) return Response.json({ error: ticketProblem(r) }, { status: 409, headers: NO_STORE });
   return Response.json({ url }, { headers: NO_STORE });
 }
