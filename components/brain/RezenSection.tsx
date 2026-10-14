@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { REZEN_OPEN, cleanKey, readConnect, readRezen, rezenBoxesUrl, rezenConnectUrl, rezenDisconnectUrl, rezenUrl, sinceWords, type RezenState } from "@/lib/rezen.ts";
+import { REZEN_OPEN, cleanKey, readConnect, readLine, readRezen, rezenBoxesUrl, rezenConnectUrl, rezenDisconnectUrl, rezenUrl, sinceWords, type RezenState } from "@/lib/rezen.ts";
 
 // My Profile: Connect reZEN (REZEN.md §3). Three steps on one card: open reZEN, paste the key, tick what passes through.
 // Hidden until ONE MOVE answers. The key lives only in the box until Connect, then only in MASTER's Vault.
@@ -128,9 +128,10 @@ export default function RezenSection() {
         <>
           <p className="rz-who">
             Connected as <b>{s.name ?? "you"}</b>
-            {s.lastReadAt ? `, last read ${sinceWords(s.lastReadAt)}` : s.connectedAt ? `, connected ${sinceWords(s.connectedAt)}` : ""}
+            {(s.lastReadAt ?? s.read.readAt) ? `, last read ${sinceWords(s.lastReadAt ?? s.read.readAt)}` : s.connectedAt ? `, connected ${sinceWords(s.connectedAt)}` : ""}
           </p>
           {s.error && <p className="pf-note bad" role="status">{s.error}. Paste a new key from reZEN to fix it.</p>}
+          {readLine(s.read) ? <p className="rz-line">{readLine(s.read)}.</p> : <small className="pf-sub">Nothing has come through yet. ONE reads reZEN once an hour.</small>}
           <h3>What passes through</h3>
           <ul className="rz-boxes">
             {s.boxes.map((b) => (

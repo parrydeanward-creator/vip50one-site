@@ -18,6 +18,37 @@ export interface RezenState {
   lastReadAt: string | null;
   error: string | null;
   boxes: RezenBox[];
+  /** What came through, per ticked box (vip50-web-crm#249): only counts and totals are used here. */
+  read: RezenRead;
+}
+
+export interface RezenRead { openDeals: number | null; closedDeals: number | null; revsharePaid: number | null; network: number | null; readAt: string | null }
+
+const arr = (v: unknown) => (Array.isArray(v) ? v : null);
+const money = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() && Number.isFinite(Number(v)) ? Number(v) : null);
+
+export function readRezenRead(v: unknown): RezenRead {
+  const r = (v && typeof v === "object" ? v : {}) as Record<string, { read_at?: unknown; data?: unknown } | undefined>;
+  const data = (k: string) => (r[k] && typeof r[k] === "object" ? (r[k]!.data as Record<string, unknown> | undefined) : undefined);
+  const deals = data("deals"), rev = data("revshare"), net = data("network");
+  const times = Object.values(r).map((x) => (x && typeof x.read_at === "string" ? x.read_at : null)).filter((x): x is string => !!x).sort();
+  return {
+    openDeals: deals ? arr(deals.open)?.length ?? null : null,
+    closedDeals: deals ? arr(deals.closed)?.length ?? null : null,
+    revsharePaid: rev ? money(rev.paid) : null,
+    network: net ? (typeof net.total === "number" ? net.total : null) : null,
+    readAt: times.length ? times[times.length - 1] : null,
+  };
+}
+
+/** "From reZEN: 10 open and 20 recent closed deals, $1,240 revenue share paid, 12 agents in your network" (the same line
+ * as Classic's My Profile). Null until something has come through. */
+export function readLine(r: RezenRead): string | null {
+  const parts: string[] = [];
+  if (r.openDeals !== null || r.closedDeals !== null) parts.push(`${r.openDeals ?? 0} open and ${r.closedDeals ?? 0} recent closed deals`);
+  if (r.revsharePaid !== null) parts.push(`$${Math.round(r.revsharePaid).toLocaleString("en-US")} revenue share paid`);
+  if (r.network !== null) parts.push(`${r.network} ${r.network === 1 ? "agent" : "agents"} in your network`);
+  return parts.length ? `From reZEN: ${parts.join(", ")}` : null;
 }
 
 const str = (v: unknown, max = 200) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
@@ -41,6 +72,7 @@ export function readRezen(j: unknown): RezenState | null {
     lastReadAt: str(r.last_read_at, 40),
     error: str(r.error, 160),
     boxes,
+    read: readRezenRead(r.read),
   };
 }
 

@@ -1,3 +1,4 @@
+import { stripMarkers } from "./personTask.ts";
 import { celebrateIds, withSpecialDays } from "./specialDays.ts";
 import { addGoals, type GoalKey } from "./goals.ts";
 import { includes } from "./products.ts";
@@ -632,16 +633,17 @@ export function personLabel(it: SummaryItem): { label: string; sub?: string } {
 
 function itemNode(add: (n: Omit<GraphNode, "importance"> & { importance?: number }) => void, it: SummaryItem, parentId: string, product: ProductKey, importance: number, type: GraphNode["type"] = "task") {
   const named = type === "person" ? personLabel(it) : { label: it.title, sub: it.detail };
+  const sub = named.sub ? stripMarkers(named.sub) || undefined : undefined;
   add({
     id: nodeId(it),
     type,
     label: named.label,
-    secondaryLabel: named.sub,
+    secondaryLabel: sub,
     parentId,
     product,
     importance,
     status: statusOf(it.urgency),
-    summary: it.why.join(" "),
+    summary: stripMarkers(it.why.join(" ")) || sub || "",
     recommendations: [{ title: it.title, why: it.why, targetId: nodeId(it) }],
     timestamps: it.due ? { due: it.due } : undefined,
     href: it.link,

@@ -74,3 +74,21 @@ export function sinceLabel(lastVisit: string | null, now: Date): string {
   const wd = new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "long" }).format(d);
   return `Since ${wd} at ${time}`;
 }
+
+// "Since you were last here" counts from the last real visit, never from the last reload (audit stage 2, Parry 14 Oct:
+// "yes on all"). A visit ends after two hours with the Brain closed; reloads inside a visit keep the same starting point.
+export const VISIT_GAP_MS = 2 * 60 * 60 * 1000;
+export function visitAnchor(lastSeen: string | null, anchor: string | null, now: Date): string | null {
+  if (!lastSeen) return null;
+  const seen = new Date(lastSeen).getTime();
+  if (Number.isNaN(seen)) return null;
+  if (now.getTime() - seen > VISIT_GAP_MS) return lastSeen; // a new visit: count from where the last one ended
+  return anchor ?? lastSeen;
+}
+
+/** Changes grouped by product, newest first inside each, with a count per product. */
+export function groupChanges(changes: ChangeNote[]): { product: string; count: number; items: ChangeNote[] }[] {
+  const by = new Map<string, ChangeNote[]>();
+  for (const c of changes) by.set(c.product, [...(by.get(c.product) ?? []), c]);
+  return [...by].map(([product, items]) => ({ product, count: items.length, items }));
+}

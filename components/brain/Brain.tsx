@@ -23,7 +23,7 @@ import type { BrainScene } from "./scene.ts";
 import Icon from "./Icon.tsx";
 import { iconFor, iconForText } from "@/lib/brain/icons.ts";
 import { SUGGESTED, answerSet, factsFor, type AskAnswer } from "@/lib/ask.ts";
-import { changesSince, firstVisitToday, morningTop, orbsToPing, sinceLabel } from "@/lib/morning.ts";
+import { changesSince, firstVisitToday, groupChanges, morningTop, orbsToPing, sinceLabel, visitAnchor } from "@/lib/morning.ts";
 import type { ChangeNote } from "@/lib/graph/types.ts";
 import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib/signals.ts";
 import { RANGE, dayLabel, inWindow, offsetLabel, windowTitle } from "@/lib/timeline.ts";
@@ -1272,13 +1272,16 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     // visit is not counted, so the fly-through still plays the next time the Brain itself is opened today.
     if (startPage) return;
     let prev: string | null = null;
+    let anchor: string | null = null;
+    const now = new Date();
     try {
       prev = localStorage.getItem("one.lastVisit");
-      localStorage.setItem("one.lastVisit", new Date().toISOString());
+      anchor = visitAnchor(prev, localStorage.getItem("one.visitFrom"), now);
+      if (anchor) localStorage.setItem("one.visitFrom", anchor);
+      localStorage.setItem("one.lastVisit", now.toISOString());
     } catch {}
-    const now = new Date();
-    const changes = changesSince(graph.changes, prev, ix);
-    setSince({ label: sinceLabel(prev, now), changes });
+    const changes = changesSince(graph.changes, anchor, ix);
+    setSince({ label: sinceLabel(anchor, now), changes });
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const forced = new URLSearchParams(window.location.search).get("tour") === "1";
     if (!reduced && (forced || firstVisitToday(prev, now)) && topIds.length) {
@@ -1288,6 +1291,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
+  useEffect(() => {
+    const beat = () => {
+      try {
+        if (document.visibilityState === "visible") localStorage.setItem("one.lastVisit", new Date().toISOString());
+      } catch {}
+    };
+    const t = setInterval(beat, 60_000);
+    document.addEventListener("visibilitychange", beat);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", beat);
+    };
+  }, []);
 
   // Each step: point the camera, hold, move on. Any input ends it (below).
   useEffect(() => {
@@ -2836,34 +2852,39 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
 
           {focus.type === "core" && since && (
             <div className="since">
-              <h2>Since you were last here</h2>
-              <p className="since-when">{since.label}</p>
-              {since.changes.length ? (
-                <ul>
-                  {since.changes.map((c) => {
-                    const n = ix.byId.get(c.id)!;
-                    return (
-                      <li key={`${c.id}-${c.at}`}>
-                        <button onClick={() => goTo(c.id)}>
-                          <i style={{ background: hex(PRODUCT_COLOR[c.product]) }} aria-hidden="true" />
-                          <span>
-                            <small style={{ color: hex(PRODUCT_COLOR[c.product]) }}>{productName(c.product)}</small>
-                            {c.what}
-                          </span>
-                          <em aria-label={`Go to ${n.label}`}>→</em>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className="since-none">Nothing new. You're up to date.</p>
+              {since.changes.length > 0 && (
+                <>
+                  <h2>Since you were last here</h2>
+                  <p className="since-when">{since.label}</p>
+                  {groupChanges(since.changes).map((g) => (
+                    <div key={g.product} className="since-group">
+                      <h3 style={{ color: hex(PRODUCT_COLOR[g.product as keyof typeof PRODUCT_COLOR]) }}>
+                        {productName(g.product as never)} · {g.count} new
+                      </h3>
+                      <ul>
+                        {g.items.slice(0, 5).map((c) => {
+                          const n = ix.byId.get(c.id)!;
+                          return (
+                            <li key={`${c.id}-${c.at}`}>
+                              <button onClick={() => openOrb(c.id)}>
+                                <i style={{ background: hex(PRODUCT_COLOR[c.product]) }} aria-hidden="true" />
+                                <span>{c.what}</span>
+                                <em aria-label={`Open ${n.label}`}>→</em>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      {g.items.length > 5 && <p className="since-none">+{g.items.length - 5} more</p>}
+                    </div>
+                  ))}
+                </>
               )}
               {teamPosts && (
                 <div className="since-posts">
                   <h3>Pulse posted on your team site</h3>
                   <ul>
-                    {teamPosts.posts.map((p) => (
+                    {teamPosts.posts.slice(0, 3).map((p) => (
                       <li key={p.url}>
                         <a href={p.url} target="_blank" rel="noopener noreferrer">
                           <small>{postDay(p.publishedAt)}{p.byPulse ? " · by Pulse" : ""}</small>
@@ -2872,6 +2893,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                       </li>
                     ))}
                   </ul>
+                  {teamPosts.posts.length > 3 && <p className="since-none">+{teamPosts.posts.length - 3} more</p>}
+                  <button className="link" onClick={() => void editSite(teamPosts.host, "/builder/posts")}>
+                    See all / Pause blog posts
+                  </button>
                 </div>
               )}
               {topIds.length > 0 && (

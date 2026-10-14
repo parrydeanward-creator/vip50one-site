@@ -2176,3 +2176,6 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .day-bar i { display: block; height: 100%; background: linear-gradient(90deg, #2e9c63, #3fbf7f); }
 .plan-ok { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(63, 191, 127, 0.45); background: rgba(63, 191, 127, 0.08); color: #9fe3bf; font-weight: 600; }
 .plan-ok i { font-style: normal; }
+/* Since you were last here, grouped (audit stage 2) */
+.since-group h3 { margin: 10px 0 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.rz-line { margin: 0 0 10px; color: var(--text); }
