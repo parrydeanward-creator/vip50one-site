@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
-import { demoLaunches, launchBody, launchNode, launchStatus, pieceWords, readLaunches, safeOpen, waiting, withLaunchNodes } from "../lib/launch.ts";
+import { demoLaunches, launchBody, launchLine, launchNode, launchRefOf, upsertLaunch, launchStatus, pieceWords, readLaunches, safeOpen, waiting, withLaunchNodes } from "../lib/launch.ts";
 
 test("launches: checked, pieces in contract order, unknown keys and states dropped", () => {
   assert.equal(readLaunches(null), null);
@@ -63,4 +63,22 @@ test("a Launch orb hangs under its listing, and only when the listing is drawn",
 test("Launch sends only the pieces switched off", () => {
   assert.deepEqual(launchBody("p1", {}), { listing_ref: "p1", off: [] });
   assert.deepEqual(launchBody("p1", { ad_draft: false, open_house: true }), { listing_ref: "p1", off: ["ad_draft"] });
+});
+
+test("listing and Launch orbs name their listing; a re-read launch replaces the old one", () => {
+  assert.equal(launchRefOf("marquee:listing:p1"), "p1");
+  assert.equal(launchRefOf("marquee:launch:p1"), "p1");
+  assert.equal(launchRefOf("marquee-listings"), null);
+  const [a] = demoLaunches("p1");
+  const b = { ...a, id: "new" };
+  assert.deepEqual(upsertLaunch([a, ...demoLaunches("p2")], b).map((l) => `${l.listingRef}:${l.id}`), ["p2:demo-launch", "p1:new"]);
+  assert.equal(upsertLaunch(null, a).length, 1);
+});
+
+test("the line under the orb: ready first, then what is still being drafted, then all done", () => {
+  const [l] = demoLaunches("p1");
+  assert.equal(launchLine(l), "2 pieces ready for you");
+  const drafting = { ...l, pieces: l.pieces.map((p, i) => ({ ...p, state: i < 2 ? ("skipped" as const) : ("drafting" as const) })) };
+  assert.equal(launchLine(drafting), "3 pieces being drafted");
+  assert.equal(launchLine({ ...l, pieces: l.pieces.map((p) => ({ ...p, state: "done" as const })) }), "All done");
 });

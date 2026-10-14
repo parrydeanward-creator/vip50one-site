@@ -36,6 +36,8 @@ export const MOVE_GROUPS: MoveGroup[] = [
       // VIP-SUMMARY §3af and §3ah (13 Oct; Parry: every feature in the Brain as well as Classic)
       { label: "Referral Network", path: "/referral-network" },
       { label: "Buyer Needs", path: "/buyer-needs" },
+      // LAUNCH.md §5 (14 Oct, vip50-web-crm#228): the agent's Marquee listings, each with Launch and its checklist
+      { label: "Your listings", path: "/listings" },
     ],
   },
   {
