@@ -110,19 +110,51 @@ test("each package button opens checkout with that package selected (CHECKOUT.md
   for (const p of PACKAGES) assert.ok(!/code=/i.test(joinFor(p.id)), "never a code in the link");
 });
 
-test("ONE Growth and team plans: prices as ECOSYSTEM §7.1, bought through ONE MOVE's growth checkout", async () => {
-  const { EXTRA_PLANS, GROWTH_JOIN } = await import("../lib/sales.ts");
-  const p = Object.fromEntries(EXTRA_PLANS.map((x) => [x.id, x]));
-  assert.equal(p.growth.price, "$499");
-  assert.ok(p.growth.more.some((m) => m.includes("$199/month added to ONE Complete or Elite")));
-  assert.equal(p.team.price, "$799");
-  assert.ok(p.team.more.some((m) => m.includes("$50/month per seat")) && p.team.more.some((m) => m.includes("$7,990")));
-  assert.equal(p.team_complete.price, "$1,299");
-  assert.ok(p.team_complete.more.some((m) => m.includes("$99/month per seat")) && p.team_complete.more.some((m) => m.includes("$12,990")));
+test("ONE Growth: price as ECOSYSTEM §7.1, bought through ONE MOVE's growth checkout", async () => {
+  // Rewritten 14 Oct: the team plans left the public page on purpose (Parry: "have them connect with me"); their
+  // prices stay in ECOSYSTEM §7.1 and are tested by the audit test below as absent.
+  const { GROWTH_PLAN, GROWTH_JOIN } = await import("../lib/sales.ts");
+  assert.equal(GROWTH_PLAN.price, "$499");
+  assert.ok(GROWTH_PLAN.more.some((m: string) => m.includes("$199/month added to ONE Complete or Elite")));
   assert.equal(GROWTH_JOIN, "https://move.vip50one.com/join/growth");
-  // Rewritten 13 Oct: ONE Growth alone has the 7-day trial (GROWTH.md §2, vip50-web-crm#223 merged by Parry); the add-on
-  // and the team plans have none, and nothing here has a founding price.
-  assert.ok(p.growth.more.some((m) => m.startsWith("7 days free")));
-  assert.ok([p.team, p.team_complete].every((x) => !JSON.stringify(x).match(/trial|days free/i)));
-  assert.ok(EXTRA_PLANS.every((x) => !JSON.stringify(x).match(/founding/i)));
+  assert.ok(GROWTH_PLAN.more.some((m: string) => m.startsWith("7 days free")));
+  assert.ok(!JSON.stringify(GROWTH_PLAN).match(/founding/i));
+});
+
+test("audit 14 Oct: team and brokerage plans show no price and no checkout; Growth keeps its price", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { GROWTH_PLAN, TEAMS, WHICH } = await import("../lib/sales.ts");
+  const page = readFileSync("app/page.tsx", "utf8");
+  assert.ok(!/\$799|\$1,299|\$50\/month per seat|\$99\/month per seat/.test(JSON.stringify(TEAMS) + page), "no team prices");
+  assert.ok(!/ONE Team Complete/.test(page));
+  assert.equal(TEAMS.cta, "Talk to Parry");
+  assert.match(page, /<TalkForm/);
+  assert.equal(GROWTH_PLAN.price, "$499");
+  // GROWTH.md §3: all seven, plus ONE MOVE and the site
+  assert.equal(GROWTH_PLAN.includes.length, 8);
+  assert.equal(WHICH.length, 3);
+});
+
+test("audit 14 Oct: Complete keeps the agent website; Pulse Ads and speed to lead are Growth only", async () => {
+  const { GROWTH_PLAN } = await import("../lib/sales.ts");
+  const complete = PACKAGES.find((p) => p.id === "complete")!;
+  assert.ok(complete.includes.includes("Your agent website"));
+  assert.ok(!complete.includes.some((x) => /Ads|speed to lead|Concierge/i.test(x)));
+  assert.ok(GROWTH_PLAN.includes.some((x) => /Pulse Ads/.test(x)) && GROWTH_PLAN.includes.some((x) => /Speed to lead/.test(x)));
+});
+
+test("audit 14 Oct: FAQ says what is true now", () => {
+  const a = (re: RegExp) => FAQ.find((f) => re.test(f.q))!.a;
+  assert.match(a(/free trial/), /Relationship, ONE Complete and ONE Growth start with 7 days free.*Elite is paid up front/);
+  assert.match(a(/on its own/), /^ONE Growth is sold on its own/);
+  assert.match(a(/post or send/), /Autopilot is off until you turn it on/);
+  assert.match(a(/post or send/), /reports what it did each week/);
+  assert.ok(FAQ.some((f) => /team or a brokerage/.test(f.q) && /Talk to Parry/.test(f.a)));
+});
+
+test("phone trial bar goes to the join page and is hidden on desktop", async () => {
+  const { readFileSync } = await import("node:fs");
+  assert.match(readFileSync("app/page.tsx", "utf8"), /<TrialBar href=\{JOIN\} \/>/);
+  const css = readFileSync("app/globals.css", "utf8");
+  assert.match(css, /\.sp-trialbar \{ display: none; \}/);
 });

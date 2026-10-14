@@ -1,5 +1,7 @@
 import InlineFilm from "@/components/sales/InlineFilm.tsx";
-import { EXTRA_PLANS, FAQ, GROWTH_JOIN, JOIN, PACKAGES, PRODUCTS, joinFor, shownTestimonials } from "@/lib/sales.ts";
+import TalkForm from "@/components/sales/TalkForm.tsx";
+import TrialBar from "@/components/sales/TrialBar.tsx";
+import { FAQ, GROWTH_JOIN, GROWTH_PLAN, JOIN, PACKAGES, PRODUCTS, TEAMS, WHICH, joinFor, shownTestimonials } from "@/lib/sales.ts";
 
 // vip50one.com (Parry, 29 Sep): visitors see the sales page; signed-in
 // clients go straight to their dashboard, ONE Brain (middleware.ts does that,
@@ -179,30 +181,57 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="growth" className="sp-packages">
-          <p className="sp-eyebrow center">Grow and build a team</p>
-          <h2 className="center">ONE Growth and team plans</h2>
-          <p className="sp-sub center">ONE Growth is for any agent, anywhere. Team plans put your whole team on one system. Web signup only.</p>
-          <div className="sp-pack-grid">
-            {EXTRA_PLANS.map((p) => (
-              <article key={p.id} className="sp-pack">
-                <h3>{p.name}</h3>
-                <p className="sp-tag">{p.tag}</p>
-                <p className="sp-price">
-                  <b>{p.price}</b>
-                  <span>{p.per}</span>
-                </p>
-                {p.more.map((m) => (
-                  <p key={m} className="sp-annual">{m}</p>
-                ))}
-                <ul>
-                  {p.includes.map((x) => (
-                    <li key={x}>{x}</li>
-                  ))}
-                </ul>
-                <a className="sp-ghost" href={GROWTH_JOIN}>{p.cta}</a>
-              </article>
+        <section className="sp-which" aria-labelledby="which-title">
+          <h2 id="which-title" className="center">Which one is for me?</h2>
+          <div className="sp-which-grid">
+            {WHICH.map((w) => (
+              <p key={w.name}>
+                <b>{w.name}</b>
+                {w.line}
+              </p>
             ))}
+          </div>
+        </section>
+
+        <section id="growth" className="sp-packages">
+          <p className="sp-eyebrow center">Bring in new people</p>
+          <h2 className="center">ONE Growth</h2>
+          <p className="sp-sub center">Lead generation for any agent, anywhere. Web signup only.</p>
+          <div className="sp-pack-grid one">
+            <article className="sp-pack">
+              <h3>{GROWTH_PLAN.name}</h3>
+              <p className="sp-tag">{GROWTH_PLAN.tag}</p>
+              <p className="sp-price">
+                <b>{GROWTH_PLAN.price}</b>
+                <span>{GROWTH_PLAN.per}</span>
+              </p>
+              {GROWTH_PLAN.more.map((m) => (
+                <p key={m} className="sp-annual">{m}</p>
+              ))}
+              <ul>
+                {GROWTH_PLAN.includes.map((x) => (
+                  <li key={x}>{x}</li>
+                ))}
+              </ul>
+              <a className="sp-ghost" href={GROWTH_JOIN}>{GROWTH_PLAN.cta}</a>
+            </article>
+          </div>
+        </section>
+
+        <section id="teams" className="sp-packages">
+          <p className="sp-eyebrow center">Teams and brokerages</p>
+          <h2 className="center">Put your whole team on ONE</h2>
+          <div className="sp-pack-grid one">
+            <article className="sp-pack">
+              <h3>{TEAMS.name}</h3>
+              <p className="sp-tag">{TEAMS.tag}</p>
+              <ul>
+                {TEAMS.includes.map((x) => (
+                  <li key={x}>{x}</li>
+                ))}
+              </ul>
+              <TalkForm cta={TEAMS.cta} />
+            </article>
           </div>
         </section>
 
@@ -246,6 +275,8 @@ export default function Home() {
           </a>
         </section>
       </main>
+
+      <TrialBar href={JOIN} />
 
       <footer className="sp-foot">
         <span>© VIP-50 LLC</span>

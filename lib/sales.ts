@@ -145,7 +145,7 @@ export const PACKAGES: Package[] = [
     founding: "$399",
     list: "$499",
     annual: "or $3,990 a year founding ($4,990 list): two months free",
-    includes: ["ONE GO", "ONE MOVE", "Marquee", "ONE Open", "Showly (agent)", "ONE Brain, your dashboard"],
+    includes: ["ONE GO", "ONE MOVE", "Marquee", "ONE Open", "Showly (agent)", "ONE Brain, your dashboard", "Your agent website"],
     trial: true,
     featured: true,
   },
@@ -161,11 +161,12 @@ export const PACKAGES: Package[] = [
   },
 ];
 
-/** ONE Growth and the team plans (Parry, 13 Oct; ECOSYSTEM §7.1, GROWTH.md §2): on sale 13 Oct ("growth on"), sold
- * through ONE MOVE's checkout. List price only, no founding price; what each card says is what the checkout sells. */
+/** ONE Growth (Parry, 13 Oct; ECOSYSTEM §7.1, GROWTH.md §2-3): on sale 13 Oct ("growth on"), sold through ONE MOVE's
+ * checkout. List price only, no founding price; what the card says is what the checkout sells. Its seven items are
+ * ONE Growth only (Parry, 14 Oct, answer "A": Complete keeps the agent website, the rest is Growth). */
 export const GROWTH_JOIN = "https://move.vip50one.com/join/growth";
 export interface ExtraPlan {
-  id: "growth" | "team" | "team_complete";
+  id: "growth";
   name: string;
   tag: string;
   price: string;
@@ -174,38 +175,47 @@ export interface ExtraPlan {
   includes: string[];
   cta: string;
 }
-export const EXTRA_PLANS: ExtraPlan[] = [
-  {
-    id: "growth",
-    name: "ONE Growth",
-    tag: "Lead generation for any agent, anywhere",
-    price: "$499",
-    per: "/month",
-    more: ["7 days free, then $499/month. One trial per person.", "$199/month added to ONE Complete or Elite", "Month-to-month. Ad spend paid by you to Google and Meta, at cost. No per-lead fees."],
-    includes: ["Pulse Ads on your own ad accounts, approved by you", "Farm Mode for the areas you choose", "Landing pages and home value requests", "Pulse answers new leads in seconds", "ONE MOVE and your agent website"],
-    cta: "Start 7 days free",
-  },
-  {
-    id: "team",
-    name: "ONE Team",
-    tag: "Your team on one system",
-    price: "$799",
-    per: "/month",
-    more: ["Team site and 5 seats, then $50/month per seat", "or $7,990 a year: two months free", "Add ONE Growth for the whole team: $499/month, once per team"],
-    includes: ["Team website, every agent's page reached from it", "ONE GO and ONE MOVE for every seat", "Lead routing, the lead pool and the war room"],
-    cta: "Start ONE Team",
-  },
-  {
-    id: "team_complete",
-    name: "ONE Team Complete",
-    tag: "Every seat on ONE Complete",
-    price: "$1,299",
-    per: "/month",
-    more: ["5 ONE Complete seats, then $99/month per seat", "or $12,990 a year: two months free", "Add ONE Growth for the whole team: $499/month, once per team"],
-    includes: ["Everything in ONE Team", "Marquee, ONE Open and Showly for every seat"],
-    cta: "Start ONE Team Complete",
-  },
+export const GROWTH_PLAN: ExtraPlan = {
+  id: "growth",
+  name: "ONE Growth",
+  tag: "New people you don't know yet, for any agent, anywhere",
+  price: "$499",
+  per: "/month",
+  more: ["7 days free, then $499/month. One trial per person.", "$199/month added to ONE Complete or Elite", "Month-to-month. Ad spend paid by you to Google and Meta, at cost. No per-lead fees."],
+  includes: [
+    "Pulse Ads on your own Meta and Google accounts, approved and published by you",
+    "Farm Mode: your chosen areas worked together (area page, ads, monthly market note)",
+    "Landing pages: home value, buyer and seller guides, relocation",
+    "Speed to lead: Pulse answers new leads in seconds and hands them to you",
+    "Seller signals: who is likely to move, as suggestions for you",
+    "Lead inbox: Zillow, Realtor.com and Homes.com emails turned into contacts",
+    "Results: spend, leads, appointments and closings by source",
+    "Comes with ONE MOVE and your agent website",
+  ],
+  cta: "Start 7 days free",
+};
+
+/** "Which one is for me?" under the packages (Parry, 14 Oct: "explain better what the difference is"). */
+export const WHICH: { name: string; line: string }[] = [
+  { name: "ONE Relationship", line: "The VIP-50 method every day: your VIP contacts, touches and trackers on your phone and desktop." },
+  { name: "ONE Complete", line: "Your whole business with the people you already know: every ONE product, the Brain and your agent website." },
+  { name: "ONE Growth", line: "New people you don't know yet: Pulse Ads, Farm Mode, landing pages, speed to lead and results. Add it to Complete for $199/month." },
 ];
+
+/** Teams and brokerages (Parry, 14 Oct: "do we have the team and brokerage one not have a price and have them connect
+ * with me"). No price and no checkout on the public page; the prices stay in ECOSYSTEM §7.1 for Parry to quote. */
+export const TEAMS = {
+  name: "Teams and brokerages",
+  tag: "Your whole team on ONE, set up with Parry",
+  includes: [
+    "A team website, with every agent's own site and page reached from it",
+    "Every seat on ONE: ONE GO and ONE MOVE, or ONE Complete",
+    "Lead routing, the lead pool and the war room",
+    "Adding an agent turns everything on for them",
+    "Team ads run by the team lead",
+  ],
+  cta: "Talk to Parry",
+};
 
 export interface Testimonial {
   name: string;
@@ -288,12 +298,14 @@ export const TESTIMONIALS: Testimonial[] = [
 export const shownTestimonials = (list = TESTIMONIALS) => list.filter((t) => (t.quote && t.quote.trim()) || t.video?.src);
 
 export const FAQ: { q: string; a: string }[] = [
-  { q: "Is there a free trial?", a: "Yes. ONE Relationship and ONE Complete start with 7 days free, one trial per person. You add a card at checkout and can cancel before the trial ends. Elite is paid up front." },
-  { q: "What is founding pricing?", a: "The first 50 members pay $199 a month for ONE Relationship or $399 for ONE Complete, instead of $299 and $499, for as long as they stay a member. When the 50 spots are gone, the page shows list prices." },
+  { q: "Is there a free trial?", a: "Yes. ONE Relationship, ONE Complete and ONE Growth start with 7 days free, one trial per person. You add a card at checkout and can cancel before the trial ends. Elite is paid up front." },
+  { q: "What is founding pricing?", a: "The first 50 members pay $199 a month for ONE Relationship or $399 for ONE Complete, instead of $299 and $499, for as long as they stay a member. When the 50 spots are gone, the page shows list prices. ONE Growth has no founding price." },
   { q: "Is there an annual plan?", a: "Yes. Paying for a year gets you two months free." },
-  { q: "Can I buy one product on its own?", a: "No. ONE comes as packages, because the products work together: what happens in one shows up in the others and in ONE Brain." },
-  { q: "Does anything post or send without me?", a: "No. Nothing publishes on your behalf unless you approved that exact piece and either pressed publish or switched on scheduled posting for that listing yourself. It is off until you do." },
+  { q: "Can I buy one product on its own?", a: "ONE Growth is sold on its own to any agent, anywhere. Everything else comes as packages, because the products work together: what happens in one shows up in the others and in ONE Brain." },
+  { q: "What is the difference between ONE Complete and ONE Growth?", a: "ONE Complete runs your whole business with the people you already know, and includes your agent website. ONE Growth brings in people you don't know yet: Pulse Ads, Farm Mode, landing pages, speed to lead, seller signals and results. Many agents use both: Growth is $199 a month added to Complete." },
+  { q: "Does anything post or send without me?", a: "No. Nothing sends or publishes unless you approved it and pressed publish, or switched it on yourself. Pulse's Autopilot is off until you turn it on; then it works inside guardrails (it hands showings, offers, contracts and money back to you) and reports what it did each week." },
   { q: "Do open house visitors go into my VIP-50?", a: "Never on their own. Visitors and tour buyers are kept with their source; Pulse, ONE's AI, suggests the follow-up and you decide." },
+  { q: "I run a team or a brokerage.", a: "Talk to Parry. Team and brokerage plans are set up with you, so use the Teams and brokerages box above and he will get back to you." },
   { q: "I'm a loan officer.", a: "Showly's lender side is $150 a month and works alongside the agents you partner with." },
   { q: "I'm already a member.", a: "Sign in at the top of the page with the same email and password as ONE GO and ONE MOVE." },
 ];
