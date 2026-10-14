@@ -6,7 +6,6 @@
 export const MASTER_URL = "https://olclvqawcgugszogryoi.supabase.co";
 export const MASTER_PUBLISHABLE_KEY = "sb_publishable_36FC7pO93Or8IkPgYq-cDg_PMKdFaqS";
 
-// Forgotten passwords are reset in ONE MOVE (same accounts, its reset page is
-// already an allowed redirect in MASTER).
-export const RESET_URL = "https://move.vip50one.com/login";
+// Forgotten passwords are reset here, in the ONE look (app/reset; audit stage 1, 14 Oct).
+export const RESET_URL = "/reset";
 export const JOIN_URL = "https://vip50one.com/join";

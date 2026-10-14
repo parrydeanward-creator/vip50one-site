@@ -1,5 +1,5 @@
 import { signIn } from "./actions.ts";
-import { JOIN_URL, RESET_URL } from "@/lib/master.ts";
+import { RESET_URL } from "@/lib/master.ts";
 import PasswordField from "@/components/auth/PasswordField.tsx";
 
 export const metadata = { title: "Sign in | VIP-50 ONE" };
@@ -34,7 +34,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<Re
         <p className="login-links">
           <a href={RESET_URL}>Forgot your password?</a>
           <span aria-hidden="true">·</span>
-          <a href={JOIN_URL}>New here? Join ONE</a>
+          <a href="/#packages">New here? Pick a package</a>
         </p>
       </form>
     </main>
