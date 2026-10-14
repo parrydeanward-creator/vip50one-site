@@ -94,6 +94,7 @@ import { postDay, type TeamPost } from "@/lib/teamPosts.ts";
 import { perProduct } from "@/lib/perProduct.ts";
 import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, type Launch } from "@/lib/launch.ts";
 import LaunchPanel from "./LaunchPanel.tsx";
+import ClosedCards from "./ClosedCards.tsx";
 import { FORECAST_NODE, demoClasses, forecast, withForecastNode, type Forecast } from "@/lib/forecast.ts";
 import { needWords, needsOf, type Need } from "@/lib/needs.ts";
 import { SEEN_KEY } from "@/lib/pulseIntro.ts";
@@ -2668,6 +2669,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               </button>
             </div>
           )}
+
+          {focus.type === "core" && !ask && <ClosedCards live={live} />}
 
           {focus.type === "core" && !ask && (() => {
             // One morning (CONNECTIONS gap 7): the one thing in each product that needs you today.
