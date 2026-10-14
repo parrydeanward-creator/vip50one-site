@@ -43,4 +43,4 @@ export function afterSignIn(next: string | null | undefined, last: string | null
 export const JOIN_NO_PACKAGE = "/#packages";
 
 /** Sign in with Google: shown once MASTER's Google provider is switched on (Parry's click; STATUS). */
-export const GOOGLE_SIGNIN = false;
+export const GOOGLE_SIGNIN = true; // on 14 Oct: MASTER's Google provider switched on by Parry (Google Cloud vip-50-one)
