@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LeadMailSection, OwnAISection, PulseModesSection } from "./ConnectSections.tsx";
+import RezenSection from "./RezenSection.tsx";
 import { brokerageAsk, ABOUT, ABOUT_MAX, CONNECTIONS, FIELDS, TIME_ZONES, UPLOAD_MAX, aboutChanges, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, type Profile } from "@/lib/profile.ts";
 
 /** Draw the photo at most 1200px on the long side as a JPEG, so it fits ONE MOVE's 4 MB limit. */
@@ -267,6 +268,7 @@ export default function MyProfile({
         )}
         <ReferralsSection />
         <PulseModesSection />
+        <RezenSection />
         <LeadMailSection />
         <OwnAISection />
         <h2>Connections and settings</h2>

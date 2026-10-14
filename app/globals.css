@@ -2038,3 +2038,29 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 @media (prefers-reduced-motion: reduce) { .sp-trialbar { transition: none; } }
 button.sp-cta { border: 0; cursor: pointer; font-family: inherit; }
 button.sp-cta:disabled { opacity: 0.6; cursor: default; }
+
+/* Closed: <street> (CONNECTIONS §5.4) */
+.closed-card + .closed-card { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.closed-gci { display: block; margin-top: 6px; width: 140px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); font-size: 14px; }
+.closed-review { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, 0.03); }
+.closed-review p { margin: 0 0 8px; white-space: pre-wrap; }
+.closed-review-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.closed-review small { color: var(--text-3); }
+
+/* reZEN in My Profile (REZEN.md §3) */
+.rz-steps { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 12px; }
+.rz-steps li { line-height: 1.5; }
+.rz-steps .chip-btn { margin-left: 6px; text-decoration: none; }
+.rz-paste { display: flex; gap: 8px; margin: 6px 0 4px; }
+.rz-paste input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); font-size: 14px; }
+.rz-confirm { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.rz-confirm p { flex-basis: 100%; margin: 0; }
+.rz-who { margin: 6px 0 10px; }
+.rz-boxes { list-style: none; margin: 6px 0 10px; padding: 0; display: grid; gap: 8px; }
+.closed-card .launch-list li > span { flex: 1; min-width: 0; }
+.closed-card .launch-list li > .chip-btn { flex: none; white-space: nowrap; }
+.rz-boxes .pf-sub { display: block; margin: 2px 0 0 28px; }
+.since.closed-cards li button { width: auto; min-height: 0; display: inline-block; flex: none; }
+.since.closed-cards li small { font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none; color: rgba(255, 255, 255, 0.65); }
+.since.closed-cards li span { display: block; }
+.since.closed-cards li span b { display: block; }
