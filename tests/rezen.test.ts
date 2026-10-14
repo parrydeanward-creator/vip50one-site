@@ -32,3 +32,15 @@ test("rezen: key cleaning and time words", () => {
   assert.equal(sinceWords("2026-10-14T09:00:00Z", now), "3 hours ago");
   assert.equal(sinceWords("bad", now), null);
 });
+
+test("rezen read line, as Classic's: counts and totals only, only for ticked boxes", async () => {
+  const { readLine, readRezenRead } = await import("../lib/rezen.ts");
+  const r = readRezenRead({
+    deals: { read_at: "2026-10-14T22:23:00Z", data: { open: new Array(10).fill({}), closed: new Array(20).fill({}) } },
+    revshare: { read_at: "2026-10-14T22:23:00Z", data: { paid: 1240.4 } },
+    network: { read_at: "2026-10-14T22:23:00Z", data: { total: 12 } },
+  });
+  assert.equal(readLine(r), "From reZEN: 10 open and 20 recent closed deals, $1,240 revenue share paid, 12 agents in your network");
+  assert.equal(readLine(readRezenRead({ deals: { data: { open: [], closed: [] } } })), "From reZEN: 0 open and 0 recent closed deals");
+  assert.equal(readLine(readRezenRead(undefined)), null);
+});

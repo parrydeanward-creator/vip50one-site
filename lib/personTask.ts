@@ -6,7 +6,11 @@ const NOT_PEOPLE = /^(agent attraction|set ?up|newsletter|mixer|market report|we
 
 export function namesPerson(title: string | null | undefined): boolean {
   const t = (title ?? "").trim();
-  if (!t || NOT_PEOPLE.test(t)) return false;
+  if (!t || NOT_PEOPLE.test(t) || /agent attraction|invite an agent/i.test(t)) return false;
   if (TOUCH.test(t)) return true;
   return /\b(with|to|for)\s+[A-Z][a-z]+/.test(t);
 }
+
+/** GO/MOVE writes Agent Attraction's plain line after a marker in the task notes (vip50-web-crm#247); the agent never
+ * sees the marker. */
+export const stripMarkers = (s: string | null | undefined) => (s ?? "").replace(/\[agent_attraction\|[^\]]*\]\s*/g, "").trim();
