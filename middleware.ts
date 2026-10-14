@@ -17,6 +17,16 @@ const hasSession = (req: NextRequest) => req.cookies.getAll().some((c) => c.name
 
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
+  // A sign-in code (Google, an emailed link) that landed somewhere other than /auth/confirm, e.g. on MASTER's Site URL
+  // when the asked-for return address is not used (14 Oct: Google came back to /dashboard and the code was lost on
+  // the way to /login). Hand it to /auth/confirm, which signs the agent in, then opens the Brain.
+  const code = req.nextUrl.searchParams.get("code");
+  if (code && path !== "/auth/confirm") {
+    const to = req.nextUrl.clone();
+    to.pathname = "/auth/confirm";
+    to.search = `?code=${encodeURIComponent(code)}&next=${encodeURIComponent(path === "/" || path === "/login" ? "/dashboard" : path)}`;
+    return NextResponse.redirect(to);
+  }
   if (path === "/" && !hasSession(req)) return NextResponse.next();
   let res = NextResponse.next({ request: req });
   const domain = cookieDomainFor(req.headers.get("host"));

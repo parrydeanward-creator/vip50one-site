@@ -49,3 +49,11 @@ test("Sign in with Google is on (MASTER provider switched on by Parry, 14 Oct) a
   assert.match(a, /provider: "google"/);
   assert.match(a, /\/auth\/confirm\?next=%2Fdashboard/);
 });
+
+test("a sign-in code that lands on / , /login or /dashboard goes on to /auth/confirm (Google, 14 Oct)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const m = readFileSync("middleware.ts", "utf8");
+  assert.match(m, /searchParams\.get\("code"\)/);
+  assert.match(m, /to\.pathname = "\/auth\/confirm"/);
+  assert.match(m, /matcher: \["\/", "\/dashboard\/:path\*", "\/login"/);
+});
