@@ -7,6 +7,7 @@ import type { GraphEdge, GraphNode, NodeStatus } from "./graph/types.ts";
 
 const MOVE_URL = "https://move.vip50one.com";
 export const launchUrl = `${MOVE_URL}/api/brain/launch`;
+export const listingsUrl = `${MOVE_URL}/api/brain/listings`;
 export const LISTINGS_PAGE = "/listings";
 
 export const PIECES = ["marquee_page", "site_page", "open_house", "ad_draft", "buyer_notes"] as const;
@@ -95,12 +96,19 @@ export function launchLine(l: Launch): string {
   const n = waiting(l);
   if (n) return `${n} ${n === 1 ? "piece" : "pieces"} ready for you`;
   if (finished(l)) return "All done";
-  const done = l.pieces.filter((p) => p.state === "done" || p.state === "skipped").length;
-  return `${done} of ${l.pieces.length} done, the rest drafting`;
+  const open = l.pieces.filter((p) => p.state !== "done" && p.state !== "skipped").length;
+  return `${open} ${open === 1 ? "piece" : "pieces"} being drafted`;
 }
 
 export const listingNode = (ref: string) => `marquee:listing:${ref}`;
 export const launchNode = (ref: string) => `marquee:launch:${ref}`;
+/** The listing a listing orb or its Launch orb is about, or null for any other orb. */
+export function launchRefOf(nodeId: string): string | null {
+  const m = /^marquee:(?:listing|launch):(.+)$/.exec(nodeId);
+  return m ? m[1] : null;
+}
+/** Put one launch (just made, or re-read) into the list, replacing the old one for that listing. */
+export const upsertLaunch = (list: Launch[] | null, l: Launch): Launch[] => [...(list ?? []).filter((x) => x.listingRef !== l.listingRef), l];
 
 /** A Launch orb under each launched listing that is on the graph. A launch whose listing is not drawn is left out. */
 export function withLaunchNodes<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, launches: Launch[] | null): G {
@@ -122,7 +130,7 @@ export function withLaunchNodes<G extends { nodes: GraphNode[]; edges: GraphEdge
       importance: n ? 1 : 0.7,
       status: launchStatus(l),
       needCount: n || undefined,
-      summary: `The launch of ${l.address ?? parent.label}: ${l.pieces.map((p) => `${PIECE_NAME[p.piece]}, ${pieceWords(p).toLowerCase()}`).join("; ")}. Nothing goes out until you approve it.`,
+      summary: `Your launch of ${l.address ?? parent.label}. Each piece is drafted where it lives; open it there to approve. Nothing goes out until you do.`,
     });
     edges.push({ id: `${parent.id}>${id}`, source: parent.id, target: id, relationshipType: n ? "requires_action" : "belongs_to", strength: 1 });
   }

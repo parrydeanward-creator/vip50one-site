@@ -90,7 +90,8 @@ import { PLAN_NODE, planKey, planUrl, readPlan, timed, withPlanNode, type Plan }
 import { hwcUrl, readHwc, todayIn, type HwcClass } from "@/lib/hwc.ts";
 import { demoSignals, readSignals, signalsUrl, withSignalsNode, type WebSignal } from "@/lib/webSignals.ts";
 import { demoNewLeads, readNewLeads, todayUrl, withNewLeadsNode, type NewLeads } from "@/lib/newLeads.ts";
-import { launchUrl, readLaunches, withLaunchNodes, type Launch } from "@/lib/launch.ts";
+import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, type Launch } from "@/lib/launch.ts";
+import LaunchPanel from "./LaunchPanel.tsx";
 import { FORECAST_NODE, demoClasses, forecast, withForecastNode, type Forecast } from "@/lib/forecast.ts";
 import { needWords, needsOf, type Need } from "@/lib/needs.ts";
 import { SEEN_KEY } from "@/lib/pulseIntro.ts";
@@ -2353,6 +2354,20 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               title={focus.label}
               onChanged={refreshLive}
               openContacts={() => goTo(movePageId("/contacts"))}
+              onOpenPage={(path, query) => {
+                setPageQuery({ path, query });
+                goTo(movePageId(path));
+              }}
+            />
+          )}
+
+          {launchRefOf(focus.id) && focus.product === "marquee" && !focus.locked && !ask && (
+            <LaunchPanel
+              key={focus.id}
+              listingRef={launchRefOf(focus.id)!}
+              launch={launches?.find((l) => l.listingRef === launchRefOf(focus.id)) ?? null}
+              live={live}
+              onLaunched={(l) => setLaunches((ls) => upsertLaunch(ls, l))}
               onOpenPage={(path, query) => {
                 setPageQuery({ path, query });
                 goTo(movePageId(path));
