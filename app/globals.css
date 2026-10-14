@@ -2161,3 +2161,18 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .pick-quiet { display: flex; align-items: center; gap: 12px; padding: 8px 12px; font-size: 13px; color: var(--text-3); }
 .pick-quiet span { display: grid; gap: 2px; }
 .pick-more { color: var(--text-3); font-size: 12px; }
+
+/* Your day, always on time (audit stage 2) */
+.day-group { margin-top: 12px; }
+.day-head { margin: 0 0 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); }
+.day-group.is-now .day-head { color: var(--gold-2); }
+.day li.is-now .day-item { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.35); }
+.day-done { flex: none; width: 56px; min-height: 56px; display: grid; place-items: center; gap: 0; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); color: var(--text-3); cursor: pointer; font: inherit; }
+.day-done span { font-size: 18px; line-height: 1; }
+.day-done small { font-size: 10.5px; font-weight: 700; }
+.day li.is-done .day-done { background: #2e9c63; border-color: #2e9c63; color: #fff; }
+.day li.is-done .day-body { text-decoration: line-through; opacity: 0.7; }
+.day-bar { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.08); overflow: hidden; margin: 2px 0 6px; }
+.day-bar i { display: block; height: 100%; background: linear-gradient(90deg, #2e9c63, #3fbf7f); }
+.plan-ok { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(63, 191, 127, 0.45); background: rgba(63, 191, 127, 0.08); color: #9fe3bf; font-weight: 600; }
+.plan-ok i { font-style: normal; }

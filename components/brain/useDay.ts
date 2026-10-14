@@ -6,6 +6,7 @@ import { todayIn } from "@/lib/hwc.ts";
 import { planUrl, putBody, suggest, type Plan, type PlanItem } from "@/lib/plan.ts";
 import { toldBusy, type Answers, type Told } from "@/lib/overview.ts";
 import { addDays, slide } from "@/lib/assist.ts";
+import { floor5 } from "@/lib/dayView.ts";
 import { buildDay, customItem, customKey, customsOn, dayPutBody, dayUrl, denverNow, readDay, toMin, type Block, type Busy, type Custom, type DayPlan } from "@/lib/schedule.ts";
 
 // The day as Pulse plans it (VIP-SUMMARY §3o), shared by the Day Clock and the Brain's Next line and
@@ -67,10 +68,20 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
   const [from, setFrom] = useState<string | null>(null);
   useEffect(() => {
     setNow(denverNow());
-    setFrom(denverNow());
-    const t = setInterval(() => setNow(denverNow()), 20_000);
-    return () => clearInterval(t);
+    setFrom(floor5(denverNow()));
+    const tick = () => setNow(denverNow());
+    const t = setInterval(tick, 20_000);
+    window.addEventListener("focus", tick);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("focus", tick);
+    };
   }, []);
+  // Always on time (audit stage 2, Parry 14 Oct): the plan re-slides on five-minute steps (the same on every screen),
+  // so nothing undone sits in the past.
+  useEffect(() => {
+    if (now) setFrom((f) => (f === floor5(now) ? f : floor5(now)));
+  }, [now]);
   const [stored, setStored] = useState<Stored[]>([]);
   const [approved, setApproved] = useState<{ at: string; blocks: Block[]; freeMin?: number; plannedMin?: number } | null>(null);
   const [move, setMove] = useState<ReturnType<typeof readDay>>(null);
