@@ -2002,3 +2002,11 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 .launch-list .launch-ready { border-color: #f5c542; }
 .launch-list .launch-failed { border-color: #ff8a80; }
 .launch-list .launch-done small, .launch-list .launch-skipped small { color: rgba(255,255,255,0.45); }
+
+/* Pulse posted (WEBSITES §7a): the team blog's last 7 days in the morning note */
+.since-posts { margin-top: 12px; }
+.since-posts h3 { margin: 0 0 6px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #f5c542; }
+.since-posts ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.since-posts a { display: grid; gap: 1px; color: inherit; text-decoration: none; padding: 6px 8px; border-radius: 8px; }
+.since-posts a:hover, .since-posts a:focus-visible { background: rgba(255,255,255,0.06); }
+.since-posts small { color: rgba(255,255,255,0.55); font-size: 11.5px; }

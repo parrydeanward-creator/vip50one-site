@@ -90,6 +90,7 @@ import { PLAN_NODE, planKey, planUrl, readPlan, timed, withPlanNode, type Plan }
 import { hwcUrl, readHwc, todayIn, type HwcClass } from "@/lib/hwc.ts";
 import { demoSignals, readSignals, signalsUrl, withSignalsNode, type WebSignal } from "@/lib/webSignals.ts";
 import { demoNewLeads, readNewLeads, todayUrl, withNewLeadsNode, type NewLeads } from "@/lib/newLeads.ts";
+import { postDay, type TeamPost } from "@/lib/teamPosts.ts";
 import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, type Launch } from "@/lib/launch.ts";
 import LaunchPanel from "./LaunchPanel.tsx";
 import { FORECAST_NODE, demoClasses, forecast, withForecastNode, type Forecast } from "@/lib/forecast.ts";
@@ -674,6 +675,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         setTeamSites(readTeamSites(j?.team_sites));
         setAgentSites(readAgentTeamSites(j?.agent_team_sites));
       })
+      .catch(() => {});
+  }, [live]);
+  // Pulse posted (WEBSITES §7a): the team blog's last 7 days, for the team's owner and admins, in the morning note.
+  const [teamPosts, setTeamPosts] = useState<{ host: string; posts: TeamPost[] } | null>(null);
+  useEffect(() => {
+    if (!live) return;
+    fetch("/api/site/posts", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setTeamPosts(j && typeof j.host === "string" && Array.isArray(j.posts) && j.posts.length ? { host: j.host, posts: j.posts } : null))
       .catch(() => {});
   }, [live]);
   const editSite = useCallback(async (site?: string, next?: string) => {
@@ -2682,6 +2692,21 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                 </ul>
               ) : (
                 <p className="since-none">Nothing new. You're up to date.</p>
+              )}
+              {teamPosts && (
+                <div className="since-posts">
+                  <h3>Pulse posted on your team site</h3>
+                  <ul>
+                    {teamPosts.posts.map((p) => (
+                      <li key={p.url}>
+                        <a href={p.url} target="_blank" rel="noopener noreferrer">
+                          <small>{postDay(p.publishedAt)}{p.byPulse ? " · by Pulse" : ""}</small>
+                          {p.title}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
               {topIds.length > 0 && (
                 <button className="link" onClick={startTour}>
