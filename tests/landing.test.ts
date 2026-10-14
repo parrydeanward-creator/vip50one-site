@@ -40,3 +40,12 @@ test("phone menu: one list; Growth rows only with Growth; team rows only for tea
   assert.deepEqual(menuRows({ ...base, live: false }), []);
   assert.equal(HINT, "Tap any orb to see what needs you. Red means right now.");
 });
+
+test("Sign in with Google is on (MASTER provider switched on by Parry, 14 Oct) and lands on the Brain", async () => {
+  const { GOOGLE_SIGNIN } = await import("../lib/landing.ts");
+  const { readFileSync } = await import("node:fs");
+  assert.equal(GOOGLE_SIGNIN, true);
+  const a = readFileSync("app/login/actions.ts", "utf8");
+  assert.match(a, /provider: "google"/);
+  assert.match(a, /\/auth\/confirm\?next=%2Fdashboard/);
+});
