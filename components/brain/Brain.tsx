@@ -94,6 +94,8 @@ import { postDay, type TeamPost } from "@/lib/teamPosts.ts";
 import { perProduct } from "@/lib/perProduct.ts";
 import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, type Launch } from "@/lib/launch.ts";
 import LaunchPanel from "./LaunchPanel.tsx";
+import HeatPanel from "./HeatPanel.tsx";
+import { demoHeat, heatIdOf, heatUrl, readHeat, withHeatNodes, type HeatSuggestion } from "@/lib/heat.ts";
 import ClosedCards from "./ClosedCards.tsx";
 import { LAST_COOKIE, LAST_MAX_AGE } from "@/lib/landing.ts";
 import { HINT, menuRows, type MenuRow } from "@/lib/phoneMenu.ts";
@@ -148,6 +150,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const forecastRef = useRef<Forecast | null>(null);
   const webRef = useRef<WebSignal[] | null>(null);
   const newLeadsRef = useRef<NewLeads | null>(null);
+  const heatRef = useRef<HeatSuggestion[] | null>(null);
   const launchRef = useRef<Launch[] | null>(null);
   const refsRef = useRef<Referrals | null>(null);
   const habitsRef = useRef<HabitToday[] | null>(null);
@@ -176,7 +179,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current);
+    const next = withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -839,6 +842,23 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     newLeadsRef.current = newLeads;
     setGraph((g) => withNewLeadsNode(g, newLeads));
   }, [newLeads]);
+  // Looks Hot (CONNECTIONS §5.1, vip50-web-crm#244): one decide item per contact whose actions say they are ready.
+  const [heat, setHeat] = useState<HeatSuggestion[] | null>(null);
+  useEffect(() => {
+    if (!live) return setHeat(demoHeat());
+    const load = () =>
+      fetch(heatUrl, { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => setHeat(j ? readHeat(j) : null))
+        .catch(() => {});
+    load();
+    const t = setInterval(load, 300_000);
+    return () => clearInterval(t);
+  }, [live]);
+  useEffect(() => {
+    heatRef.current = heat;
+    setGraph((g) => withHeatNodes(g, heat));
+  }, [heat]);
   // One-tap listing launch (K21, LAUNCH.md v0.2): a Launch orb under each launched listing, yellow while a draft waits
   // for the agent, red on a failure. ONE MOVE's route answers once GO/MOVE ships it; until then nothing is drawn.
   const [launches, setLaunches] = useState<Launch[] | null>(null);
@@ -2438,6 +2458,22 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             />
           )}
 
+          {heatIdOf(focus.id) && !ask && (() => {
+            const hs = heat?.find((x) => x.id === heatIdOf(focus.id));
+            return hs ? (
+              <HeatPanel
+                key={focus.id}
+                s={hs}
+                live={live}
+                onDone={() => {}}
+                onOpenPage={(path, query) => {
+                  setPageQuery({ path, query });
+                  goTo(movePageId(path));
+                }}
+              />
+            ) : null;
+          })()}
+
           {launchRefOf(focus.id) && focus.product === "marquee" && !focus.locked && !ask && (
             <LaunchPanel
               key={focus.id}
@@ -3054,7 +3090,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} squad={team} /> : null}
       {rcOpen && rcAgents ? <ReviewCallsView agents={rcAgents} demo={!live} onClose={() => setRcOpen(false)} onSearch={loadRcAgents} /> : null}
       {warOpen && war ? <WarRoomView room={war} demo={!live} onClose={() => setWarOpen(false)} onTeamLeads={() => { setWarOpen(false); goTo(movePageId(TEAM_LEADS_PATH)); }} /> : null}
-      {teamOpen && team ? <TeamView team={team} demo={!live} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} /> : null}
+      {teamOpen && team ? <TeamView team={team} demo={!live} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} canAdd={teamSites.length > 0} /> : null}
       {timeOffOpen && timeOff ? <TimeOffView data={timeOff} demo={!live} onSave={saveTimeOff} onCancel={cancelTimeOff} onClose={() => setTimeOffOpen(false)} /> : null}
       {aiOpen && askAi ? <AskAiView name={live ? agent.label.split(",")[0] : "Sarah Bennett"} area={askArea} results={askAi} demo={!live} onArea={saveArea} onMark={markAi} onClose={() => setAiOpen(false)} /> : null}
       {likelyOpen && likely ? <MoveLikelyView data={likely} demo={!live} onNotUseful={likelyNotUseful} onClose={() => setLikelyOpen(false)} /> : null}
