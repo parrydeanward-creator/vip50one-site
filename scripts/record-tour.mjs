@@ -21,6 +21,8 @@ const W = 1920, H = 1080;
 // The page runs SLOW times slower (the map's own clock, CSS animations, every wait here), then the video is sped back
 // up; a machine without a GPU then still draws every frame (as scripts/record-watch.mjs does for the films).
 const SLOW = Number(process.env.SLOW || 3);
+// DRY=<dir>: a quick check run, no video, a screenshot after every moment and short waits (find what misses first).
+const DRY = process.env.DRY || "";
 const BASE = process.env.BASE || "http://localhost:3102";
 const dir = mkdtempSync(join(tmpdir(), "tour-"));
 const suffix = from === 1 && to === CHAPTERS.length ? "" : `-ch${from}-${to}`;
@@ -29,7 +31,7 @@ const suffix = from === 1 && to === CHAPTERS.length ? "" : `-ch${from}-${to}`;
 export const sayMs = (say) => Math.max(3200, Math.round(say.split(/\s+/).length * 390 + 1100));
 
 const b = await chromium.launch({ executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium", args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
-const ctx = await b.newContext({ timezoneId: "America/Denver", viewport: { width: W, height: H }, recordVideo: { dir, size: { width: W, height: H } } });
+const ctx = await b.newContext({ timezoneId: "America/Denver", viewport: { width: W, height: H }, ...(DRY ? {} : { recordVideo: { dir, size: { width: W, height: H } } }) });
 const t0 = Date.now();
 const p = await ctx.newPage();
 const cdp = await ctx.newCDPSession(p);
@@ -82,17 +84,18 @@ const T = {
   wait,
   async click(locator) {
     const l = typeof locator === "string" ? p.locator(locator).first() : locator.first();
-    await l.waitFor({ state: "visible", timeout: 15000 });
+    await l.waitFor({ state: "visible", timeout: DRY ? 5000 : 15000 });
     await l.scrollIntoViewIfNeeded().catch(() => {});
     const box = await l.boundingBox();
     if (box) await cursorTo(box.x + box.width / 2, box.y + box.height / 2);
     await pressDot();
-    await l.click();
+    // A button over the moving map can be visible but never "stable"; a blocked press is forced through.
+    await l.click({ timeout: (DRY ? 2500 : 4000) * SLOW }).catch(() => l.click({ force: true, timeout: 3000 * SLOW }));
     await wait(700);
   },
   async hover(locator) {
     const l = typeof locator === "string" ? p.locator(locator).first() : locator.first();
-    const box = await l.boundingBox();
+    const box = await l.boundingBox({ timeout: DRY ? 4000 : 30000 });
     if (box) await cursorTo(box.x + box.width / 2, box.y + box.height / 2);
     await l.hover().catch(() => {});
   },
@@ -106,8 +109,12 @@ const T = {
   async back() {
     await T.click('[aria-label="Back"]');
   },
+  // Back to the whole map: the "ONE" crumb works from every view (a ONE MOVE page, a planner, My Profile).
   async home() {
-    await T.click('[aria-label="Centre on ONE"]');
+    await p.keyboard.press("Escape").catch(() => {});
+    const crumb = p.locator("nav.crumbs button", { hasText: /^ONE$/ }).first();
+    if (await crumb.isVisible().catch(() => false)) await crumb.click({ timeout: 3000 * SLOW }).catch(() => crumb.click({ force: true }));
+    else await p.locator('[aria-label="Centre on ONE"]').first().click({ force: true, timeout: 3000 * SLOW }).catch(() => {});
     await wait(600);
   },
   async scrollDrawer(px) {
@@ -145,7 +152,7 @@ for (const [ci, ch] of CHAPTERS.entries()) {
   const cardAt = now();
   cues.push({ k: ++k, at: cardAt, chapter: `${n}. ${ch.title}`, say: ch.intro ?? `Chapter ${n}. ${ch.title}.` });
   if (ch.setup) await ch.setup(T).catch((e) => console.warn(`chapter ${n} setup:`, e.message));
-  await wait(Math.max(3400, sayMs(ch.intro ?? `Chapter ${n}. ${ch.title}.`)));
+  await wait(DRY ? 300 : Math.max(3400, sayMs(ch.intro ?? `Chapter ${n}. ${ch.title}.`)));
   await p.evaluate(() => {
     const k = document.getElementById("tour-card");
     if (k) k.style.display = "none";
@@ -156,7 +163,12 @@ for (const [ci, ch] of CHAPTERS.entries()) {
     try {
       if (m.do) await m.do(T);
     } catch (e) {
-      console.warn(`chapter ${n} moment "${m.say.slice(0, 40)}":`, e.message);
+      console.warn(`MISS ch${n} m${k} "${m.say.slice(0, 50)}":`, e.message.split("\n")[0]);
+    }
+    if (DRY) {
+      await p.waitForTimeout(700);
+      await p.screenshot({ path: `${DRY}/c${String(n).padStart(2, "0")}-m${String(k).padStart(3, "0")}.jpg`, quality: 55 });
+      continue;
     }
     const left = sayMs(m.say) + (m.hold ?? 0) - (now() - at) * 1000;
     if (left > 0) await wait(left);
@@ -164,6 +176,11 @@ for (const [ci, ch] of CHAPTERS.entries()) {
 }
 await wait(2500);
 const end = now();
+if (DRY) {
+  await b.close();
+  console.log("dry run done", cues.length, "moments");
+  process.exit(0);
+}
 const webm = await p.video().path();
 await ctx.close();
 await b.close();
