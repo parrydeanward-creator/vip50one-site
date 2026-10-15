@@ -6,6 +6,8 @@ export type MenuAction =
   | { kind: "site"; host?: string; next?: string }
   | { kind: "href"; href: string }
   | { kind: "welcome" }
+  | { kind: "help" }
+  | { kind: "billing" }
   | { kind: "signout" };
 export interface MenuRow { key: string; label: string; line: string; action: MenuAction }
 
@@ -31,6 +33,8 @@ export function menuRows(m: MenuInput): MenuRow[] {
     if (m.growth) rows.push({ key: `ads:${host}`, label: "Ad requests", line: "Ads your agents have asked you to run.", action: { kind: "site", host, next: "/manage/ad-requests" } });
   }
   for (const href of m.agentTeamHrefs) rows.push({ key: `ask:${href}`, label: "Ask for an ad", line: "Ask your team lead to run an ad for you.", action: { kind: "href", href } });
+  rows.push({ key: "billing", label: "My plan and billing", line: "Your plan, card and invoices.", action: { kind: "billing" } });
+  rows.push({ key: "help", label: "Help: what everything means", line: "The orbs, the colours and the pulses, in 90 seconds.", action: { kind: "help" } });
   rows.push({ key: "classic", label: "Classic view", line: "ONE MOVE's older screens, if you need them.", action: { kind: "href", href: m.classicUrl } });
   rows.push({ key: "signout", label: "Sign out", line: "Sign out of ONE on this device.", action: { kind: "signout" } });
   return rows;

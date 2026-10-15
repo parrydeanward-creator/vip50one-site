@@ -130,10 +130,12 @@ export interface BrainAgent {
   photo?: string; // the agent's own photo (MASTER user_profiles.avatar_url)
   admin?: boolean; // MASTER is_admin / is_super_admin: the Coach menu and Review calls
   growth?: boolean; // has ONE Growth (plan or add-on); Complete/Elite without it see the add-on offer in Meet Pulse
+  name?: string; // the menu's name line
+  plan?: string; // "ONE Complete + ONE Growth" (the menu's plan line, as the profile badge)
 }
 
 // The made-up agent the demo, films and screenshots use.
-const DEMO_AGENT: BrainAgent = { firstName: "Sarah", initials: "SB", label: "Sarah Bennett, ONE Complete, founding member" };
+const DEMO_AGENT: BrainAgent = { firstName: "Sarah", initials: "SB", label: "Sarah Bennett, ONE Complete, founding member", name: "Sarah Bennett", plan: "ONE Complete" };
 
 // The hour in the agent's time zone (Mountain), for the commitment pulses (§3n.1).
 function denverHour(now = new Date()): number {
@@ -911,6 +913,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     } catch {}
     if (shouldOpen(welcome, saved, todayIn())) setWelcomeOpen(true);
   }, [live, siteRead, welcomeRaw, welcome]);
+  // My plan and billing (walker 14 Oct, Parry approved): Stripe's own portal when Stripe bills them, else My Profile.
+  const openBilling = async () => {
+    const j = live ? await fetch("/api/membership", { method: "POST" }).then((r) => r.json().catch(() => null)).catch(() => null) : null;
+    if (j && typeof j.url === "string") window.location.assign(j.url);
+    else goTo(movePageId("/profile"));
+  };
   const welcomeLater = () => {
     setWelcomeOpen(false);
     try {
@@ -1468,8 +1476,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
 
   // The Day Clock (§3o.9): the day planned round the calendar. The Next line and the chimes follow it
   // while the dashboard is open (§3o.11).
-  const dayGroups = useMemo(() => groupRows(slideSlots(slots, theDay.now)), [slots, theDay.now]);
-  const next = theDay.now ? (slots.length ? nowStrip(dayGroups) : nextLine(theDay.plan.blocks, theDay.now)) : null;
+  // One answer for "now" (walker 14 Oct, Parry approved): the pill and Your day read the same slid rows, inside the
+  // agent's working hours; nothing is planned after the day ends.
+  const dayGroups = useMemo(() => groupRows(slideSlots(slots, theDay.now, theDay.hours)), [slots, theDay.now, theDay.hours]);
+  const next = theDay.now ? (slots.length ? nowStrip(dayGroups, theDay.now, theDay.hours) : nextLine(theDay.plan.blocks, theDay.now)) : null;
+  // The pill opens Your day at the current block (not an empty Day Clock).
+  const openYourDay = () => {
+    goTo("one");
+    setTimeout(() => document.querySelector(".day-group.is-now, .day-group")?.scrollIntoView({ behavior: "smooth", block: "center" }), 350);
+  };
   const [doneAt, setDoneAt] = useState<Record<string, string>>({});
   const [ringing, setRinging] = useState(false);
   const rung = useRef<Set<string>>(new Set());
@@ -1904,6 +1919,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
 
   // ---- view ---------------------------------------------------------------
   const path = pathTo(ix, focus.id);
+  // My Profile belongs to all of ONE, not ONE MOVE (walker 14 Oct, Parry approved): "ONE / My Profile".
+  const crumbPath = focus.id === movePageId("/profile") && path.length > 2 ? [path[0], path[path.length - 1]] : path;
   const kids = childrenOf(ix, focus.id);
   const related = (ix.links.get(focus.id) ?? [])
     .map((e) => ix.byId.get(e.source === focus.id ? e.target : e.source))
@@ -2025,10 +2042,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
           <img src="/brand/vip50-one.webp" alt="VIP-50 ONE" width={70} height={48} />
         </button>
         <nav className="crumbs" aria-label="Where you are">
-          {path.map((n, i) => (
+          {crumbPath.map((n, i) => (
             <span key={n.id}>
               {i > 0 && <span className="sep">/</span>}
-              {i === path.length - 1 ? (
+              {i === crumbPath.length - 1 ? (
                 <span aria-current="page">{n.label}</span>
               ) : (
                 <button onClick={() => goTo(n.id)}>{n.label}</button>
@@ -2037,7 +2054,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
           ))}
         </nav>
         {next && (
-          <button className={`next-pill${ringing ? " ringing" : ""}`} onClick={() => setClockOpen(true)} title="Your day" aria-live="polite">
+          <button className={`next-pill${ringing ? " ringing" : ""}`} onClick={openYourDay} title="Your day" aria-live="polite">
             {next}
           </button>
         )}
@@ -2086,7 +2103,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       <div className="pmenu-back" onClick={() => setMenuOpen(false)}>
         <div className="pmenu pop" role="dialog" aria-modal="true" aria-label="Menu" onClick={(e) => e.stopPropagation()}>
           <div className="pmenu-head">
-            <b>{agent.label}</b>
+            <b>
+              {agent.name ?? agent.label}
+              {agent.plan ? <small className="pmenu-plan">{agent.plan}</small> : null}
+            </b>
             <button type="button" className="pmenu-x" onClick={() => setMenuOpen(false)} aria-label="Close">×</button>
           </div>
           <ul>
@@ -2113,6 +2133,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                       setMenuOpen(false);
                       if (a.kind === "profile") goTo(movePageId("/profile"));
                       else if (a.kind === "welcome") setWelcomeOpen(true);
+                      else if (a.kind === "help") setGuide(true);
+                      else if (a.kind === "billing") void openBilling();
                       else if (a.kind === "site") void editSite(a.host, a.next);
                     }}
                   >

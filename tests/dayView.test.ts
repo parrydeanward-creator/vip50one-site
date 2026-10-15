@@ -34,3 +34,23 @@ test("a fixed appointment never moves, even once its time has passed", () => {
   assert.deepEqual([rows[0].start, rows[0].movedFrom], ["12:30", null]);
   assert.deepEqual([rows[1].start, rows[1].movedFrom, rows[1].isNow], ["16:05", "13:45", true]);
 });
+
+test("no calls at night: past the end of the working day rows move to tomorrow (walker 14 Oct, Parry approved)", () => {
+  const hours = { start: "08:00", end: "17:30" };
+  const rows = slideSlots([s("a", "09:00", 10), s("b", "09:10", 10), s("c", "09:20", 10)], "20:35", hours);
+  assert.ok(rows.every((r) => r.tomorrow && !r.isNow));
+  const g = groupRows(rows);
+  assert.equal(g[0].key, "tomorrow");
+  assert.equal(nowStrip(g, "20:35", hours), "Day done · 3 move to tomorrow");
+  assert.match(groupHead(g[0]), /^Tomorrow · 3/);
+  // late afternoon: what fits stays today, the rest goes to tomorrow
+  const late = slideSlots([s("a", "09:00", 20), s("b", "09:20", 20), s("c", "09:40", 20)], "17:00", hours);
+  assert.deepEqual(late.map((r) => r.tomorrow), [false, false, true]);
+  assert.equal(nowStrip(groupRows(late), "17:00", hours), "Now: Power Hour · 2 calls (until 5:40pm)");
+});
+
+test("before the working day: the pill says when today starts", () => {
+  const hours = { start: "08:00", end: "17:30" };
+  const g = groupRows(slideSlots([s("a", "08:00", 10), s("b", "08:10", 10)], "06:40", hours));
+  assert.equal(nowStrip(g, "06:40", hours), "Today starts 8:00am with Power Hour · 2 calls");
+});
