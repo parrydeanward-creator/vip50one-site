@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { chimeOn, setChime } from "@/lib/chime.ts";
 import { calendarDisconnectUrl, calendarSyncUrl, connectCalendarUrl, connectContactsUrl, googleDisconnectUrl, googlePhotosUrl, googleStatusUrl, readGoogle, shortWhen, type GoogleState } from "@/lib/googleLink.ts";
 import { membershipUrl, planName, readMembership, standing, type Membership } from "@/lib/membership.ts";
+import { badgesUrl, pct, readBadges, type Badges } from "@/lib/badges.ts";
 import { NOTIFY_KEYS, NOTIFY_LABEL, notifyUrl, readNotify, type NotifyKey, type NotifyPrefs } from "@/lib/notifyPrefs.ts";
 
 // My Profile cards that ONE MOVE's Classic profile has too (Parry, 14 Oct, hard rule: every My Profile item on both
@@ -11,7 +12,9 @@ import { NOTIFY_KEYS, NOTIFY_LABEL, notifyUrl, readNotify, type NotifyKey, type 
 
 const json = (r: Response) => (r.ok ? r.json() : null);
 
-export function MembershipSection() {
+/** The plan, small, in the header beside the photo (Parry, 14-15 Oct: "move the membership type up in the header with
+ * the profile pic. make it much smaller"), with Manage billing when Stripe bills them. */
+export function MembershipBadge() {
   const [m, setM] = useState<Membership | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -32,18 +35,13 @@ export function MembershipSection() {
     setBusy(false);
   };
   return (
-    <section className="pf-card" aria-label="Membership">
-      <h2>Membership</h2>
-      <p className="pf-big">{planName(m)}</p>
-      <small className={`pf-sub${s.warn ? " warn" : ""}`}>{s.text}</small>
+    <p className={`pf-plan${s.warn ? " warn" : ""}`}>
+      <span>{planName(m)}{m.access === "comp" ? " · Comped" : s.warn ? ` · ${s.text}` : ""}</span>
       {m.stripe ? (
-        <div className="pf-btns">
-          <button type="button" className="chip-btn primary" disabled={busy} onClick={() => void open()}>{busy ? "Opening…" : "Manage billing"}</button>
-          <small className="pf-sub">Card, invoices and cancelling, in Stripe's secure page.</small>
-        </div>
+        <button type="button" className="pf-plan-btn" disabled={busy} onClick={() => void open()}>{busy ? "Opening…" : "Manage billing"}</button>
       ) : null}
-      {err ? <small className="pf-sub warn" role="alert">{err}</small> : null}
-    </section>
+      {err ? <small role="alert">{err}</small> : null}
+    </p>
   );
 }
 
@@ -161,5 +159,45 @@ export function NotificationsSection() {
       </label>
       {err ? <small className="pf-sub warn" role="alert">{err}</small> : null}
     </section>
+  );
+}
+
+/** Badges tab: this week's badges with progress, then the milestone badges, earned ones lit. */
+export function BadgesSection() {
+  const [b, setB] = useState<Badges | null>(null);
+  useEffect(() => {
+    fetch(badgesUrl, { cache: "no-store" }).then(json).then((j) => setB(readBadges(j))).catch(() => {});
+  }, []);
+  if (!b) return <p className="pf-sub">Loading your badges…</p>;
+  return (
+    <>
+      <section className="pf-card pf-span" aria-label="This week's badges">
+        <h2>This week</h2>
+        <small className="pf-sub">Earned, never given: each one unlocks when you reach its number this week.</small>
+        <ul className="bd-tiles">
+          {b.weekly.map((x) => (
+            <li key={x.name} className={x.earned ? "on" : undefined}>
+              <b>{x.name}</b>
+              <span className="bd-bar"><i style={{ width: `${pct(x.count, x.target)}%` }} /></span>
+              <small>{x.earned ? "Earned this week" : `${x.count} of ${x.target}`}{x.times ? ` · ${x.times} in all` : ""}</small>
+            </li>
+          ))}
+        </ul>
+      </section>
+      {b.milestones.length ? (
+        <section className="pf-card pf-span" aria-label="Milestone badges">
+          <h2>Milestones</h2>
+          <ul className="bd-tiles">
+            {b.milestones.map((x) => (
+              <li key={x.name} className={x.earned ? "on" : undefined}>
+                <b>{x.name}</b>
+                {x.description ? <small>{x.description}</small> : null}
+                {x.earned ? <small>Earned{x.earnedAt ? ` ${x.earnedAt.slice(0, 10)}` : ""}</small> : x.target ? <span className="bd-bar"><i style={{ width: `${pct(x.progress, x.target)}%` }} /></span> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </>
   );
 }

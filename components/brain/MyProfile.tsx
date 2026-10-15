@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LeadMailSection, OwnAISection, PulseModesSection } from "./ConnectSections.tsx";
 import RezenSection from "./RezenSection.tsx";
-import { GoogleSections, MembershipSection, NotificationsSection } from "./ProfileCards.tsx";
-import { brokerageAsk, ABOUT, ABOUT_MAX, CONNECTIONS, FIELDS, TIME_ZONES, UPLOAD_MAX, aboutChanges, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, winsChange, WINS_MAX, type Profile } from "@/lib/profile.ts";
+import { BadgesSection, GoogleSections, MembershipBadge, NotificationsSection } from "./ProfileCards.tsx";
+import { brokerageAsk, CONNECTIONS, FIELDS, TIME_ZONES, UPLOAD_MAX, aboutChanges, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, winsChange, WINS_MAX, type Profile } from "@/lib/profile.ts";
 
 /** Draw the photo at most 1200px on the long side as a JPEG, so it fits ONE MOVE's 4 MB limit. */
 async function shrink(file: File): Promise<Blob> {
@@ -24,6 +24,14 @@ async function shrink(file: File): Promise<Blob> {
   if (file.size <= UPLOAD_MAX) return file;
   throw new Error("That photo is too large to send. Choose a smaller one or a JPEG.");
 }
+
+const PF_TABS = [
+  { key: "connections", label: "Connections" },
+  { key: "badges", label: "Badges" },
+  { key: "settings", label: "Settings" },
+  { key: "pulse", label: "Pulse" },
+] as const;
+type PfTab = (typeof PF_TABS)[number]["key"];
 
 // VIP-SUMMARY §3j / PROFILE.md: the one My Profile for the whole system, in
 // ONE Brain. The headshot in a gold ring (preview before saving), the facts
@@ -47,6 +55,18 @@ export default function MyProfile({
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ file: File; preview: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // /dashboard/profile#pulse (and #badges, #settings, #connections) opens that section, as Classic does.
+  const [tab, setTab] = useState<PfTab>("connections");
+  useEffect(() => {
+    const h = window.location.hash.slice(1);
+    if (PF_TABS.some((t) => t.key === h)) setTab(h as PfTab);
+  }, []);
+  const pickTab = (t: PfTab) => {
+    setTab(t);
+    try {
+      window.history.replaceState(null, "", `#${t}`);
+    } catch {}
+  };
 
   const load = useCallback(async () => {
     let r: Response;
@@ -198,6 +218,7 @@ export default function MyProfile({
             <p className="pf-kicker">My Profile</p>
             <h1>{greetingName(draft) || "You"}</h1>
             <p className="pf-sub">{saved.email}</p>
+            <MembershipBadge />
             <p className="pf-sub">One profile for ONE GO, ONE MOVE, Marquee, ONE Open and Showly.</p>
             {pending && (
               <div className="ta-log">
@@ -219,7 +240,6 @@ export default function MyProfile({
           </section>
         ) : null}
         <form className="pf-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
-          <div className="pf-fields">
           {FIELDS.map((f) => (
             <label key={f.key} className={`pf-field${f.long ? " long" : ""}`}>
               <span>{f.label}</span>
@@ -237,8 +257,6 @@ export default function MyProfile({
               {f.hint && <small>{f.hint}</small>}
             </label>
           ))}
-          </div>
-          <div className="pf-fields">
           {draft.vip_50_wins !== null && (
             <label className="pf-field long">
               <span>VIP-50 Wins</span>
@@ -246,19 +264,6 @@ export default function MyProfile({
               <small>Your milestone wins with the VIP-50 system. Shown on your member card in the Lounge.</small>
             </label>
           )}
-          {draft.about && (
-            <fieldset className="pf-about">
-              <legend>Tell Us About You</legend>
-              <small>Shown on your member card in the Lounge, so other agents get to know you.</small>
-              {ABOUT.map(([label, k]) => (
-                <label key={k} className="pf-field">
-                  <span>{label}</span>
-                  <input value={draft.about![k]} maxLength={ABOUT_MAX} onChange={(e) => setDraft({ ...draft, about: { ...draft.about!, [k]: e.target.value } })} />
-                </label>
-              ))}
-            </fieldset>
-          )}
-          </div>
           <div className="pf-actions">
             <button type="submit" className="chip-btn primary" disabled={busy || !dirty}>{busy ? "Saving…" : "Save"}</button>
             {dirty && <button type="button" className="chip-btn" onClick={() => setDraft(saved)} disabled={busy}>Undo changes</button>}
@@ -266,47 +271,64 @@ export default function MyProfile({
         </form>
         {note && <p className={`pf-note${note.ok ? "" : " bad"}`} role="status">{note.text}</p>}
 
-      <div className="pf-cards" aria-label="Connections and settings">
-        <RezenSection />
-        <MembershipSection />
-        <LeadMailSection />
-        <GoogleSections />
-        <OwnAISection />
-        <NotificationsSection />
-        {saved.share_contact_info !== null && (
-          <section className="pf-card" aria-label="Contact sharing">
-            <h2>Contact sharing</h2>
-            <label className="dc-switch">
-              <input type="checkbox" checked={!!saved.share_contact_info} disabled={busy} onChange={(e) => setShare(e.target.checked)} />
-              Show my phone and email to members
-            </label>
-            <small className="pf-sub">Off unless you switch it on. When it is off, your member card in the Lounge shows no phone, email or Call button.</small>
-          </section>
-        )}
-        <ReferralsSection />
-        <section className="pf-card" aria-label="Lofty and the Lounge">
-          <h2>Lofty and the Lounge</h2>
-          <small className="pf-sub">Lofty stays connected in ONE MOVE until your ONE site replaces it. Your posts and the community feed are in the Lounge.</small>
-          <div className="pf-btns">
-            <a className="chip-btn" href="/dashboard/lounge?tab=feed">Open the Lounge</a>
-            <button type="button" className="chip-btn" onClick={onClassic}>Lofty in ONE MOVE</button>
-          </div>
-        </section>
-        {CONNECTIONS.map((c) => (
-          <section key={c.product} className="pf-card pf-conn">
-            <h3 style={{ color: c.color }}>{c.product}</h3>
-            {c.rows.map((r) =>
-              r.href ? (
-                <a key={r.label} className="pf-row" href={r.href} target="_blank" rel="noopener noreferrer">{r.label}<span>↗</span></a>
-              ) : (
-                <p key={r.label} className="pf-row static">{r.label}<small>{r.note}</small></p>
-              ),
-            )}
-          </section>
+      {/* The same sections as Classic's My Profile (vip50-web-crm#253): Connections (reZEN first), Badges, Settings, Pulse. */}
+      <div className="pf-tabs" role="tablist" aria-label="My Profile sections">
+        {PF_TABS.map((t) => (
+          <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className={tab === t.key ? "on" : undefined} onClick={() => pickTab(t.key)}>
+            {t.label}
+          </button>
         ))}
       </div>
-      <div className="pf-wide">
-        <PulseModesSection />
+      <div className="pf-cards" role="tabpanel" aria-label={PF_TABS.find((t) => t.key === tab)?.label}>
+        {tab === "connections" ? (
+          <>
+            <RezenSection />
+            <LeadMailSection />
+            <GoogleSections />
+            <OwnAISection />
+            <section className="pf-card" aria-label="Lofty and the Lounge">
+              <h2>Lofty and the Lounge</h2>
+              <small className="pf-sub">Lofty stays connected in ONE MOVE until your ONE site replaces it. Your posts and the community feed are in the Lounge.</small>
+              <div className="pf-btns">
+                <a className="chip-btn" href="/dashboard/lounge?tab=feed">Open the Lounge</a>
+                <button type="button" className="chip-btn" onClick={onClassic}>Lofty in ONE MOVE</button>
+              </div>
+            </section>
+          </>
+        ) : tab === "badges" ? (
+          <BadgesSection />
+        ) : tab === "settings" ? (
+          <>
+            <NotificationsSection />
+            {saved.share_contact_info !== null && (
+              <section className="pf-card" aria-label="Contact sharing">
+                <h2>Contact sharing</h2>
+                <label className="dc-switch">
+                  <input type="checkbox" checked={!!saved.share_contact_info} disabled={busy} onChange={(e) => setShare(e.target.checked)} />
+                  Show my phone and email to members
+                </label>
+                <small className="pf-sub">Off unless you switch it on. When it is off, your member card in the Lounge shows no phone, email or Call button.</small>
+              </section>
+            )}
+            <ReferralsSection />
+            {CONNECTIONS.map((c) => (
+              <section key={c.product} className="pf-card pf-conn">
+                <h3 style={{ color: c.color }}>{c.product}</h3>
+                {c.rows.map((r) =>
+                  r.href ? (
+                    <a key={r.label} className="pf-row" href={r.href} target="_blank" rel="noopener noreferrer">{r.label}<span>↗</span></a>
+                  ) : (
+                    <p key={r.label} className="pf-row static">{r.label}<small>{r.note}</small></p>
+                  ),
+                )}
+              </section>
+            ))}
+          </>
+        ) : (
+          <div className="pf-span">
+            <PulseModesSection />
+          </div>
+        )}
       </div>
       <div className="controls pf-controls" role="toolbar" aria-label="Back">
         <button onClick={onBack} aria-label="Back">←</button>
