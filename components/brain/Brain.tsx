@@ -98,7 +98,7 @@ import LaunchPanel from "./LaunchPanel.tsx";
 import HeatPanel from "./HeatPanel.tsx";
 import OnboardingPanel from "./OnboardingPanel.tsx";
 import TeamWelcome from "./TeamWelcome.tsx";
-import { LATER_KEY, hiddenToday, progress as welcomeProgress, readWelcome, welcomeUrl, type Welcome } from "@/lib/teamWelcome.ts";
+import { LATER_KEY, leadView, progress as welcomeProgress, readWelcome, shouldOpen, welcomeUrl, type Welcome } from "@/lib/teamWelcome.ts";
 import { NetworkPanel, RevsharePanel } from "./RezenOrbPanel.tsx";
 import { NETWORK_NODE, REVSHARE_NODE, demoRezenRead, readNetwork as readRezenNetwork, readRevshare, withRezenNodes, type Network as RezenNetwork, type Revshare } from "@/lib/rezenOrbs.ts";
 import { rezenUrl } from "@/lib/rezen.ts";
@@ -683,6 +683,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const [siteNote, setSiteNote] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [teamSites, setTeamSites] = useState<TeamSite[]>([]);
+  const [siteRead, setSiteRead] = useState(false);
   // §6a v1.4 (Parry, 14 Oct: "yes on team sign in for their own ads"): a team agent asks the team lead for an ad.
   const [agentSites, setAgentSites] = useState<AgentTeamSite[]>([]);
   useEffect(() => {
@@ -694,7 +695,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         setTeamSites(readTeamSites(j?.team_sites));
         setAgentSites(readAgentTeamSites(j?.agent_team_sites));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setSiteRead(true));
   }, [live]);
   // Pulse posted (WEBSITES §7a): the team blog's last 7 days, for the team's owner and admins, in the morning note.
   const [teamPosts, setTeamPosts] = useState<{ host: string; posts: TeamPost[] } | null>(null);
@@ -888,23 +890,27 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   }, [onb]);
   // A new team member's welcome (TEAM-ONBOARDING §3): shown on opening the Brain until the six steps are done or
   // skipped; "Later" hides it for the rest of today, and the menu keeps a "Team setup" row.
-  const [welcome, setWelcome] = useState<Welcome | null>(null);
+  const [welcomeRaw, setWelcome] = useState<Welcome | null>(null);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
+  const welcome = useMemo(() => (welcomeRaw && teamSites.length ? leadView(welcomeRaw) : welcomeRaw), [welcomeRaw, teamSites]);
   useEffect(() => {
     if (!live) return;
     fetch(welcomeUrl, { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        const w = readWelcome(j);
-        setWelcome(w);
-        let saved: string | null = null;
-        try {
-          saved = localStorage.getItem(LATER_KEY);
-        } catch {}
-        if (w && !w.allDone && !hiddenToday(saved, todayIn())) setWelcomeOpen(true);
-      })
+      .then((j) => setWelcome(readWelcome(j)))
       .catch(() => {});
   }, [live]);
+  // Opens once both answers are in (the team lead's own consent step counts as done: leadView).
+  const welcomeChecked = useRef(false);
+  useEffect(() => {
+    if (!live || !siteRead || !welcomeRaw || welcomeChecked.current) return;
+    welcomeChecked.current = true;
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(LATER_KEY);
+    } catch {}
+    if (shouldOpen(welcome, saved, todayIn())) setWelcomeOpen(true);
+  }, [live, siteRead, welcomeRaw, welcome]);
   const welcomeLater = () => {
     setWelcomeOpen(false);
     try {
