@@ -2204,3 +2204,6 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .ob-ready { margin: 0; color: var(--text); }
 .ob-nudge { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--gold-2); border-radius: 12px; background: rgba(245, 197, 66, 0.06); }
 .ob-nudge p { margin: 0; }
+/* Ask Pulse: call a person straight from the answer (walker, 14 Oct) */
+.ask-call { display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; color: #7ee2a8; font-size: 13px; text-decoration: none; }
+.ask-call:hover { border-color: #7ee2a8; }

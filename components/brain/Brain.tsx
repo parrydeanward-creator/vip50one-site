@@ -22,7 +22,7 @@ import { UPGRADE_URL } from "@/lib/products.ts";
 import type { BrainScene } from "./scene.ts";
 import Icon from "./Icon.tsx";
 import { iconFor, iconForText } from "@/lib/brain/icons.ts";
-import { SUGGESTED, answerSet, factsFor, type AskAnswer } from "@/lib/ask.ts";
+import { LIVE_SUGGESTED, SUGGESTED, answerSet, factsFor, type AskAnswer } from "@/lib/ask.ts";
 import { changesSince, firstVisitToday, groupChanges, morningTop, orbsToPing, sinceLabel, visitAnchor } from "@/lib/morning.ts";
 import type { ChangeNote } from "@/lib/graph/types.ts";
 import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib/signals.ts";
@@ -1601,6 +1601,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // to take you to that contact"); anything else moves the map there.
   const [contactOpen, setContactOpen] = useState<{ id: string; k: number } | null>(null);
   const [pageQuery, setPageQuery] = useState<{ path: string; query: string } | null>(null);
+  // A person from Pulse's lookups (not always on the map): their contact card in the Brain, never Classic.
+  const openPerson = (contactId: string) => {
+    const page = movePageId("/contacts");
+    if (!ix.byId.has(page)) return;
+    setAsk(null);
+    setContactOpen({ id: contactId, k: Date.now() });
+    goTo(page);
+  };
   const goToNode = (id: string) => {
     const n = ix.byId.get(id);
     const page = movePageId("/contacts");
@@ -1632,9 +1640,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     };
   }, [live, refreshLive]);
 
+  // Clear empties the box and the answer together (walker, 14 Oct).
   const clearAsk = useCallback(() => {
     setAsk(null);
     setAskErr(null);
+    setAskText("");
   }, []);
   const goBack = useCallback(() => {
     setHighlight(null);
@@ -2242,11 +2252,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                 maxLength={300}
                 enterKeyHint="search"
               />
-              {ask && !asking ? (
-                <button type="button" className="ask-go ghost" onClick={clearAsk} aria-label="Clear the answer">
+              {(ask || askText) && !asking ? (
+                <button type="button" className="ask-go ghost" onClick={clearAsk} aria-label="Clear the question and the answer">
                   ✕
                 </button>
-              ) : (
+              ) : null}
+              {ask && !asking ? null : (
                 <button type="submit" className="ask-go" disabled={asking || !askText.trim()} aria-busy={asking}>
                   {asking ? "…" : "Ask"}
                 </button>
@@ -2254,7 +2265,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </div>
             {askOpen && (
               <ul className="ask-sugs pop" aria-label="Suggested questions">
-                {SUGGESTED.map((q) => (
+                {(live ? LIVE_SUGGESTED : SUGGESTED).map((q) => (
                   <li key={q}>
                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => askOne(q)}>
                       {q}
@@ -2389,6 +2400,30 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             <p className="ask-q">{ask.question}</p>
             <p className="ask-a">{ask.answer}</p>
             {ask.source === "ai" && <p className="d-src">Answered from your business, just now</p>}
+            {ask.people?.length ? (
+              <div className="d-recs">
+                <h2>People</h2>
+                <ul>
+                  {ask.people.map((p) => (
+                    <li key={p.contactId} className="rec">
+                      <p className="rec-title">{p.name}</p>
+                      {p.reasons.length ? <p className="ask-sub">{p.reasons.join(" · ")}</p> : null}
+                      <div className="rec-actions">
+                        <button className="link" onClick={() => openPerson(p.contactId)}>
+                          Open {p.name} →
+                        </button>
+                        {p.phone ? (
+                          <a className="ask-call" href={`tel:${p.phone}`} aria-label={`Call ${p.name}`} title={`Call ${p.name}`}>
+                            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" /></svg>
+                            Call
+                          </a>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             {ask.results.length > 0 && (
               <div className="d-recs">
                 <h2>Pulse found</h2>

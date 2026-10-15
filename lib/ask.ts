@@ -11,11 +11,41 @@ export interface AskResult {
   reasons: string[];
 }
 
+/** A person Pulse found with its lookups (lib/askTools.ts), not necessarily on the map; opens their contact card. */
+export interface AskPerson {
+  contactId: string;
+  name: string;
+  phone: string | null;
+  reasons: string[];
+}
+
 export interface AskAnswer {
   question: string;
   answer: string;
   results: AskResult[];
   source: "ai" | "rules";
+  people?: AskPerson[];
+}
+
+export const PEOPLE_SHOWN = 10;
+
+/** The people in Pulse's answer: only ones its own lookups returned (never invented), each with facts it was given. */
+export function checkPeople(raw: unknown, found: Map<string, { name: string; phone: string | null; facts: string[] }>): AskPerson[] {
+  const out: AskPerson[] = [];
+  const seen = new Set<string>();
+  for (const r of Array.isArray(raw) ? raw : []) {
+    const id = typeof r?.contact_id === "string" ? r.contact_id : "";
+    const p = found.get(id);
+    if (!p || seen.has(id)) continue;
+    seen.add(id);
+    const given = (Array.isArray(r.reasons) ? r.reasons : [])
+      .filter((x: unknown): x is string => typeof x === "string")
+      .map((x: string) => clip(x.trim(), 160))
+      .filter((x: string) => x && !claimsAction(x));
+    out.push({ contactId: id, name: p.name, phone: p.phone, reasons: given.length ? given.slice(0, 3) : p.facts.slice(0, 3) });
+    if (out.length === PEOPLE_SHOWN) break;
+  }
+  return out;
 }
 
 export const SUGGESTED = [
@@ -23,6 +53,14 @@ export const SUGGESTED = [
   "Who should I call today?",
   "Which relationships am I neglecting?",
   "How am I tracking?",
+];
+
+/** On a live account Pulse can look anything up (lib/askTools.ts), so it suggests what only the lookups answer. */
+export const LIVE_SUGGESTED = [
+  "What needs my attention today?",
+  "Who haven't I called in 60 days?",
+  "Whose birthday is this week?",
+  "Who is Hot right now?",
 ];
 
 export const MAX_RESULTS = 6;
@@ -274,7 +312,9 @@ export interface AskItem {
 }
 
 export function askItems(ix: GraphIndex, a: AskAnswer): AskItem[] {
-  return a.results.flatMap((r) => {
+  // People from Pulse's lookups first: each opens its own contact.
+  const people: AskItem[] = (a.people ?? []).map((p) => ({ title: p.name, reasons: p.reasons, ref: null, contact_id: p.contactId, link: `https://move.vip50one.com/contacts/${p.contactId}` }));
+  return people.concat(a.results.flatMap((r) => {
     const n = ix.byId.get(r.id);
     if (!n) return [];
     return [
@@ -287,5 +327,5 @@ export function askItems(ix: GraphIndex, a: AskAnswer): AskItem[] {
         link: n.contactId ? `https://move.vip50one.com/contacts/${n.contactId}` : n.href && /^https:\/\//.test(n.href) ? n.href : null,
       },
     ];
-  });
+  }));
 }
