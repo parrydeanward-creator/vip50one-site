@@ -7,6 +7,8 @@ import type { PackageId } from "@/lib/types.ts";
 import { signedInBundle } from "@/lib/server/live.ts";
 import { bearerOf } from "@/lib/bearer.ts";
 import { askItems } from "@/lib/ask.ts";
+import { bearerClient, identity, masterClient } from "@/lib/server/auth.ts";
+import { todayDenver } from "@/lib/server/askData.ts";
 
 // Ask ONE: POST { question, package } -> { answer, results[{id, reasons}], source }.
 // Claude when ANTHROPIC_API_KEY is set, plain rules otherwise (lib/askAI.ts).
@@ -29,11 +31,14 @@ export async function POST(req: Request) {
     const answer = await askOne(question, indexGraph(oneYouView(demoGraph(pkg))), `demo|${pkg}`);
     return Response.json(answer, { headers: { "Cache-Control": "no-store" } });
   }
-  const live = await signedInBundle(bearerOf(req));
-  if (!live?.bundle) return Response.json({ error: "Sign in first." }, { status: 401 });
+  const token = bearerOf(req);
+  const [live, who] = await Promise.all([signedInBundle(bearerOf(req)), identity(token)]);
+  if (!live?.bundle || !who) return Response.json({ error: "Sign in first." }, { status: 401 });
   const { me } = live;
   const { graph } = live.bundle;
   const ix = indexGraph(graph);
-  const answer = await askOne(question, ix, `live|${me.email}|${new Date().toISOString().slice(0, 13)}`);
+  // Pulse's read-only lookups use the agent's own session, and only ever the agent's own rows (lib/server/askData.ts).
+  const ctx = { sb: token ? bearerClient(token) : await masterClient(), userId: who.id, today: todayDenver() };
+  const answer = await askOne(question, ix, `live|${me.email}|${new Date().toISOString().slice(0, 13)}`, ctx);
   return Response.json({ ...answer, items: askItems(ix, answer) }, { headers: { "Cache-Control": "no-store" } });
 }
