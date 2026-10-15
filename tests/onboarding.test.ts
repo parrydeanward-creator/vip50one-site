@@ -43,3 +43,9 @@ test("no board, no orb", () => {
 test("the line says the day, where they are and what is next", () => {
   assert.equal(onbLine(demoOnboarding()[1]), "Day 2 · 3 of 6 done · next: First VIPs");
 });
+
+test("the board lists who was removed in the last 30 days", async () => {
+  const { readRemoved } = await import("../lib/onboarding.ts");
+  assert.deepEqual(readRemoved({ removed: [{ user_id: "x", name: "Bo", left_at: "2026-10-15T18:00:00Z" }] }), ["Bo: removed on Oct 15"]);
+  assert.deepEqual(readRemoved({ members: [] }), []);
+});
