@@ -4,7 +4,7 @@ import { addGoals, type GoalKey } from "./goals.ts";
 import { includes } from "./products.ts";
 import { MOVE_BOTTOM, MOVE_GROUPS, moveGroupId, moveMenuHref, movePageId } from "./moveMenu.ts";
 import type { DayItem, DayKind } from "./day.ts";
-import type { BusinessGraph, GraphEdge, GraphNode, NodeStatus, ProductKey } from "./graph/types.ts";
+import type { BusinessGraph, DatedNote, GraphEdge, GraphNode, NodeStatus, ProductKey } from "./graph/types.ts";
 import type { DashboardData, Item, ItemKind, PackageId, ProductSummary } from "./types.ts";
 
 // Real data: each product's answer to the vip_summary contract (vip50-ecosystem
@@ -313,6 +313,7 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
   const extra = open.map((p) => ({ p, items: p === "open" ? [...booking, ...otherItems(p, others[p])] : otherItems(p, others[p]) }));
   const tagged: { it: SummaryItem; p?: OtherKey }[] = [...items.map((it) => ({ it })), ...extra.flatMap(({ p, items: xs }) => xs.map((it) => ({ it, p })))];
   const due = tagged.filter(({ it }) => isToday(it)).map(({ it }) => it);
+  const listingDated: DatedNote[] = [];
   add({
     id: "one",
     type: "core",
@@ -556,6 +557,10 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
     });
     // VIP-SUMMARY §3a: Marquee's listings as homes, even when nothing is due.
     const homes = (a?.env?.listings ?? []).filter((l) => l.ref && l.address).slice(0, 20);
+    if (p === "marquee")
+      for (const l of homes)
+        for (const [day, word] of [[l.live_on, "Went live"], [l.under_contract_on, "Under contract"], [l.closed_on, "Closed"]] as const)
+          if (day && /^\d{4}-\d{2}-\d{2}/.test(day)) listingDated.push({ id: `marquee:listing:${l.ref}`, product: "marquee", at: `${day.slice(0, 10)}T18:00:00.000Z`, what: `${word}: ${l.address.split(",")[0].trim()}.` });
     if (p === "marquee" && homes.length) {
       add({ id: "marquee-listings", type: "category", label: "Your listings", secondaryLabel: `${homes.length} ${homes.length === 1 ? "home" : "homes"}`, parentId: p, product: p, importance: 1.02, status: "healthy", summary: "Your listings in Marquee: live, under contract and recently closed." });
       homes.forEach((l, j) => add({
@@ -614,9 +619,14 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
       });
     }
   }
-  const dated = tagged
-    .filter(({ it: i }) => i.due && nodes.some((n) => n.id === nodeId(i)))
-    .map(({ it: i, p }) => ({ id: nodeId(i), product: productOf(i, p), at: `${i.due}T18:00:00.000Z`, what: i.title }));
+  // The timeline's product-side dates (walker audit 02): open houses coming and Marquee listings' milestones. Today's
+  // to-dos are not dated history; the rest of the feed comes from MASTER (app/api/timeline, lib/timelineFeed.ts).
+  const dated: DatedNote[] = [
+    ...tagged
+      .filter(({ it: i }) => i.kind === "open_house" && i.due && i.due > o.today && nodes.some((n) => n.id === nodeId(i)))
+      .map(({ it: i, p }) => ({ id: nodeId(i), product: productOf(i, p), at: `${i.due}T18:00:00.000Z`, what: `Open house: ${i.title}.` })),
+    ...listingDated.filter((d) => nodes.some((n) => n.id === d.id)),
+  ];
 
   for (const n of nodes) if (n.contactId && glow.has(n.contactId)) n.celebrate = true;
   const week = weekly?.value != null ? { score: weekly.value, minimum: 100 } : undefined;

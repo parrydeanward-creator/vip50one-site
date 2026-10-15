@@ -24,9 +24,9 @@ import Icon from "./Icon.tsx";
 import { iconFor, iconForText } from "@/lib/brain/icons.ts";
 import { LIVE_SUGGESTED, SUGGESTED, answerSet, factsFor, type AskAnswer } from "@/lib/ask.ts";
 import { changesSince, firstVisitToday, groupChanges, morningTop, orbsToPing, sinceLabel, visitAnchor } from "@/lib/morning.ts";
-import type { ChangeNote } from "@/lib/graph/types.ts";
+import type { ChangeNote, DatedNote } from "@/lib/graph/types.ts";
 import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib/signals.ts";
-import { RANGE, dayLabel, inWindow, offsetLabel, windowTitle } from "@/lib/timeline.ts";
+import { RANGE, byWeek, dayLabel, inWindow, offsetLabel, productOrbs, whereLabel, windowTitle } from "@/lib/timeline.ts";
 import { clock, completedBy, duration, isEvening, planDay, recap, type DayItem, type Slot } from "@/lib/day.ts";
 import { localDay } from "@/lib/morning.ts";
 import PulseMark from "./PulseMark.tsx";
@@ -333,8 +333,22 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const whenRef = useRef(when);
   whenRef.current = when;
   const [now] = useState(() => new Date());
-  const dated = useMemo(() => (tour || ask ? [] : inWindow(graph.dated, when, now, ix)), [graph.dated, when, now, ix, tour, ask]);
-  const datedIds = useMemo(() => [...new Set(dated.map((d) => d.id))], [dated]);
+  // The real dated feed from MASTER (app/api/timeline): read the first time the slider moves, signed in only.
+  const [feed, setFeed] = useState<DatedNote[] | null>(null);
+  const feedAsked = useRef(false);
+  useEffect(() => {
+    if (!live || when === 0 || feedAsked.current) return;
+    feedAsked.current = true;
+    fetch("/api/timeline", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setFeed(Array.isArray(j?.dated) ? j.dated : []))
+      .catch(() => setFeed([]));
+  }, [live, when]);
+  const allDated = useMemo(() => [...(graph.dated ?? []), ...(feed ?? [])], [graph.dated, feed]);
+  const dated = useMemo(() => (tour || ask ? [] : inWindow(allDated, when, now, ix)), [allDated, when, now, ix, tour, ask]);
+  // The map keeps the product orbs and lights the ones with something in the stretch (walker audit 02).
+  const datedIds = useMemo(() => productOrbs(dated, ix), [dated, ix]);
+  const productIds = useMemo(() => childrenOf(ix, graph.rootId).filter((n) => n.type === "product").map((n) => n.id), [ix, graph.rootId]);
   const timeline = when !== 0 && !tour && !ask;
   // Your day: today's work in order, with times; done as the products report
   // it (or the agent ticks it), compiled in the evening.
@@ -1218,11 +1232,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
         : ask
           ? answerSet(ix, askIds)
           : timeline
-            ? answerSet(ix, datedIds)
+            ? answerSet(ix, productIds)
             : dayView
               ? answerSet(ix, dayIds)
               : visibleSet(ix, focus.id, phone ? PHONE_BUDGET : DESKTOP_BUDGET),
-    [ix, focus.id, phone, ask, askIds, tour, timeline, datedIds, dayView, dayIds],
+    [ix, focus.id, phone, ask, askIds, tour, timeline, productIds, dayView, dayIds],
   );
   const placed = useMemo(() => layout(vs), [vs]);
   // ONE MOVE focused: the rail is ONE MOVE's main menu, as in Classic (Parry, 3 Oct).
@@ -2539,7 +2553,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             </div>
             <h1 className="d-title">{windowTitle(when)}</h1>
             <p className="d-sum">
-              {dated.length
+              {live && feed === null
+                ? "Reading your history and what is coming..."
+                : dated.length
                 ? when < 0
                   ? `${dated.length} ${dated.length === 1 ? "thing" : "things"} happened across your business.`
                   : `${dated.length} ${dated.length === 1 ? "thing is" : "things are"} coming up.`
@@ -2547,25 +2563,28 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                   ? "Nothing recorded in this stretch."
                   : "Nothing on the calendar yet."}
             </p>
-            {dated.length > 0 && (
-              <ul className="tl-list">
-                {dated.map((d) => {
-                  const n = ix.byId.get(d.id)!;
-                  return (
-                    <li key={`${d.id}-${d.at}`}>
-                      <button onClick={() => goTo(d.id)}>
-                        <span className="tl-day">{dayLabel(d.day, d.at)}</span>
-                        <span className="tl-body">
-                          <small style={{ color: hex(PRODUCT_COLOR[d.product]) }}>{productName(d.product)}</small>
-                          {d.what}
-                        </span>
-                        <em aria-label={`Go to ${n.label}`}>→</em>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+            {byWeek(dated, now).map((wk) => (
+              <div key={wk.label} className="tl-week">
+                <p className="tl-week-h">{wk.label}</p>
+                <ul className="tl-list">
+                  {wk.rows.map((d, k) => {
+                    const n = ix.byId.get(d.id);
+                    return (
+                      <li key={`${d.id}-${d.at}-${k}`}>
+                        <button onClick={() => (d.contactId ? openPerson(d.contactId) : goTo(d.id))}>
+                          <span className="tl-day">{dayLabel(d.day, d.at)}</span>
+                          <span className="tl-body">
+                            <small style={{ color: hex(PRODUCT_COLOR[d.product]) }}>{whereLabel(d.product)}</small>
+                            {d.what}
+                          </span>
+                          <em aria-label={d.contactId ? "Open their card" : `Go to ${n?.label ?? whereLabel(d.product)}`}>→</em>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
             <button className="btn btn-wide ghost-btn" onClick={() => setWhen(0)}>
               ← Back to today
             </button>

@@ -114,6 +114,7 @@ export interface DatedNote {
   product: ProductKey;
   at: string; // ISO time
   what: string;
+  contactId?: string; // the person it is about, when there is one (opens their card)
 }
 
 export interface BusinessGraph {

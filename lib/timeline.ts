@@ -1,5 +1,6 @@
 import type { DatedNote } from "./graph/types.ts";
-import type { GraphIndex } from "./graph/model.ts";
+import { pathTo, type GraphIndex } from "./graph/model.ts";
+import { productName } from "./products.ts";
 import { candidates } from "./ask.ts";
 
 // The timeline slider (BRAIN-HANDOFF.md feature 5): PAST <- TODAY -> FUTURE.
@@ -24,21 +25,66 @@ export function dayOffset(at: string, now: Date): number {
 
 // What the map shows at `offset` days from today: everything dated between
 // today and that day (past or future), nearest to today first, only items the
-// agent has, at most MAX_SHOWN distinct nodes.
+// agent has (a product orb counts), at most MAX_SHOWN distinct orbs and MAX_ROWS rows.
+// Past is what happened up to today; future starts tomorrow (today is the normal map).
+export const MAX_ROWS = 60;
 export function inWindow(dated: DatedNote[] | undefined, offset: number, now: Date, ix: GraphIndex): (DatedNote & { day: number })[] {
   if (!offset) return [];
-  const ok = new Set(candidates(ix).map((n) => n.id));
+  const ok = new Set([
+    ...candidates(ix).map((n) => n.id),
+    ...ix.graph.nodes.filter((n) => n.type === "product" && !n.locked).map((n) => n.id),
+  ]);
   const rows = (dated ?? [])
     .map((d) => ({ ...d, day: dayOffset(d.at, now) }))
-    .filter((d) => ok.has(d.id) && (offset < 0 ? d.day <= 0 && d.day >= offset : d.day >= 0 && d.day <= offset))
-    .sort((a, b) => Math.abs(a.day) - Math.abs(b.day) || a.at.localeCompare(b.at));
+    .filter((d) => ok.has(d.id) && (offset < 0 ? d.day <= 0 && d.day >= offset : d.day > 0 && d.day <= offset))
+    .sort((a, b) => Math.abs(a.day) - Math.abs(b.day) || (offset < 0 ? b.at.localeCompare(a.at) : a.at.localeCompare(b.at)));
   const ids = new Set<string>();
-  return rows.filter((r) => {
-    if (ids.has(r.id)) return true;
-    if (ids.size >= MAX_SHOWN) return false;
-    ids.add(r.id);
-    return true;
-  });
+  return rows
+    .filter((r) => {
+      if (ids.has(r.id)) return true;
+      if (ids.size >= MAX_SHOWN) return false;
+      ids.add(r.id);
+      return true;
+    })
+    .slice(0, MAX_ROWS);
+}
+
+// The product orb each item lives under (walker audit 02: keep the five product orbs and light the ones with
+// something in the chosen stretch).
+export function productOrbs(rows: DatedNote[], ix: GraphIndex): string[] {
+  const out: string[] = [];
+  for (const r of rows) {
+    const top = pathTo(ix, r.id).find((n) => n.type === "product");
+    if (top && !out.includes(top.id)) out.push(top.id);
+  }
+  return out;
+}
+
+// Where it lives in the Brain, as the agent reads it: ONE YOU (not ONE GO, the phone app), ONE MOVE, Marquee, ...
+export function whereLabel(product: DatedNote["product"]): string {
+  if (product === "go") return "ONE YOU";
+  if (product === "move") return "ONE MOVE";
+  return product === "one" ? "ONE" : productName(product);
+}
+
+// Rows grouped by week (Monday to Sunday): "This week", "Last week", "Next week", "Week of Oct 6".
+export function byWeek<T extends { day: number; at: string }>(rows: T[], now: Date): { label: string; rows: T[] }[] {
+  const today = Date.parse(`${localDate(now)}T00:00:00Z`);
+  const dow = (new Date(today).getUTCDay() + 6) % 7; // Monday = 0
+  const out: { label: string; rows: T[]; w: number }[] = [];
+  for (const r of rows) {
+    const w = Math.floor((r.day + dow) / 7);
+    let g = out.find((x) => x.w === w);
+    if (!g) {
+      const monday = new Date(today + (w * 7 - dow) * 86400_000);
+      const label =
+        w === 0 ? "This week" : w === -1 ? "Last week" : w === 1 ? "Next week" : `Week of ${new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" }).format(monday)}`;
+      g = { label, rows: [], w };
+      out.push(g);
+    }
+    g.rows.push(r);
+  }
+  return out.map(({ label, rows }) => ({ label, rows }));
 }
 
 export function offsetLabel(offset: number): string {
