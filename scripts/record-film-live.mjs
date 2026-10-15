@@ -73,15 +73,16 @@ const point = async (l) => {
   await wait(550);
 };
 // Ring it, move to it, press it.
-const use = async (l, after = 500) => {
+const use = async (l, after = 500, force = false) => {
   const x = loc(l);
   await x.waitFor({ state: "visible", timeout: 15000 * SLOW });
-  await x.scrollIntoViewIfNeeded().catch(() => {});
+  if (!force) await x.scrollIntoViewIfNeeded({ timeout: 1500 }).catch(() => {}); // orbs on the map never scroll
   await ring(x);
   await point(x);
   await p.evaluate(() => { const c = document.getElementById("film-cursor"); if (c) { c.style.transform = "scale(.7)"; setTimeout(() => (c.style.transform = ""), 450); } });
   // The map's orb buttons sit under the orb hint and moving layers; a press that is blocked is forced through.
-  await x.click({ timeout: 4000 * SLOW }).catch(() => x.click({ force: true }));
+  if (force) await x.click({ force: true });
+  else await x.click({ timeout: 4000 * SLOW }).catch(() => x.click({ force: true }));
   await wait(after);
 };
 // Back to the whole map: the "ONE" crumb in the header (works from every view, ONE MOVE's menu included).
@@ -105,78 +106,109 @@ const home = async () => {
 const rail = (t) => p.locator(".rail button", { hasText: t });
 
 // One entry a moment: what is used while the voice says the line.
-// ONE MOVE's menu groups (People ▸, Trackers ▸) fold; open the one a page sits in before using the page.
-const inPeople = async (label) => {
-  if (!(await rail("People▾").count())) await use(rail("People"), 150);
-  await use(rail(label), 300);
-  await unring(); // the menu row it circled is gone once the page opens
+// Each moment: `prep` gets the screen one step away just before the cue (quick, no ring), `act` is the thing the
+// voice names, done on the cue with the ring (Parry, 15 Oct: the screens came "way past when they should be").
+const quick = async (l) => {
+  const x = loc(l);
+  await x.waitFor({ state: "visible", timeout: 8000 * SLOW });
+  await x.scrollIntoViewIfNeeded().catch(() => {});
+  await x.click({ timeout: 3000 * SLOW }).catch(() => x.click({ force: true }));
+  await wait(250);
 };
-const phonePage = async (label) => {
-  await use('.canvas-wrap button[aria-label^="ONE MOVE"]', 400);
-  await use(p.locator(".drawer button", { hasText: label }), 400);
-  const page = p.locator(".drawer button", { hasText: label });
-  if (await page.count()) await use(page, 300);
+const openPeople = async () => {
+  if (!(await rail("People▾").count())) await quick(rail("People"));
+};
+const clearAsk = async () => {
+  const clear = p.locator('[aria-label^="Clear the question"]');
+  if (await clear.first().isVisible().catch(() => false)) await clear.first().click({ timeout: 1000 }).catch(() => {});
+  await wait(200);
+  await p.locator(".ask-field input, .ask-field textarea").first().fill("").catch(() => {});
+};
+// The ONE MOVE row for a page: on a desktop the menu column, on a phone the row in the panel under the map.
+const movePrep = async (label) => {
+  await home();
+  if (tall) {
+    await quick('.canvas-wrap button[aria-label^="ONE MOVE"]');
+    await quick(p.locator(".drawer button", { hasText: label }));
+  } else {
+    await quick(rail("ONE MOVE"));
+    await openPeople();
+  }
+};
+const moveAct = async (label) => {
+  // Ring and press at once (no cursor glide): the page is on screen as the voice names it.
+  const x = tall ? p.locator(".drawer button", { hasText: label }).first() : rail(label).first();
+  await ring(x);
+  await x.click({ timeout: 3000 * SLOW }).catch(() => x.click({ force: true }));
+  await wait(200);
   await unring();
   await p.evaluate(() => window.scrollTo(0, 0));
 };
 const MOMENTS = {
-  13: async () => { await use(".next-pill", 1200); },
-  14: async () => {
-    await use(".pm-open", 700);
-    const ok = p.getByRole("button", { name: /^Looks good$/ }).first();
-    if (await ok.count()) await use(ok, 700);
-    const back = p.locator('[aria-label="Back to the Brain"]').first();
-    if (await back.count()) await back.click().catch(() => {});
-    await wait(300);
-    const done = p.locator(".drawer button", { hasText: /Done/ }).first();
-    if (await done.count()) await use(done, 300);
+  13: { act: async () => { await use(".next-pill", 900); } },
+  14: {
+    act: async () => {
+      await use(".pm-open", 600);
+      const ok = p.getByRole("button", { name: /^Looks good$/ }).first();
+      if (await ok.count()) await use(ok, 600);
+      const back = p.locator('[aria-label="Back to the Brain"]').first();
+      if (await back.count()) await back.click().catch(() => {});
+      await wait(250);
+      const done = p.locator(".drawer button", { hasText: /Done/ }).first();
+      if (await done.count()) await use(done, 300);
+    },
   },
-  15: async () => {
-    await home();
-    const box = p.locator(".ask-field input, .ask-field textarea").first();
-    await use(box, 100);
-    await box.pressSequentially("Who haven't I called in 60 days?", { delay: 40 * SLOW });
-    await ring(".ask-field");
-    await p.keyboard.press("Enter");
-    await wait(2200);
+  15: {
+    prep: async () => { await home(); },
+    act: async () => {
+      const box = p.locator(".ask-field input, .ask-field textarea").first();
+      await use(box, 100);
+      await box.pressSequentially("Who haven't I called in 60 days?", { delay: 35 * SLOW });
+      await ring(".ask-field");
+      await p.keyboard.press("Enter");
+      await wait(1500);
+      await unring();
+    },
   },
-  16: async () => {
-    // Tap one of the people Pulse brought up: it comes to the middle and opens; then the back arrow.
-    const person = tall ? p.locator('.canvas-wrap button[aria-label*="Rosa"], .canvas-wrap button[aria-label*="Amy"]').first() : p.locator(".rail button").nth(1);
-    if (await person.count()) await use(person, 2200);
-    await use('[aria-label="Back"]', 500);
-    const clear = p.locator('[aria-label^="Clear the question"]');
-    if (await clear.count()) await clear.first().click().catch(() => {});
-    await home();
+  16: {
+    // Tap one of the VIP-50 people Pulse brought up: their card opens; then the back arrow to everything.
+    act: async () => {
+      const person = p.locator('.canvas-wrap button[aria-label*="VIP-50"]').first();
+      if (await person.count()) await use(person, 4000, true);
+      // The back arrow until it greys out: back to everything.
+      if (process.env.TRACE) console.log("16 tapped", now().toFixed(1));
+      await use('[aria-label="Back"]', 250, true);
+      if (process.env.TRACE) console.log("16 back1", now().toFixed(1));
+      for (let i = 0; i < 3; i++) {
+        const back = p.locator('[aria-label="Back"]').first();
+        if (!(await back.isEnabled({ timeout: 500 }).catch(() => false))) break;
+        await back.click({ force: true, timeout: 1500 }).catch(() => {});
+        await wait(250);
+        if (process.env.TRACE) console.log("16 back+", now().toFixed(1));
+      }
+    },
   },
-  17: async () => {
-    const s = p.locator('input[aria-label="Timeline"]').first();
-    await ring(".timeline");
-    await point(s);
-    await s.focus();
-    for (let i = 0; i < 21; i++) { await p.keyboard.press("ArrowLeft"); await wait(50); }
-    await wait(1300);
-    for (let i = 0; i < 42; i++) { await p.keyboard.press("ArrowRight"); await wait(35); }
-    await wait(1200);
-    await use('[aria-label="Back to today"]', 200);
+  17: {
+    prep: async () => { if (process.env.TRACE) console.log("17 prep", now().toFixed(1)); await clearAsk(); if (process.env.TRACE) console.log("17 cleared", now().toFixed(1)); await home(); if (process.env.TRACE) console.log("17 home", now().toFixed(1)); },
+    act: async () => {
+      const s = p.locator('input[aria-label="Timeline"]').first();
+      await ring(".timeline");
+      await point(s);
+      await s.focus();
+      for (let i = 0; i < 21; i++) { await p.keyboard.press("ArrowLeft"); await wait(45); }
+      await wait(1200);
+      for (let i = 0; i < 42; i++) { await p.keyboard.press("ArrowRight"); await wait(30); }
+      await wait(1100);
+      await use('[aria-label="Back to today"]', 200);
+    },
   },
-  // On a phone there is no menu column: tap the ONE MOVE orb, then the row in the panel under the map, then its page.
-  18: async () => {
-    await home();
-    if (tall) return phonePage("Hot/Warm/Cold");
-    await use(rail("ONE MOVE"), 200);
-    await inPeople("Hot/Warm/Cold");
+  18: { prep: async () => { await movePrep("Hot/Warm/Cold"); }, act: async () => { await moveAct("Hot/Warm/Cold"); } },
+  19: { prep: async () => { await movePrep("VIP Management"); }, act: async () => { await moveAct("VIP Management"); } },
+  20: { act: async () => { await use(".me-menu", 300); } },
+  21: {
+    prep: async () => { const x = p.locator(".pmenu-x").first(); if (await x.count()) await x.click().catch(() => {}); await wait(150); await home(); },
+    act: async () => { await use('[aria-label="What everything means"]', 300); },
   },
-  19: async () => {
-    await home();
-    if (tall) return phonePage("VIP Management");
-    await p.locator(".rail button", { hasText: "ONE MOVE" }).first().click();
-    await wait(500);
-    await inPeople("VIP Management");
-  },
-  // The menu opens from any view, so no trip home first (on a phone that costs the moment its time).
-  20: async () => { if (!tall) await home(); await use(".me-menu", 300); },
-  21: async () => { const x = p.locator(".pmenu-x").first(); if (await x.count()) await x.click().catch(() => {}); await wait(200); await use('[aria-label="What everything means"]', 300); },
 };
 
 await p.goto(`${BASE}/dashboard?demo=1&walk=1&slow=${SLOW}`, { waitUntil: "networkidle" });
@@ -185,16 +217,25 @@ await wait(2500);
 const t0 = Date.now();
 const now = () => (Date.now() - t0) / 1000 / SLOW; // seconds of finished film since cue 13
 for (let k = first; k <= last; k++) {
+  const m = MOMENTS[k];
+  await unring();
   const due = cues[k] - T0;
+  if (m.prep) {
+    // The set-up waits until just before the cue, so the last screen stays up while its own line is said.
+    const lead = due - (m.lead ?? 1.6) - now();
+    if (lead > 0) await wait(lead * 1000);
+    try { await m.prep(); } catch (e) { console.warn(`moment ${k} prep:`, e.message.split("\n")[0]); }
+  }
   const late = now() - due;
   if (late > 0.05) console.warn(`moment ${k} starts ${late.toFixed(2)} s late`);
   else await wait((due - now()) * 1000);
-  await unring();
+  const began = now();
   try {
-    await MOMENTS[k]();
+    await m.act();
   } catch (e) {
     console.warn(`moment ${k}:`, e.message.split("\n")[0]);
   }
+  console.log(`moment ${k}: on screen by +${(now() - began).toFixed(1)} s`);
   if (process.env.SHOTS) await p.screenshot({ path: `${process.env.SHOTS}/m${k}.png` });
 }
 const left = END - T0 - now();

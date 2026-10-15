@@ -92,6 +92,7 @@ import { PLAN_NODE, planKey, planUrl, readPlan, timed, withPlanNode, type Plan }
 import { hwcUrl, readHwc, todayIn, type HwcClass } from "@/lib/hwc.ts";
 import { demoSignals, readSignals, signalsUrl, withSignalsNode, type WebSignal } from "@/lib/webSignals.ts";
 import { readSiteAlerts, withAdsAlertNode, type SiteAlert } from "@/lib/siteAlerts.ts";
+import { ASK_PERSON, askOrbIds, withAskPeople } from "@/lib/askOrbs.ts";
 import { demoNewLeads, readNewLeads, todayUrl, withNewLeadsNode, type NewLeads } from "@/lib/newLeads.ts";
 import { postDay, type TeamPost } from "@/lib/teamPosts.ts";
 import { perProduct } from "@/lib/perProduct.ts";
@@ -190,6 +191,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const forecastRef = useRef<Forecast | null>(null);
   const webRef = useRef<WebSignal[] | null>(null);
   const adsRef = useRef<SiteAlert[] | null>(null);
+  const askPeopleRef = useRef<AskAnswer["people"] | null>(null);
   const newLeadsRef = useRef<NewLeads | null>(null);
   const heatRef = useRef<HeatSuggestion[] | null>(null);
   const onbRef = useRef<OnbMember[] | null>(null);
@@ -223,7 +225,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withAdsAlertNode(withRezenNodes(withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current, onbRemovedRef.current), rezenRef.current.r, rezenRef.current.n), adsRef.current);
+    const next = withAskPeople(withAdsAlertNode(withRezenNodes(withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current, onbRemovedRef.current), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -325,7 +327,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [askErr, setAskErr] = useState<string | null>(null);
   const [askOpen, setAskOpen] = useState(false);
   const askInputRef = useRef<HTMLInputElement>(null);
-  const askIds = useMemo(() => ask?.results.map((r) => r.id) ?? [], [ask]);
+  const askIds = useMemo(() => askOrbIds(ask?.people, ask?.results.map((r) => r.id) ?? []), [ask]);
   // Morning fly-through: step 0 is ONE, then each of today's top three.
   const [decided, setDecided] = useState<Record<string, string>>({});
   const [deciding, setDeciding] = useState(false);
@@ -903,6 +905,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     adsRef.current = adsAlerts;
     setGraph((g) => withAdsAlertNode(g, adsAlerts));
   }, [adsAlerts]);
+  // Ask Pulse's people as orbs while the answer is open (Parry, 15 Oct); gone with the answer.
+  useEffect(() => {
+    askPeopleRef.current = ask?.people ?? null;
+    setGraph((g) => withAskPeople(g, ask?.people));
+  }, [ask]);
   // New leads today (LOFTY-PARITY P9): re-read every 2 minutes; red until each lead is reached.
   const [newLeads, setNewLeads] = useState<NewLeads | null>(null);
   useEffect(() => {
@@ -1986,6 +1993,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   };
   const clickNode = (id: string) => {
     if (drag.current.moved) return; // that was a drag, not a tap
+    // One of Pulse's people: open their card (it comes to the middle in Contacts), never a dead end on the map.
+    if (ask && id.startsWith(ASK_PERSON)) return openPerson(id.slice(ASK_PERSON.length));
     if (ask) return id === graph.rootId ? goHome() : goTo(id);
     if (id === PLAN_NODE) return setClockOpen(true);
     if (id === WEEK_NODE) return setCmOpen(true);

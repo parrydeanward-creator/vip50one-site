@@ -1227,6 +1227,18 @@ export async function installFixtures(page, { log = false, reset = true } = {}) 
 
     if (url.origin === siteOrigin && LOCAL_DEMO.includes(url.pathname) && method === "POST") {
       const b = json(req.postData()) ?? {};
+      // "Who haven't I called in 60 days?": the VIP-50 people who need a call, as Pulse would answer it from the
+      // agent's records (Parry, 15 Oct: "it is supposed to be the vip-50 orbs with the ones that need a call").
+      const q = typeof b.question === "string" ? b.question : "";
+      const days = /call/i.test(q) && /(\d+)\s*days?/i.exec(q);
+      if (url.pathname === "/api/ask" && days) {
+        const n = Number(days[1]);
+        const vips = [...S.people.values()].filter((x) => x.tier === "vip50").slice(4, 12);
+        const people = vips.map((x, i) => ({ contactId: x.id, name: x.name, phone: x.phone ?? null, reasons: ["VIP-50", i < 2 ? "No call logged" : `Last call ${n + 4 + i * 6} days ago`] }));
+        const body = { question: q, answer: `${people.length} of your VIP-50 haven't had a call in ${n} days. Start with ${people[0].name} and ${people[1].name}: no call logged yet.`, results: [], source: "ai", people };
+        if (log) console.log(`[fixtures] POST /api/ask -> ${people.length} VIP-50 people`);
+        return route.fulfill({ status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      }
       try {
         const res = await route.fetch({ postData: JSON.stringify({ ...b, demo: true }), headers: { ...headers, "content-type": "application/json" } });
         if (log) console.log(`[fixtures] ${method} ${url.pathname} -> local demo ${res.status()}`);
