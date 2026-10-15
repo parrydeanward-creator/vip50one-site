@@ -2309,3 +2309,14 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .sg-slide { animation: sg-slide 4s ease-in-out infinite; }
 @keyframes sg-slide { 0%, 100% { transform: translateX(0); } 30% { transform: translateX(-50px); } 65% { transform: translateX(50px); } }
 .sf-video.tall { aspect-ratio: 9 / 16; max-height: 70dvh; width: auto; margin-left: auto; margin-right: auto; }
+/* Add-ons (CHECKOUT §2): cards in two columns on desktop. */
+.pi.addons { width: min(920px, calc(100% - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; }
+.ad-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.ad-card { display: grid; gap: 6px; align-content: start; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
+.ad-card h3 { margin: 0; font-size: 16px; }
+.ad-price { margin: 0; color: var(--gold-2); font-weight: 700; }
+.ad-field { min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); font: inherit; }
+.ad-buy { justify-self: start; }
+.ad-mine h3 { margin: 10px 0 6px; font-size: 14px; color: var(--text-2); }
+.ad-mine ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+@media (max-width: 719px) { .ad-cards { grid-template-columns: 1fr; } }

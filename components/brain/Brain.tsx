@@ -8,6 +8,7 @@ import DailyTracker from "./DailyTracker.tsx";
 import WeeklyTracker from "./WeeklyTracker.tsx";
 import Rolodex from "./Rolodex.tsx";
 import MyProfile from "./MyProfile.tsx";
+import AddonsPanel from "./AddonsPanel.tsx";
 import Contacts from "./Contacts.tsx";
 import HotWarmCold from "./HotWarmCold.tsx";
 import TouchAudit from "./TouchAudit.tsx";
@@ -264,6 +265,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // signed-in agent sees Meet Pulse once on a first visit.
   const [intro, setIntro] = useState(false);
   const [guide, setGuide] = useState(false); // What everything means
+  const [addonsOpen, setAddonsOpen] = useState(false); // Add-ons (CHECKOUT §2)
   const [oneFilm, setOneFilm] = useState(false); // Watch ONE Work, voiced
   useEffect(() => {
     if (!live) return;
@@ -2206,6 +2208,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                       else if (a.kind === "welcome") setWelcomeOpen(true);
                       else if (a.kind === "help") setGuide(true);
                       else if (a.kind === "billing") void openBilling();
+                      else if (a.kind === "addons") setAddonsOpen(true);
                       else if (a.kind === "site") void editSite(a.host, a.next);
                     }}
                   >
@@ -3434,6 +3437,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           onTick={(ref, on) => tickDay(`day:${ref}`, on)}
         />
       )}
+      {addonsOpen && <AddonsPanel onClose={() => setAddonsOpen(false)} />}
       {guide && (
         <SignalsFilm
           onClose={() => setGuide(false)}
