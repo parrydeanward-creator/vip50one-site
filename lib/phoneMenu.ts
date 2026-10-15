@@ -5,6 +5,7 @@ export type MenuAction =
   | { kind: "profile" }
   | { kind: "site"; host?: string; next?: string }
   | { kind: "href"; href: string }
+  | { kind: "welcome" }
   | { kind: "signout" };
 export interface MenuRow { key: string; label: string; line: string; action: MenuAction }
 
@@ -15,11 +16,14 @@ export interface MenuInput {
   teamHosts: string[];
   agentTeamHrefs: string[];
   classicUrl: string;
+  /** "2 of 6 done" while a team member's welcome is not finished (TEAM-ONBOARDING §3); null otherwise. */
+  welcome?: string | null;
 }
 
 export function menuRows(m: MenuInput): MenuRow[] {
   if (!m.live) return [];
   const rows: MenuRow[] = [{ key: "profile", label: "My Profile", line: "Your photo and details, used by every product.", action: { kind: "profile" } }];
+  if (m.welcome) rows.push({ key: "welcome", label: "Team setup", line: `Your welcome steps: ${m.welcome}.`, action: { kind: "welcome" } });
   if (m.siteHost) rows.push({ key: "site", label: "My website", line: "Edit your site and see who visited.", action: { kind: "site" } });
   if (m.siteHost && m.growth) rows.push({ key: "results", label: "Growth results", line: "Leads, appointments and closings from your ads.", action: { kind: "site", next: "/manage/results" } });
   for (const host of m.teamHosts) {
