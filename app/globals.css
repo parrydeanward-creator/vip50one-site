@@ -2272,3 +2272,23 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 /* Timeline drawer: rows grouped by week (walker audit 02). */
 .tl-week + .tl-week { margin-top: 4px; }
 .tl-week-h { margin: 14px 0 -8px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+/* Map buttons (walker audit 02, Parry 15 Oct "yes on 1-4 and better"): one small column on the right edge of the map,
+   clear of the timeline and the card; hover labels; the "?" in gold. Phones: a row under the timeline. */
+.controls button { position: relative; }
+.controls .help-btn { color: var(--gold-2); border-color: rgba(212, 175, 55, 0.55); font-weight: 700; }
+.controls button[data-tip]:hover::after, .controls button[data-tip]:focus-visible::after {
+  content: attr(data-tip); position: absolute; right: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+  white-space: nowrap; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--line); background: rgba(8, 12, 26, 0.94);
+  color: var(--text); font-size: 12px; font-weight: 600; pointer-events: none; z-index: 6;
+}
+@media (min-width: 720px) {
+  .controls.map-ctrls { left: auto; right: 412px; top: 50%; bottom: auto; transform: translateY(-50%); flex-direction: column; gap: 6px; }
+  .map-ctrls button { width: 42px; height: 42px; font-size: 18px; border-radius: 12px; }
+}
+@media (max-width: 719px) {
+  .controls.map-ctrls { left: 8px; right: 8px; top: auto; bottom: 8px; transform: none; flex-direction: row; }
+  .controls button[data-tip]:hover::after, .controls button[data-tip]:focus-visible::after { right: auto; left: 50%; top: auto; bottom: calc(100% + 6px); transform: translateX(-50%); }
+  .timeline { bottom: 60px; }
+  .orb-hint { bottom: 112px; }
+  .signal-live { bottom: 156px; }
+}
