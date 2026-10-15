@@ -2,6 +2,7 @@
 
 import AddMember from "./AddMember.tsx";
 import InviteLink from "./InviteLink.tsx";
+import TeamSeats from "./TeamSeats.tsx";
 import TeamMembers from "./TeamMembers.tsx";
 import { useEffect, useRef, useState } from "react";
 import { useSvgCamera } from "./useSvgCamera.ts";
@@ -220,6 +221,7 @@ export default function TeamView({ team, demo, scope, onScope, onClose, canAdd =
                 {canAdd ? (
                   <>
                     <AddMember live={!demo} />
+                    <TeamSeats live={!demo} />
                     <InviteLink live={!demo} />
                     <TeamMembers live={!demo} />
                   </>
