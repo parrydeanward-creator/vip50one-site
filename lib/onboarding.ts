@@ -71,7 +71,7 @@ const statusOf = (m: OnbMember): GraphNode["status"] => (m.urgency === "now" ? "
 export const onbLine = (m: OnbMember) => [`Day ${m.day}`, m.status, m.next ? `next: ${m.next}` : null].filter(Boolean).join(" · ");
 
 /** The Onboarding orb under ONE YOU, beside Team, and one orb per member setting up. */
-export function withOnboardingNodes<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, ms: OnbMember[] | null): G {
+export function withOnboardingNodes<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, ms: OnbMember[] | null, removed: string[] = []): G {
   const mine = (id: string) => id === ONB_NODE || id.startsWith(`${ONB_NODE}:`);
   const nodes = g.nodes.filter((n) => !mine(n.id));
   const edges = g.edges.filter((e) => !mine(e.target));
@@ -87,7 +87,7 @@ export function withOnboardingNodes<G extends { nodes: GraphNode[]; edges: Graph
     product: "go",
     importance: 0.97,
     status: "healthy",
-    summary: "New team members in their first 30 days: their six setup steps, and a Nudge for you to send from your phone.",
+    summary: `New team members in their first 30 days: their six setup steps, and a Nudge for you to send from your phone.${removed.length ? ` ${removed.join(". ")}.` : ""}`,
   });
   edges.push({ id: `${parent}>${ONB_NODE}`, source: parent, target: ONB_NODE, relationshipType: "belongs_to", strength: 1 });
   ms.slice(0, 15).forEach((m, i) => {
@@ -105,3 +105,16 @@ export const demoOnboarding = (): OnbMember[] =>
       { user_id: "o2", name: "Angelina Burleigh", day: 2, done: 3, of: 6, status: "3 of 6 done", next: "First VIPs", urgency: null, ready_for_leads: true, in_rotation: false, steps: [{ key: "profile", label: "Profile and photo", done: true }, { key: "consent", label: "Team ads OK", done: true }, { key: "app", label: "ONE GO on their phone", done: true }, { key: "people", label: "First VIPs", done: false }, { key: "calendar", label: "Calendar", done: false }, { key: "pulse", label: "Pulse settings", done: false }], nudge: null, nudge_sms: null },
     ],
   }) ?? [];
+
+/** "Bo: removed on Oct 15" lines from the board's `removed` (last 30 days; vip50-web-crm#258). */
+export function readRemoved(j: unknown): string[] {
+  const list = j && typeof j === "object" && Array.isArray((j as { removed?: unknown }).removed) ? ((j as { removed: Record<string, unknown>[] }).removed) : [];
+  return list
+    .filter((r) => typeof r?.name === "string" && typeof r.left_at === "string")
+    .slice(0, 10)
+    .map((r) => {
+      const d = new Date(r.left_at as string);
+      const when = Number.isNaN(d.getTime()) ? "" : ` on ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Denver" })}`;
+      return `${String(r.name).slice(0, 80)}: removed${when}`;
+    });
+}

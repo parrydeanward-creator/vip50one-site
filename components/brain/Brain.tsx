@@ -102,7 +102,7 @@ import { LATER_KEY, leadView, progress as welcomeProgress, readWelcome, shouldOp
 import { NetworkPanel, RevsharePanel } from "./RezenOrbPanel.tsx";
 import { NETWORK_NODE, REVSHARE_NODE, demoRezenRead, readNetwork as readRezenNetwork, readRevshare, withRezenNodes, type Network as RezenNetwork, type Revshare } from "@/lib/rezenOrbs.ts";
 import { rezenUrl } from "@/lib/rezen.ts";
-import { demoOnboarding, onbIdOf, onboardingUrl, readOnboarding, withOnboardingNodes, type OnbMember } from "@/lib/onboarding.ts";
+import { demoOnboarding, onbIdOf, onboardingUrl, readOnboarding, readRemoved, withOnboardingNodes, type OnbMember } from "@/lib/onboarding.ts";
 import { demoHeat, heatIdOf, heatUrl, readHeat, withHeatNodes, type HeatSuggestion } from "@/lib/heat.ts";
 import ClosedCards from "./ClosedCards.tsx";
 import { LAST_COOKIE, LAST_MAX_AGE } from "@/lib/landing.ts";
@@ -162,6 +162,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const newLeadsRef = useRef<NewLeads | null>(null);
   const heatRef = useRef<HeatSuggestion[] | null>(null);
   const onbRef = useRef<OnbMember[] | null>(null);
+  const onbRemovedRef = useRef<string[]>([]);
   const rezenRef = useRef<{ r: Revshare | null; n: RezenNetwork | null }>({ r: null, n: null });
   const launchRef = useRef<Launch[] | null>(null);
   const refsRef = useRef<Referrals | null>(null);
@@ -191,7 +192,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withRezenNodes(withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current), rezenRef.current.r, rezenRef.current.n);
+    const next = withRezenNodes(withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current, onbRemovedRef.current), rezenRef.current.r, rezenRef.current.n);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -880,7 +881,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     const load = () =>
       fetch(onboardingUrl, { credentials: "include", cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
-        .then((j) => setOnb(j ? readOnboarding(j) : null))
+        .then((j) => {
+          setOnb(j ? readOnboarding(j) : null);
+          onbRemovedRef.current = readRemoved(j);
+        })
         .catch(() => {});
     load();
     const t = setInterval(load, 600_000);
@@ -888,7 +892,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   }, [live]);
   useEffect(() => {
     onbRef.current = onb;
-    setGraph((g) => withOnboardingNodes(g, onb));
+    setGraph((g) => withOnboardingNodes(g, onb, onbRemovedRef.current));
   }, [onb]);
   // A new team member's welcome (TEAM-ONBOARDING §3): shown on opening the Brain until the six steps are done or
   // skipped; "Later" hides it for the rest of today, and the menu keeps a "Team setup" row.
