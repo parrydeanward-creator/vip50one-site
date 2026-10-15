@@ -51,3 +51,19 @@ export function lerpCamera(a: Camera, b: Camera, t: number): Camera {
   const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; // ease in-out cubic
   return { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e, scale: a.scale + (b.scale - a.scale) * e };
 }
+
+// Keep the orbs clear of what floats over the map (walker audit 02, Parry 15 Oct): the Pulse bar above, the timeline
+// and the buttons below. `ys` are orb centres (world); `top` and `bottom` are the clear band in screen pixels. When
+// every orb fits in the band, nudge them inside it; when they cannot all fit (zoomed in), keep the top one clear of
+// the Pulse bar, so ONE YOU stays clickable.
+export function keepInBand(c: Camera, vp: Viewport, ys: number[], top: number, bottom: number): Camera {
+  if (!ys.length || bottom <= top) return c;
+  const sMin = toScreen(c, vp, 0, Math.min(...ys)).y;
+  const sMax = toScreen(c, vp, 0, Math.max(...ys)).y;
+  let dy = 0;
+  if (sMax - sMin <= bottom - top) {
+    if (sMin < top) dy = top - sMin;
+    else if (sMax > bottom) dy = bottom - sMax;
+  } else if (sMin < top) dy = top - sMin;
+  return dy ? { ...c, y: c.y - dy / c.scale } : c;
+}

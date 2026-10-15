@@ -15,7 +15,7 @@ import GroupPanel from "./GroupPanel.tsx";
 import type { BusinessGraph, GraphNode } from "@/lib/graph/types.ts";
 import { DESKTOP_BUDGET, PHONE_BUDGET, childrenOf, indexGraph, pathTo, visibleSet } from "@/lib/graph/model.ts";
 import { bounds, layout } from "@/lib/brain/layout.ts";
-import { fit, pan, zoomAt } from "@/lib/brain/camera.ts";
+import { fit, keepInBand, pan, zoomAt } from "@/lib/brain/camera.ts";
 import * as nav from "@/lib/brain/nav.ts";
 import { PRODUCT_COLOR, STATUS, hex } from "@/lib/brain/theme.ts";
 import { UPGRADE_URL } from "@/lib/products.ts";
@@ -1291,6 +1291,23 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The map's clear band in canvas pixels: below the Pulse bar, above the hint and the timeline (and on a phone the
+  // button row under it). Measured, so a wrapped Now pill or a taller bar is allowed for (walker audit 02).
+  const clearBand = useCallback((): { top: number; bottom: number } | null => {
+    const host = hostRef.current;
+    const wrap = host?.parentElement;
+    if (!host || !wrap) return null;
+    const h = host.getBoundingClientRect();
+    const ask = wrap.querySelector(".ask-field")?.getBoundingClientRect();
+    const lows = [".timeline", ".orb-hint", ...(phone ? [".map-ctrls"] : [])]
+      .map((q) => wrap.querySelector(q)?.getBoundingClientRect())
+      .filter((r): r is DOMRect => !!r && r.height > 0)
+      .map((r) => r.top - h.top);
+    const top = ask ? Math.max(0, ask.bottom - h.top) + 10 : 0;
+    const bottom = (lows.length ? Math.min(...lows) : h.height) - 10;
+    return bottom > top ? { top, bottom } : null;
+  }, [phone]);
+
   // Point the camera at a world rectangle, leaving room for the card and rail.
   const frameOn = useCallback(
     (b: { minX: number; minY: number; maxX: number; maxY: number }, animate: boolean, keep = { top: 0, bottom: 0 }) => {
@@ -1313,12 +1330,17 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const fitNow = useCallback(
     (animate: boolean) => {
       const b = bounds(placed, 20);
-      if (phone) return frameOn(b, animate, { top: 84, bottom: 150 }); // the Pulse bar; the hint, the controls row and the timeline row
+      if (phone) {
+        // the Pulse bar; the hint, the timeline and the button row under it (measured when the page is laid out)
+        const band = clearBand();
+        const vh = sceneRef.current?.viewport.height ?? 0;
+        return frameOn(b, animate, band && vh ? { top: band.top, bottom: Math.max(0, vh - band.bottom) } : { top: 84, bottom: 170 });
+      }
       b.maxY += 90; // keep clear of the controls and the timeline
       b.minY -= 70; // and of the Ask ONE bar across the top
       frameOn(b, animate);
     },
-    [placed, phone, frameOn],
+    [placed, phone, frameOn, clearBand],
   );
 
   // Refit only when what is on screen changes, not when a number ticks (the
@@ -1823,9 +1845,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     },
     [asking, pkg],
   );
+  // Zoom about the middle of the clear band, then keep the orbs clear of the Pulse bar (ONE YOU stays clickable).
   const zoom = (f: number) => {
     const s = sceneRef.current;
-    if (s) s.setCamera(zoomAt(s.camera, s.viewport, f), true);
+    if (!s) return;
+    const band = clearBand();
+    const c = band ? zoomAt(s.camera, s.viewport, f, s.viewport.width / 2, (band.top + band.bottom) / 2) : zoomAt(s.camera, s.viewport, f);
+    s.setCamera(band ? keepInBand(c, s.viewport, placed.flatMap((p) => [p.y - p.r, p.y + p.r]), band.top, band.bottom) : c, true);
   };
 
   useEffect(() => {
@@ -2460,20 +2486,20 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
 
           {focus.id === graph.rootId && !tour && !ask && !timeline && <p className="orb-hint">{HINT}</p>}
 
-          <div className="controls" role="toolbar" aria-label="Map controls">
-            <button onClick={goBack} disabled={!ask && focus.id === graph.rootId} aria-label="Back">
+          <div className="controls map-ctrls" role="toolbar" aria-label="Map controls">
+            <button onClick={goBack} disabled={!ask && focus.id === graph.rootId} aria-label="Back" data-tip="Back">
               ←
             </button>
-            <button className="zoom-btn" onClick={() => zoom(0.8)} aria-label="Zoom out">
+            <button className="zoom-btn" onClick={() => zoom(0.8)} aria-label="Zoom out" data-tip="Zoom out">
               −
             </button>
-            <button className="zoom-btn" onClick={() => zoom(1.25)} aria-label="Zoom in">
+            <button className="zoom-btn" onClick={() => zoom(1.25)} aria-label="Zoom in" data-tip="Zoom in">
               +
             </button>
-            <button onClick={goHome} aria-label="Centre on ONE">
+            <button onClick={goHome} aria-label="Centre on ONE" data-tip="Centre">
               ◎
             </button>
-            <button onClick={() => setGuide(true)} aria-label="What everything means" title="What everything means">
+            <button className="help-btn" onClick={() => setGuide(true)} aria-label="What everything means" data-tip="What everything means">
               ?
             </button>
           </div>
