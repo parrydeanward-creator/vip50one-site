@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import PulseMark from "./PulseMark.tsx";
 import { SIGNALS_FILM } from "@/lib/signalsFilm.ts";
+import { SIGNALS_KEY } from "@/lib/signalsKey.ts";
 
 // What everything means, as a film (Parry, 5 Oct), played over the Brain from
 // the centre ONE orb, Meet Pulse and the ? control (with Parry's voice and music). The same film plays live at /watch?signals=1.
@@ -13,6 +14,9 @@ const SIGNALS = { title: "What everything means", src: SIGNALS_FILM.src, poster:
 
 export default function SignalsFilm({ onClose, onMeet, film = SIGNALS }: { onClose: () => void; onMeet?: () => void; film?: typeof SIGNALS }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  // What everything means opens on the written key; its film waits, paused and silent, until pressed (walker audit 02).
+  const keyFirst = film === SIGNALS;
+  const [showFilm, setShowFilm] = useState(!keyFirst);
   // The dashboard re-renders while this is open (the clock, live signals): a new onClose each time must
   // not re-run this, or the cursor jumps to the close button mid-typing and the next key closes the view.
   const onCloseRef = useRef(onClose);
@@ -35,9 +39,27 @@ export default function SignalsFilm({ onClose, onMeet, film = SIGNALS }: { onClo
           <PulseMark />
           <h2 id="sf-title">{film.title}</h2>
         </header>
-        <video className="sf-video" src={film.src} poster={film.poster} controls autoPlay playsInline preload="metadata">
-          <track kind="captions" src={film.captions} srcLang="en" label="English" />
-        </video>
+        {keyFirst && (
+          <ul className="sf-key" aria-label="What the map shows">
+            {SIGNALS_KEY.map((k) => (
+              <li key={k.mark}>
+                <i className={`sf-mark sf-${k.mark}`} aria-hidden="true">{k.mark === "count" ? "3" : k.mark === "click" ? "→" : ""}</i>
+                <span>
+                  <b>{k.name}</b> {k.means}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {showFilm ? (
+          <video className="sf-video" src={film.src} poster={film.poster} controls autoPlay={!keyFirst} playsInline preload="metadata">
+            <track kind="captions" src={film.captions} srcLang="en" label="English" />
+          </video>
+        ) : (
+          <button className="pi-btn sf-watch" onClick={() => setShowFilm(true)}>
+            ▶ Watch the film (1 min 35 s)
+          </button>
+        )}
         <p className="sf-note">
           {film.note} <a href={film.stepHref}>Play it step by step</a>
         </p>
