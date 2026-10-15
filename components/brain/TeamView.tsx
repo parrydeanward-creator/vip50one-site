@@ -1,6 +1,7 @@
 "use client";
 
 import AddMember from "./AddMember.tsx";
+import InviteLink from "./InviteLink.tsx";
 import { useEffect, useRef, useState } from "react";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import { TV_SECONDS, atMinimum, badgesFor, mostImproved, ranks, teamLine, type Mate, type Scope, type Team } from "@/lib/team.ts";
@@ -215,7 +216,12 @@ export default function TeamView({ team, demo, scope, onScope, onClose, canAdd =
                 <div className="decide-btns">
                   <button type="button" className="chip-btn primary" onClick={goTv}>Show on the office TV</button>
                 </div>
-                {canAdd ? <AddMember live={!demo} /> : null}
+                {canAdd ? (
+                  <>
+                    <AddMember live={!demo} />
+                    <InviteLink live={!demo} />
+                  </>
+                ) : null}
                 {onScope ? (
                   <div className="decide-btns" role="group" aria-label="Who to show">
                     <button type="button" className={`chip-btn${scope === "all" ? " primary" : ""}`} aria-pressed={scope === "all"} onClick={() => onScope("all")}>All VIP-50 agents</button>

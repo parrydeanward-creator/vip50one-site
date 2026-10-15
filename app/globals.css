@@ -2256,3 +2256,4 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .tw-moves a.chip-btn { text-decoration: none; }
 .tw-skip { justify-self: start; background: none; border: 0; color: var(--text-2); text-decoration: underline; font: inherit; font-size: 13px; cursor: pointer; padding: 0; }
 .tw > .chip-btn, .tw-body > .chip-btn { justify-self: start; }
+.tm-add .cn-copy input { flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--text); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
