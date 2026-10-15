@@ -29,7 +29,7 @@ const suffix = from === 1 && to === CHAPTERS.length ? "" : `-ch${from}-${to}`;
 export const sayMs = (say) => Math.max(3200, Math.round(say.split(/\s+/).length * 390 + 1100));
 
 const b = await chromium.launch({ executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium", args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
-const ctx = await b.newContext({ viewport: { width: W, height: H }, recordVideo: { dir, size: { width: W, height: H } } });
+const ctx = await b.newContext({ timezoneId: "America/Denver", viewport: { width: W, height: H }, recordVideo: { dir, size: { width: W, height: H } } });
 const t0 = Date.now();
 const p = await ctx.newPage();
 const cdp = await ctx.newCDPSession(p);

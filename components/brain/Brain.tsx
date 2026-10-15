@@ -148,6 +148,29 @@ function denverHour(now = new Date()): number {
 // showing, for the recorded product tour. The recorder answers their data calls with invented example data.
 const TOUR_AGENT: BrainAgent = { ...DEMO_AGENT, growth: true, plan: "ONE Complete + ONE Growth", label: "Sarah Bennett, ONE Complete + ONE Growth" };
 
+// The walk-through (?walk=1): the example graph has no ONE MOVE page nodes (lib/live.ts adds them for signed-in
+// agents), so a menu click on Contacts, VIP Management... found no node and went home. Add the pages drawn natively,
+// each under the example orb it belongs to.
+const TOUR_PAGES: [string, string, string][] = [
+  ["/contacts", "Contacts", "move-0"], ["/contacts/vip", "VIP Management", "move-2"], ["/contacts/audit", "Touch Audit", "move-1"],
+  ["/hot-warm-cold", "Hot/Warm/Cold", "move-9"], ["/rolodex", "Business Rolodex", "move-0"], ["/daily", "Daily Tracker", "move"],
+  ["/weekly", "Weekly Tracker", "move"], ["/profile", "My Profile", "move"],
+];
+function withTourPages(g: BusinessGraph): BusinessGraph {
+  const have = new Set(g.nodes.map((n) => n.id));
+  const nodes = [...g.nodes];
+  const edges = [...g.edges];
+  for (const [path, label, parent] of TOUR_PAGES) {
+    const id = movePageId(path);
+    if (have.has(id)) continue;
+    const parentId = have.has(parent) ? parent : "move";
+    have.add(id);
+    nodes.push({ id, type: "feature", label, parentId, product: "move", importance: 0.3, href: moveMenuHref(path) });
+    edges.push({ id: `${parentId}>${id}`, source: parentId, target: id, relationshipType: "belongs_to", strength: 1 });
+  }
+  return { ...g, nodes, edges };
+}
+
 export default function Brain({ graph: initialGraph, pkg = "complete", agent: agentIn = DEMO_AGENT, live = false, startPage = null, productTour = false }: { graph: BusinessGraph; pkg?: string; agent?: BrainAgent; live?: boolean; startPage?: string | null; productTour?: boolean }) {
   const agent = productTour ? TOUR_AGENT : agentIn;
   // Arriving on Team Leads means the agent is on a team: its orb is there before the team answer comes back.
@@ -192,7 +215,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // ONE YOU's Power Hour orb: today's calls lined up.
   const powerRef = useRef<{ calls: Call[]; session: PowerSession | null } | null>(null);
   const admin = agent.admin === true;
-  const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(initialGraph, null), admin), teamLeadsHint));
+  const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(productTour ? withTourPages(initialGraph) : initialGraph, null), admin), teamLeadsHint));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
   // this, a refresh after logging a call changed nothing on screen.
@@ -3373,7 +3396,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} squad={team} /> : null}
       {rcOpen && rcAgents ? <ReviewCallsView agents={rcAgents} demo={!live} onClose={() => setRcOpen(false)} onSearch={loadRcAgents} /> : null}
       {warOpen && war ? <WarRoomView room={war} demo={!live} onClose={() => setWarOpen(false)} onTeamLeads={() => { setWarOpen(false); goTo(movePageId(TEAM_LEADS_PATH)); }} /> : null}
-      {teamOpen && team ? <TeamView team={team} demo={!live && !productTour} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} canAdd={teamSites.length > 0} /> : null}
+      {teamOpen && team ? <TeamView team={team} demo={!live && !productTour} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} canAdd={teamSites.length > 0 || productTour} /> : null}
       {timeOffOpen && timeOff ? <TimeOffView data={timeOff} demo={!live} onSave={saveTimeOff} onCancel={cancelTimeOff} onClose={() => setTimeOffOpen(false)} /> : null}
       {aiOpen && askAi ? <AskAiView name={live ? agent.label.split(",")[0] : "Sarah Bennett"} area={askArea} results={askAi} demo={!live} onArea={saveArea} onMark={markAi} onClose={() => setAiOpen(false)} /> : null}
       {likelyOpen && likely ? <MoveLikelyView data={likely} demo={!live} onNotUseful={likelyNotUseful} onClose={() => setLikelyOpen(false)} /> : null}

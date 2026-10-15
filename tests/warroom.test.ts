@@ -60,9 +60,10 @@ test("totals and the plain line", () => {
 
 test("agent lines put the late first and keep quiet members", () => {
   const lines = agentLines(demoWarRoom(now), now);
-  assert.equal(lines[0].name, "Annette");
+  // Rewritten 15 Oct on purpose: the example war room uses invented names (Annette and Travis are real team members).
+  assert.equal(lines[0].name, "Rachel");
   assert.equal(lines[0].late, 1);
-  const travis = lines.find((l) => l.name === "Travis")!;
+  const travis = lines.find((l) => l.name === "Kyle")!;
   assert.equal(travis.waiting, 1);
   assert.equal(travis.median, 9);
   const jen = lines.find((l) => l.name === "Jen")!;

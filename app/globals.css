@@ -2309,6 +2309,103 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .sg-slide { animation: sg-slide 4s ease-in-out infinite; }
 @keyframes sg-slide { 0%, 100% { transform: translateX(0); } 30% { transform: translateX(-50px); } 65% { transform: translateX(50px); } }
 .sf-video.tall { aspect-ratio: 9 / 16; max-height: 70dvh; width: auto; margin-left: auto; margin-right: auto; }
+/* What everything means v2: the Brain's own pieces on the film's stage, when the voice names them (Parry, 15 Oct). */
+.film-ui { position: absolute; z-index: 6; pointer-events: none; }
+.film-ui-top-right { top: 22px; right: 28px; display: grid; justify-items: end; gap: 10px; }
+.film-ui-top { top: 22px; left: 50%; transform: translateX(-50%); width: min(680px, calc(100% - 32px)); }
+.film-ui-panel { top: 84px; right: 28px; width: 470px; padding: 20px 22px; border-radius: 18px; border: 1px solid rgba(212, 175, 55, 0.4); background: linear-gradient(180deg, rgba(14, 20, 42, 0.95), rgba(8, 12, 26, 0.96)); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55); }
+.film-ui-controls { top: 50%; right: 44px; transform: translateY(-50%); }
+.film-ui-bottom { bottom: 26px; left: 50%; transform: translateX(-50%); width: min(820px, calc(100% - 32px)); }
+.film-ui .next-pill { font-size: 22px; padding: 12px 26px; max-width: none; }
+.film-note { color: var(--gold-2); font-size: 15px; font-weight: 600; }
+.film-hl { animation: film-hl 1.6s ease-in-out infinite; border-color: #ffd86a !important; }
+@keyframes film-hl { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 216, 106, 0.0), 0 0 18px rgba(255, 216, 106, 0.35); } 50% { box-shadow: 0 0 0 8px rgba(255, 216, 106, 0.25), 0 0 34px rgba(255, 216, 106, 0.6); } }
+.film-kick { margin: 0; color: var(--gold-2); font-size: 13px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; }
+.film-h { margin: 4px 0 14px; color: var(--text); font-size: 20px; font-weight: 700; }
+.film-day { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 8px; }
+.film-day li { display: grid; grid-template-columns: 32px 58px 1fr; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); color: var(--text); font-size: 15px; }
+.film-day li b { color: var(--gold-2); }
+.film-day li small { display: block; color: var(--text-3); font-size: 12.5px; }
+.film-day li.fixed { border-color: rgba(79, 127, 224, 0.6); }
+.film-tick { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--text-3); color: transparent; font-size: 13px; font-weight: 800; }
+.film-day li.fixed .film-tick { border: 0; color: #fff; }
+.film-tick.will-tick { animation: film-tick 0.6s ease-out forwards; }
+@keyframes film-tick { to { background: #3fbf7f; border-color: #3fbf7f; color: #070b18; } }
+.film-looks { width: 100%; justify-content: center; }
+.film-ui-top .ask-field { padding: 10px 10px 10px 18px; }
+.film-typed { flex: 1; overflow: hidden; white-space: nowrap; color: #fff; font-size: 19px; width: 0; animation: film-type 2.6s steps(34) 0.6s forwards; }
+@keyframes film-type { to { width: 100%; } }
+.film-ui .ask-go { display: inline-grid; place-items: center; min-height: 44px; padding: 0 18px; border-radius: 12px; background: var(--gold); color: #0b0b0b; font-weight: 800; }
+.film-ctrls { position: static !important; transform: none !important; flex-direction: column; gap: 10px; }
+.film-ctrls button { width: 58px !important; height: 58px !important; font-size: 24px !important; position: relative; }
+.film-ctrls button[data-film-tip]::after { content: attr(data-film-tip); position: absolute; right: calc(100% + 12px); top: 50%; transform: translateY(-50%); white-space: nowrap; padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(212, 175, 55, 0.5); background: rgba(8, 12, 26, 0.95); color: var(--gold-2); font-size: 16px; font-weight: 700; }
+.film-timeline { position: static !important; transform: none !important; width: 100% !important; padding: 10px 12px 10px 18px; }
+.film-track { height: 44px; }
+.film-track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 5px; margin-top: -2px; border-radius: 4px; background: linear-gradient(90deg, rgba(79, 127, 224, 0.7), rgba(255, 255, 255, 0.2) 50%, rgba(212, 175, 55, 0.75)); }
+.film-knob { position: absolute; top: 50%; left: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff3c4, var(--gold) 60%, #8a6d12); border: 2px solid #0b0f1e; box-shadow: 0 0 18px rgba(212, 175, 55, 0.8); animation: film-knob 9s ease-in-out forwards; }
+@keyframes film-knob { 0% { left: 50%; } 25%, 38% { left: 8%; } 62%, 75% { left: 92%; } 90%, 100% { left: 50%; } }
+.film-today { display: inline-grid; place-items: center; animation: film-hl 1.6s ease-in-out 7s infinite; }
+.film-menu-wrap .me-menu { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); }
+.film-menu-wrap .me-ini { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: rgba(212, 175, 55, 0.18); font-weight: 700; }
+.film-menu { position: static !important; width: 420px; padding: 16px; border-radius: 16px; border: 1px solid rgba(212, 175, 55, 0.4); background: linear-gradient(180deg, rgba(14, 20, 42, 0.96), rgba(8, 12, 26, 0.97)); }
+.film-menu .pmenu-head { display: grid; gap: 2px; }
+.film-ui-big { display: grid; justify-items: center; gap: 8px; }
+.film-ui-big .sg-demo { width: 420px; height: auto; }
+.watch-card.at-top { top: 22px; bottom: auto; }
+@media (max-width: 719px) {
+  .film-ui-top-right, .film-ui-top, .film-ui-panel, .film-ui-controls, .film-ui-bottom { top: auto; bottom: 18px; left: 12px; right: 12px; width: auto; transform: none; justify-items: center; }
+  .film-ui-panel { max-height: 58%; overflow: hidden; padding: 14px; }
+  .film-ui .next-pill { font-size: 17px; }
+  .film-typed { font-size: 15px; }
+  .film-ctrls { flex-direction: row; justify-content: center; }
+  .film-ctrls button[data-film-tip]::after { right: auto; left: 50%; top: auto; bottom: calc(100% + 10px); transform: translateX(-50%); }
+  .film-menu { width: 100%; }
+  .film-ui-big .sg-demo { width: 300px; }
+  .watch-card.at-top { top: 12px; }
+}
+.film-ui-left { right: auto; left: 28px; top: 50%; transform: translateY(-50%); width: 380px; }
+.film-line { margin: 0 0 14px; color: var(--text-2); font-size: 15px; line-height: 1.4; }
+.film-chips { display: flex; justify-content: center; gap: 10px; margin-bottom: 12px; }
+.film-chip { padding: 8px 14px; border-radius: 999px; font-size: 15px; font-weight: 700; opacity: 0; }
+.film-chip.past { border: 1px solid rgba(79, 127, 224, 0.7); color: #a9c4ff; background: rgba(79, 127, 224, 0.12); animation: film-chip 0.5s ease-out 1.6s forwards; }
+.film-chip.next { border: 1px solid rgba(212, 175, 55, 0.7); color: var(--gold-2); background: rgba(212, 175, 55, 0.1); animation: film-chip 0.5s ease-out 4.6s forwards; }
+@keyframes film-chip { to { opacity: 1; } }
+@media (max-width: 719px) {
+  .film-ui-left { top: 50%; bottom: auto; transform: translateY(-50%); left: 12px; right: auto; width: 62%; }
+  .film-chips { flex-wrap: wrap; gap: 6px; }
+  .film-chip { font-size: 12px; padding: 5px 9px; }
+}
+/* Desktop film: the pieces large enough to read at 1920 wide; the pill top centre where the eye goes first. */
+@media (min-width: 720px) {
+  .film-ui-top-right:not(.film-menu-wrap) { top: 40px; right: 56px; }
+  .film-ui .next-pill { font-size: 30px; padding: 16px 34px; }
+  .film-note { font-size: 20px; }
+  .film-ui-top { width: min(900px, calc(100% - 32px)); top: 36px; }
+  .film-typed { font-size: 26px; }
+  .film-ui .ask-go { min-height: 56px; font-size: 20px; padding: 0 24px; }
+  .film-ui-panel { width: 600px; top: 90px; right: 48px; padding: 26px 28px; }
+  .film-kick { font-size: 16px; }
+  .film-h { font-size: 28px; }
+  .film-day li { font-size: 19px; grid-template-columns: 36px 70px 1fr; padding: 12px 14px; }
+  .film-day li small { font-size: 15px; }
+  .film-ctrls button { width: 76px !important; height: 76px !important; font-size: 30px !important; }
+  .film-ctrls button[data-film-tip]::after { font-size: 22px; padding: 10px 16px; }
+  .film-ui-controls { right: 70px; }
+  .film-ui-left { width: 480px; left: 48px; top: 50%; }
+  .film-line { font-size: 19px; }
+  .film-ui-bottom { width: min(1100px, calc(100% - 32px)); bottom: 40px; }
+  .film-chip { font-size: 20px; padding: 10px 18px; }
+  .film-track { height: 56px; }
+  .film-knob { width: 38px; height: 38px; margin: -19px 0 0 -19px; }
+  .film-timeline .tl-end, .film-today { font-size: 18px; }
+  .film-menu-wrap { top: 30px; right: 48px; }
+  .film-menu { width: 560px; }
+  .film-menu .pmenu-row b { font-size: 20px; }
+  .film-menu .pmenu-row small { font-size: 15px; }
+  .film-menu-wrap .me-ini { width: 56px; height: 56px; font-size: 20px; }
+  .film-ui-big .sg-demo { width: 560px; }
+  .film-ui-big { top: 120px; }
+}
 /* Add-ons (CHECKOUT §2): cards in two columns on desktop. */
 .pi.addons { width: min(920px, calc(100% - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; }
 .ad-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
