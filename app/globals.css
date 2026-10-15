@@ -2306,3 +2306,6 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .sf-count { background: #e4574a; color: #0b0b0b; }
 .sf-click { border: 1px solid var(--line); color: var(--gold-2); }
 .sf-watch { width: 100%; }
+.sg-slide { animation: sg-slide 4s ease-in-out infinite; }
+@keyframes sg-slide { 0%, 100% { transform: translateX(0); } 30% { transform: translateX(-50px); } 65% { transform: translateX(50px); } }
+.sf-video.tall { aspect-ratio: 9 / 16; max-height: 70dvh; width: auto; margin-left: auto; margin-right: auto; }

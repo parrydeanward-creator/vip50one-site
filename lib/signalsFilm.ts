@@ -51,26 +51,43 @@ export const SIGNAL_SPOTS: Record<string, [number, number]> = {
 
 const P = ["go", "move", "marquee", "showly", "open"];
 
-export const SIGNAL_STEPS: WatchStep[] = [
-  { id: "sg-intro", show: ["one", ...P], focus: ["one", ...P], product: "one", kicker: "What everything means", title: "Every light, ring and colour in ONE.", line: "In about a minute. Then you will read your business at a glance.", ms: 4200 },
-  { id: "sg-breathe", n: [1, 16], show: [], focus: ["one"], product: "one", kicker: "Pulse", title: "ONE is breathing.", line: "The gold ONE in the middle slowly breathes. That is Pulse, awake and watching your whole business. Tap it any time to meet Pulse.", ms: 5200 },
-  { id: "sg-red", n: [2, 16], needs: true, show: ["s-follow", "s-tom"], focus: ["s-follow", "s-tom"], product: "move", kicker: "What needs you", title: "Pulsing red: right now.", line: "Overdue or urgent. Tom's follow-up is three days late. Do this first.", ms: 5400 },
-  { id: "sg-yellow", n: [3, 16], needs: true, show: ["s-sarah"], focus: ["s-tom", "s-sarah", "s-follow"], product: "move", kicker: "What needs you", title: "Pulsing yellow: today.", line: "Needs your attention today. Sarah's call is due. Not on fire yet, but it will be.", ms: 5400 },
-  { id: "sg-count", n: [4, 16], needs: true, show: [], focus: ["move", "s-follow", "s-tom", "s-sarah"], flight: ["s-tom", "move"], product: "move", kicker: "What needs you", title: "The number: follow the pulse.", line: "Every orb above a pulse pulses too, with how many inside need you. ONE MOVE 2, Follow-ups 2, then the person. Keep tapping the pulse.", ms: 6200 },
-  { id: "sg-green", n: [5, 16], needs: true, show: ["s-amy"], focus: ["move", "s-amy"], product: "move", kicker: "What needs you", title: "A still green ring: all good.", line: "Amy is touched this month. Nothing here needs you. Everything is in order.", ms: 5000 },
-  { id: "sg-gold", n: [6, 16], needs: true, show: ["s-jen"], patch: { "s-jen": { celebrate: true } }, focus: ["move", "s-jen"], product: "move", kicker: "Moments", title: "Gold glow: a special day.", line: "Jen's birthday is today. Birthdays, anniversaries and home anniversaries glow gold and come first.", ms: 5400 },
-  { id: "sg-opp", n: [7, 16], needs: true, show: ["s-listing"], focus: ["marquee", "s-listing"], product: "marquee", kicker: "Moments", title: "A blinking gold dot: an opportunity.", line: "Not urgent, but worth a look. A chance Pulse spotted for you.", ms: 5200 },
-  { id: "sg-ping", n: [8, 16], needs: true, show: [], ping: ["s-amy", "s-jen"], focus: ["move", "s-amy", "s-jen"], product: "one", kicker: "Moments", title: "A ring that spreads once: it changed.", line: "Something changed since you were last here. It rings out one time when you arrive.", ms: 5600 },
-  { id: "sg-signal", n: [9, 16], needs: true, show: [], flight: ["go", "one"], focus: ["one", "go"], product: "go", kicker: "Moments", title: "A light flying into ONE: it just happened.", line: "A box ticked in ONE GO, a visitor at an open house, a buyer's answer. It travels into ONE the moment it happens.", ms: 6200 },
-  { id: "sg-beat", n: [10, 16], needs: true, show: [], beat: true, focus: ["one", "go", "move", "open"], product: "one", kicker: "Moments", title: "Lights running along the lines.", line: "Every few seconds Pulse checks every connection. Nothing to do. It is just working.", ms: 5600 },
-  { id: "sg-arc", n: [11, 16], needs: true, show: ["s-touch"], focus: ["go", "s-touch"], product: "go", kicker: "Progress", title: "The arc around an orb: how far along.", line: "It fills as you go. 14 of 25 VIP touches done this month.", ms: 5200 },
-  { id: "sg-locked", n: [12, 16], needs: true, show: [], patch: { showly: { locked: true } }, focus: ["showly", "marquee"], product: "showly", kicker: "Progress", title: "A faded orb: not in your package.", line: "Faded products are not in your package yet. Tap one to see what it adds.", ms: 5000 },
-  { id: "sg-hwc", n: [13, 16], needs: true, clear: true, show: [], patch: { showly: { locked: false } }, focus: ["one", ...P], product: "move", kicker: "In your pages · Hot, Warm and Cold", title: "Hot, Warm and Cold pulse until you work them.", line: "Every piece of business coming: Hot closes within 3 months, Warm in 3 to 12, Cold in 12 and up. Working each one is in your daily tracker, so each pulses until you have worked it today, then turns green.", demo: "hwc", ms: 5800 },
-  { id: "sg-vip", n: [14, 16], needs: true, show: [], focus: ["one", ...P], product: "move", kicker: "In your pages · VIP rings", title: "Your VIP-50 and VIP-100, in rings.", line: "Gold inner ring is the VIP-50, teal outer ring the VIP-100. The ring round each face is their monthly touches; a red glow means overdue.", demo: "vip", ms: 5600 },
-  { id: "sg-touch", n: [15, 16], needs: true, show: [], focus: ["one", ...P], product: "move", kicker: "In your pages · Touch Audit and Rolodex", title: "Touches fill up. Offers wear gold.", line: "The Touch Audit fills with this month's coverage. In the Rolodex, a gold dotted ring is an offer for your clients; a teal dot means you shared it.", demo: "touch", ms: 5800 },
-  { id: "sg-contacts", n: [16, 16], needs: true, show: [], focus: ["one", ...P], product: "move", kicker: "In your pages · Contacts", title: "A gold badge: someone in here needs you.", line: "Tap the group, then the person. Their whole life opens round them.", demo: "contacts", ms: 5000 },
-  { id: "outro", needs: true, show: ["s-follow", "s-tom", "s-sarah", "s-amy", "s-jen", "s-listing", "s-touch"], patch: { "s-jen": { celebrate: true } }, focus: ["one", ...P, "s-follow", "s-tom", "s-sarah", "s-amy", "s-jen", "s-listing", "s-touch"], product: "one", kicker: "", title: "Red: now. Yellow: today. Green: all good. Follow the pulse.", line: "", ms: 5200 },
+// v2 (Parry, 15 Oct: "lets redo the video with the correct info and added features"; script
+// research/films/what-everything-means-v2.md in vip50-ecosystem): 22 moments, about two minutes. `say` is the spoken
+// line, word for word; the captions are exactly these words. Each moment lasts as long as its line takes to say.
+const N = 22;
+const sayMs = (say: string) => Math.max(4000, Math.round(say.split(/\s+/).length * 380 + 1300));
+type Moment = Omit<WatchStep, "ms" | "line" | "n"> & { say: string };
+const MOMENTS: Moment[] = [
+  { id: "sg-intro", show: ["one", ...P], focus: ["one", ...P], product: "one", kicker: "What everything means", title: "Every light, ring and colour in ONE.", say: "Every light, ring and colour in ONE, in about two minutes." },
+  { id: "sg-breathe", show: [], focus: ["one"], product: "one", kicker: "Pulse", title: "ONE is breathing.", say: "The gold ONE in the middle is breathing. That's Pulse, awake and watching your business. Tap it to meet Pulse." },
+  { id: "sg-red", needs: true, show: ["s-follow", "s-tom"], focus: ["s-follow", "s-tom"], product: "move", kicker: "What needs you", title: "Pulsing red: right now.", say: "Pulsing red means right now. Tom's follow-up is three days late. Do this first." },
+  { id: "sg-yellow", needs: true, show: ["s-sarah"], focus: ["s-tom", "s-sarah", "s-follow"], product: "move", kicker: "What needs you", title: "Pulsing yellow: today.", say: "Pulsing yellow means today. Sarah's call is due." },
+  { id: "sg-count", needs: true, show: [], focus: ["move", "s-follow", "s-tom", "s-sarah"], flight: ["s-tom", "move"], product: "move", kicker: "What needs you", title: "The number: follow the pulse.", say: "Every orb above a pulse pulses too, with a number. Follow it straight to the person." },
+  { id: "sg-green", needs: true, show: ["s-amy"], focus: ["move", "s-amy"], product: "move", kicker: "What needs you", title: "A still green ring: all good.", say: "A still green ring means all good. Nothing here needs you." },
+  { id: "sg-gold", needs: true, show: ["s-jen"], patch: { "s-jen": { celebrate: true } }, focus: ["move", "s-jen"], product: "move", kicker: "Moments", title: "Gold glow: a special day.", say: "A gold glow is a special day. Jen's birthday is today." },
+  { id: "sg-opp", needs: true, show: ["s-listing"], focus: ["marquee", "s-listing"], product: "marquee", kicker: "Moments", title: "A gold dot: an opportunity.", say: "A gold dot is an opportunity Pulse spotted for you." },
+  { id: "sg-ping", needs: true, show: [], ping: ["s-amy", "s-jen"], focus: ["move", "s-amy", "s-jen"], product: "one", kicker: "Moments", title: "A ring that spreads once: it changed.", say: "A ring that spreads once means something changed since you were last here." },
+  { id: "sg-signal", needs: true, show: [], flight: ["go", "one"], focus: ["one", "go"], product: "go", kicker: "Moments", title: "A light flying into ONE: it just happened.", say: "A light flying into ONE means something just happened, like a box ticked on your phone or a visitor at your open house." },
+  { id: "sg-arc", needs: true, show: ["s-touch"], focus: ["go", "s-touch"], product: "go", kicker: "Progress", title: "The arc: how far along.", say: "The arc around an orb shows how far along you are. 14 of 25 VIP touches this month." },
+  { id: "sg-locked", needs: true, show: [], patch: { showly: { locked: true } }, focus: ["showly", "marquee"], product: "showly", kicker: "Progress", title: "A faded orb: not in your package.", say: "A faded orb is not in your package yet. Tap it to see what it adds." },
+  { id: "sg-now", needs: true, show: [], patch: { showly: { locked: false } }, focus: ["one", ...P], product: "one", kicker: "Getting around", title: "The gold pill: what to do now.", say: "The gold pill at the top always tells you what to do right now. Tap it to open your day.", demo: "now" },
+  { id: "sg-day", needs: true, show: [], focus: ["one", ...P], product: "go", kicker: "Getting around", title: "Your day, planned by Pulse.", say: "Pulse plans your day round your calendar. Tap Looks good, then tick Done as you go. Anything you miss moves up by itself.", demo: "day" },
+  { id: "sg-ask", needs: true, clear: true, show: ["s-follow", "s-tom", "s-sarah", "s-amy"], focus: ["s-tom", "s-sarah", "s-amy"], product: "one", kicker: "Getting around", title: "Ask Pulse.", say: "Ask Pulse anything about your business. \"Who haven't I called in 60 days?\" The people come up as orbs.", demo: "ask" },
+  { id: "sg-tap", needs: true, show: [], focus: ["s-tom", "s-follow", "s-sarah"], product: "move", kicker: "Getting around", title: "Tap an orb. The arrow takes you back.", say: "Tap any orb and it comes to the middle and opens. The back arrow takes you back to everything.", demo: "back" },
+  { id: "sg-timeline", needs: true, show: [], ping: ["move", "open", "marquee"], focus: ["one", ...P], product: "one", kicker: "Getting around", title: "The timeline: what happened, what is coming.", say: "Slide the timeline left to see what happened, right to see what is coming: birthdays, open houses, posts. Tap Today to come back.", demo: "timeline" },
+  { id: "sg-hwc", needs: true, show: [], focus: ["one", ...P], product: "move", kicker: "In your pages", title: "Hot, Warm and Cold.", say: "Hot, Warm and Cold pulse every day until you work them.", demo: "hwc" },
+  { id: "sg-vip", needs: true, show: [], focus: ["one", ...P], product: "move", kicker: "In your pages", title: "Your VIP-50 and VIP-100, in rings.", say: "Your VIP-50 and VIP-100 sit in rings. A red glow means overdue.", demo: "vip" },
+  { id: "sg-menu", needs: true, show: [], focus: ["one", ...P], product: "one", kicker: "Getting around", title: "Your photo opens your menu.", say: "Your photo opens your menu: My Profile, your website, your Growth results and your plan.", demo: "menu" },
+  { id: "sg-help", needs: true, show: [], focus: ["one", ...P], product: "one", kicker: "Getting around", title: "The gold question mark.", say: "Lost? Tap the gold question mark for this key any time.", demo: "help" },
+  { id: "outro", needs: true, show: ["s-jen", "s-listing", "s-touch"], patch: { "s-jen": { celebrate: true } }, focus: ["one", ...P, "s-follow", "s-tom", "s-sarah", "s-amy", "s-jen", "s-listing", "s-touch"], product: "one", kicker: "", title: "Red: now. Yellow: today. Green: all good. Follow the pulse.", say: "Red, now. Yellow, today. Green, all good. Follow the pulse." },
 ];
+
+export const SIGNAL_STEPS: WatchStep[] = MOMENTS.map((m, k) => ({
+  ...m,
+  line: m.id === "outro" ? "" : m.say,
+  n: m.id === "sg-intro" || m.id === "outro" ? undefined : [k, N - 2] as [number, number],
+  ms: sayMs(m.say) + (m.id === "outro" ? 1800 : 0),
+}));
 
 export const SIGNALS_MS = totalMs(SIGNAL_STEPS);
 
@@ -84,11 +101,12 @@ export function signalsVtt(steps: WatchStep[] = SIGNAL_STEPS): string {
   let t = 0;
   const cues: string[] = [];
   for (const s of steps) {
-    const words = [s.title, s.line].filter(Boolean).join(" ");
+    const words = s.say ?? [s.title, s.line].filter(Boolean).join(" ");
     cues.push(`${stamp(t + 300)} --> ${stamp(t + s.ms - 200)}\n${words}`);
     t += s.ms;
   }
   return `WEBVTT\n\n${cues.join("\n\n")}\n`;
 }
 
-export const SIGNALS_FILM = { src: "/home/films/signals.mp4", poster: "/home/films/signals.jpg", captions: "/home/films/signals.vtt" };
+// The tall cut (1080x1920) is the same scene recorded on a phone screen; the help panel serves it on phones.
+export const SIGNALS_FILM = { src: "/home/films/signals.mp4", poster: "/home/films/signals.jpg", captions: "/home/films/signals.vtt", tallSrc: "/home/films/signals-tall.mp4", tallPoster: "/home/films/signals-tall.jpg" };

@@ -10,13 +10,20 @@ import { SIGNALS_KEY } from "@/lib/signalsKey.ts";
 // Watch ONE Work with Parry's voice and music (the sales-page film), from the Brain's link (Parry, 5 Oct:
 // "the watch one work video is the one without sound change it to the one with sound").
 export const ONE_FILM = { title: "Watch ONE Work", src: "/home/one-film.mp4", poster: "/home/one-film.jpg", captions: "/home/one-film.vtt", stepHref: "/watch", note: "Example agent; people and addresses are invented." };
-const SIGNALS = { title: "What everything means", src: SIGNALS_FILM.src, poster: SIGNALS_FILM.poster, captions: SIGNALS_FILM.captions, stepHref: "/watch?signals=1", note: "Example agent; people and addresses are invented." };
+const SIGNALS = { title: "What everything means", src: SIGNALS_FILM.src, poster: SIGNALS_FILM.poster, captions: SIGNALS_FILM.captions, stepHref: "/watch?signals=1", note: "Example agent; people and addresses are invented.", tallSrc: SIGNALS_FILM.tallSrc, tallPoster: SIGNALS_FILM.tallPoster };
 
-export default function SignalsFilm({ onClose, onMeet, film = SIGNALS }: { onClose: () => void; onMeet?: () => void; film?: typeof SIGNALS }) {
+type Film = { title: string; src: string; poster: string; captions: string; stepHref: string; note: string; tallSrc?: string; tallPoster?: string };
+
+export default function SignalsFilm({ onClose, onMeet, film = SIGNALS }: { onClose: () => void; onMeet?: () => void; film?: Film }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   // What everything means opens on the written key; its film waits, paused and silent, until pressed (walker audit 02).
   const keyFirst = film === SIGNALS;
   const [showFilm, setShowFilm] = useState(!keyFirst);
+  // Phones get the tall cut, so the orb labels can be read at 390px (walker audit 02).
+  const [tall, setTall] = useState(false);
+  useEffect(() => {
+    if (film.tallSrc) setTall(window.matchMedia("(max-width: 719px)").matches);
+  }, [film.tallSrc]);
   // The dashboard re-renders while this is open (the clock, live signals): a new onClose each time must
   // not re-run this, or the cursor jumps to the close button mid-typing and the next key closes the view.
   const onCloseRef = useRef(onClose);
@@ -52,7 +59,7 @@ export default function SignalsFilm({ onClose, onMeet, film = SIGNALS }: { onClo
           </ul>
         )}
         {showFilm ? (
-          <video className="sf-video" src={film.src} poster={film.poster} controls autoPlay={!keyFirst} playsInline preload="metadata">
+          <video className={`sf-video${tall ? " tall" : ""}`} src={tall ? film.tallSrc : film.src} poster={tall ? film.tallPoster : film.poster} controls autoPlay={!keyFirst} playsInline preload="metadata">
             <track kind="captions" src={film.captions} srcLang="en" label="English" />
           </video>
         ) : (
