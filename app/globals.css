@@ -2292,3 +2292,17 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
   .orb-hint { bottom: 112px; }
   .signal-live { bottom: 156px; }
 }
+/* What everything means: the written key above the film (walker audit 02). */
+.sf-key { list-style: none; margin: 4px 0 14px; padding: 0; display: grid; gap: 8px; }
+.sf-key li { display: flex; align-items: center; gap: 12px; font-size: 14px; line-height: 1.35; color: var(--text-2); }
+.sf-key b { color: var(--text); font-weight: 700; }
+.sf-mark { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 800; }
+.sf-red { background: #e4574a; box-shadow: 0 0 0 4px rgba(228, 87, 74, 0.28); }
+.sf-yellow { background: #f5c542; box-shadow: 0 0 0 4px rgba(245, 197, 66, 0.28); }
+.sf-green { border: 3px solid #3fbf7f; }
+.sf-gold-dot { background: radial-gradient(circle, #d4af37 0 5px, transparent 6px); border: 1px solid var(--line); }
+.sf-gold-glow { border: 2px solid #d4af37; box-shadow: 0 0 12px 3px rgba(212, 175, 55, 0.55); }
+.sf-ring { border: 2px solid rgba(255, 255, 255, 0.7); box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.12); }
+.sf-count { background: #e4574a; color: #0b0b0b; }
+.sf-click { border: 1px solid var(--line); color: var(--gold-2); }
+.sf-watch { width: 100%; }

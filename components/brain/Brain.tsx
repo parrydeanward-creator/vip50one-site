@@ -90,6 +90,7 @@ import { WEEK_NODE, commitmentsUrl, demoCommitments, readCommitments, withWeekNo
 import { PLAN_NODE, planKey, planUrl, readPlan, timed, withPlanNode, type Plan } from "@/lib/plan.ts";
 import { hwcUrl, readHwc, todayIn, type HwcClass } from "@/lib/hwc.ts";
 import { demoSignals, readSignals, signalsUrl, withSignalsNode, type WebSignal } from "@/lib/webSignals.ts";
+import { readSiteAlerts, withAdsAlertNode, type SiteAlert } from "@/lib/siteAlerts.ts";
 import { demoNewLeads, readNewLeads, todayUrl, withNewLeadsNode, type NewLeads } from "@/lib/newLeads.ts";
 import { postDay, type TeamPost } from "@/lib/teamPosts.ts";
 import { perProduct } from "@/lib/perProduct.ts";
@@ -159,6 +160,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const incomeRef = useRef<IncomeMap | null>(null);
   const forecastRef = useRef<Forecast | null>(null);
   const webRef = useRef<WebSignal[] | null>(null);
+  const adsRef = useRef<SiteAlert[] | null>(null);
   const newLeadsRef = useRef<NewLeads | null>(null);
   const heatRef = useRef<HeatSuggestion[] | null>(null);
   const onbRef = useRef<OnbMember[] | null>(null);
@@ -192,7 +194,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withRezenNodes(withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current, onbRemovedRef.current), rezenRef.current.r, rezenRef.current.n);
+    const next = withAdsAlertNode(withRezenNodes(withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current, onbRemovedRef.current), rezenRef.current.r, rezenRef.current.n), adsRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -854,6 +856,23 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     webRef.current = webHot;
     setGraph((g) => withSignalsNode(g, webHot));
   }, [webHot]);
+  // Ads that did not reach Meta, or team ads paused (ONE Websites site_alerts): red or yellow under ONE YOU.
+  const [adsAlerts, setAdsAlerts] = useState<SiteAlert[] | null>(null);
+  useEffect(() => {
+    if (!live) return;
+    const load = () =>
+      fetch("/api/site-alerts", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => j && Array.isArray(j.alerts) && setAdsAlerts(readSiteAlerts(j)))
+        .catch(() => {});
+    load();
+    const t = setInterval(load, 300_000);
+    return () => clearInterval(t);
+  }, [live]);
+  useEffect(() => {
+    adsRef.current = adsAlerts;
+    setGraph((g) => withAdsAlertNode(g, adsAlerts));
+  }, [adsAlerts]);
   // New leads today (LOFTY-PARITY P9): re-read every 2 minutes; red until each lead is reached.
   const [newLeads, setNewLeads] = useState<NewLeads | null>(null);
   useEffect(() => {
