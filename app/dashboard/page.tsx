@@ -25,7 +25,9 @@ export default async function Dashboard({ searchParams, params }: { searchParams
   if (sp.demo === "1") {
     const p = typeof sp.package === "string" ? sp.package : "";
     const pkg: PackageId = p in PACKAGE_LABEL ? (p as PackageId) : "complete";
-    return <Brain graph={oneYouView(demoGraph(pkg))} pkg={pkg} startPage={startPage} />;
+    // ?walk=1: the recorded product tour (Film A) shows the menu, My Profile and the team cards too. (?tour=1 is the
+    // morning fly-through.)
+    return <Brain graph={oneYouView(demoGraph(pkg))} pkg={pkg} startPage={startPage} productTour={sp.walk === "1"} />;
   }
   const live = await signedInBundle();
   if (!live) redirect("/login");

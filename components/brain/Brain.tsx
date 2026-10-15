@@ -143,7 +143,12 @@ function denverHour(now = new Date()): number {
   return Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", hour: "numeric", hourCycle: "h23" }).format(now));
 }
 
-export default function Brain({ graph: initialGraph, pkg = "complete", agent = DEMO_AGENT, live = false, startPage = null }: { graph: BusinessGraph; pkg?: string; agent?: BrainAgent; live?: boolean; startPage?: string | null }) {
+// The tour (Film A, Parry 15 Oct: "build them"): the example agent with the photo menu, My Profile and the team cards
+// showing, for the recorded product tour. The recorder answers their data calls with invented example data.
+const TOUR_AGENT: BrainAgent = { ...DEMO_AGENT, growth: true, plan: "ONE Complete + ONE Growth", label: "Sarah Bennett, ONE Complete + ONE Growth" };
+
+export default function Brain({ graph: initialGraph, pkg = "complete", agent: agentIn = DEMO_AGENT, live = false, startPage = null, productTour = false }: { graph: BusinessGraph; pkg?: string; agent?: BrainAgent; live?: boolean; startPage?: string | null; productTour?: boolean }) {
+  const agent = productTour ? TOUR_AGENT : agentIn;
   // Arriving on Team Leads means the agent is on a team: its orb is there before the team answer comes back.
   const teamLeadsHint = startPage === TEAM_LEADS_PATH;
   const hello = `${greeting()}, ${agent.firstName}.`;
@@ -1297,6 +1302,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       await scene.init(hostRef.current, reduced);
       if (dead) return scene.destroy();
+      // The recorded tour plays the map ?slow=N times slower, then the video is sped back up (as the films do).
+      const slow = productTour ? Number(new URLSearchParams(window.location.search).get("slow")) : 0;
+      if (slow > 1) scene.timeScale = 1 / slow;
       sceneRef.current = scene;
       scene.onFrame = syncOverlay;
       setReady(true);
@@ -2127,7 +2135,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             <a href={CLASSIC_DASHBOARD_URL}>Classic</a>
           </nav>
         )}
-        {live ? (
+        {live || productTour ? (
           <form className="me-form" method="post" action="/auth/signout">
             <button type="button" className="me me-btn" onClick={() => goTo(movePageId("/profile"))} title="My Profile" aria-label={`My Profile, ${agent.label}`}>
               {agent.photo ? <img className="me-pic" src={agent.photo} alt="" /> : agent.initials}
@@ -2173,7 +2181,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             <button type="button" className="pmenu-x" onClick={() => setMenuOpen(false)} aria-label="Close">×</button>
           </div>
           <ul>
-            {menuRows({ live, welcome: welcome && !welcome.allDone ? welcomeProgress(welcome) : null, growth: agent.growth === true, siteHost, teamHosts: teamSites.map((t) => t.host), agentTeamHrefs: agentSites.map((t) => siteOpenHref(t.slug)), classicUrl: CLASSIC_DASHBOARD_URL }).map((r: MenuRow) => (
+            {menuRows({ live: live || productTour, welcome: welcome && !welcome.allDone ? welcomeProgress(welcome) : null, growth: agent.growth === true, siteHost: productTour ? "sarah-bennett.vip50homes.com" : siteHost, teamHosts: productTour ? ["summit-home.vip50homes.com"] : teamSites.map((t) => t.host), agentTeamHrefs: productTour ? [] : agentSites.map((t) => siteOpenHref(t.slug)), classicUrl: CLASSIC_DASHBOARD_URL }).map((r: MenuRow) => (
               <li key={r.key}>
                 {r.action.kind === "signout" ? (
                   <form method="post" action="/auth/signout">
@@ -3362,7 +3370,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
       {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} squad={team} /> : null}
       {rcOpen && rcAgents ? <ReviewCallsView agents={rcAgents} demo={!live} onClose={() => setRcOpen(false)} onSearch={loadRcAgents} /> : null}
       {warOpen && war ? <WarRoomView room={war} demo={!live} onClose={() => setWarOpen(false)} onTeamLeads={() => { setWarOpen(false); goTo(movePageId(TEAM_LEADS_PATH)); }} /> : null}
-      {teamOpen && team ? <TeamView team={team} demo={!live} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} canAdd={teamSites.length > 0} /> : null}
+      {teamOpen && team ? <TeamView team={team} demo={!live && !productTour} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} canAdd={teamSites.length > 0} /> : null}
       {timeOffOpen && timeOff ? <TimeOffView data={timeOff} demo={!live} onSave={saveTimeOff} onCancel={cancelTimeOff} onClose={() => setTimeOffOpen(false)} /> : null}
       {aiOpen && askAi ? <AskAiView name={live ? agent.label.split(",")[0] : "Sarah Bennett"} area={askArea} results={askAi} demo={!live} onArea={saveArea} onMark={markAi} onClose={() => setAiOpen(false)} /> : null}
       {likelyOpen && likely ? <MoveLikelyView data={likely} demo={!live} onNotUseful={likelyNotUseful} onClose={() => setLikelyOpen(false)} /> : null}
