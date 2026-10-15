@@ -13,6 +13,7 @@ import type { DayFilm } from "@/lib/dayFilm.ts";
 import { SIGNAL_SPOTS, SIGNAL_STEPS, signalsGraph } from "@/lib/signalsFilm.ts";
 import { needsOf } from "@/lib/needs.ts";
 import { SignalDemoSvg } from "./SignalDemo.tsx";
+import FilmUi from "./FilmUi.tsx";
 
 // Watch ONE Work: the scripted story, drawn by the same scene as the
 // dashboard. Captions carry the words; the canvas is decoration for screen
@@ -113,7 +114,7 @@ export default function Watch({ record = false, slow = 1, film = false, product,
     const t = setTimeout(() => {
       for (const a of document.getAnimations()) {
         const el = (a.effect as KeyframeEffect | null)?.target as Element | null;
-        if (el?.closest?.(".sg-demo")) a.playbackRate = 1 / slow;
+        if (el?.closest?.(".sg-demo, .film-ui")) a.playbackRate = 1 / slow;
       }
     }, 50);
     return () => clearTimeout(t);
@@ -149,7 +150,7 @@ export default function Watch({ record = false, slow = 1, film = false, product,
 
         <div className="watch-live" role="status" aria-live="polite">
           {ready && !last && (
-            <div className="watch-card pop" key={step.id} style={slow > 1 ? { animationDuration: `${420 * slow}ms` } : undefined}>
+            <div className={`watch-card pop${step.ui === "timeline" ? " at-top" : ""}`} key={step.id} style={slow > 1 ? { animationDuration: `${420 * slow}ms` } : undefined}>
               <p className="watch-kicker" style={{ color }}>
                 {step.kicker}
                 {step.n && <span className="watch-n"> · {step.n[0]} of {step.n[1]}</span>}
@@ -192,6 +193,8 @@ export default function Watch({ record = false, slow = 1, film = false, product,
           )}
         </div>
 
+        {/* The Brain's own piece the voice is naming, drawn large (v2 film). */}
+        {ready && !last && step.ui && <FilmUi key={`ui-${step.id}`} kind={step.ui} />}
         {!record && ready && !last && (
           <div className="controls" role="toolbar" aria-label="Story controls">
             <button onClick={() => setPlaying((p) => !p)} aria-label={playing ? "Pause" : "Play"}>

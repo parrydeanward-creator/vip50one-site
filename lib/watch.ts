@@ -30,6 +30,7 @@ export interface WatchStep {
   beat?: boolean; // lights run out along every line from the middle
   demo?: string; // a small drawing in the caption (SignalDemo), for signals drawn inside a page
   say?: string; // the spoken words for this moment (the captions say exactly these)
+  ui?: string; // the Brain's own piece the voice names, drawn large on the stage (FilmUi)
   needs?: boolean; // draw follow-the-pulse rings and counts for what is on screen
   ms: number;
 }
