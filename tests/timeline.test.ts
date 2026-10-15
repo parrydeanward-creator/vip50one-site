@@ -140,3 +140,26 @@ test("weeks: this week, last week, then 'Week of'", () => {
   assert.deepEqual(w.map((x) => x.rows.length), [2, 1, 1, 1]);
   assert.deepEqual(byWeek([mk(1), mk(4), mk(12)], n).map((x) => x.label), ["This week", "Next week", "Week of Oct 26"]);
 });
+
+test("Marquee posts and ONE Open's held open houses reach the timeline (marquee-app#63, vip-open migration 073)", () => {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date());
+  const ago = (d: number) => new Date(Date.now() - d * 86400_000).toISOString();
+  const raw = { found: true, stats: [], today_boxes: [], items: [] } as unknown as Parameters<typeof liveGraph>[0];
+  const env = (x: object) => ({ reachable: true, env: { found: true, stats: [], items: [], ...x } }) as never;
+  const lg = liveGraph(raw, { today, pkg: "complete" } as Parameters<typeof liveGraph>[1], {
+    marquee: env({ posts: [
+      { id: "a:facebook", address: "822 N Grandridge Ct, Draper", channel: "facebook", at: ago(5), state: "sent" },
+      { id: "b:instagram", address: "822 N Grandridge Ct", channel: "instagram", at: ago(-3), state: "scheduled" },
+      { id: "c:x", address: "1 X St", channel: "instagram", at: ago(2), state: "draft" },
+    ] }),
+    open: env({ held_open_houses: [{ id: "h1", address: "12 Main St", starts_at: ago(4), visitors: 14 }] }),
+  });
+  const whats = (lg.dated ?? []).map((d) => d.what);
+  assert.ok(whats.includes("Posted on Facebook: 822 N Grandridge Ct."), whats.join(" | "));
+  assert.ok(whats.includes("Scheduled for Instagram: 822 N Grandridge Ct."));
+  assert.ok(whats.includes("Open house held: 12 Main St, 14 visitors."));
+  assert.ok(!whats.some((w) => w.includes("1 X St")), "only sent or really scheduled posts");
+  const lix = indexGraph(lg);
+  assert.equal(inWindow(lg.dated, -10, now, lix).length, 2);
+  assert.equal(inWindow(lg.dated, 10, now, lix).length, 1);
+});

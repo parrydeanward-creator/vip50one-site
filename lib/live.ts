@@ -57,6 +57,8 @@ export interface SummaryEnvelope {
   today_boxes?: { key: string; label: string; done: boolean; points: number }[] | null;
   listings?: SummaryListing[];       // VIP-SUMMARY §3a (v1.2), Marquee
   open_houses?: SummaryOpenHouse[];  // VIP-SUMMARY §3a (v1.2), ONE Open
+  held_open_houses?: { id: string; address: string; starts_at: string; visitors?: number | null; link?: string | null }[]; // ONE Open, last 30 days (timeline)
+  posts?: { id: string; listing_ref?: string | null; address: string; channel: string; at: string; state: "sent" | "scheduled" | string }[]; // Marquee, 30 days either side (timeline)
   special_days?: unknown[];          // vip50-web-crm#65; read only through lib/specialDays.ts
 }
 
@@ -557,6 +559,21 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
     });
     // VIP-SUMMARY §3a: Marquee's listings as homes, even when nothing is due.
     const homes = (a?.env?.listings ?? []).filter((l) => l.ref && l.address).slice(0, 20);
+    // The timeline (walker audit 02): Marquee posts that went out or are really scheduled, and open houses held.
+    const ymd = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date(iso));
+    const NET: Record<string, string> = { instagram: "Instagram", facebook: "Facebook" };
+    if (p === "marquee")
+      for (const x of (a?.env?.posts ?? []).slice(0, 40)) {
+        if (!x?.address || Number.isNaN(Date.parse(x.at)) || (x.state !== "sent" && x.state !== "scheduled")) continue;
+        const where = NET[x.channel] ?? "social";
+        listingDated.push({ id: p, product: "marquee", at: `${ymd(x.at)}T18:00:00.000Z`, what: x.state === "sent" ? `Posted on ${where}: ${x.address.split(",")[0].trim()}.` : `Scheduled for ${where}: ${x.address.split(",")[0].trim()}.` });
+      }
+    if (p === "open")
+      for (const h of (a?.env?.held_open_houses ?? []).slice(0, 20)) {
+        if (!h?.address || Number.isNaN(Date.parse(h.starts_at))) continue;
+        const v = typeof h.visitors === "number" && h.visitors >= 0 ? Math.round(h.visitors) : null;
+        listingDated.push({ id: p, product: "open", at: `${ymd(h.starts_at)}T18:00:00.000Z`, what: `Open house held: ${h.address}${v !== null ? `, ${v} ${v === 1 ? "visitor" : "visitors"}` : ""}.` });
+      }
     if (p === "marquee")
       for (const l of homes)
         for (const [day, word] of [[l.live_on, "Went live"], [l.under_contract_on, "Under contract"], [l.closed_on, "Closed"]] as const)
