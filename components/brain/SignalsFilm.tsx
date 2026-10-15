@@ -11,7 +11,7 @@ import { SIGNALS_KEY } from "@/lib/signalsKey.ts";
 // "the watch one work video is the one without sound change it to the one with sound").
 export const ONE_FILM = { title: "Watch ONE Work", src: "/home/one-film.mp4", poster: "/home/one-film.jpg", captions: "/home/one-film.vtt", stepHref: "/watch", note: "Example agent; people and addresses are invented." };
 // The ONE GO phone tour (Film B, made by GO/MOVE, voiced by the walker; vip50one-site#231), from the menu.
-export const GO_TOUR_FILM = { title: "The ONE GO tour", src: "/home/films/one-go-tour-wide.mp4", poster: "/home/films/one-go-tour.jpg", captions: "/home/films/one-go-tour.vtt", note: "Example agent; people and addresses are invented.", tallSrc: "/home/films/one-go-tour.mp4", tallPoster: "/home/films/one-go-tour.jpg" };
+export const GO_TOUR_FILM = { title: "The ONE GO tour", src: "/home/films/one-go-tour-wide.mp4", poster: "/home/films/one-go-tour-wide.jpg", captions: "/home/films/one-go-tour.vtt", note: "Example agent; people and addresses are invented.", tallSrc: "/home/films/one-go-tour.mp4", tallPoster: "/home/films/one-go-tour.jpg" };
 const SIGNALS = { title: "What everything means", src: SIGNALS_FILM.src, poster: SIGNALS_FILM.poster, captions: SIGNALS_FILM.captions, stepHref: "/watch?signals=1", note: "Example agent; people and addresses are invented.", tallSrc: SIGNALS_FILM.tallSrc, tallPoster: SIGNALS_FILM.tallPoster };
 
 type Film = { title: string; src: string; poster: string; captions: string; stepHref?: string; note: string; tallSrc?: string; tallPoster?: string };
