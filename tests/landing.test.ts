@@ -68,3 +68,21 @@ test("the real logo on every page: no typed 'VIP-50 ONE' text marks come back (P
   }
   assert.match(readFileSync("components/brand/Logo.tsx", "utf8"), /\/brand\/vip50-one\.webp/);
 });
+
+test("the header carries no site or team buttons; they are in the menu by the photo (Parry, 15 Oct)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../components/brain/Brain.tsx", import.meta.url), "utf8");
+  const header = src.slice(src.indexOf('<form className="me-form"'), src.indexOf("</form>", src.indexOf('<form className="me-form"')));
+  for (const word of ["Team website home", "Ad requests", "Website home", "Growth results", "Ask for an ad", ">Sign out<"]) {
+    assert.ok(!header.includes(word), `${word} is not loose in the header`);
+  }
+});
+
+test("team website rows only for the team's owner and admins", async () => {
+  const { readTeamSites } = await import("../lib/siteEdit.ts");
+  const rows = [
+    { role: "owner", teams: { slug: "lux", site_host: "lux.vip50homes.com" } },
+    { role: "agent", teams: { slug: "other", site_host: "other.vip50homes.com" } },
+  ];
+  assert.deepEqual(readTeamSites(rows).map((t) => t.host), ["lux.vip50homes.com"]);
+});

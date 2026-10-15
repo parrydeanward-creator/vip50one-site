@@ -2019,34 +2019,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             <button type="button" className="me me-btn" onClick={() => goTo(movePageId("/profile"))} title="My Profile" aria-label={`My Profile, ${agent.label}`}>
               {agent.photo ? <img className="me-pic" src={agent.photo} alt="" /> : agent.initials}
             </button>
-            {siteHost && (
-              <button type="button" className="signout" onClick={() => void editSite()} title={`Website home for ${siteHost}`}>
-                Website home
-              </button>
-            )}
-            {siteHost && agent.growth && (
-              <button type="button" className="signout" onClick={() => void editSite(undefined, "/manage/results")} title="ONE Growth results: leads, appointments and closings by source">
-                Growth results
-              </button>
-            )}
-            {teamSites.map((t) => (
-              <span key={t.host} style={{ display: "contents" }}>
-                <button type="button" className="signout" onClick={() => void editSite(t.host)} title={`Website home for ${t.host}`}>
-                  Team website home
-                </button>
-                {agent.growth && (
-                  <button type="button" className="signout" onClick={() => void editSite(t.host, "/manage/ad-requests")} title="Ads your agents have asked for">
-                    Ad requests
-                  </button>
-                )}
-              </span>
-            ))}
-            {agentSites.map((t) => (
-              <a key={t.host} className="signout" href={siteOpenHref(t.slug)} title="Ask your team lead for an ad, and see the ads you have asked for">
-                Ask for an ad
-              </a>
-            ))}
-            <button className="signout" type="submit">Sign out</button>
+            {/* Every website, team, ad and sign-out link lives in the menu by the photo (lib/phoneMenu.ts), never loose in
+                the header (Parry, 15 Oct). Team rows show only to the team's owner and admins (lib/siteEdit.ts). */}
             <button type="button" className="me-menu" onClick={() => setMenuOpen(true)} aria-haspopup="dialog" aria-expanded={menuOpen} aria-label={`Menu, ${agent.label}`}>
               {agent.photo ? <img className="me-pic" src={agent.photo} alt="" /> : <span className="me-ini">{agent.initials}</span>}
               <span className="me-burger" aria-hidden="true">☰</span>
