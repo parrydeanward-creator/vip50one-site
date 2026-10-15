@@ -268,33 +268,33 @@ export function demoWarRoom(now: number): WarRoom {
     {
       team: { slug: "luxury-agency", name: "The Luxury Agency", role: "owner" },
       leads: [
-        lead("w1", "Kara Lund", 42, ["a1", "Annette"], null, "Team website", "Holladay", "sell"),
-        lead("w2", "Ben Ortiz", 6, ["a2", "Travis"], null, "Facebook ad", "Sandy"),
-        lead("w3", "Mia Chen", 190, ["a1", "Annette"], 4),
+        lead("w1", "Kara Lund", 42, ["a1", "Rachel"], null, "Team website", "Holladay", "sell"),
+        lead("w2", "Ben Ortiz", 6, ["a2", "Kyle"], null, "Facebook ad", "Sandy"),
+        lead("w3", "Mia Chen", 190, ["a1", "Rachel"], 4),
         lead("w4", "Sam Reyes", 400, ["a3", "Aaron"], 22, "Zillow", "South Jordan"),
-        lead("w5", "Ivy Brooks", 1500, ["a2", "Travis"], 9, "Open house", "Bountiful", "both"),
+        lead("w5", "Ivy Brooks", 1500, ["a2", "Kyle"], 9, "Open house", "Bountiful", "both"),
       ],
       pond: [lead("w6", "Noah Pike", 25, null, null, "Team website", "Herriman")],
       members: [
-        { user_id: "a1", name: "Annette", role: "admin" },
-        { user_id: "a2", name: "Travis", role: "agent" },
+        { user_id: "a1", name: "Rachel", role: "admin" },
+        { user_id: "a2", name: "Kyle", role: "agent" },
         { user_id: "a3", name: "Aaron", role: "admin" },
         { user_id: "a4", name: "Jen", role: "agent" },
       ],
     },
     {
       log: [
-        { id: 1, at: ago(6), event: "assigned", words: "Assigned", to: "Travis" },
+        { id: 1, at: ago(6), event: "assigned", words: "Assigned", to: "Kyle" },
         { id: 2, at: ago(25), event: "to_pond", words: "To the lead pool" },
-        { id: 3, at: ago(42), event: "assigned", words: "Assigned", to: "Annette" },
-        { id: 4, at: ago(186), event: "contacted", words: "Contacted", to: "Annette" },
+        { id: 3, at: ago(42), event: "assigned", words: "Assigned", to: "Rachel" },
+        { id: 4, at: ago(186), event: "contacted", words: "Contacted", to: "Rachel" },
       ],
     },
     {
       deals: [
         { id: "d1", agent: { user_id: "a3", name: "Aaron" }, client: "Sam Reyes", side: "buy", status: "under_contract", next: { label: "Due diligence", on: denverDay(now + 3 * 86_400_000) } },
-        { id: "d2", agent: { user_id: "a1", name: "Annette" }, client: "Lena Ford", side: "sell", status: "under_contract", next: { label: "Settlement", on: denverDay(now + 11 * 86_400_000) } },
-        { id: "d3", agent: { user_id: "a2", name: "Travis" }, client: "Omar Hale", side: "buy", status: "closed", next: null },
+        { id: "d2", agent: { user_id: "a1", name: "Rachel" }, client: "Lena Ford", side: "sell", status: "under_contract", next: { label: "Settlement", on: denverDay(now + 11 * 86_400_000) } },
+        { id: "d3", agent: { user_id: "a2", name: "Kyle" }, client: "Omar Hale", side: "buy", status: "closed", next: null },
       ],
     },
   )!;

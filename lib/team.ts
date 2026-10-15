@@ -137,8 +137,8 @@ export function demoTeam(weekStart: string): Team {
       m("t3", "Sarah", 98, [101, 105, 99, 110], 0, true, true),
       m("t4", "Dave", 91, [70, 84, 79, 82], 0, false),
       m("t5", "Amy", 87, [102, 108, 111, 104], 0, true),
-      m("t6", "Travis", 76, [60, 72, 81, 64], 0, false),
-      m("t7", "Annette", 69, [99, 95, 90, 88], 0, true),
+      m("t6", "Kyle", 76, [60, 72, 81, 64], 0, false),
+      m("t7", "Rachel", 69, [99, 95, 90, 88], 0, true),
       m("t8", "Lisa", 58, [41, 55, 60, 47], 0, false),
     ],
   })!;

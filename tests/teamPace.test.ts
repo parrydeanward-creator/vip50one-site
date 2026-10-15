@@ -18,7 +18,8 @@ test("team pace: average leaves out the coach and away agents; help list lowest 
   const t = demoTeam("2026-10-05");
   const all = teamPace(t);
   assert.equal(all.counted, 7, "Sarah (me) left out");
-  assert.deepEqual(all.help.map((h) => h.mate.name), ["Lisa", "Annette", "Travis", "Dave", "Marcus"]);
+  // Rewritten 15 Oct on purpose: the example team uses invented names (Travis and Annette are real team members).
+  assert.deepEqual(all.help.map((h) => h.mate.name), ["Lisa", "Rachel", "Kyle", "Dave", "Marcus"]);
   const mine = teamPace(t, new Set(["t2", "t4"]));
   assert.deepEqual(mine.help.map((h) => h.mate.name), ["Dave", "Marcus"]);
   assert.equal(teamPace(readTeam({ minimum: 100, agents: [] })!).average, null);
