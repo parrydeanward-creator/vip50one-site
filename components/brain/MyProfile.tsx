@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LeadMailSection, OwnAISection, PulseModesSection } from "./ConnectSections.tsx";
 import RezenSection from "./RezenSection.tsx";
-import { BadgesSection, GoogleSections, MembershipBadge, NotificationsSection } from "./ProfileCards.tsx";
+import { BadgesSection, GoogleSections, MembershipBadge, NotificationsSection, TeamAdsSection } from "./ProfileCards.tsx";
 import { brokerageAsk, CONNECTIONS, FIELDS, TIME_ZONES, UPLOAD_MAX, aboutChanges, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, winsChange, WINS_MAX, type Profile } from "@/lib/profile.ts";
 
 /** Draw the photo at most 1200px on the long side as a JPEG, so it fits ONE MOVE's 4 MB limit. */
@@ -300,6 +300,7 @@ export default function MyProfile({
         ) : tab === "settings" ? (
           <>
             <NotificationsSection />
+            <TeamAdsSection />
             {saved.share_contact_info !== null && (
               <section className="pf-card" aria-label="Contact sharing">
                 <h2>Contact sharing</h2>

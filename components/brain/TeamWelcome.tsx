@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { GoogleSections } from "./ProfileCards.tsx";
 import { PulseModesSection } from "./ConnectSections.tsx";
 import RezenSection from "./RezenSection.tsx";
-import { ANDROID_APP, IOS_APP, adsConsentUrl, firstOpen, progress, readWelcome, welcomeUrl, type Welcome } from "@/lib/teamWelcome.ts";
+import { ANDROID_APP, CONSENT_LINE, IOS_APP, adsConsentUrl, firstOpen, progress, readWelcome, welcomeUrl, type Welcome } from "@/lib/teamWelcome.ts";
 
 // TEAM-ONBOARDING §3: "Welcome to <team>" with the same six steps as Classic, each with Skip for now. Pages open
 // inside the Brain (onOpenPage), never Classic.
@@ -18,7 +18,6 @@ export default function TeamWelcome({ w, onChange, onLater, onOpenPage, onProfil
   const [open, setOpen] = useState<string | null>(firstOpen(w));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [line, setLine] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const j = await fetch(welcomeUrl, { credentials: "include", cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
@@ -26,10 +25,6 @@ export default function TeamWelcome({ w, onChange, onLater, onOpenPage, onProfil
     onChange(next);
     if (next) setOpen((cur) => (cur && next.steps.some((s) => s.key === cur && !s.done) ? cur : firstOpen(next)));
   }, [onChange]);
-
-  useEffect(() => {
-    fetch(adsConsentUrl, { credentials: "include", cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((j) => setLine(typeof j?.line === "string" ? j.line : null)).catch(() => {});
-  }, []);
 
   const post = async (url: string, body: unknown) => {
     setBusy(true);
@@ -43,6 +38,7 @@ export default function TeamWelcome({ w, onChange, onLater, onOpenPage, onProfil
   if (w.allDone) {
     return (
       <div className="tw" role="dialog" aria-label="You're set">
+        <div className="tw-scroll">
         <h1>You&apos;re set.</h1>
         <p className="pf-sub">Three good first moves:</p>
         <div className="tw-moves">
@@ -50,11 +46,15 @@ export default function TeamWelcome({ w, onChange, onLater, onOpenPage, onProfil
           <button type="button" className="chip-btn" onClick={() => onOpenPage("/daily")}>Open Plan my day</button>
           <button type="button" className="chip-btn" onClick={() => onOpenPage("/team-leads")}>See the team&apos;s leads</button>
         </div>
-        <button type="button" className="chip-btn primary" onClick={onLater}>Open ONE</button>
+        </div>
+        <div className="tw-foot">
+          <button type="button" className="chip-btn primary" onClick={onLater}>Open ONE</button>
+        </div>
       </div>
     );
   }
 
+  const openStep = w.steps.find((s) => s.key === open) ?? null;
   const body: Record<string, React.ReactNode> = {
     profile: (
       <>
@@ -65,7 +65,7 @@ export default function TeamWelcome({ w, onChange, onLater, onOpenPage, onProfil
     ),
     consent: (
       <>
-        <p>{line ?? "The team lead may run ads that name me or show my listings."}</p>
+        <p>{CONSENT_LINE}</p>
         <button type="button" className="chip-btn primary" disabled={busy} onClick={() => void post(adsConsentUrl, { agree: true })}>I agree</button>
       </>
     ),
@@ -95,6 +95,7 @@ export default function TeamWelcome({ w, onChange, onLater, onOpenPage, onProfil
 
   return (
     <div className="tw" role="dialog" aria-label={`Welcome to ${w.team}`}>
+      <div className="tw-scroll">
       <h1>Welcome to {w.team}</h1>
       <p className="pf-sub">About 15 minutes. {progress(w)}. Skip anything and come back to it.</p>
       {err ? <p className="pf-sub warn" role="alert">{err}</p> : null}
@@ -109,15 +110,19 @@ export default function TeamWelcome({ w, onChange, onLater, onOpenPage, onProfil
             {open === s.key ? (
               <div className="tw-body">
                 {body[s.key] ?? null}
-                {!s.done ? (
-                  <button type="button" className="tw-skip" disabled={busy} onClick={() => void post(welcomeUrl, { skip: s.key })}>Skip for now</button>
-                ) : null}
               </div>
             ) : null}
           </li>
         ))}
       </ol>
-      <button type="button" className="chip-btn" onClick={onLater}>Later</button>
+      </div>
+      {/* Pinned to the bottom of the box (walker, 14 Oct: at phone width Later sat below the screen). */}
+      <div className="tw-foot">
+        {openStep && !openStep.done ? (
+          <button type="button" className="chip-btn" disabled={busy} onClick={() => void post(welcomeUrl, { skip: openStep.key })}>Skip this step</button>
+        ) : null}
+        <button type="button" className="chip-btn" onClick={onLater}>Later</button>
+      </div>
     </div>
   );
 }

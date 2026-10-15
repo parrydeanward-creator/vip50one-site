@@ -5,6 +5,7 @@ import { chimeOn, setChime } from "@/lib/chime.ts";
 import { calendarDisconnectUrl, calendarSyncUrl, connectCalendarUrl, connectContactsUrl, googleDisconnectUrl, googlePhotosUrl, googleStatusUrl, readGoogle, shortWhen, type GoogleState } from "@/lib/googleLink.ts";
 import { membershipUrl, planName, readMembership, standing, type Membership } from "@/lib/membership.ts";
 import { badgesUrl, pct, readBadges, type Badges } from "@/lib/badges.ts";
+import { CONSENT_LINE, adsConsentUrl, readAdsConsent, type AdsConsent } from "@/lib/teamWelcome.ts";
 import { NOTIFY_KEYS, NOTIFY_LABEL, notifyUrl, readNotify, type NotifyKey, type NotifyPrefs } from "@/lib/notifyPrefs.ts";
 
 // My Profile cards that ONE MOVE's Classic profile has too (Parry, 14 Oct, hard rule: every My Profile item on both
@@ -199,5 +200,40 @@ export function BadgesSection() {
         </section>
       ) : null}
     </>
+  );
+}
+
+/** Settings > Team ads (walker 14 Oct, Parry approved): the agent's own consent to the team lead's ads, on or off any
+ * time. Hidden for agents not on a team and for the team lead and admins, who run the ads. */
+export function TeamAdsSection() {
+  const [c, setC] = useState<AdsConsent | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    const j = await fetch(adsConsentUrl, { credentials: "include", cache: "no-store" }).then(json).catch(() => null);
+    setC(readAdsConsent(j));
+  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  if (!c || c.lead) return null;
+  const flip = async (agree: boolean) => {
+    setBusy(true);
+    setErr(null);
+    const r = await fetch(adsConsentUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agree }) }).catch(() => null);
+    if (!r?.ok) setErr("That didn't save. Try again in a minute.");
+    await load();
+    setBusy(false);
+  };
+  return (
+    <section className="pf-card" aria-label="Team ads">
+      <h2>Team ads</h2>
+      <small className="pf-sub">{CONSENT_LINE.replace(" You can turn this off any time in My Profile.", "")}</small>
+      <label className="dc-switch">
+        <input type="checkbox" checked={c.on} disabled={busy} onChange={(e) => void flip(e.target.checked)} />
+        {c.on ? `On: ${c.team} may run ads that show me` : "Off: no team ad shows me"}
+      </label>
+      {err ? <small className="pf-sub warn" role="alert">{err}</small> : null}
+    </section>
   );
 }
