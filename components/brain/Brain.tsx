@@ -97,6 +97,8 @@ import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, ty
 import LaunchPanel from "./LaunchPanel.tsx";
 import HeatPanel from "./HeatPanel.tsx";
 import OnboardingPanel from "./OnboardingPanel.tsx";
+import TeamWelcome from "./TeamWelcome.tsx";
+import { LATER_KEY, hiddenToday, progress as welcomeProgress, readWelcome, welcomeUrl, type Welcome } from "@/lib/teamWelcome.ts";
 import { NetworkPanel, RevsharePanel } from "./RezenOrbPanel.tsx";
 import { NETWORK_NODE, REVSHARE_NODE, demoRezenRead, readNetwork as readRezenNetwork, readRevshare, withRezenNodes, type Network as RezenNetwork, type Revshare } from "@/lib/rezenOrbs.ts";
 import { rezenUrl } from "@/lib/rezen.ts";
@@ -884,6 +886,31 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     onbRef.current = onb;
     setGraph((g) => withOnboardingNodes(g, onb));
   }, [onb]);
+  // A new team member's welcome (TEAM-ONBOARDING §3): shown on opening the Brain until the six steps are done or
+  // skipped; "Later" hides it for the rest of today, and the menu keeps a "Team setup" row.
+  const [welcome, setWelcome] = useState<Welcome | null>(null);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+  useEffect(() => {
+    if (!live) return;
+    fetch(welcomeUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const w = readWelcome(j);
+        setWelcome(w);
+        let saved: string | null = null;
+        try {
+          saved = localStorage.getItem(LATER_KEY);
+        } catch {}
+        if (w && !w.allDone && !hiddenToday(saved, todayIn())) setWelcomeOpen(true);
+      })
+      .catch(() => {});
+  }, [live]);
+  const welcomeLater = () => {
+    setWelcomeOpen(false);
+    try {
+      localStorage.setItem(LATER_KEY, todayIn());
+    } catch {}
+  };
   // Revenue share and My network from reZEN (REZEN.md §3a): only the boxes the agent ticked, read hourly by ONE MOVE.
   const [rezen, setRezen] = useState<{ r: Revshare | null; n: RezenNetwork | null }>({ r: null, n: null });
   useEffect(() => {
@@ -2030,6 +2057,25 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
           <span className="me" aria-label={agent.label}>{agent.initials}</span>
         )}
       </header>
+    {welcomeOpen && welcome ? (
+      <div className="tw-back" onClick={welcomeLater}>
+        <div onClick={(e) => e.stopPropagation()}>
+          <TeamWelcome
+            w={welcome}
+            onChange={(w) => setWelcome(w)}
+            onLater={welcomeLater}
+            onProfile={() => {
+              setWelcomeOpen(false);
+              goTo(movePageId("/profile"));
+            }}
+            onOpenPage={(path) => {
+              setWelcomeOpen(false);
+              goTo(movePageId(path));
+            }}
+          />
+        </div>
+      </div>
+    ) : null}
     {menuOpen && (
       <div className="pmenu-back" onClick={() => setMenuOpen(false)}>
         <div className="pmenu pop" role="dialog" aria-modal="true" aria-label="Menu" onClick={(e) => e.stopPropagation()}>
@@ -2038,7 +2084,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
             <button type="button" className="pmenu-x" onClick={() => setMenuOpen(false)} aria-label="Close">×</button>
           </div>
           <ul>
-            {menuRows({ live, growth: agent.growth === true, siteHost, teamHosts: teamSites.map((t) => t.host), agentTeamHrefs: agentSites.map((t) => siteOpenHref(t.slug)), classicUrl: CLASSIC_DASHBOARD_URL }).map((r: MenuRow) => (
+            {menuRows({ live, welcome: welcome && !welcome.allDone ? welcomeProgress(welcome) : null, growth: agent.growth === true, siteHost, teamHosts: teamSites.map((t) => t.host), agentTeamHrefs: agentSites.map((t) => siteOpenHref(t.slug)), classicUrl: CLASSIC_DASHBOARD_URL }).map((r: MenuRow) => (
               <li key={r.key}>
                 {r.action.kind === "signout" ? (
                   <form method="post" action="/auth/signout">
@@ -2060,6 +2106,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
                       const a = r.action;
                       setMenuOpen(false);
                       if (a.kind === "profile") goTo(movePageId("/profile"));
+                      else if (a.kind === "welcome") setWelcomeOpen(true);
                       else if (a.kind === "site") void editSite(a.host, a.next);
                     }}
                   >
