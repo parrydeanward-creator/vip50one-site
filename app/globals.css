@@ -1316,7 +1316,23 @@ a.link { display: block; text-decoration: none; }
 .pf > * { max-width: 1180px; margin-left: auto; margin-right: auto; }
 .pf-fields { display: grid; gap: 14px; align-content: start; min-width: 0; }
 .pf-fields .pf-about { margin: 0; }
-.pf-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 24px; align-items: start; }
+.pf-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; align-items: stretch; }
+.pf-cards > .pf-card { align-content: start; }
+.pf-span { grid-column: 1 / -1; }
+.pf-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 24px; border-bottom: 1px solid var(--line); }
+.pf-tabs button { font: inherit; font-size: 14px; letter-spacing: 0.06em; padding: 10px 16px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-2); cursor: pointer; }
+.pf-tabs button.on { color: var(--gold-2); border-bottom-color: var(--gold); }
+.pf-plan { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 2px; font-size: 13px; color: var(--gold-2); }
+.pf-plan > span { padding: 3px 10px; border: 1px solid rgba(245, 197, 66, 0.4); border-radius: 999px; }
+.pf-plan.warn > span { color: #ffb36b; border-color: rgba(255, 179, 107, 0.5); }
+.pf-plan-btn { font: inherit; font-size: 13px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--text); cursor: pointer; }
+.pf-plan small { flex-basis: 100%; color: #ffb36b; }
+.bd-tiles { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.bd-tiles li { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; opacity: 0.75; }
+.bd-tiles li.on { opacity: 1; border-color: var(--gold); box-shadow: 0 0 16px rgba(245, 197, 66, 0.2); }
+.bd-tiles small { color: var(--text-2); font-size: 12px; }
+.bd-bar { display: block; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.bd-bar i { display: block; height: 100%; background: var(--gold); }
 .pf-card { display: grid; gap: 6px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--panel); min-width: 0; }
 .pf-card h2 { margin: 0 0 4px; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-2); }
 .pf-card .pf-sub.warn { color: #ffb36b; }
