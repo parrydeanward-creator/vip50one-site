@@ -19,6 +19,9 @@ test("land where the agent last was: only Brain addresses come back", () => {
 
 test("after sign-in: asked-for place, else last place, else the Brain", () => {
   assert.equal(afterSignIn("/reactivate?package=complete", null), "/reactivate?package=complete");
+  // Edit any time (Websites, 15 Oct): a signed-out studio link comes straight back to /site/open after signing in.
+  assert.equal(afterSignIn("/site/open?site=parry-ward.vip50homes.com&next=/builder", null), "/site/open?site=parry-ward.vip50homes.com&next=/builder");
+  assert.equal(afterSignIn("/site/open?next=//evil.example", null), "/dashboard");
   assert.equal(afterSignIn("/dashboard/weekly", "/dashboard/profile"), "/dashboard/weekly");
   assert.equal(afterSignIn("", encodeURIComponent("/dashboard/profile")), "/dashboard/profile");
   assert.equal(afterSignIn("https://evil.example", null), "/dashboard");

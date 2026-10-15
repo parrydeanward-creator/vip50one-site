@@ -32,6 +32,8 @@ export function appTarget(to: string | null | undefined): string {
 /** After sign-in: an asked-for place on this site (Brain or the reactivate page), else the last place, else the Brain. */
 export function afterSignIn(next: string | null | undefined, last: string | null | undefined): string {
   if (next === "/reactivate" || next?.startsWith("/reactivate?")) return next;
+  // Back to a website's studio after signing in (/site/open?site=...; Websites, 15 Oct).
+  if (next?.startsWith("/site/open?") && !next.includes("//") && !next.includes("\\")) return next;
   if (next) {
     const t = appTarget(next);
     if (t !== "/dashboard" || next === "/dashboard") return t;

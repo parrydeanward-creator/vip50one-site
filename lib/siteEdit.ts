@@ -9,7 +9,7 @@ export function cleanHost(v: unknown): string | null {
   return /^(?=.{3,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(h) ? h : null;
 }
 
-/** Studio pages a sign-in may land on (one-websites#108, #109); anything else goes to the Website home. */
+/** Studio pages a sign-in may land on (one-websites#108, #109); anything else goes to the Web Studio. */
 export const SITE_NEXT = ["/manage", "/manage/results", "/manage/ad-requests", "/builder"] as const;
 export type SiteNext = (typeof SITE_NEXT)[number];
 export const cleanNext = (v: unknown): SiteNext | null => (typeof v === "string" && (SITE_NEXT as readonly string[]).includes(v) ? (v as SiteNext) : null);
