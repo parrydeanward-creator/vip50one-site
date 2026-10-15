@@ -199,6 +199,87 @@ export function SignalDemo({ kind }: { kind: string }) {
           <text x={98} y={46} textAnchor="middle" fontSize={11} fontWeight={800} fill="#070b18">6</text>
         </>
       );
+    case "now":
+      return (
+        <>
+          <rect x={14} y={42} width={132} height={34} rx={17} fill="#0c1328" stroke={GOLD} strokeWidth={2} />
+          <text x={80} y={63} textAnchor="middle" fontSize={11} fontWeight={700} fill={GOLD2}>Now: call Tom · 10 min</text>
+          <circle className="sg-blink" cx={130} cy={86} r={5} fill={GOLD2} />
+          <text x={80} y={100} textAnchor="middle" fontSize={9} fill="#a9b0bd">tap it to open your day</text>
+        </>
+      );
+    case "day":
+      return (
+        <>
+          {[["8:00", "Call Tom", true], ["8:20", "Call Sarah", true], ["8:40", "Note to Jen", false]].map(([t, w, done], k) => (
+            <g key={k}>
+              <rect x={12} y={14 + k * 26} width={136} height={22} rx={6} fill="#0c1328" stroke="rgba(255,255,255,0.12)" />
+              <circle cx={24} cy={25 + k * 26} r={6} fill={done ? GREEN : "none"} stroke={done ? GREEN : "#a9b0bd"} strokeWidth={1.5} />
+              {done && <path d={`M21 ${25 + k * 26} l2 2 l4 -4`} stroke="#070b18" strokeWidth={1.6} fill="none" />}
+              <text x={36} y={29 + k * 26} fontSize={9} fill={GOLD2}>{t as string}</text>
+              <text x={62} y={29 + k * 26} fontSize={9} fill="#fff">{w as string}</text>
+            </g>
+          ))}
+          <rect x={44} y={94} width={72} height={18} rx={9} fill={GOLD} />
+          <text x={80} y={106} textAnchor="middle" fontSize={9} fontWeight={800} fill="#070b18">Looks good</text>
+        </>
+      );
+    case "ask":
+      return (
+        <>
+          <rect x={8} y={14} width={144} height={26} rx={9} fill="#0c1328" stroke={GOLD} strokeWidth={1.5} />
+          <text x={16} y={31} fontSize={8.5} fill="#fff">Who haven't I called in 60 days?</text>
+          {[40, 80, 120].map((x, k) => (
+            <g key={x}>
+              <line x1={80} y1={42} x2={x} y2={78} stroke={GOLD} strokeWidth={1} opacity={0.4} />
+              <Orb x={x} y={84} r={13} color={TEAL}><text x={x} y={88} textAnchor="middle" fontSize={8} fontWeight={700} fill="#fff">{["TM", "SM", "AC"][k]}</text></Orb>
+            </g>
+          ))}
+        </>
+      );
+    case "back":
+      return (
+        <>
+          <Orb r={26} color={TEAL}><text x={80} y={64} textAnchor="middle" fontSize={11} fontWeight={700} fill="#fff">TM</text></Orb>
+          <rect x={10} y={84} width={30} height={26} rx={7} fill="#0c1328" stroke="rgba(255,255,255,0.25)" />
+          <text x={25} y={102} textAnchor="middle" fontSize={14} fill="#fff">←</text>
+          <rect x={112} y={20} width={40} height={60} rx={6} fill="#0c1328" stroke={GOLD} strokeWidth={1} opacity={0.9} />
+          <text x={132} y={34} textAnchor="middle" fontSize={7} fill={GOLD2}>panel</text>
+        </>
+      );
+    case "timeline":
+      return (
+        <>
+          <text x={14} y={52} fontSize={8} fill="#a9b0bd">PAST</text>
+          <text x={146} y={52} textAnchor="end" fontSize={8} fill="#a9b0bd">FUTURE</text>
+          <line x1={14} y1={64} x2={146} y2={64} stroke="#4f7fe0" strokeWidth={3} strokeLinecap="round" />
+          <line x1={80} y1={64} x2={146} y2={64} stroke={GOLD} strokeWidth={3} strokeLinecap="round" />
+          <circle className="sg-slide" cx={80} cy={64} r={7} fill={GOLD2} />
+          <rect x={56} y={84} width={48} height={20} rx={8} fill="#0c1328" stroke="rgba(255,255,255,0.25)" />
+          <text x={80} y={98} textAnchor="middle" fontSize={9} fontWeight={700} fill="#fff">Today</text>
+        </>
+      );
+    case "menu":
+      return (
+        <>
+          <circle cx={130} cy={20} r={11} fill="#3b2f12" stroke={GOLD} strokeWidth={1.5} />
+          <text x={130} y={24} textAnchor="middle" fontSize={8} fontWeight={700} fill={GOLD2}>SB</text>
+          {["My Profile", "My website", "Growth results", "My plan"].map((w, k) => (
+            <g key={w}>
+              <rect x={30} y={36 + k * 20} width={116} height={17} rx={5} fill="#0c1328" stroke="rgba(255,255,255,0.14)" />
+              <text x={38} y={48 + k * 20} fontSize={8.5} fill="#fff">{w}</text>
+            </g>
+          ))}
+        </>
+      );
+    case "help":
+      return (
+        <>
+          <rect x={58} y={38} width={44} height={44} rx={12} fill="#0c1328" stroke={GOLD} strokeWidth={2} />
+          <text x={80} y={69} textAnchor="middle" fontSize={24} fontWeight={800} fill={GOLD2}>?</text>
+          <circle className="sg-ping" cx={80} cy={60} r={26} fill="none" stroke={GOLD2} strokeWidth={2} />
+        </>
+      );
     default:
       return null;
   }

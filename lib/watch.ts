@@ -29,6 +29,7 @@ export interface WatchStep {
   ping?: string[]; // rings that spread once from these nodes ("it changed")
   beat?: boolean; // lights run out along every line from the middle
   demo?: string; // a small drawing in the caption (SignalDemo), for signals drawn inside a page
+  say?: string; // the spoken words for this moment (the captions say exactly these)
   needs?: boolean; // draw follow-the-pulse rings and counts for what is on screen
   ms: number;
 }

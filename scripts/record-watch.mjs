@@ -5,6 +5,7 @@
 //   FILM=1 node scripts/record-watch.mjs ...   (the long film, /watch?film=1)
 //   PRODUCT=go node scripts/record-watch.mjs ... (one product's film)
 //   SIGNALS=1 node scripts/record-watch.mjs ... (What everything means, /watch?signals=1)
+//   SCALE=2 node scripts/record-watch.mjs 1080x1920 ... (a tall phone cut: a 540x960 phone screen drawn at 2x)
 //
 // The story plays `slow` times slower (default 4) so a machine without a GPU
 // still draws every frame; the video is then sped back up to real time at
@@ -29,14 +30,15 @@ const b = await chromium.launch({
   executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium",
   args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
 });
-const ctx = await b.newContext({ viewport: { width: w, height: h }, recordVideo: { dir, size: { width: w, height: h } } });
+const scale = Number(process.env.SCALE || 1);
+const ctx = await b.newContext({ viewport: { width: Math.round(w / scale), height: Math.round(h / scale) }, deviceScaleFactor: scale, recordVideo: { dir, size: { width: w, height: h } } });
 const t0 = Date.now();
 const p = await ctx.newPage();
 await p.goto(page ? `http://localhost:3102${page}?record=1&slow=${slow}` : `http://localhost:3102/watch?record=1&slow=${slow}${film ? "&film=1" : ""}${product ? `&product=${product}` : ""}${signals ? "&signals=1" : ""}`, { waitUntil: "networkidle" });
 await p.waitForSelector(".watch-card, .ga-cap", { timeout: 30000 });
 const start = (Date.now() - t0) / 1000 - 0.3;
 await p.waitForSelector(".watch-end, .ga-end", { timeout: 1200000 });
-await new Promise((r) => setTimeout(r, 3500 * slow));
+await new Promise((r) => setTimeout(r, Number(process.env.TAIL || 3500) * slow)); // TAIL=ms the closing words stay on
 const webm = await p.video().path();
 await ctx.close();
 await b.close();

@@ -27,7 +27,7 @@ export default function Watch({ record = false, slow = 1, film = false, product,
   // The agent's own day (PULSE-ROADMAP #16) when the Brain handed one over; otherwise the scripted films.
   const STEPS = custom ? custom.steps : pf ? pf.steps : signals ? SIGNAL_STEPS : film ? FILM_STEPS : WATCH_STEPS;
   const spots = custom ? custom.spots : pf ? pf.spots : signals ? SIGNAL_SPOTS : film ? FILM_SPOTS : SPOTS;
-  const note = custom ? "Your own day, from today's plan. Only you see this." : NOTE;
+  const note = custom ? "Your own day, from today's plan. Only you see this." : signals ? "Example agent; people and addresses are invented." : NOTE;
   const center = pf ? pf.center : "one";
   const keep = pf ? pf.keep : undefined;
   const base = useMemo(() => (custom ? custom.graph : pf ? pf.graph : signals ? signalsGraph() : film ? filmGraph() : watchGraph()), [custom, pf, film, signals]);
@@ -105,6 +105,19 @@ export default function Watch({ record = false, slow = 1, film = false, product,
     }
     return () => cues.forEach(clearTimeout);
   }, [ready, i, phone, graph, byId, step, last, slow, STEPS, spots, center, keep]);
+
+  // Recording plays `slow` times slower and is sped back up: the caption drawings' own CSS animations slow down too,
+  // or they would run `slow` times too fast in the finished film.
+  useEffect(() => {
+    if (slow <= 1 || !ready) return;
+    const t = setTimeout(() => {
+      for (const a of document.getAnimations()) {
+        const el = (a.effect as KeyframeEffect | null)?.target as Element | null;
+        if (el?.closest?.(".sg-demo")) a.playbackRate = 1 / slow;
+      }
+    }, 50);
+    return () => clearTimeout(t);
+  }, [i, ready, slow]);
 
   // Advance.
   useEffect(() => {
