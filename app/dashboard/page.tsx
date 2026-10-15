@@ -1,7 +1,7 @@
 import Logo from "@/components/brand/Logo.tsx";
 import Brain from "@/components/brain/Brain.tsx";
 import { demoGraph, oneYouView } from "@/lib/graph/demo.ts";
-import { JOIN_URL } from "@/lib/master.ts";
+import { PACKAGES_SIGNED_IN } from "@/lib/landing.ts";
 import { PACKAGE_LABEL } from "@/lib/products.ts";
 import { signedInBundle } from "@/lib/server/live.ts";
 import type { PackageId } from "@/lib/types.ts";
@@ -31,13 +31,15 @@ export default async function Dashboard({ searchParams, params }: { searchParams
   if (!live) redirect("/login");
   const { me, bundle } = live;
   if (!bundle) {
+    // Had a plan that ended: Welcome back and Restart (walker, 14 Oct), never the new-signup page.
+    if (me.lapsed) redirect("/reactivate");
     return (
       <main className="noaccess">
         <div className="login-card">
           <Logo label="VIP-50 ONE" size={56} />
-          <h1>Welcome, {me.firstName}</h1>
+          <h1>{me.named ? `Welcome, ${me.firstName}` : "Welcome"}</h1>
           <p className="login-sub">Your account ({me.email}) doesn't have a ONE package yet. Choose one to open your dashboard.</p>
-          <a className="cta" href={JOIN_URL}>
+          <a className="cta" href={PACKAGES_SIGNED_IN}>
             See the packages
           </a>
           <form method="post" action="/auth/signout">

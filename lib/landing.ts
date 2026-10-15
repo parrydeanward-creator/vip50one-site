@@ -44,3 +44,8 @@ export const JOIN_NO_PACKAGE = "/#packages";
 
 /** Sign in with Google: shown once MASTER's Google provider is switched on (Parry's click; STATUS). */
 export const GOOGLE_SIGNIN = true; // on 14 Oct: MASTER's Google provider switched on by Parry (Google Cloud vip-50-one)
+
+/** The packages on the sales page for someone signed in without a plan: "/" would send them to the Brain, which sends
+ * them back to the no-package page, so "See the packages" did nothing (walker, 14 Oct). ?packages lets "/" through. */
+export const PACKAGES_SIGNED_IN = "/?packages=1#packages";
+export const homeSendsToBrain = (signedIn: boolean, search: URLSearchParams) => signedIn && !search.has("packages");
