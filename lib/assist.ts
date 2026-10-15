@@ -242,10 +242,14 @@ export function assistNow(input: {
       key: `wrap:${input.date}`,
       kind: "wrap",
       title: "Your day",
-      lines: [
-        `${done} of ${input.blocks.length} blocks done.`,
-        open.length ? `Left: ${open.map((b) => b.title).slice(0, 3).join(", ")}${open.length > 3 ? ` and ${open.length - 3} more` : ""}.` : "Everything planned is done.",
-      ],
+      // Nothing on the clock is not "everything done" (walker 14 Oct: the Day Clock said "0 of 0 blocks done ... Everything
+      // planned is done" while Your day had 8 to move): point at Your day instead.
+      lines: input.blocks.length
+        ? [
+            `${done} of ${input.blocks.length} blocks done.`,
+            open.length ? `Left: ${open.map((b) => b.title).slice(0, 3).join(", ")}${open.length > 3 ? ` and ${open.length - 3} more` : ""}.` : "Everything planned is done.",
+          ]
+        : ["Nothing is on the clock for today.", "What is left on Your day moves to tomorrow."],
     });
   }
 

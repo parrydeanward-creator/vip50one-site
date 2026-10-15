@@ -2,7 +2,7 @@ import Logo from "@/components/brand/Logo.tsx";
 import Brain from "@/components/brain/Brain.tsx";
 import { demoGraph, oneYouView } from "@/lib/graph/demo.ts";
 import { PACKAGES_SIGNED_IN } from "@/lib/landing.ts";
-import { PACKAGE_LABEL } from "@/lib/products.ts";
+import { PACKAGE_LABEL, fullPlanName } from "@/lib/products.ts";
 import { signedInBundle } from "@/lib/server/live.ts";
 import type { PackageId } from "@/lib/types.ts";
 import { redirect } from "next/navigation";
@@ -52,6 +52,7 @@ export default async function Dashboard({ searchParams, params }: { searchParams
     );
   }
   const { graph } = bundle;
-  const label = `${me.displayName}, ${PACKAGE_LABEL[me.pkg]}${me.founding ? ", founding member" : ""}`;
-  return <Brain graph={graph} pkg={me.pkg} live startPage={startPage} agent={{ firstName: me.firstName, initials: me.initials, label, photo: me.photo, admin: me.admin, growth: me.growth }} />;
+  const plan = fullPlanName(me.pkg, me.growth);
+  const label = `${me.displayName}, ${plan}${me.founding ? ", founding member" : ""}`;
+  return <Brain graph={graph} pkg={me.pkg} live startPage={startPage} agent={{ firstName: me.firstName, initials: me.initials, label, name: me.displayName, plan, photo: me.photo, admin: me.admin, growth: me.growth }} />;
 }

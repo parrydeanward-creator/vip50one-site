@@ -61,6 +61,12 @@ export const PACKAGE_LABEL: Record<PackageId, string> = {
   growth: "ONE Growth",
 };
 
+/** "ONE Complete + ONE Growth": the whole plan, as the profile badge says it (walker 14 Oct, Parry approved). */
+export function fullPlanName(pkg: PackageId, growth: boolean): string {
+  const base = pkg === "relationship" ? "ONE Relationship" : pkg === "complete" ? "ONE Complete" : pkg === "elite" ? "Elite" : "ONE Growth";
+  return growth && pkg !== "growth" ? `${base} + ONE Growth` : base;
+}
+
 export function productName(id: ProductId): string {
   return PRODUCTS.find((p) => p.id === id)?.name ?? id;
 }
