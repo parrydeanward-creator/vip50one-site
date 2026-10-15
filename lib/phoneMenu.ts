@@ -38,7 +38,7 @@ export function menuRows(m: MenuInput): MenuRow[] {
   rows.push({ key: "billing", label: "My plan and billing", line: "Your plan, card and invoices.", action: { kind: "billing" } });
   rows.push({ key: "addons", label: "Add-ons", line: "Extras for ONE Complete: templates, areas, setup.", action: { kind: "addons" } });
   rows.push({ key: "help", label: "Help: what everything means", line: "The orbs, the colours and the pulses, in 90 seconds.", action: { kind: "help" } });
-  rows.push({ key: "goTour", label: "Watch the ONE GO tour", line: "Your phone app, start to finish, in four and a half minutes.", action: { kind: "goTour" } });
+  // "Watch the ONE GO tour" (kind goTour) returns only once Parry has said yes to the voiced Film B v3 (walker, 15 Oct).
   rows.push({ key: "classic", label: "Classic view", line: "ONE MOVE's older screens, if you need them.", action: { kind: "href", href: m.classicUrl } });
   rows.push({ key: "signout", label: "Sign out", line: "Sign out of ONE on this device.", action: { kind: "signout" } });
   return rows;
