@@ -97,6 +97,9 @@ import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, ty
 import LaunchPanel from "./LaunchPanel.tsx";
 import HeatPanel from "./HeatPanel.tsx";
 import OnboardingPanel from "./OnboardingPanel.tsx";
+import { NetworkPanel, RevsharePanel } from "./RezenOrbPanel.tsx";
+import { NETWORK_NODE, REVSHARE_NODE, demoRezenRead, readNetwork as readRezenNetwork, readRevshare, withRezenNodes, type Network as RezenNetwork, type Revshare } from "@/lib/rezenOrbs.ts";
+import { rezenUrl } from "@/lib/rezen.ts";
 import { demoOnboarding, onbIdOf, onboardingUrl, readOnboarding, withOnboardingNodes, type OnbMember } from "@/lib/onboarding.ts";
 import { demoHeat, heatIdOf, heatUrl, readHeat, withHeatNodes, type HeatSuggestion } from "@/lib/heat.ts";
 import ClosedCards from "./ClosedCards.tsx";
@@ -155,6 +158,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   const newLeadsRef = useRef<NewLeads | null>(null);
   const heatRef = useRef<HeatSuggestion[] | null>(null);
   const onbRef = useRef<OnbMember[] | null>(null);
+  const rezenRef = useRef<{ r: Revshare | null; n: RezenNetwork | null }>({ r: null, n: null });
   const launchRef = useRef<Launch[] | null>(null);
   const refsRef = useRef<Referrals | null>(null);
   const habitsRef = useRef<HabitToday[] | null>(null);
@@ -183,7 +187,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current);
+    const next = withRezenNodes(withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current), rezenRef.current.r, rezenRef.current.n);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -880,6 +884,24 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
     onbRef.current = onb;
     setGraph((g) => withOnboardingNodes(g, onb));
   }, [onb]);
+  // Revenue share and My network from reZEN (REZEN.md §3a): only the boxes the agent ticked, read hourly by ONE MOVE.
+  const [rezen, setRezen] = useState<{ r: Revshare | null; n: RezenNetwork | null }>({ r: null, n: null });
+  useEffect(() => {
+    const take = (read: unknown) => setRezen({ r: readRevshare(read), n: readRezenNetwork(read) });
+    if (!live) return take(demoRezenRead());
+    const load = () =>
+      fetch(rezenUrl, { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => take(j?.read))
+        .catch(() => {});
+    load();
+    const t = setInterval(load, 1_800_000);
+    return () => clearInterval(t);
+  }, [live]);
+  useEffect(() => {
+    rezenRef.current = rezen;
+    setGraph((g) => withRezenNodes(g, rezen.r, rezen.n));
+  }, [rezen]);
   // One-tap listing launch (K21, LAUNCH.md v0.2): a Launch orb under each launched listing, yellow while a draft waits
   // for the agent, red on a failure. ONE MOVE's route answers once GO/MOVE ships it; until then nothing is drawn.
   const [launches, setLaunches] = useState<Launch[] | null>(null);
@@ -2537,6 +2559,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent = D
               }}
             />
           )}
+
+          {focus.id === REVSHARE_NODE && rezen.r && !ask ? <RevsharePanel r={rezen.r} /> : null}
+          {focus.id === NETWORK_NODE && rezen.n && !ask ? <NetworkPanel n={rezen.n} /> : null}
 
           {onbIdOf(focus.id) && !ask && (() => {
             const m = onb?.find((x) => x.id === onbIdOf(focus.id));

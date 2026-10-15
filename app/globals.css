@@ -2207,3 +2207,18 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 /* Ask Pulse: call a person straight from the answer (walker, 14 Oct) */
 .ask-call { display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; color: #7ee2a8; font-size: 13px; text-decoration: none; }
 .ask-call:hover { border-color: #7ee2a8; }
+/* Revenue share and My network orbs (REZEN.md §3a) */
+.rz-orb { display: grid; gap: 12px; margin-top: 8px; }
+.rz-figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 0; }
+.rz-figs div { padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.rz-figs dt { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-2); }
+.rz-figs dd { margin: 2px 0 0; font-size: 20px; font-weight: 700; }
+.rz-figs dd small { font-size: 12px; font-weight: 400; color: var(--text-2); }
+.rz-bars { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; align-items: flex-end; height: 120px; }
+.rz-bars li { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.rz-bars span { width: 100%; min-height: 2px; border-radius: 6px 6px 0 0; background: var(--gold); }
+.rz-bars small { font-size: 10px; color: var(--text-3); white-space: nowrap; }
+.rz-h { margin: 0; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-2); }
+.rz-front { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rz-front li { display: grid; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.rz-front small { color: var(--text-2); }
