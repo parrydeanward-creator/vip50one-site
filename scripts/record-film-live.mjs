@@ -92,25 +92,29 @@ const home = async () => {
   if (await crumb.isVisible().catch(() => false)) await crumb.click();
   else {
     // Phones hide the breadcrumb: the back arrow until it greys out, then centre on ONE.
-    for (let i = 0; i < 4; i++) {
-      const back = p.locator('[aria-label="Back"]').first();
-      if (!(await back.isEnabled().catch(() => false))) break;
-      await back.click().catch(() => {});
+    // Short, forced presses: the live notice ("Showly · just now") can sit over the controls row.
+    for (let i = 0; i < 6; i++) {
+      const back = backBtn();
+      if (!(await back.isEnabled({ timeout: 500 }).catch(() => false))) break;
+      await back.click({ force: true, timeout: 1500 }).catch(() => {});
       await wait(150);
     }
-    await p.locator('[aria-label="Centre on ONE"]').first().click().catch(() => {});
+    await p.locator('[aria-label="Centre on ONE"]').first().click({ force: true, timeout: 1500 }).catch(() => {});
     await p.evaluate(() => window.scrollTo(0, 0));
   }
   await wait(400);
 };
+// On a phone a person opens over the map with its own Back arrow on top; the topmost Back is the one to press.
+const backBtn = () => (tall ? p.locator('[aria-label="Back"]').last() : p.locator('[aria-label="Back"]').first());
 const rail = (t) => p.locator(".rail button", { hasText: t });
 
 // One entry a moment: what is used while the voice says the line.
 // Each moment: `prep` gets the screen one step away just before the cue (quick, no ring), `act` is the thing the
 // voice names, done on the cue with the ring (Parry, 15 Oct: the screens came "way past when they should be").
-const quick = async (l) => {
+const quick = async (l, force = false) => {
   const x = loc(l);
   await x.waitFor({ state: "visible", timeout: 8000 * SLOW });
+  if (force) return void (await x.click({ force: true }), await wait(250)); // a moving orb never settles
   await x.scrollIntoViewIfNeeded().catch(() => {});
   await x.click({ timeout: 3000 * SLOW }).catch(() => x.click({ force: true }));
   await wait(250);
@@ -122,13 +126,15 @@ const clearAsk = async () => {
   const clear = p.locator('[aria-label^="Clear the question"]');
   if (await clear.first().isVisible().catch(() => false)) await clear.first().click({ timeout: 1000 }).catch(() => {});
   await wait(200);
-  await p.locator(".ask-field input, .ask-field textarea").first().fill("").catch(() => {});
+  await p.locator(".ask-field input, .ask-field textarea").first().fill("", { timeout: 1500 }).catch(() => {});
 };
 // The ONE MOVE row for a page: on a desktop the menu column, on a phone the row in the panel under the map.
 const movePrep = async (label) => {
+  const t = now();
   await home();
+  if (process.env.TRACE) console.log("  home took", (now() - t).toFixed(1));
   if (tall) {
-    await quick('.canvas-wrap button[aria-label^="ONE MOVE"]');
+    await quick('.canvas-wrap button[aria-label^="ONE MOVE"]', true);
     await quick(p.locator(".drawer button", { hasText: label }));
   } else {
     await quick(rail("ONE MOVE"));
@@ -177,10 +183,10 @@ const MOMENTS = {
       if (await person.count()) await use(person, 4000, true);
       // The back arrow until it greys out: back to everything.
       if (process.env.TRACE) console.log("16 tapped", now().toFixed(1));
-      await use('[aria-label="Back"]', 250, true);
+      await use(backBtn(), 250, true);
       if (process.env.TRACE) console.log("16 back1", now().toFixed(1));
-      for (let i = 0; i < 3; i++) {
-        const back = p.locator('[aria-label="Back"]').first();
+      for (let i = 0; i < (tall ? 5 : 3); i++) {
+        const back = backBtn();
         if (!(await back.isEnabled({ timeout: 500 }).catch(() => false))) break;
         await back.click({ force: true, timeout: 1500 }).catch(() => {});
         await wait(250);
@@ -202,9 +208,10 @@ const MOMENTS = {
       await use('[aria-label="Back to today"]', 200);
     },
   },
-  18: { prep: async () => { await movePrep("Hot/Warm/Cold"); }, act: async () => { await moveAct("Hot/Warm/Cold"); } },
-  19: { prep: async () => { await movePrep("VIP Management"); }, act: async () => { await moveAct("VIP Management"); } },
-  20: { act: async () => { await use(".me-menu", 300); } },
+  18: { lead: tall ? 3.4 : 1.6, prep: async () => { await movePrep("Hot/Warm/Cold"); }, act: async () => { await moveAct("Hot/Warm/Cold"); } },
+  19: { lead: tall ? 2.6 : 1.6, prep: async () => { await movePrep("VIP Management"); }, act: async () => { await moveAct("VIP Management"); } },
+  // On a phone the ONE MOVE pages cover the header, so the photo button comes back with the main map first.
+  20: { lead: 1.2, prep: async () => { if (tall) await home(); }, act: async () => { await use(".me-menu", 300, tall); } },
   21: {
     prep: async () => { const x = p.locator(".pmenu-x").first(); if (await x.count()) await x.click().catch(() => {}); await wait(150); await home(); },
     act: async () => { await use('[aria-label="What everything means"]', 300); },
