@@ -32,7 +32,7 @@ import { clock, completedBy, duration, isEvening, planDay, recap, type DayItem, 
 import { localDay } from "@/lib/morning.ts";
 import PulseMark from "./PulseMark.tsx";
 import PulseIntro from "./PulseIntro.tsx";
-import SignalsFilm, { ONE_FILM } from "./SignalsFilm.tsx";
+import SignalsFilm, { GO_TOUR_FILM, ONE_FILM } from "./SignalsFilm.tsx";
 import PlanMyDay from "./PlanMyDay.tsx";
 import DayClock from "./DayClock.tsx";
 import { useDay } from "./useDay.ts";
@@ -292,6 +292,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [guide, setGuide] = useState(false); // What everything means
   const [addonsOpen, setAddonsOpen] = useState(false); // Add-ons (CHECKOUT §2)
   const [oneFilm, setOneFilm] = useState(false); // Watch ONE Work, voiced
+  const [goTour, setGoTour] = useState(false); // the ONE GO phone tour (Film B)
   useEffect(() => {
     if (!live) return;
     try {
@@ -2239,6 +2240,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                       if (a.kind === "profile") goTo(movePageId("/profile"));
                       else if (a.kind === "welcome") setWelcomeOpen(true);
                       else if (a.kind === "help") setGuide(true);
+                      else if (a.kind === "goTour") setGoTour(true);
                       else if (a.kind === "billing") void openBilling();
                       else if (a.kind === "addons") setAddonsOpen(true);
                       else if (a.kind === "site") void editSite(a.host, a.next);
@@ -3388,6 +3390,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
         />
       )}
       {oneFilm && <SignalsFilm film={ONE_FILM} onClose={() => setOneFilm(false)} />}
+      {goTour && <SignalsFilm film={GO_TOUR_FILM} onClose={() => setGoTour(false)} />}
       {reviewOpen && theReview ? <ReviewView review={theReview} week={weekScore} demo={!live} onClose={() => setReviewOpen(false)} /> : null}
       {pcOpen && thePulseRead ? <PulseCoachView read={thePulseRead} demo={!live} onClose={() => setPcOpen(false)} /> : null}
       {powerOpen ? (
