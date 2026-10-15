@@ -2,6 +2,7 @@ import Logo from "@/components/brand/Logo.tsx";
 import { signedIn } from "@/lib/server/auth.ts";
 import { MOVE_URL } from "@/lib/host.ts";
 import { PACKAGE_LABEL } from "@/lib/products.ts";
+import { PACKAGES_SIGNED_IN } from "@/lib/landing.ts";
 
 // vip50one.com/reactivate (audit stage 1, 14 Oct): a ONE "Welcome back" page, never Classic's bare sign-in. Signed
 // out: sign in first and come back here. Signed in: the plan they had, and one tap to the plan page (ONE MOVE's
@@ -31,7 +32,7 @@ export default async function Reactivate({ searchParams }: { searchParams: Promi
     <main className="login">
       <div className="login-card">
         <Logo label="VIP-50 ONE" size={56} />
-        <h1>{me ? `Welcome back, ${me.firstName}` : "Welcome back"}</h1>
+        <h1>{me?.named ? `Welcome back, ${me.firstName}` : "Welcome back"}</h1>
         {!me ? (
           <>
             <p className="login-sub">Sign in with the same email and password as before. Your contacts, VIPs and history are all still here.</p>
@@ -56,7 +57,7 @@ export default async function Reactivate({ searchParams }: { searchParams: Promi
             <a className="cta" href={`${MOVE_URL}/upgrade${q}`}>Restart my plan</a>
             <small className="login-sub">You choose and confirm on the next page. Nothing is charged until you do.</small>
             <p className="login-links">
-              <a href="/#packages">See every package</a>
+              <a href={PACKAGES_SIGNED_IN}>See every package</a>
             </p>
           </>
         )}

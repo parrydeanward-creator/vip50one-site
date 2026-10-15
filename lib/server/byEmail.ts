@@ -38,6 +38,8 @@ export async function profileByEmail(email: string): Promise<SignedIn | null> {
     pkg: packageOf(typeof ent.plan === "string" ? ent.plan : null),
     founding: false,
     member: ent.member === true,
+    lapsed: ent.member !== true && typeof ent.plan === "string" && !!ent.plan,
+    named: !!name,
     admin: false,
     // ENTITLEMENT §3 v1.4: "growth" in detail.includes (the Growth plan, or the add-on on Complete/Elite)
     growth: Array.isArray((ent.detail as { includes?: unknown } | undefined)?.includes) && ((ent.detail as { includes: unknown[] }).includes).includes("growth"),

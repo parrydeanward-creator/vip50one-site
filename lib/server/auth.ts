@@ -4,7 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookieDomainFor } from "../host.ts";
 import { MASTER_PUBLISHABLE_KEY, MASTER_URL } from "../master.ts";
-import { firstNameOf, initials, isMember, packageOf, safeImage } from "../live.ts";
+import { firstNameOf, initials, isLapsed, isMember, packageOf, safeImage } from "../live.ts";
 import type { PackageId } from "../types.ts";
 
 // The signed-in agent, from MASTER's session cookie. getClaims() checks the
@@ -55,6 +55,10 @@ export interface SignedIn {
   admin: boolean;
   /** Has ONE Growth: the Growth plan itself or the add-on on Complete/Elite (ENTITLEMENT §3 v1.4). */
   growth: boolean;
+  /** Had a plan that ended: "Welcome back", never the new-signup page. */
+  lapsed: boolean;
+  /** firstName came from the profile (not made from the email), so a greeting may use it. */
+  named: boolean;
 }
 
 export interface Identity {
@@ -92,6 +96,8 @@ export async function profileOf(who: Identity, token?: string): Promise<SignedIn
     founding: p?.founding_member === true,
     photo: safeImage(p?.avatar_url as string | null),
     member: p ? isMember(p as { vip_access?: boolean; subscription_status?: string }) : false,
+    lapsed: p ? isLapsed(p as { one_plan?: string; vip_access?: boolean; subscription_status?: string }) : false,
+    named: !!displayName,
     admin: p?.is_admin === true || p?.is_super_admin === true,
     growth: (p?.one_plan as string | null)?.toLowerCase() === "growth" || p?.growth_addon === true,
   };

@@ -17,7 +17,9 @@ test("visitors without a session skip the MASTER check; clients are sent to the 
   const mw = read("middleware.ts");
   assert.match(mw, /matcher: \["\/", "\/dashboard/);
   assert.match(mw, /if \(path === "\/" && !hasSession\(req\)\) return NextResponse\.next\(\);/);
-  assert.match(mw, /if \(user && path === "\/"\)/);
+  // Rewritten 15 Oct (rule changed on purpose): signed-in clients on "/" still go to the dashboard, except
+  // "/?packages=1", the sales page's packages for a signed-in visitor with no plan (walker, 14 Oct).
+  assert.match(mw, /if \(path === "\/" && homeSendsToBrain\(!!user, req\.nextUrl\.searchParams\)\)/);
 });
 
 test("the signed-in check verifies the token locally rather than asking MASTER every time", () => {

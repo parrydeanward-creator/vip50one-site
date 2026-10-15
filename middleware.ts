@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookieDomainFor } from "./lib/host.ts";
 import { MASTER_PUBLISHABLE_KEY, MASTER_URL } from "./lib/master.ts";
-import { LAST_COOKIE, afterSignIn } from "./lib/landing.ts";
+import { LAST_COOKIE, afterSignIn, homeSendsToBrain } from "./lib/landing.ts";
 import { cleanupHeaders } from "./lib/staleCookies.ts";
 
 // Keeps the MASTER session fresh and sends signed-out visitors from the
@@ -55,7 +55,7 @@ export async function middleware(req: NextRequest) {
     return r;
   };
   const demo = req.nextUrl.searchParams.get("demo") === "1";
-  if (user && path === "/") {
+  if (path === "/" && homeSendsToBrain(!!user, req.nextUrl.searchParams)) {
     const to = req.nextUrl.clone();
     to.pathname = "/dashboard";
     to.search = "";

@@ -747,7 +747,8 @@ export function initials(name: string): string {
 export function firstNameOf(displayName: string | null | undefined, email: string): string {
   const n = (displayName ?? "").trim().split(/\s+/)[0];
   if (n) return n;
-  const local = email.split("@")[0].replace(/[._\d]+/g, " ").trim().split(/\s+/)[0] ?? "";
+  // "parrydeanward+walker@..." is "Parrydeanward", never "PARRYDEANWARD+WALKER" (walker, 14 Oct)
+  const local = email.split("@")[0].split("+")[0].replace(/[._\d-]+/g, " ").trim().split(/\s+/)[0] ?? "";
   return local ? local[0].toUpperCase() + local.slice(1) : "there";
 }
 
@@ -757,6 +758,13 @@ export function packageOf(onePlan: string | null | undefined): PackageId {
   const p = (onePlan ?? "").toLowerCase();
   if (p === "growth") return "growth";
   return p === "complete" || p === "elite" ? "complete" : "relationship";
+}
+
+/** Had a plan and it ended (walker, 14 Oct): they get "Welcome back" and Restart, never the new-signup page. */
+export function isLapsed(p: { one_plan?: string | null; vip_access?: boolean | null; subscription_status?: string | null }): boolean {
+  if (isMember(p)) return false;
+  const st = (p.subscription_status ?? "").toLowerCase();
+  return !!(p.one_plan ?? "").trim() || ["canceled", "cancelled", "expired", "unpaid", "incomplete_expired", "paused"].includes(st);
 }
 
 // Same membership rule as MASTER's vip_summary picks a profile by.
