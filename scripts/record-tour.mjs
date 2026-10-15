@@ -53,7 +53,7 @@ const OVERLAY = () => {
   if (document.getElementById("tour-cursor")) return;
   const c = document.createElement("div");
   c.id = "tour-cursor";
-  c.style.cssText = "position:fixed;left:960px;top:540px;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;border:3px solid #f5c542;background:rgba(245,197,66,.25);box-shadow:0 0 18px rgba(245,197,66,.6);z-index:2147483647;pointer-events:none;transition:left 2.7s cubic-bezier(.3,.8,.3,1),top 2.7s cubic-bezier(.3,.8,.3,1),transform .45s";
+  c.style.cssText = "position:fixed;left:960px;top:540px;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;border:3px solid #f5c542;background:rgba(245,197,66,.25);box-shadow:0 0 18px rgba(245,197,66,.6);z-index:2147483647;pointer-events:none;transition:left 1.8s cubic-bezier(.3,.8,.3,1),top 1.8s cubic-bezier(.3,.8,.3,1),transform .45s";
   document.body.appendChild(c);
   const k = document.createElement("div");
   k.id = "tour-card";
@@ -67,7 +67,7 @@ const cursorTo = async (x, y) => {
     const c = document.getElementById("tour-cursor");
     if (c) Object.assign(c.style, { left: `${x}px`, top: `${y}px` });
   }, [x, y]);
-  await wait(1000);
+  await wait(650);
 };
 const pressDot = async () => {
   await p.evaluate(() => {
@@ -91,7 +91,7 @@ const T = {
     await pressDot();
     // A button over the moving map can be visible but never "stable"; a blocked press is forced through.
     await l.click({ timeout: (DRY ? 2500 : 4000) * SLOW }).catch(() => l.click({ force: true, timeout: 3000 * SLOW }));
-    await wait(700);
+    await wait(450);
   },
   async hover(locator) {
     const l = typeof locator === "string" ? p.locator(locator).first() : locator.first();
@@ -115,7 +115,7 @@ const T = {
     const crumb = p.locator("nav.crumbs button", { hasText: /^ONE$/ }).first();
     if (await crumb.isVisible().catch(() => false)) await crumb.click({ timeout: 3000 * SLOW }).catch(() => crumb.click({ force: true }));
     else await p.locator('[aria-label="Centre on ONE"]').first().click({ force: true, timeout: 3000 * SLOW }).catch(() => {});
-    await wait(600);
+    await wait(350);
   },
   async scrollDrawer(px) {
     const d = p.locator(".drawer").first();
@@ -158,20 +158,21 @@ for (const [ci, ch] of CHAPTERS.entries()) {
     if (k) k.style.display = "none";
   });
   for (const m of ch.moments) {
-    const at = now();
-    cues.push({ k: ++k, at, chapter: `${n}. ${ch.title}`, say: m.say });
+    // The line starts once its screen is up (Parry, 15 Oct, on the help film: screens came "way past when they should
+    // be"): the moves to get there happen in the gap after the last line, then the voice names what is on screen.
     try {
       if (m.do) await m.do(T);
     } catch (e) {
       console.warn(`MISS ch${n} m${k} "${m.say.slice(0, 50)}":`, e.message.split("\n")[0]);
     }
+    const at = now();
+    cues.push({ k: ++k, at, chapter: `${n}. ${ch.title}`, say: m.say });
     if (DRY) {
       await p.waitForTimeout(700);
       await p.screenshot({ path: `${DRY}/c${String(n).padStart(2, "0")}-m${String(k).padStart(3, "0")}.jpg`, quality: 55 });
       continue;
     }
-    const left = sayMs(m.say) + (m.hold ?? 0) - (now() - at) * 1000;
-    if (left > 0) await wait(left);
+    await wait(sayMs(m.say) + (m.hold ?? 0));
   }
 }
 await wait(2500);
