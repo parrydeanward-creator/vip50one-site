@@ -2417,3 +2417,21 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .ad-mine h3 { margin: 10px 0 6px; font-size: 14px; color: var(--text-2); }
 .ad-mine ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 @media (max-width: 719px) { .ad-cards { grid-template-columns: 1fr; } }
+
+/* Plan my day audit 3.1 (Parry, 16 Oct: "fix all issues"). */
+/* 3.1.7 Phone: the Day Clock's back / + / - / centre row sat on the clock face (over 7-8 o'clock), and the same on
+   Commitments. Every orb view shares .vr-stage, so once for all: the drawing stops above the row, the row sits under it. */
+@media (max-width: 719px) {
+  .vr-stage > .vr-svg { height: calc(100% - 60px); }
+  .vr-stage > .controls { left: 8px; right: auto; bottom: 8px; top: auto; transform: none; flex-direction: row; }
+}
+/* 3.1.8 Phone: every ONE YOU tool in a readable list under the orb view (labels 15 px); desktop keeps the orbs and list. */
+.phone-tools { display: none; }
+@media (max-width: 719px) {
+  .phone-tools { display: block; margin-top: 12px; }
+  .phone-tools b { font-size: 15px; }
+  .phone-tools small { font-size: 14px; }
+  .d-list.go-inside { display: none; }
+}
+/* 3.1.9 Back to today / See tomorrow's plan in the Day Clock panel */
+.dc-back-today { margin: 4px 0 12px; }

@@ -183,3 +183,28 @@ test("task limit: 17 only when ONE MOVE says 17, else 15 (Parry, 12 Oct)", () =>
   assert.equal(readPlanCap({ date: "2026-10-12", items: [] })?.limit, 15);
   assert.equal(suggestCap([], 17).length, 0);
 });
+
+test("3.1.3 one plan state: the Plan my day orb and the ONE YOU card read the same answer (Parry, 16 Oct)", async () => {
+  const { planState, withPlanNode, PLAN_NODE } = await import("../lib/plan.ts");
+  assert.equal(planState({ approvedAt: null, sent: null, blocks: 4 }), "ready", "Pulse planned it: waiting for Looks good");
+  assert.equal(planState({ approvedAt: null, sent: null, blocks: 0 }), "empty");
+  assert.equal(planState({ approvedAt: "2026-10-16T14:00:00Z", sent: null, blocks: 4 }), "approved");
+  assert.equal(planState({ approvedAt: null, sent: { items: [{}] }, blocks: 0 }), "approved", "sent to ONE GO is approved");
+  assert.equal(planState({ approvedAt: null, sent: { items: [] }, blocks: 2 }), "ready");
+  const g: { rootId: string; nodes: import("../lib/graph/types.ts").GraphNode[]; edges: import("../lib/graph/types.ts").GraphEdge[] } = {
+    rootId: "one",
+    nodes: [
+      { id: "one", type: "core", label: "ONE", parentId: null, product: "one", importance: 1 },
+      { id: "go", type: "product", label: "ONE GO", parentId: "one", product: "go", importance: 1 },
+    ],
+    edges: [],
+  };
+  const orb = (st: ReturnType<typeof planState>) => withPlanNode(g, null, st).nodes.find((n) => n.id === PLAN_NODE)!;
+  // the audit's case: Pulse had planned the day, the card said so, the orb said "Not planned yet"
+  assert.equal(orb("ready").secondaryLabel, "Ready for Looks good");
+  assert.match(orb("ready").summary!, /Pulse planned today round your calendar/);
+  assert.equal(orb("empty").secondaryLabel, "Not planned yet");
+  assert.deepEqual([orb("approved").label, orb("approved").secondaryLabel, orb("approved").status], ["Today's plan", "Plan approved", "healthy"]);
+  // 3.1.5: the panel has a real button now, so nothing says "Tap to plan"
+  for (const st of ["ready", "empty", "approved"] as const) assert.doesNotMatch(orb(st).summary ?? "", /Tap to/);
+});

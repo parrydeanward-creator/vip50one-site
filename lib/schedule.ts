@@ -43,6 +43,10 @@ export interface DayPlan {
 }
 
 export const BUFFER = 10; // minutes either side of an appointment
+// Why something moves to tomorrow (Parry, 16 Oct, Plan my day audit 3.1.4: at 9:23pm every item said "Today is full"
+// while the header said 0m of work). "Today is full" only when it is; after the working day, the day is over.
+export const FULL_WHY = "Today is full: this keeps the day doable.";
+export const DAY_OVER_WHY = "The day is over: this moves to tomorrow.";
 export const MAX_SHARE = 0.85; // never plan more than this share of the free time
 const POWER_MAX = 60;
 
@@ -141,6 +145,8 @@ export function buildDay(input: DayInput): DayPlan {
   const open = gaps.map(([s, e]) => [s, e] as [number, number]);
   const blocks: Block[] = fixed.map((p) => ({ id: `b:${p.ref}`, start: p.at!, end: toTime(toMin(p.at!) + p.minutes), kind: "custom", title: p.title.replace(/[.]$/, ""), refs: [p.ref], why: "At the time you set.", done: p.done }));
   const later: DayPlan["later"] = [];
+  // no time left of the working day (now at or past its end): the day is over, not full (audit 3.1.4)
+  const over = !!input.notBefore && toMin(input.hours.end) - toMin(input.notBefore) < 5;
   let used = 0;
   const place = (g: Group): number | null => {
     const fits = (k: number) => open[k][1] - open[k][0] >= g.minutes;
@@ -159,12 +165,12 @@ export function buildDay(input: DayInput): DayPlan {
   };
   for (const g of groups) {
     if (used + g.minutes > cap) {
-      for (const p of g.items) later.push({ item: p, why: "Today is full: this keeps the day doable." });
+      for (const p of g.items) later.push({ item: p, why: over ? DAY_OVER_WHY : FULL_WHY });
       continue;
     }
     const at = place(g);
     if (at == null) {
-      for (const p of g.items) later.push({ item: p, why: "No free gap long enough today." });
+      for (const p of g.items) later.push({ item: p, why: over ? DAY_OVER_WHY : "No free gap long enough today." });
       continue;
     }
     used += g.minutes;
@@ -176,6 +182,14 @@ export function buildDay(input: DayInput): DayPlan {
   return { blocks, later, freeMin, plannedMin: used };
 }
 
+/** Tomorrow's plan from what moves to tomorrow (Parry, 16 Oct, Plan my day audit 3.1.9: "I like your idea"): the same
+ * rules as today, over tomorrow's working hours and calendar, from the start of the day. What does not fit says so. */
+export function tomorrowPlan(items: PlanItem[], hours: DayInput["hours"], busy: Busy[] = [], customs: PlanItem[] = []): DayPlan {
+  const seen = new Set<string>();
+  const work = [...items.map((p) => ({ ...p, at: null, done: false })), ...customs].filter((p) => !seen.has(p.ref) && (seen.add(p.ref), true));
+  const out = buildDay({ hours, busy, items: work });
+  return { ...out, later: out.later.map((l) => ({ ...l, why: l.why === FULL_WHY ? "Tomorrow is full: this waits a day more." : l.why.replace(/\btoday\b/, "tomorrow") })) };
+}
 /** "Next: Power Hour in 12 min", "Now: Texts (until 10:15)", or null when the day is done. */
 export function nextLine(blocks: Block[], now: string): string | null {
   const n = toMin(now);
@@ -254,6 +268,27 @@ export interface DayFromMove {
   approvedAt: string | null;
 }
 
+const sameTitle = (t: string | null) => (t ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+// the copy that says more wins: ONE's own event over a bare calendar row, a title over none
+const richness = (b: Busy) => (b.source !== "calendar" ? 2 : 0) + (b.title ? 1 : 0);
+
+/** One row per appointment (Parry, 16 Oct, Plan my day audit 3.1.1: every appointment showed twice, once "Event" and once
+ * "Busy", and the header said "6 appointments" for 3). Same start and end and the same title (case and spaces aside), or
+ * the same start and end where one copy has no title, are one appointment; the richer copy stays (ONE's own event over a
+ * bare calendar row), keeps any title the other had, and sits in the first one's place. */
+export function dedupeBusy(busy: readonly Busy[]): Busy[] {
+  const out: Busy[] = [];
+  for (const b of busy) {
+    const k = out.findIndex((o) => o.start === b.start && o.end === b.end && (!o.title || !b.title || sameTitle(o.title) === sameTitle(b.title)));
+    if (k < 0) out.push(b);
+    else {
+      const [keep, other] = richness(b) > richness(out[k]) ? [b, out[k]] : [out[k], b];
+      out[k] = { ...keep, title: keep.title ?? other.title, category: keep.category ?? other.category ?? null };
+    }
+  }
+  return out;
+}
+
 /** A §3o.2 answer, checked; null when it is not one. Bad rows are dropped, never guessed. */
 export function readDay(j: unknown): DayFromMove | null {
   if (!j || typeof j !== "object") return null;
@@ -288,7 +323,8 @@ export function readDay(j: unknown): DayFromMove | null {
     });
   }
   blocks.sort((a, b) => toMin(a.start) - toMin(b.start));
-  return { date: r.date, hours, busy, blocks, approvedAt: typeof r.approved_at === "string" ? r.approved_at : null };
+  // where the day is read, so the list, the clock and the count all agree (audit 3.1.1)
+  return { date: r.date, hours, busy: dedupeBusy(busy), blocks, approvedAt: typeof r.approved_at === "string" ? r.approved_at : null };
 }
 
 /** The §3o.3 PUT body: only what MASTER keeps. */
@@ -334,6 +370,17 @@ export function timeAtPoint(x: number, y: number, cx: number, cy: number, hours:
   const m = s + Math.round(((a / (Math.PI * 2)) * span) / 15) * 15;
   return toTime(Math.min(toMin(hours.end) - 15, m));
 }
+
+/** A few words that fit on an arc, cut at a word. */
+export function shortWords(t: string, n = 18): string {
+  if (t.length <= n) return t;
+  const cut = t.slice(0, n + 1).replace(/\s+\S*$/, "").replace(/\s+(with|to|at|the|and|for|on|of|a)$/i, "");
+  return cut || t.slice(0, n);
+}
+const BUSY_SHORT: Record<Busy["source"], string> = { calendar: "Busy", one_event: "Event", time_block: "Block", open_house: "Open house", showing: "Showing", listing_appointment: "Listing appt", fixed: "Appointment", travel: "Drive" };
+/** What sits on an appointment's arc on the Day Clock: its own title, as the list shows it, for every source that has one
+ * (Parry, 16 Oct, Plan my day audit 3.1.6: the 9:00 Morning Brief read "Event"); a drive stays "Drive"; no title, the kind. */
+export const busyArcLabel = (b: Pick<Busy, "source" | "title">): string => (b.source === "travel" ? "Drive" : shortWords(b.title?.trim() || BUSY_SHORT[b.source], 16));
 
 /** "3h 30m". */
 export function hm(min: number): string {

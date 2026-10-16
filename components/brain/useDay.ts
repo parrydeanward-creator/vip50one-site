@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DayItem } from "@/lib/day.ts";
 import { todayIn } from "@/lib/hwc.ts";
-import { planUrl, putBody, suggest, type Plan, type PlanItem } from "@/lib/plan.ts";
+import { MAX_TASKS_SHOWN, planUrl, putBody, suggest, type Plan, type PlanItem } from "@/lib/plan.ts";
 import { toldBusy, type Answers, type Told } from "@/lib/overview.ts";
 import { addDays, slide } from "@/lib/assist.ts";
 import { floor5 } from "@/lib/dayView.ts";
-import { buildDay, customItem, customKey, customsOn, dayPutBody, dayUrl, denverNow, readDay, toMin, type Block, type Busy, type Custom, type DayPlan } from "@/lib/schedule.ts";
+import { buildDay, customItem, customKey, customsOn, DAY_OVER_WHY, dayPutBody, dayUrl, denverNow, readDay, toMin, tomorrowPlan, type Block, type Busy, type Custom, type DayPlan } from "@/lib/schedule.ts";
 
 // The day as Pulse plans it (VIP-SUMMARY §3o), shared by the Day Clock and the Brain's Next line and
 // chimes. ONE MOVE's day route first; until it answers, the Brain builds the day itself from what is
@@ -56,7 +56,12 @@ export interface Day {
   approve: () => Promise<string>;
   replan: () => void;
   moved: string | null; // "Moved Power Hour to 2:30pm." (§3o.6), null when nothing moved
-  carry: () => Promise<string>; // day's end: what is left goes to tomorrow's plan, in one tap
+  carry: (list?: { item: PlanItem }[]) => Promise<string>; // day's end: what is left goes to tomorrow's plan, in one tap
+  // Once the day is done, Plan my day shows tomorrow (audit 3.1.9): tomorrow's date, and its plan built from what moves
+  // there, over tomorrow's hours and calendar (ONE MOVE's day for that date when it answers).
+  tomorrowDate: string;
+  planTomorrow: (items: PlanItem[]) => { hours: { start: string; end: string }; busy: Busy[]; plan: DayPlan };
+  loadTomorrow: () => void;
 }
 
 export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: { today: DayItem[]; planned: Plan | null; live: boolean; doneRefs: Set<string>; onPlan: (p: Plan) => void; extra?: PlanItem[] }): Day {
@@ -85,6 +90,7 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
   const [stored, setStored] = useState<Stored[]>([]);
   const [approved, setApproved] = useState<{ at: string; blocks: Block[]; freeMin?: number; plannedMin?: number } | null>(null);
   const [move, setMove] = useState<ReturnType<typeof readDay>>(null);
+  const [moveTomorrow, setMoveTomorrow] = useState<ReturnType<typeof readDay>>(null);
   const [told, setTold] = useState<TellState | null>(null);
   // Yesterday's leftovers, carried in one tap at the end of that day (§3o.6 "At day's end").
   const [carried, setCarried] = useState<PlanItem[]>([]);
@@ -96,6 +102,17 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
       .then((j) => setMove(readDay(j)))
       .catch(() => {});
   }, [date]);
+  const tomorrowDate = useMemo(() => addDays(date, 1), [date]);
+  // tomorrow's hours and calendar from ONE MOVE, asked for once, only when Plan my day shows tomorrow
+  const askedTomorrow = useRef(false);
+  const loadTomorrow = useCallback(() => {
+    if (!live || askedTomorrow.current) return;
+    askedTomorrow.current = true;
+    fetch(`${dayUrl}?date=${tomorrowDate}`, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setMoveTomorrow(readDay(j)))
+      .catch(() => {});
+  }, [live, tomorrowDate]);
   useEffect(() => {
     setStored(readLocal<Stored[]>(customKey, []));
     const t = readLocal<TellState | null>(toldKey(date), null);
@@ -154,9 +171,19 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
   // Missed blocks move by themselves (§3o.6): a block not ticked by its end slides to the next free gap
   // today, and the agent is told; fixed ones never move; what can't fit goes to "Moves to tomorrow".
   const slid = useMemo(() => (now ? slide(plan.blocks, busy, hours, now) : null), [plan.blocks, busy, hours, now]);
+  // after the working day the reason is that the day is over, not that a gap was missed (audit 3.1.4)
+  const slidWhy = now && toMin(now) >= toMin(hours.end) ? DAY_OVER_WHY : "Missed today, and no free gap left.";
   const shown = useMemo<DayPlan>(
-    () => (slid && slid.note ? { ...plan, blocks: slid.blocks, later: [...plan.later, ...slid.tomorrow.map((b) => ({ item: { ref: b.refs[0] ?? b.id, product: "go" as const, kind: "other" as const, title: b.title, contactId: null, link: null, minutes: toMin(b.end) - toMin(b.start), done: false }, why: "Missed today, and no free gap left." }))] } : plan),
-    [plan, slid],
+    () => (slid && slid.note ? { ...plan, blocks: slid.blocks, later: [...plan.later, ...slid.tomorrow.map((b) => ({ item: { ref: b.refs[0] ?? b.id, product: "go" as const, kind: "other" as const, title: b.title, contactId: null, link: null, minutes: toMin(b.end) - toMin(b.start), done: false }, why: slidWhy }))] } : plan),
+    [plan, slid, slidWhy],
+  );
+  const planTomorrow = useCallback(
+    (items: PlanItem[]) => {
+      const tHours = moveTomorrow?.hours ?? baseHours;
+      const tBusy = moveTomorrow?.busy ?? [];
+      return { hours: tHours, busy: tBusy, plan: tomorrowPlan(items, tHours, tBusy, customsOn(stored, tomorrowDate).map(customItem)) };
+    },
+    [moveTomorrow, baseHours, stored, tomorrowDate],
   );
 
   const saveStored = (next: Stored[]) => {
@@ -241,21 +268,28 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
   };
 
   // Day's end: everything not done (blocks and "Moves to tomorrow") goes to tomorrow's plan, in one tap.
-  const carry = async (): Promise<string> => {
+  // `list` is the one "moves to tomorrow" list every screen counts (audit 3.1.2); without it, what is left on the clock.
+  const carry = async (list?: { item: PlanItem }[]): Promise<string> => {
     const byRef = new Map<string, PlanItem>([...(planned?.items ?? []), ...suggest(today), ...extra, ...carried].map((p) => [p.ref, p]));
     const left: PlanItem[] = [];
-    for (const b of shown.blocks.filter((x) => !x.done && x.kind !== "custom"))
-      for (const r of b.refs) {
-        const p = byRef.get(r);
-        if (p && !doneRefs.has(r) && !r.startsWith("cm:")) left.push({ ...p, at: null, done: false });
-      }
-    for (const l of shown.later) if (!l.item.ref.startsWith("cm:")) left.push({ ...l.item, at: null, done: false });
-    const uniq = [...new Map(left.map((p) => [p.ref, p])).values()].slice(0, 15);
+    if (list) for (const l of list) left.push({ ...(byRef.get(l.item.ref) ?? l.item), at: null, done: false });
+    else {
+      for (const b of shown.blocks.filter((x) => !x.done && x.kind !== "custom"))
+        for (const r of b.refs) {
+          const p = byRef.get(r);
+          if (p && !doneRefs.has(r)) left.push({ ...p, at: null, done: false });
+        }
+      for (const l of shown.later) left.push({ ...l.item, at: null, done: false });
+    }
+    // the week's commitments are worked out fresh each day, never carried
+    const all = [...new Map(left.filter((p) => !p.ref.startsWith("cm:")).map((p) => [p.ref, p])).values()];
+    const uniq = all.slice(0, MAX_TASKS_SHOWN);
     try {
       localStorage.setItem(carryKey(addDays(date, 1)), JSON.stringify(uniq));
     } catch {}
     if (!uniq.length) return "Nothing left to move.";
-    const said = `${uniq.length} ${uniq.length === 1 ? "thing goes" : "things go"} to tomorrow's plan`;
+    // tomorrow's plan holds at most 15 (Parry, 6 Oct): say so when the list was longer
+    const said = `${uniq.length}${all.length > uniq.length ? ` of ${all.length}` : ""} ${uniq.length === 1 && all.length === 1 ? "thing goes" : "things go"} to tomorrow's plan${all.length > uniq.length ? ", the most it holds" : ""}`;
     if (!live) return `${said}. Example agent: in your account ONE GO has them in the morning.`;
     // §3l v1.38: tomorrow's plan in ONE MOVE, so the 7:00 build and ONE GO have them too
     try {
@@ -266,5 +300,5 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
     }
   };
 
-  return { date, now, hours, busy, plan: shown, moved: slid?.note ?? null, carry, approvedAt: (move?.approvedAt ?? approved?.at) || null, fromMove: !!move, customs, told, tell, addBlock, removeBlock, approve, replan: unapprove };
+  return { date, now, hours, busy, plan: shown, moved: slid?.note ?? null, carry, tomorrowDate, planTomorrow, loadTomorrow, approvedAt: (move?.approvedAt ?? approved?.at) || null, fromMove: !!move, customs, told, tell, addBlock, removeBlock, approve, replan: unapprove };
 }

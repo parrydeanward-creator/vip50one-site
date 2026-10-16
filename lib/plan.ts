@@ -257,10 +257,21 @@ export function orbMark(p: PlanItem): string {
 
 export const PLAN_NODE = "go-plan";
 
+// One plan state for every screen (Parry, 16 Oct, Plan my day audit 3.1.3: the ONE YOU card said "Pulse planned today
+// round your calendar ... tap Looks good" while the orb said "Not planned yet"). Approved: the agent tapped Looks good (or
+// sent the plan to ONE GO). Ready: Pulse has planned the day and it waits for Looks good. Empty: nothing to plan.
+export type PlanState = "approved" | "ready" | "empty";
+
+export function planState(x: { approvedAt: string | null; sent: { items: unknown[] } | null; blocks: number }): PlanState {
+  if (x.approvedAt || (x.sent?.items.length ?? 0) > 0) return "approved";
+  return x.blocks > 0 ? "ready" : "empty";
+}
+
 /** ONE GO's "Today's plan" orb: pulses until the day is planned, then shows how much is done (an arc
  * and a count that pulses up to ONE GO and ONE), green when it is all done. Tapping it opens Plan My
- * Day. No ONE GO orb (or ONE GO not in the package): the graph is unchanged. */
-export function withPlanNode<G extends { nodes: import("./graph/types.ts").GraphNode[]; edges: import("./graph/types.ts").GraphEdge[] }>(g: G, plan: { items: { done: boolean }[] } | null): G {
+ * Day. No ONE GO orb (or ONE GO not in the package): the graph is unchanged. `state` is planState(), the
+ * same answer the ONE YOU card reads; without it, a sent plan is approved and anything else is not planned. */
+export function withPlanNode<G extends { nodes: import("./graph/types.ts").GraphNode[]; edges: import("./graph/types.ts").GraphEdge[] }>(g: G, plan: { items: { done: boolean }[] } | null, state?: PlanState): G {
   const go = g.nodes.find((n) => n.id === "go");
   if (!go || go.locked) return g;
   const nodes = g.nodes.filter((n) => n.id !== PLAN_NODE);
@@ -268,32 +279,24 @@ export function withPlanNode<G extends { nodes: import("./graph/types.ts").Graph
   const total = plan?.items.length ?? 0;
   const done = plan?.items.filter((i) => i.done).length ?? 0;
   const left = total - done;
+  const st: PlanState = state ?? (total ? "approved" : "empty");
+  const base = { id: PLAN_NODE, type: "feature" as const, parentId: "go", product: "go" as const, importance: 1.05 };
   nodes.push(
     total
       ? {
-          id: PLAN_NODE,
-          type: "feature",
+          ...base,
           label: "Today's plan",
           secondaryLabel: left ? `${done} of ${total} done` : "All done today",
-          parentId: "go",
-          product: "go",
-          importance: 1.05,
           status: left ? "attention" : "healthy",
           needCount: left || undefined,
           stats: [{ label: "Today's plan", value: `${done} / ${total}` }],
-          summary: left ? `${left} still to do on today's plan. Tap to change the order or send it to your phone again.` : "Everything on today's plan is done.",
+          summary: left ? `${left} still to do on today's plan. Open it to change the order or send it to your phone again.` : "Everything on today's plan is done.",
         }
-      : {
-          id: PLAN_NODE,
-          type: "feature",
-          label: "Plan my day",
-          secondaryLabel: "Not planned yet",
-          parentId: "go",
-          product: "go",
-          importance: 1.05,
-          status: "attention",
-          summary: "Put today in your order and send it to ONE GO on your phone. Tap to plan.",
-        },
+      : st === "approved"
+        ? { ...base, label: "Today's plan", secondaryLabel: "Plan approved", status: "healthy", summary: "You approved today's plan. Open it to see the day or change the order." }
+        : st === "ready"
+          ? { ...base, label: "Plan my day", secondaryLabel: "Ready for Looks good", status: "attention", summary: "Pulse planned today round your calendar. Open it, look it over and tap Looks good." }
+          : { ...base, label: "Plan my day", secondaryLabel: "Not planned yet", status: "attention", summary: "Put today in your order and send it to ONE GO on your phone." },
   );
   edges.push({ id: `go>${PLAN_NODE}`, source: "go", target: PLAN_NODE, relationshipType: "belongs_to", strength: 1 });
   return { ...g, nodes, edges };
