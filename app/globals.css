@@ -2481,3 +2481,6 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .hr-bulk { display: grid; gap: 6px; margin: 10px 0; }
 .hr-bulk li { cursor: pointer; }
 .hr-bulk input { accent-color: var(--gold-2); flex: none; }
+
+/* Home Reports: the two links under a person sit apart (one per line) */
+.hr-links { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 10px 0 0; }

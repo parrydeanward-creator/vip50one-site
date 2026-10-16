@@ -242,8 +242,10 @@ export default function HomeReports({
           <>
             <h1 className="d-title">{who.name}</h1>
             <HomeReportSection key={who.contactId} contactId={who.contactId} first={first(who.name)} demo={demo} onChanged={() => { if (!demo) void load(); }} />
-            {onOpenPerson && !demo ? <button className="vr-classic" onClick={() => onOpenPerson(who.contactId)}>Open {first(who.name)}&apos;s contact card</button> : null}
-            <button className="vr-classic" onClick={() => setWho(null)}>Back to {sel ? LABEL[sel] : "Home Reports"}</button>
+            <p className="hr-links">
+              {onOpenPerson && !demo ? <button className="vr-classic" onClick={() => onOpenPerson(who.contactId)}>Open {first(who.name)}&apos;s contact card</button> : null}
+              <button className="vr-classic" onClick={() => setWho(null)}>Back to {sel ? LABEL[sel] : "Home Reports"}</button>
+            </p>
           </>
         ) : sel === "start" ? (
           <>
