@@ -1,4 +1,4 @@
-import { GROUP_TITLE, groupOf, weekWins, type Win } from "./wins.ts";
+import { GROUP_TITLE, groupOf, weekWinsFrom, type Win, type WeekWinsLive } from "./wins.ts";
 import { mondayOf } from "./habits.ts";
 import { reportLine, unseen, type PulseReport } from "./pulseReport.ts";
 import type { GraphEdge, GraphNode } from "./graph/types.ts";
@@ -35,6 +35,8 @@ export interface ReviewIn {
   wins?: Win[] | null;
   /** The year's count from the same Wins list the Wins orb shows (audit 3.4.2: one source for both). */
   winsYear?: number | null;
+  /** This week's wins from ONE MOVE (`/api/brain/wins?week=this`), the Scoreboard's source; `wins` is the fallback. */
+  weekWins?: WeekWinsLive | null;
   /** "Pulse did this" (LEADS §6.1), when ONE MOVE answers. */
   pulse?: PulseReport | null;
 }
@@ -203,10 +205,11 @@ export function review(i: ReviewIn): Review {
   if (i.week && i.week.score < i.week.minimum && next.length < 3)
     next.push(late ? `Reach ${i.week.minimum} next week: this week is at ${i.week.score}.` : `Reach ${i.week.minimum} by Sunday: ${i.week.minimum - i.week.score} to go from ${i.week.score}.`);
   // This week's wins (§3t): good news only, never a pulse (Parry: "good news never nags").
-  if (i.wins) {
+  const thisWeeks = weekWinsFrom(i.weekWins, i.wins, i.today); // the Scoreboard's "This week's wins", one source
+  if (thisWeeks) {
     // Only this week's wins; a review counts in the week it was written, never the week it was imported (Parry, 16 Oct,
     // audit 3.3.1: 35 imported reviews read as "Wins: 35").
-    const { mine, imported } = weekWins(i.wins, i.today); // the Scoreboard's "This week's wins", one source
+    const { mine, imported } = thisWeeks;
     const by = new Map<string, number>();
     for (const w of mine) by.set(GROUP_TITLE[groupOf(w.kind)], (by.get(GROUP_TITLE[groupOf(w.kind)]) ?? 0) + 1);
     const at = cards.findIndex((c) => c.key === "score");

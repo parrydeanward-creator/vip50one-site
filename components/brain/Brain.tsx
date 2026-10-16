@@ -89,7 +89,7 @@ import { LIKELY_NODE, demoMoveLikely, moveLikelyUrl, notUsefulUrl, readMoveLikel
 import { MARKET_NODE, demoMarketPulse, marketPulseUrl, marketSendUrl, readMarketPulse, sendBody as marketSendBody, withMarketPulseNode, withSent as withMarketSent, type MarketPulse, type Vip as MarketVip } from "@/lib/marketPulse.ts";
 import { DEALS_NODE, dealUrl, dealsUrl, demoDeals, readClosingAsk, readDeals, statusBody as dealStatusBody, withDealsNode, withStatus as withDealStatus, type Deal } from "@/lib/deals.ts";
 import { LIFE_NODE, applyKeep, demoRadar, keepBody as lifeKeepBody, keepUrl as lifeKeepUrl, lifeEventsUrl, readRadar, withLifeEventsNode, type Found as LifeFound, type Radar } from "@/lib/lifeEvents.ts";
-import { demoWins, readWins, total as winsTotal, winsUrl, type Wins } from "@/lib/wins.ts";
+import { demoWins, readWeekWins, readWins, total as winsTotal, weekWinsUrl, winsUrl, type WeekWinsLive, type Wins } from "@/lib/wins.ts";
 import { demoPartners, partnersActionUrl, partnersUrl, readPartners, unseenNudges, withAllSeen, type PartnersState } from "@/lib/partners.ts";
 import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, mondayOf, type HabitToday } from "@/lib/habits.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
@@ -444,6 +444,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   }, [live]);
   // Wins (§3t), read below; declared here because the Weekly Review shows this week's.
   const [wins, setWins] = useState<Wins | null>(null);
+  // This week's wins as ONE MOVE counts them (vip50-web-crm#278, `?week=this`); the year's list is the fallback.
+  const [weekWinsLive, setWeekWinsLive] = useState<WeekWinsLive | null>(null);
   // Weekly Review: the week's score (ONE MOVE's daily feed), the VIP-50 roster, commitments and goals.
   const [weekScore, setWeekScore] = useState<{ score: number; minimum: number } | null>(null);
   // The Habits ring: the Daily Tracker's "habits" boxes (same feed), ticked from the Brain like any box.
@@ -470,8 +472,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const goalKey = JSON.stringify(goalsFromGraph(graph.nodes));
   const goalNodes = useMemo(() => JSON.parse(goalKey) as ReturnType<typeof goalsFromGraph>, [goalKey]);
   const theReview = useMemo(
-    () => (weekScore || roster || commitments || goalNodes.length ? buildReview({ today: todayIn(), week: weekScore, roster, commitments, goals: goalNodes, wins: wins?.wins ?? null, winsYear: wins ? winsTotal(wins) : null, pulse: pulseReport }) : null),
-    [weekScore, roster, commitments, goalNodes, wins, pulseReport],
+    () => (weekScore || roster || commitments || goalNodes.length ? buildReview({ today: todayIn(), week: weekScore, roster, commitments, goals: goalNodes, wins: wins?.wins ?? null, winsYear: wins ? winsTotal(wins) : null, weekWins: weekWinsLive, pulse: pulseReport }) : null),
+    [weekScore, roster, commitments, goalNodes, wins, weekWinsLive, pulseReport],
   );
   useEffect(() => {
     reviewRef.current = theReview;
@@ -728,6 +730,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     fetch(winsUrl(), { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setWins(j ? readWins(j) : null))
+      .catch(() => {});
+    fetch(weekWinsUrl(), { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setWeekWinsLive(j ? readWeekWins(j) : null))
       .catch(() => {});
   }, [live]);
   const closeWins = useCallback(() => setWinsOpen(false), []);
@@ -3068,6 +3074,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               team={team}
               partners={partners}
               wins={wins}
+              weekWins={weekWinsLive}
               onPartner={partnerAct}
               onOpenPartners={() => setPartnersOpen(true)}
               onOpenWins={() => setWinsOpen(true)}

@@ -69,3 +69,56 @@ test("Wins has no ONE YOU orb (Parry, 16 Oct); this week's wins are one list for
   assert.equal(winHome("badge"), "badges");
   assert.equal(winHome("closing"), "goals");
 });
+
+// ONE MOVE's `GET /api/brain/wins?week=this` (vip50-web-crm#278): `{days, from, to, wins[], counts}`, Monday to today in
+// Mountain time; the shape is app/api/brain/wins/route.ts + lib/wins.ts buildWins there (snake_case `contact_id`).
+const weekAnswer = {
+  days: 4,
+  from: "2026-10-12",
+  to: "2026-10-15",
+  wins: [
+    { kind: "badge", at: "2026-10-15", title: "VIP Touch Master", detail: null, contact_id: null, amount: null },
+    { kind: "five_star", at: "2026-10-14", title: "Jane Smith", detail: "Made it easy.", contact_id: null, amount: null },
+    { kind: "closing", at: "2026-10-13", title: "Closed with Tom Lee", detail: "Buyer side · $455,000", contact_id: "c1", amount: 12000 },
+    { kind: "week_100", at: "2026-10-12", title: "Week of Oct 12: 104", detail: null, contact_id: null, amount: null },
+    { kind: "referral", at: "2026-10-09", title: "Last week", detail: null, contact_id: null, amount: null },
+    { kind: "thank_you", at: "2026-10-14", title: "Not a kind" },
+    { kind: "referral", at: "bad", title: "No date" },
+  ],
+  counts: { closing: 1, referral: 0, referral_closed: 0, five_star: 1, week_100: 1, badge: 1, goal_reached: 0 },
+};
+
+test("readWeekWins: the route's shape, checked; only this week's counted kinds, inside from..to, newest first", async () => {
+  const { readWeekWins, weekWinsUrl } = await import("../lib/wins.ts");
+  assert.equal(weekWinsUrl(), "https://move.vip50one.com/api/brain/wins?week=this");
+  assert.equal(weekWinsUrl("a b"), "https://move.vip50one.com/api/brain/wins?week=this&agent=a%20b");
+  const w = readWeekWins(weekAnswer)!;
+  assert.equal(w.from, "2026-10-12");
+  assert.equal(w.to, "2026-10-15");
+  assert.deepEqual(w.wins.map((x) => x.kind), ["badge", "five_star", "closing"]);
+  assert.equal(w.wins[2].contactId, "c1");
+  assert.equal(w.wins[2].amount, 12000);
+  // Five reviews written the same day are five wins: ONE MOVE already dated them, so no import guess here.
+  const five = readWeekWins({ ...weekAnswer, wins: Array.from({ length: 5 }, (_, k) => ({ kind: "five_star", at: "2026-10-14", title: `R${k}` })) })!;
+  assert.equal(five.wins.length, 5);
+  assert.equal(five.wins.some((x) => x.imported), false);
+});
+
+test("readWeekWins: not an answer is null, never a throw", async () => {
+  const { readWeekWins } = await import("../lib/wins.ts");
+  for (const bad of [null, undefined, 3, "x", [], {}, { from: "2026-10-12", to: "2026-10-15" }, { from: "x", to: "2026-10-15", wins: [] }, { from: "2026-10-16", to: "2026-10-15", wins: [] }, { error: "Not signed in." }])
+    assert.equal(readWeekWins(bad), null);
+  assert.deepEqual(readWeekWins({ from: "2026-10-12", to: "2026-10-12", wins: [null, 4, "x"] })!.wins, []);
+});
+
+test("weekWinsFrom: ONE MOVE's week when it is this week, else counted from the year's list (demo and fallback)", async () => {
+  const { readWeekWins, weekWinsFrom } = await import("../lib/wins.ts");
+  const live = readWeekWins(weekAnswer)!;
+  const year = demoWins("2026-10-15").wins;
+  assert.deepEqual(weekWinsFrom(live, year, "2026-10-15")!.mine.map((x) => x.title), ["VIP Touch Master", "Jane Smith", "Closed with Tom Lee"]);
+  assert.deepEqual(weekWinsFrom(live, null, "2026-10-15")!.mine.length, 3);
+  // A stale answer from last week is not this week's: the year's list counts instead.
+  assert.deepEqual(weekWinsFrom(live, year, "2026-10-20"), weekWins(year, "2026-10-20"));
+  assert.deepEqual(weekWinsFrom(null, year, "2026-10-15"), weekWins(year, "2026-10-15"));
+  assert.equal(weekWinsFrom(null, null, "2026-10-15"), null);
+});
