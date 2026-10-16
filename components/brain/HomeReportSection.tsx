@@ -27,6 +27,12 @@ import {
   withRprSent,
   withStarted,
   withStopped,
+  VALUE_RULE,
+  dollars,
+  parseValue,
+  valueBody,
+  valueLine,
+  withValue,
   type ContactReports,
 } from "@/lib/homeReport.ts";
 
@@ -42,6 +48,7 @@ export default function HomeReportSection({ contactId, first, demo = false, onCh
   const [form, setForm] = useState<{ address: string; day: string; note: string } | null>(null);
   const [changing, setChanging] = useState(false);
   const [rpr, setRpr] = useState("");
+  const [value, setValue] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const name = first.trim() || "them";
@@ -58,6 +65,7 @@ export default function HomeReportSection({ contactId, first, demo = false, onCh
     setForm(null);
     setChanging(false);
     setRpr("");
+    setValue(null);
     setMsg(null);
     void load();
   }, [load]);
@@ -122,6 +130,15 @@ export default function HomeReportSection({ contactId, first, demo = false, onCh
     if (ok) setRpr("");
   };
 
+  // The agent's own view of the value (§3.7): never estimated by ONE; printed only for three months after set or confirmed.
+  const saveValue = async (amount: number | "") => {
+    if (!live) return;
+    const ok = await write("POST", homeReportUrl, valueBody(live.id, amount), (c) => withValue(c, live.id, amount === "" ? null : amount, today),
+      amount === "" ? "Removed. The report shows no value." : `Saved: ${dollars(amount)}, as of today.`);
+    if (ok) setValue(null);
+  };
+  const typed = value == null ? null : parseValue(value);
+
   return (
     <div className="cc-tasks hr-card">
       <h2>Home Report</h2>
@@ -146,6 +163,28 @@ export default function HomeReportSection({ contactId, first, demo = false, onCh
               <small className="hr-sub">Until the MLS feed is live, no figures go out by themselves: you send each month from your own email.</small>
             </div>
           ) : null}
+          <div className="cc-perm-form">
+            <p className="hr-sub">{valueLine(live, today)}</p>
+            {value != null ? (
+              <>
+                <label>
+                  Your view of the home&apos;s value
+                  <input type="text" inputMode="decimal" value={value} placeholder="$650,000" maxLength={14} onChange={(e) => setValue(e.target.value)} />
+                </label>
+                <div className="cc-perm-acts">
+                  <button type="button" className="chip-btn primary" disabled={busy || typed == null} onClick={() => typed != null && void saveValue(typed)}>Save</button>
+                  <button type="button" className="chip-btn" disabled={busy} onClick={() => setValue(null)}>Cancel</button>
+                </div>
+              </>
+            ) : (
+              <div className="cc-perm-acts">
+                <button type="button" className="chip-btn" disabled={busy} onClick={() => setValue(live.agentValue ? String(live.agentValue) : "")}>{live.agentValue ? "Change the value" : "Set your view of the value"}</button>
+                {live.agentValue ? <button type="button" className="chip-btn" disabled={busy} onClick={() => void saveValue(live.agentValue!)}>Still right</button> : null}
+                {live.agentValue ? <button type="button" className="chip-btn" disabled={busy} onClick={() => void saveValue("")}>Remove</button> : null}
+              </div>
+            )}
+            <small className="hr-sub">{VALUE_RULE}</small>
+          </div>
           {changing && form ? (
             <div className="cc-perm-form">
               <label>Day of the month (1 to 28)<input type="text" inputMode="numeric" value={form.day} maxLength={2} onChange={(e) => setForm({ ...form, day: e.target.value })} /></label>
