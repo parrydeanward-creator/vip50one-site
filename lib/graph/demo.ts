@@ -12,7 +12,7 @@ import { addShowly } from "./showly.ts";
 
 type N = Omit<GraphNode, "importance"> & { importance?: number };
 
-const PRODUCT_FOR_PACKAGE: Record<Exclude<ProductKey, "one">, "go" | "move" | "marquee" | "open" | "showly"> = {
+const PRODUCT_FOR_PACKAGE: Record<Exclude<ProductKey, "one" | "growth">, "go" | "move" | "marquee" | "open" | "showly"> = {
   go: "go",
   move: "move",
   marquee: "marquee",
@@ -74,7 +74,7 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
       stats: [{ label: "Next open house", value: "Sun 1-3pm" }, { label: "Prep tasks left", value: "3" }] },
   ];
   for (const p of products) {
-    const locked = !includes(pkg, PRODUCT_FOR_PACKAGE[p.product as Exclude<ProductKey, "one">]);
+    const locked = !includes(pkg, PRODUCT_FOR_PACKAGE[p.product as Exclude<ProductKey, "one" | "growth">]);
     add(locked ? { ...p, locked, status: undefined, stats: undefined, summary: `${p.summary} Included in ONE Complete.` } : p);
   }
 

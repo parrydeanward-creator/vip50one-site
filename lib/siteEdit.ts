@@ -10,7 +10,8 @@ export function cleanHost(v: unknown): string | null {
 }
 
 /** Studio pages a sign-in may land on (one-websites#108, #109); anything else goes to the Web Studio. */
-export const SITE_NEXT = ["/manage", "/manage/results", "/manage/ad-requests", "/builder"] as const;
+// "/ads" and "/manage/areas" for the Growth orb (16 Oct); ONE Websites lands them once its ENTER_NEXT has them (else /manage).
+export const SITE_NEXT = ["/manage", "/manage/results", "/manage/ad-requests", "/builder", "/ads", "/manage/areas"] as const;
 export type SiteNext = (typeof SITE_NEXT)[number];
 export const cleanNext = (v: unknown): SiteNext | null => (typeof v === "string" && (SITE_NEXT as readonly string[]).includes(v) ? (v as SiteNext) : null);
 

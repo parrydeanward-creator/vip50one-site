@@ -17,6 +17,7 @@ export const PRODUCT_COLOR: Record<ProductKey, number> = {
   marquee: 0x4f7fe0, // blue
   showly: 0x9b6ce0, // purple
   open: 0xf06a5a, // coral
+  growth: 0xd96bb0, // rose: new people, new business (ONE Growth)
 };
 
 export const STATUS: Record<NodeStatus, { color: number; label: string }> = {

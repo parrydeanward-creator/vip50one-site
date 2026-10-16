@@ -74,6 +74,7 @@ const PRODUCT_NAME: Record<GraphNode["product"], string> = {
   marquee: "Marquee",
   showly: "Showly",
   open: "ONE Open",
+  growth: "ONE Growth",
 };
 
 // Nodes an answer may point at: anything below the products, in a product the

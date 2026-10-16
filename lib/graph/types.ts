@@ -2,7 +2,7 @@
 // idea how it is drawn (research/ONE-BRAIN.md §8). Demo data today; real data
 // arrives through a source adapter with the same shape.
 
-export type ProductKey = "one" | "go" | "move" | "marquee" | "showly" | "open";
+export type ProductKey = "one" | "go" | "move" | "marquee" | "showly" | "open" | "growth";
 
 export type NodeType =
   | "core"
