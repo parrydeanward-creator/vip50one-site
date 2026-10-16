@@ -6,6 +6,7 @@ import { badgesUrl, readBadges, type Badges } from "@/lib/badges.ts";
 import { partnerLine, type PartnersState } from "@/lib/partners.ts";
 import { GROUP_TITLE, groupOf, weekWinsFrom, winHome, type WeekWinsLive, type WinHome, type Wins } from "@/lib/wins.ts";
 import { COMING, leaderRows } from "@/lib/oneYou.ts";
+import { missionDot, missionLine, streakXpLines, type ScoreboardLive } from "@/lib/scoreboard.ts";
 import type { Team } from "@/lib/team.ts";
 
 // The Scoreboard in ONE YOU (Parry, 16 Oct: "yes on combining into Scoreboard"; walker 2026-10-16-1905 to -1938). One
@@ -37,6 +38,7 @@ export default function ScoreboardPanel({
   partners,
   wins,
   weekWins,
+  scoreboard,
   onPartner,
   onOpenPartners,
   onOpenWins,
@@ -52,6 +54,8 @@ export default function ScoreboardPanel({
   wins: Wins | null;
   /** ONE MOVE's own count of this week (`/api/brain/wins?week=this`); the year's `wins` is the fallback and the demo. */
   weekWins?: WeekWinsLive | null;
+  /** ONE MOVE's Mission Control, streak and XP (`/api/brain/scoreboard`, vip50-web-crm#281); the demo graph's otherwise. */
+  scoreboard?: ScoreboardLive | null;
   onPartner: (a: Act) => Promise<string | null>;
   onOpenPartners: () => void;
   onOpenWins: () => void;
@@ -78,6 +82,8 @@ export default function ScoreboardPanel({
   const rank = statOf(node, "Leaderboard");
   const rows = team ? leaderRows(team) : [];
   const week = weekWinsFrom(weekWins, wins?.wins, today)?.mine ?? null;
+  const sx = scoreboard ? streakXpLines(scoreboard) : null;
+  const DOT = { healthy: "#3fbf7f", attention: "#f5c542", idle: "rgba(160,175,210,0.45)" };
   const earned = badges ? badges.weekly.filter((b) => b.earned) : null;
 
   const respond = async (pairId: string, accept: boolean) => {
@@ -91,7 +97,22 @@ export default function ScoreboardPanel({
   return (
     <div className="sb-panel">
       <h2>Mission Control</h2>
-      {mission.length ? (
+      {scoreboard && scoreboard.mission.length ? (
+        <>
+          <p className="d-sum">{`${missionLine(scoreboard.mission)} this week, the same as ONE GO.`}</p>
+          <ul className="pm-list pm-compact">
+            {scoreboard.mission.map((m) => (
+              <li key={m.title}>
+                <i className="pm-dot" style={{ background: DOT[missionDot(m.status)] }} aria-hidden="true" />
+                <span className="pm-body">
+                  <b>{m.title}</b>
+                  <small>{`${m.status} · ${m.progressLabel}${m.earns ? ` · ${m.earns}` : ""}`}</small>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : mission.length ? (
         <ul className="pm-list pm-compact">
           {mission.map((m) => (
             <li key={m.id}>
@@ -212,15 +233,15 @@ export default function ScoreboardPanel({
         <li>
           <span className="pm-time">Streak</span>
           <span className="pm-body">
-            <b>{streak ?? COMING}</b>
-            <small>{streakNode?.summary ?? "Days in a row with ONE GO opened. +10 XP each check-in."}</small>
+            <b>{sx?.streak ?? streak ?? COMING}</b>
+            <small>{sx ? "Days in a row with ONE GO opened. +10 XP each check-in." : streakNode?.summary ?? "Days in a row with ONE GO opened. +10 XP each check-in."}</small>
           </span>
         </li>
         <li>
           <span className="pm-time">XP</span>
           <span className="pm-body">
-            <b>{xpNode?.secondaryLabel ?? COMING}</b>
-            <small>{xpNode?.summary ?? "This week's XP and your total, the same numbers as ONE GO's Scoreboard."}</small>
+            <b>{sx?.xp ?? xpNode?.secondaryLabel ?? COMING}</b>
+            <small>{sx?.xpNote ?? xpNode?.summary ?? "This week's XP and your total, the same numbers as ONE GO's Scoreboard."}</small>
           </span>
         </li>
       </ul>

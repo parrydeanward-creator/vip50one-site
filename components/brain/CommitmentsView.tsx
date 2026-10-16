@@ -24,6 +24,12 @@ import {
   reached,
   readCommitments,
   readQueued,
+  queueDeleteUrl,
+  queueUrl,
+  queuedFor,
+  readQueueList,
+  withChosen,
+  type QueuedDraft,
   resultWord,
   setBody,
   starters,
@@ -96,6 +102,8 @@ export default function CommitmentsView({
   const [sel, setSel] = useState<string | null>(null);
   const [ticking, setTicking] = useState<string | null>(null);
   const [dailyDrafts, setDailyDrafts] = useState<DailyDraft[]>([]);
+  // "Make it a commitment" drafts waiting in ONE MOVE for this week (vip50-web-crm#280): first in the set form.
+  const [queued, setQueued] = useState<QueuedDraft[]>([]);
   const closeRef = useRef<HTMLButtonElement>(null);
   const cam = useSvgCamera(SIZE);
 
@@ -104,13 +112,28 @@ export default function CommitmentsView({
     if (mode.kind === "set") {
       const cur = (mode.period === "week" ? c.week : c.weekend)?.items ?? [];
       // What the agent chose in the Weekly Review's three things (Pulse's focus first; §3q.3, Parry 16 Oct) goes first
-      // in the week's starters
+      // in the week's starters: for a signed-in agent from ONE MOVE's queue (so a tap on the desktop or the phone shows
+      // on both), then anything Pulse Coach kept in this browser; the example agent's from this browser only.
       let chosen: Draft[] = [];
       try {
         chosen = readQueued(localStorage.getItem(nextCommitKey));
       } catch {}
       const weekStart = starters({ vipsUntouched: 12, faceToFaceLastWeek: 0, overdueFollowUps: 1 });
-      setDrafts(cur.length ? cur.map((i) => ({ text: i.text, kind: i.kind, target: i.target })) : mode.period === "week" ? (chosen.length ? [...chosen, ...weekStart.filter((d) => !chosen.some((x) => x.kind !== "yes_no" && x.kind === d.kind))].slice(0, Math.max(3, chosen.length)) : weekStart) : [{ text: "", kind: "yes_no", target: null }]);
+      const first = cur.length ? cur.map((i) => ({ text: i.text, kind: i.kind, target: i.target })) : mode.period === "week" ? withChosen(chosen, weekStart) : [{ text: "", kind: "yes_no" as Kind, target: null }];
+      setDrafts(first);
+      if (live && mode.period === "week" && !cur.length) {
+        fetch(queueUrl, { credentials: "include", cache: "no-store" })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((j) => {
+            const q = queuedFor(readQueueList(j), c.today);
+            setQueued(q);
+            if (!q.length) return;
+            const both: Draft[] = [...q.map(({ text, kind, target }) => ({ text, kind, target })), ...chosen.filter((x) => !q.some((y) => y.text === x.text))];
+            // only while the agent has not started changing the form
+            setDrafts((now) => (now === first ? withChosen(both, weekStart) : now));
+          })
+          .catch(() => {});
+      }
     }
     if (mode.kind === "daily") {
       const cur = c.daily?.items ?? [];
@@ -270,6 +293,23 @@ export default function CommitmentsView({
       })}
     </ol>
   );
+
+  // Take one waiting draft out of ONE MOVE's queue (and its row, if the agent has not changed it).
+  const unqueue = async (q: QueuedDraft) => {
+    setBusy(true);
+    try {
+      const r = await fetch(queueDeleteUrl(q.id), { method: "DELETE", credentials: "include" });
+      const j = await r.json().catch(() => null);
+      if (!r.ok) return setNote((j as { error?: string } | null)?.error || "That didn't remove. Nothing was changed.");
+      setQueued(queuedFor(readQueueList(j), c.today));
+      setDrafts((all) => all.filter((d) => !(d.text === q.text && d.kind === q.kind)));
+      setNote("Removed. It will not be suggested again.");
+    } catch {
+      setNote("That didn't remove. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const doSet = (period: Period) => {
     const b = setBody(period, drafts);
@@ -457,6 +497,22 @@ export default function CommitmentsView({
           {mode.kind === "set" && (
             <section className="cm-form">
               <h2>{mode.period === "week" ? "This week I commit to" : "This weekend I commit to"}</h2>
+              {mode.period === "week" && queued.length ? (
+                <ul className="pm-list pm-compact" aria-label="Waiting from your Weekly Review">
+                  {queued.map((q) => (
+                    <li key={q.id}>
+                      <i className="pm-dot" style={{ background: GOLD }} aria-hidden="true" />
+                      <span className="pm-body">
+                        <b>{q.text}</b>
+                        <small>{`You chose this${q.source === "weekly_review" ? " in your Weekly Review" : ""}. It is first below; set it or take it out.`}</small>
+                      </span>
+                      <span className="pm-acts">
+                        <button disabled={busy} onClick={() => void unqueue(q)} aria-label={`Remove "${q.text}" from waiting`}>Remove</button>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               {drafts.map((d, k) => (
                 <div key={k} className="cm-row">
                   <input aria-label={`Commitment ${k + 1}`} maxLength={TEXT_MAX} value={d.text} placeholder="What will you do?" onChange={(e) => setDrafts((all) => all.map((x, j) => (j === k ? { ...x, text: e.target.value } : x)))} />

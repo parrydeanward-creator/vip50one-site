@@ -105,3 +105,46 @@ test("ticks (§3n.5): only on a set, started, unchecked period; untick clears", 
   assert.equal(applyTick(closed, "week", "a", true), closed);
   assert.equal(doneUrl, "https://move.vip50one.com/api/brain/commitments/done");
 });
+
+// ONE MOVE's queue (vip50-web-crm#280): `POST /api/brain/commitments/queue` -> `{ok, for_week, words, queued}`, `GET` and
+// `DELETE ?id=` -> `{queued}`; rows `{id, for_week, text, kind, target, source, created_at}` (app/api/brain/commitments/queue).
+test("the commitments queue: the route's shape, checked; this week's drafts first in the set form", async () => {
+  const { queueBody, queueDeleteUrl, queueUrl, queuedFor, readQueueAnswer, readQueueList, withChosen } = await import("../lib/commitments.ts");
+  assert.equal(queueUrl, "https://move.vip50one.com/api/brain/commitments/queue");
+  assert.equal(queueDeleteUrl("a b"), "https://move.vip50one.com/api/brain/commitments/queue?id=a%20b");
+  assert.deepEqual(queueBody({ text: "Ten calls", kind: "call", target: 10 }), { text: "Ten calls", kind: "call", target: 10, source: "weekly_review" });
+  assert.deepEqual(queueBody({ text: "Read it", kind: "yes_no", target: 3 }, "pulse_coach"), { text: "Read it", kind: "yes_no", target: null, source: "pulse_coach" });
+  const answer = {
+    ok: true,
+    for_week: "2026-10-19",
+    words: "Added. It will be first in next Monday's commitments.",
+    queued: [
+      { id: "q2", for_week: "2026-10-19", text: "Ten calls", kind: "call", target: 10, source: "weekly_review", created_at: "2026-10-16T20:00:00Z" },
+      { id: "q1", for_week: "2026-10-12", text: "Two coffees", kind: "face_to_face", target: 2, source: "weekly_review", created_at: "2026-10-13T20:00:00Z" },
+      { id: "q3", for_week: "2026-10-19", text: "Thank Amy", kind: "made_up", target: 4, source: null },
+      { id: "", for_week: "2026-10-19", text: "No id", kind: "call", target: 1 },
+      { id: "q4", for_week: "2026-10-19", text: "   ", kind: "call", target: 1 },
+      null,
+    ],
+  };
+  const a = readQueueAnswer(answer)!;
+  assert.equal(a.forWeek, "2026-10-19");
+  assert.equal(a.words, "Added. It will be first in next Monday's commitments.");
+  assert.deepEqual(a.queued.map((q) => q.id), ["q1", "q2", "q3"]);
+  // an unknown kind is a yes/no with no number
+  assert.deepEqual(a.queued[2], { id: "q3", forWeek: "2026-10-19", text: "Thank Amy", kind: "yes_no", target: null, source: null });
+  assert.equal(readQueueAnswer({ error: "You already have 3 waiting for that week." }), null);
+  assert.equal(readQueueAnswer({ ok: true }), null);
+  assert.equal(readQueueAnswer({ ok: true, for_week: "2026-10-19" })!.words, "Added to your commitments to set.");
+  for (const bad of [null, 3, "x", [], {}, { queued: "x" }]) assert.deepEqual(readQueueList(bad), []);
+  // Monday's set form shows the drafts for the week that holds today, first
+  assert.deepEqual(queuedFor(a.queued, "2026-10-21").map((q) => q.id), ["q2", "q3"]);
+  assert.deepEqual(queuedFor(a.queued, "2026-10-16").map((q) => q.id), ["q1"]);
+  const starts = [
+    { text: "Touch 10 VIPs", kind: "call" as const, target: 10 },
+    { text: "Two face to face", kind: "face_to_face" as const, target: 2 },
+    { text: "Clear follow-ups", kind: "yes_no" as const, target: null },
+  ];
+  assert.deepEqual(withChosen([], starts), starts);
+  assert.deepEqual(withChosen([{ text: "Ten calls", kind: "call", target: 10 }], starts).map((d) => d.text), ["Ten calls", "Two face to face", "Clear follow-ups"]);
+});
