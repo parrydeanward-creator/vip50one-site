@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import { chimeOn, setChime, unlockChime } from "@/lib/chime.ts";
-import { blockHue, busyHue, clock12, dayUrl, hm, HUE, nextLine, readBlock, toMin, toTime, type Block, type Busy, type Hue } from "@/lib/schedule.ts";
+import { blockHue, busyArcLabel, busyHue, clock12, dayUrl, hm, HUE, nextLine, readBlock, shortWords as short, toMin, toTime, type Block, type Busy, type Hue } from "@/lib/schedule.ts";
+import { dayIsDone, type TomorrowItem } from "@/lib/dayView.ts";
 import { faceAngle, faceArcs, faceTimeAt } from "@/lib/overview.ts";
 import TellPulse from "./TellPulse.tsx";
 import PulseMark from "./PulseMark.tsx";
@@ -37,15 +38,8 @@ function arc(a1: number, a2: number, r: number): string {
   return `M ${p1.x} ${p1.y} A ${r} ${r} 0 ${a2 - a1 > Math.PI ? 1 : 0} 1 ${p2.x} ${p2.y}`;
 }
 const range = (s: string, e: string) => `${clock12(s).replace(/(am|pm)$/, toMin(s) < 720 === toMin(e) < 720 ? "" : "$1")}-${clock12(e)}`;
-// A few words that fit on an arc, cut at a word.
-function short(t: string, n = 18): string {
-  if (t.length <= n) return t;
-  const cut = t.slice(0, n + 1).replace(/\s+\S*$/, "").replace(/\s+(with|to|at|the|and|for|on|of|a)$/i, "");
-  return cut || t.slice(0, n);
-}
-const BUSY_SHORT: Record<Busy["source"], string> = { calendar: "Busy", one_event: "Event", time_block: "Block", open_house: "Open house", showing: "Showing", listing_appointment: "Listing appt", fixed: "Appointment", travel: "Drive" };
-// What sits on an arc: the agent's own words for what they told Pulse, short kinds for the rest.
-const busyLabel = (b: Busy) => (b.source === "travel" ? "Drive" : b.source === "calendar" || b.source === "time_block" || b.source === "fixed" ? short(b.title ?? BUSY_SHORT[b.source], 16) : BUSY_SHORT[b.source]);
+// What sits on an appointment's arc: its title, as the list shows it (audit 3.1.6; lib/schedule.ts busyArcLabel).
+const busyLabel = busyArcLabel;
 // An arc as a path for text: clockwise on the top half, reversed on the bottom so words read upright.
 function textArc(a1: number, a2: number, r: number): string {
   const mid = (a1 + a2) / 2;
@@ -58,7 +52,7 @@ const fits = (label: string, a1: number, a2: number, r: number) => (a2 - a1) * r
 const BLOCK_SHORT: Partial<Record<Block["kind"], string>> = { power_hour: "Power Hour", texts: "Texts", notes: "Notes", approvals: "Approvals" };
 const REPEAT_WORD = { none: "today only", weekdays: "every weekday", daily: "every day" } as const;
 
-export default function DayClock({ day, live, tellText, onClose, onTick, onClassic, dated, vipsNoVideo, commitments }: { day: Day; live: boolean; tellText?: string; onClose: () => void; onTick: (refs: string[], done: boolean) => void; onClassic: () => void; dated?: DatedNote[]; vipsNoVideo?: number; commitments?: Commitments | null }) {
+export default function DayClock({ day, live, tellText, tomorrow = [], onClose, onTick, onClassic, dated, vipsNoVideo, commitments }: { day: Day; live: boolean; tellText?: string; tomorrow?: TomorrowItem[]; onClose: () => void; onTick: (refs: string[], done: boolean) => void; onClassic: () => void; dated?: DatedNote[]; vipsNoVideo?: number; commitments?: Commitments | null }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -104,15 +98,33 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
-  const { hours, busy: taken, plan, approvedAt } = day;
-  const now = day.now ?? hours.start;
+  // Once the day is done, Plan my day opens on tomorrow's plan (Parry, 16 Oct, Plan my day audit 3.1.9: "I like your
+  // idea"), built from the one "moves to tomorrow" list with the same rules, read-only, with Back to today.
+  const over = dayIsDone(day.now, day.hours, day.plan.blocks.filter((b) => !b.done && b.kind !== "custom").length, tomorrow.length);
+  const [view, setView] = useState<"today" | "tomorrow">(() => (over ? "tomorrow" : "today"));
+  const ahead = view === "tomorrow";
+  const { loadTomorrow } = day;
+  useEffect(() => {
+    if (ahead) loadTomorrow();
+  }, [ahead, loadTomorrow]);
+  const next = useMemo(() => (ahead ? day.planTomorrow(tomorrow.map((t) => t.item)) : null), [ahead, day.planTomorrow, tomorrow]);
+  const hours = next?.hours ?? day.hours;
+  const taken = next?.busy ?? day.busy;
+  const plan = next?.plan ?? day.plan;
+  const approvedAt = ahead ? null : day.approvedAt;
+  const now = ahead ? hours.start : day.now ?? hours.start;
   const blocks = plan.blocks;
+  const switchView = (v: "today" | "tomorrow") => {
+    setPick(null);
+    cam.reset();
+    setView(v);
+  };
   const nowPm = toMin(now) >= 720;
   const drives = taken.filter((b) => b.source === "travel").length;
   const appts = taken.length - drives;
-  const line = nextLine(blocks, now);
-  const cards: Assist[] = day.now
-    ? assistNow({ date: day.date, now, hours, busy: taken, blocks, later: plan.later.map((l) => ({ title: l.item.title })), dated, vipsNoVideo, answered: new Set(Object.keys(answered)), commitments }).filter((c) => !answered[c.key])
+  const line = ahead ? null : nextLine(blocks, now);
+  const cards: Assist[] = day.now && !ahead
+    ? assistNow({ date: day.date, now, hours, busy: taken, blocks, later: tomorrow.map((t) => ({ title: t.title })), dated, vipsNoVideo, answered: new Set(Object.keys(answered)), commitments }).filter((c) => !answered[c.key])
     : [];
   const doCard = async (c: Assist) => {
     if (!c.action) return;
@@ -136,7 +148,7 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
       setNote("Kept on this computer. ONE couldn't reach ONE MOVE.");
     }
   };
-  const dayEnd = day.now != null && toMin(now) >= toMin(hours.end) - 30;
+  const dayEnd = day.now != null && (ahead || toMin(now) >= toMin(hours.end) - 30);
   const doneN = blocks.filter((b) => b.done).length;
   const free = Math.max(0, plan.freeMin - plan.plannedMin);
   const picked = blocks.find((b) => b.id === pick);
@@ -295,7 +307,7 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
               );
             })}
 
-            {day.now && (() => {
+            {day.now && !ahead && (() => {
               const a = faceAngle(toMin(now));
               const tip = polar(a, ringR(nowPm) + W / 2 + 6);
               const base = polar(a, CORE + 6);
@@ -311,7 +323,7 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
             <text className="dc-core-big" x={C} y={C - 22} textAnchor="middle">{hm(plan.plannedMin)}</text>
             <text className="dc-core-small" x={C} y={C + 10} textAnchor="middle">OF WORK</text>
             <text className="dc-core-free" x={C} y={C + 44} textAnchor="middle">{`${hm(free)} free · ${doneN}/${blocks.length} done`}</text>
-            <text className="dc-core-now" x={C} y={C + 74} textAnchor="middle">{clock12(now)}</text>
+            <text className="dc-core-now" x={C} y={C + 74} textAnchor="middle">{ahead ? "TOMORROW" : clock12(now)}</text>
             <text className="dc-ring-tag" x={C} y={C + 106} textAnchor="middle">AM INSIDE · PM OUTSIDE</text>
           </svg>
 
@@ -327,7 +339,7 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
                   <span>
                     <b>{range(picked!.start, picked!.end)}</b> {picked!.title}. {picked!.why}
                   </span>
-                  <button className="chip-btn" onClick={() => tick(picked!)}>{picked!.done ? "Undo" : "Done"}</button>
+                  {!ahead && <button className="chip-btn" onClick={() => tick(picked!)}>{picked!.done ? "Undo" : "Done"}</button>}
                 </>
               )}
             </div>
@@ -344,14 +356,24 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
           <div className="d-head">
             <span className="chip" style={{ color: GOLD, borderColor: GOLD }}>ONE YOU</span>
           </div>
-          <h1 className="d-title" id="dc-title">Your day</h1>
+          <h1 className="d-title" id="dc-title">{ahead ? "Tomorrow" : "Your day"}</h1>
+          {ahead ? (
+            <>
+              <p className="dc-moved" role="status">Today&apos;s working day is over. This is tomorrow&apos;s plan, built from what moves to tomorrow. Nothing here changes until you tap &quot;Move these to tomorrow&apos;s plan&quot; below.</p>
+              <button className="vr-btn dc-back-today" onClick={() => switchView("today")}>← Back to today</button>
+            </>
+          ) : (
+            over && (
+              <button className="vr-btn dc-back-today" onClick={() => switchView("tomorrow")}>See tomorrow&apos;s plan →</button>
+            )
+          )}
           <p className="d-sub">
             {hm(plan.plannedMin)} of work · {hm(free)} free
             {appts ? ` · ${appts} ${appts === 1 ? "appointment" : "appointments"}` : ""}
             {drives ? ` · ${drives} ${drives === 1 ? "drive" : "drives"}` : ""}
           </p>
           {line && <p className="pi-today pi-lvl-today dc-next">{line}</p>}
-          {day.moved && <p className="dc-moved" role="status">{day.moved}</p>}
+          {day.moved && !ahead && <p className="dc-moved" role="status">{day.moved}</p>}
 
           {cards.length > 0 && (
             <section className="as-cards" aria-label="Pulse, your assistant">
@@ -393,13 +415,13 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
             </section>
           )}
 
-          <TellPulse day={day} live={live} initial={tellText} onNote={setNote} />
+          {!ahead && <TellPulse day={day} live={live} initial={tellText} onNote={setNote} />}
 
           <p className="d-sum">
             Pulse plans round your appointments and drives: calls in a Power Hour when people pick up, texts and notes in one sitting each, never more than 85% of your free time.
           </p>
 
-          {approvedAt ? (
+          {ahead ? null : approvedAt ? (
             <div className="dc-approved">
               <span>Looks good, {clock12(new Date(approvedAt).toLocaleTimeString("en-GB", { timeZone: "America/Denver", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }))}.</span>
               <button className="vr-btn" onClick={day.replan}>Plan it again</button>
@@ -410,6 +432,7 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
             </button>
           )}
 
+          {!ahead && (<>
           <h2>Add a block</h2>
           <div className="dc-add">
             <input
@@ -447,8 +470,9 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
               <small>Pulse plans round it{live ? " and puts it on your calendar" : ""}. It is your time: no one is invited.</small>
             </div>
           )}
+          </>)}
 
-          <h2>The plan</h2>
+          <h2>{ahead ? "Tomorrow's plan" : "The plan"}</h2>
           {hues.length > 1 && (
             <ul className="dc-legend" aria-label="What the colours mean">
               {hues.map((h) => (
@@ -481,25 +505,26 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
                       <b>{r.block.title}</b>
                       <small>{range(r.block.start, r.block.end)} · {r.block.why}</small>
                     </span>
-                    <span className="pm-acts">
+                    {!ahead && <span className="pm-acts">
                       <button className={`pm-tick${r.block.done ? " on" : ""}`} aria-pressed={r.block.done} onClick={() => tick(r.block!)} aria-label={r.block.done ? `Done: ${r.block.title}. Tap to undo.` : `Mark done: ${r.block.title}`}>✓</button>
                       {r.block.refs.some((x) => customIds.has(x)) && (
                         <button onClick={() => day.removeBlock(r.block!.refs[0].replace(/^blk:/, ""))} aria-label={`Remove the block: ${r.block.title}`}>×</button>
                       )}
-                    </span>
+                    </span>}
                   </li>
                 ) : null,
               )}
             </ol>
           ) : (
-            <p className="pm-empty">Nothing to plan yet. A good day to call a VIP you haven&apos;t talked to in a while.</p>
+            <p className="pm-empty">{ahead ? "Nothing moves to tomorrow. Pulse plans tomorrow in the morning from what is due." : "Nothing to plan yet. A good day to call a VIP you haven't talked to in a while."}</p>
           )}
 
-          {plan.later.length > 0 && (
+          {/* the one "moves to tomorrow" list every screen counts (audit 3.1.2); tomorrow's view: what does not fit tomorrow */}
+          {(ahead ? plan.later : tomorrow).length > 0 && (
             <>
-              <h2>Moves to tomorrow</h2>
+              <h2>{ahead ? "Does not fit tomorrow" : `Moves to tomorrow (${tomorrow.length})`}</h2>
               <ul className="pm-list pm-compact pm-pool">
-                {plan.later.map(({ item, why }) => (
+                {(ahead ? plan.later : tomorrow).map(({ item, why }) => (
                   <li key={item.ref}>
                     <i className="pm-dot" style={{ background: "rgba(255,255,255,0.35)" }} aria-hidden="true" />
                     <span className="pm-body">
@@ -513,8 +538,8 @@ export default function DayClock({ day, live, tellText, onClose, onTick, onClass
           )}
 
           {dayEnd && (
-            <button className="vr-btn dc-carry" onClick={async () => setNote(await day.carry())}>
-              Move what&apos;s left to tomorrow
+            <button className="vr-btn dc-carry" onClick={async () => setNote(await day.carry(over || ahead ? tomorrow : undefined))} disabled={ahead && !tomorrow.length}>
+              {ahead ? "Move these to tomorrow's plan" : "Move what's left to tomorrow"}
             </button>
           )}
 

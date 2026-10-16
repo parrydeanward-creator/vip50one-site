@@ -288,3 +288,61 @@ test("readDay: ONE MOVE's face_to_face and tasks blocks keep their colours", asy
   ] })!;
   assert.deepEqual(d.blocks.map((b) => blockHue(b.kind)), ["people", "tasks"]);
 });
+
+// ---- Plan my day audit 3.1 (Parry, 16 Oct: "fix all issues") ----------------------------------------------------
+
+test("3.1.1 one row per appointment: the same time and title from the calendar and from ONE count once", async () => {
+  const { dedupeBusy } = await import("../lib/schedule.ts");
+  const d = readDay({
+    date: "2026-10-15",
+    busy: [
+      { start: "09:00", end: "09:30", source: "calendar", title: "Morning Brief" },
+      { start: "09:00", end: "09:30", source: "one_event", title: "morning  brief " },
+      { start: "13:00", end: "14:00", source: "calendar", title: null },
+      { start: "13:00", end: "14:00", source: "one_event", title: "Real Estate Appointments" },
+      { start: "16:00", end: "16:30", source: "one_event", title: "Amy E." },
+      { start: "16:00", end: "16:30", source: "calendar", title: "Amy E." },
+    ],
+  })!;
+  assert.equal(d.busy.length, 3, "6 rows for 3 appointments become 3");
+  assert.deepEqual(d.busy.map((b) => [b.start, b.source, b.title]), [["09:00", "one_event", "morning  brief "], ["13:00", "one_event", "Real Estate Appointments"], ["16:00", "one_event", "Amy E."]]);
+  // the richer copy keeps the other's title; two different appointments at the same time both stay
+  assert.deepEqual(dedupeBusy([{ start: "10:00", end: "11:00", source: "calendar", title: "Dentist" }, { start: "10:00", end: "11:00", source: "one_event", title: null }]), [{ start: "10:00", end: "11:00", source: "one_event", title: "Dentist", category: null }]);
+  assert.equal(dedupeBusy([{ start: "10:00", end: "11:00", source: "calendar", title: "Dentist" }, { start: "10:00", end: "11:00", source: "calendar", title: "Team call" }]).length, 2);
+  assert.equal(dedupeBusy([{ start: "10:00", end: "11:00", source: "calendar", title: "Dentist" }, { start: "10:00", end: "10:30", source: "calendar", title: "Dentist" }]).length, 2, "a different end is a different appointment");
+});
+
+test("3.1.4 after the working day the reason is that the day is over; 'Today is full' only when it is", async () => {
+  const { DAY_OVER_WHY, FULL_WHY } = await import("../lib/schedule.ts");
+  const items = [it("a"), it("b", { kind: "text" }), it("c", { kind: "other", title: "Write the CMA", minutes: 45 })];
+  const night = buildDay({ hours, busy: [], items, notBefore: "21:20" });
+  assert.equal(night.later.length, 3);
+  assert.ok(night.later.every((l) => l.why === DAY_OVER_WHY), "at 9:20pm nothing says the day is full");
+  assert.ok(buildDay({ hours, busy: [], items, notBefore: "17:00" }).later.every((l) => l.why === DAY_OVER_WHY), "at the end of the day too");
+  // a day that is really full still says so
+  const full = buildDay({ hours: { start: "08:00", end: "09:00" }, busy: [], items: [it("x", { kind: "other", title: "Write the CMA", minutes: 45 }), it("y", { kind: "other", title: "Update the listing", minutes: 30 })], notBefore: "08:00" });
+  assert.deepEqual(full.later.map((l) => l.why), [FULL_WHY]);
+});
+
+test("3.1.6 an appointment's arc shows its title for every source that has one; a drive stays 'Drive'", async () => {
+  const { busyArcLabel } = await import("../lib/schedule.ts");
+  assert.equal(busyArcLabel({ source: "one_event", title: "Morning Brief" }), "Morning Brief");
+  assert.equal(busyArcLabel({ source: "showing", title: "Showing, 12 Elm" }), "Showing, 12 Elm");
+  assert.equal(busyArcLabel({ source: "calendar", title: "Real Estate Appointments" }), "Real Estate", "long titles cut at a word");
+  assert.equal(busyArcLabel({ source: "listing_appointment", title: "418 Oak Lane" }), "418 Oak Lane");
+  assert.equal(busyArcLabel({ source: "travel", title: "Drive to the office" }), "Drive");
+  assert.equal(busyArcLabel({ source: "one_event", title: null }), "Event", "no title: the kind");
+  assert.equal(busyArcLabel({ source: "calendar", title: null }), "Busy");
+});
+
+test("3.1.9 tomorrow's plan: what moves to tomorrow, planned with the same rules over tomorrow's hours", async () => {
+  const { tomorrowPlan } = await import("../lib/schedule.ts");
+  const p = tomorrowPlan([it("a", { at: "09:00" }), it("b"), it("t", { kind: "text" })], hours, [{ start: "10:00", end: "11:00", title: "Listing appointment", source: "listing_appointment" }]);
+  assert.equal(p.later.length, 0);
+  assert.deepEqual(p.blocks.map((b) => b.kind).sort(), ["power_hour", "texts"], "a carried time is not kept: it is planned again");
+  assert.ok(p.blocks.every((b) => toMin(b.start) >= toMin(hours.start)), "planned from the start of the day, not from now");
+  assert.ok(p.blocks.every((b) => !b.done));
+  assert.ok(p.blocks.every((b) => !/\btoday\b/i.test(b.why)), "its reasons speak of tomorrow, never \"Due today.\"");
+  const tight = tomorrowPlan([it("x", { kind: "other", title: "Write the CMA", minutes: 45 }), it("y", { kind: "other", title: "Update the listing", minutes: 30 })], { start: "08:00", end: "09:00" });
+  assert.match(tight.later[0].why, /^Tomorrow is full/);
+});
