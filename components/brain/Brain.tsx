@@ -7,6 +7,7 @@ import VipRings from "./VipRings.tsx";
 import DailyTracker from "./DailyTracker.tsx";
 import WeeklyTracker from "./WeeklyTracker.tsx";
 import Rolodex from "./Rolodex.tsx";
+import HomeReports from "./HomeReports.tsx";
 import MyProfile from "./MyProfile.tsx";
 import AddonsPanel from "./AddonsPanel.tsx";
 import Contacts from "./Contacts.tsx";
@@ -156,13 +157,16 @@ const TOUR_AGENT: BrainAgent = { ...DEMO_AGENT, growth: true, plan: "ONE Complet
 const TOUR_PAGES: [string, string, string][] = [
   ["/contacts", "Contacts", "move-0"], ["/contacts/vip", "VIP Management", "move-2"], ["/contacts/audit", "Touch Audit", "move-1"],
   ["/hot-warm-cold", "Hot/Warm/Cold", "move-9"], ["/rolodex", "Business Rolodex", "move-0"], ["/daily", "Daily Tracker", "move"],
-  ["/weekly", "Weekly Tracker", "move"], ["/profile", "My Profile", "move"],
+  ["/weekly", "Weekly Tracker", "move"], ["/profile", "My Profile", "move"], ["/home-reports", "Home Reports", "move"],
 ];
-function withTourPages(g: BusinessGraph): BusinessGraph {
+// The example agent (?demo=1) has no ONE MOVE menu either; Home Reports gets its orb so the example shows it (HOME-REPORT
+// §5.4, 16 Oct). It runs on example data there, with no network.
+const DEMO_PAGES: [string, string, string][] = [["/home-reports", "Home Reports", "move"]];
+function withTourPages(g: BusinessGraph, pages = TOUR_PAGES): BusinessGraph {
   const have = new Set(g.nodes.map((n) => n.id));
   const nodes = [...g.nodes];
   const edges = [...g.edges];
-  for (const [path, label, parent] of TOUR_PAGES) {
+  for (const [path, label, parent] of pages) {
     const id = movePageId(path);
     if (have.has(id)) continue;
     const parentId = have.has(parent) ? parent : "move";
@@ -220,7 +224,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // ONE YOU's Power Hour orb: today's calls lined up.
   const powerRef = useRef<{ calls: Call[]; session: PowerSession | null } | null>(null);
   const admin = agent.admin === true;
-  const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(productTour ? withTourPages(initialGraph) : initialGraph, null), admin), teamLeadsHint));
+  const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(productTour ? withTourPages(initialGraph) : live ? initialGraph : withTourPages(initialGraph, DEMO_PAGES), null), admin), teamLeadsHint));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
   // this, a refresh after logging a call changed nothing on screen.
@@ -2157,7 +2161,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // ONE MOVE pages drawn natively: VIP Management (the VIP rings, §3d) and the
   // Daily Tracker (§3e). The Classic page stays one click away, and is the
   // fallback until ONE MOVE's route answers.
-  const NATIVE: Record<string, "vip" | "daily" | "weekly" | "audit" | "rolodex" | "profile" | "hwc" | "contacts"> = { "/contacts": "contacts", "/contacts/vip": "vip", "/daily": "daily", "/weekly": "weekly", "/contacts/audit": "audit", "/rolodex": "rolodex", "/profile": "profile", "/hot-warm-cold": "hwc" };
+  // Home Reports (HOME-REPORT §5.4, 16 Oct): this month's reports and the bulk start, from ONE MOVE's routes.
+  const NATIVE: Record<string, "vip" | "daily" | "weekly" | "audit" | "rolodex" | "profile" | "hwc" | "contacts" | "homereports"> = { "/contacts": "contacts", "/contacts/vip": "vip", "/daily": "daily", "/weekly": "weekly", "/contacts/audit": "audit", "/rolodex": "rolodex", "/profile": "profile", "/hot-warm-cold": "hwc", "/home-reports": "homereports" };
   const [vipClassic, setVipClassic] = useState(false);
   const nativeKind = panelPath ? NATIVE[panelPath] : undefined;
   const vipNative = !!nativeKind && !vipClassic;
@@ -3423,6 +3428,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
+                />
+              ) : vipNative && nativeKind === "homereports" ? (
+                <HomeReports
+                  demo={!live && !productTour}
+                  onUnavailable={vipUnavailable}
+                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onClassic={() => setVipClassic(true)}
+                  onOpenPerson={(id) => {
+                    const page = movePageId("/contacts");
+                    if (!ix.byId.has(page)) return;
+                    setContactOpen({ id, k: Date.now() });
+                    goTo(page);
+                  }}
                 />
               ) : vipNative && nativeKind === "rolodex" ? (
                 <Rolodex

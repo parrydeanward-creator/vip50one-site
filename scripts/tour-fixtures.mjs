@@ -257,10 +257,40 @@ const WEEKLY_SECTIONS = [
   ["drop_bys", "Drop-Bys", [1, 2, 3, 4].map((n) => [`drop_by_${n}`, `Drop-By ${n}`, 5])],
 ];
 
+// Home Reports (HOME-REPORT.md §5.2, 16 Oct): three running on past clients (one due now, one sent, one later this
+// month); the other past clients with an address and an email wait in the bulk start.
+const lastMonthOf = (ymd) => {
+  const [y, m] = ymd.slice(0, 7).split("-").map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${pad2(m - 1)}`;
+};
+function buildHomeReports(people) {
+  const reports = new Map();
+  const month = lastMonthOf(denverDay());
+  const before = lastMonthOf(`${month}-15`);
+  const past = [...people.values()].filter((p) => p.pastClient && p.address && p.email);
+  const seed = [
+    { day: 5, by: "agent", sent: before },
+    { day: 1, by: "bulk", sent: month },
+    { day: 28, by: "site_request", sent: null },
+  ];
+  seed.forEach((r, i) => {
+    const p = past[i];
+    if (!p) return;
+    const id = uuid(900 + i, "b");
+    reports.set(p.id, [{
+      id, address: p.address, send_day: r.day, is_on: true, started_by: r.by, note: null, last_sent_month: r.sent, stopped_at: null, stopped_by: null,
+      sends: r.sent ? [{ month: r.sent, channel: r.sent === month ? "email" : "rpr", via: r.sent === month ? "auto" : "agent", sent_at: `${r.sent}-${pad2(r.day)}T15:00:00Z` }] : [],
+    }]);
+  });
+  return reports;
+}
+
 function freshState() {
   const people = buildPeople();
   return {
     people,
+    homeReports: buildHomeReports(people),
+    homeReportAuto: false,
     daily: new Set(["made_bed", "affirmations", "gratitudes", "exercise", "positive_reading", "hot_contact", "call_1", "call_2", "call_3", "video_text_1", "video_text_2", "social_post_1", "note_1", "meditation_visualization"]),
     weekly: new Set(["lead_gen_crm_drip", "mixer_invite_sent", "open_houses", "meet_client_show_homes"]),
     hwcOpened: { hot: true, warm: false, cold: false },
@@ -937,6 +967,81 @@ const json = (t) => {
 const personFrom = (url, re) => S.people.get(decodeURIComponent(re.exec(url.pathname)?.[1] ?? "")) ?? null;
 const notFound = { __status: 404, error: "That contact isn't there any more." };
 
+// Home Reports (HOME-REPORT §5.2): the same answers as ONE MOVE's /api/brain/home-report routes.
+const reportsOf = (id) => S.homeReports.get(id) ?? [];
+function homeReportGet(url) {
+  const p = S.people.get(url.searchParams.get("contact_id"));
+  if (!p) return notFound;
+  return { reports: clone(reportsOf(p.id)), suggested_address: p.address || null, can_email: !!p.email, email: p.email || null, autostart: S.homeReportAuto };
+}
+function homeReportStart(p, b, by) {
+  if (reportsOf(p.id).some((r) => r.is_on)) return { __status: 409, error: "A Home Report for this home is already running." };
+  const address = String(b?.address ?? p.address ?? "").trim();
+  if (address.length < 5) return { __status: 400, error: "Which home? Add the address.", field: "address" };
+  const day = b?.send_day == null ? 5 : Number(b.send_day);
+  if (!Number.isInteger(day) || day < 1 || day > 28) return { __status: 400, error: "Pick a day from 1 to 28.", field: "send_day" };
+  const report = { id: uuid(950 + S.nextId++, "b"), address, send_day: day, is_on: true, started_by: by, note: typeof b?.note === "string" && b.note.trim() ? b.note.trim() : null, last_sent_month: null, stopped_at: null, stopped_by: null, sends: [] };
+  S.homeReports.set(p.id, [report, ...reportsOf(p.id)]);
+  return { ok: true, report };
+}
+function homeReportPost(b) {
+  if (typeof b?.autostart === "boolean" && b.id === undefined && b.contact_id === undefined) {
+    S.homeReportAuto = b.autostart;
+    return { ok: true, autostart: b.autostart };
+  }
+  const all = [...S.homeReports.values()].flat();
+  if (b?.id !== undefined) {
+    const r = all.find((x) => x.id === b.id);
+    if (!r) return { __status: 404, error: "Report not found." };
+    if (b.rpr_url !== undefined) {
+      if (!/^https:\/\/\S+\.\S+/.test(String(b.rpr_url).trim())) return { __status: 400, error: "Paste the https link to the RPR report.", field: "rpr_url" };
+      const month = lastMonthOf(denverDay());
+      if (r.last_sent_month === month) return { __status: 409, error: "This month is already recorded." };
+      r.last_sent_month = month;
+      r.sends.unshift({ month, channel: "rpr", via: "agent", sent_at: new Date().toISOString() });
+      return { ok: true, month };
+    }
+    const day = Number(b.send_day ?? r.send_day);
+    if (!Number.isInteger(day) || day < 1 || day > 28) return { __status: 400, error: "Pick a day from 1 to 28.", field: "send_day" };
+    r.send_day = day;
+    r.note = typeof b.note === "string" && b.note.trim() ? b.note.trim() : null;
+    return { ok: true, report: r };
+  }
+  const p = S.people.get(b?.contact_id);
+  return p ? homeReportStart(p, b, "agent") : { __status: 404, error: "Contact not found." };
+}
+function homeReportStop(url) {
+  const r = [...S.homeReports.values()].flat().find((x) => x.id === url.searchParams.get("id") && x.is_on);
+  if (r) Object.assign(r, { is_on: false, stopped_at: new Date().toISOString(), stopped_by: "agent" });
+  return { ok: true };
+}
+function homeReportBulk() {
+  const running = new Set([...S.homeReports].filter(([, rs]) => rs.some((r) => r.is_on)).map(([id]) => id));
+  const people = [...S.people.values()].filter((p) => p.pastClient && p.address && p.email && !running.has(p.id)).slice(0, 8);
+  return { people: people.map((p) => ({ id: p.id, name: p.name, address: p.address })).sort((a, b) => a.name.localeCompare(b.name)), day: 5 };
+}
+function homeReportBulkPost(b) {
+  const ids = Array.isArray(b?.contact_ids) ? [...new Set(b.contact_ids)] : [];
+  if (!ids.length) return { __status: 400, error: "Pick at least one person.", field: "contact_ids" };
+  let started = 0;
+  const skipped = [];
+  for (const id of ids) {
+    const p = S.people.get(id);
+    const out = p ? homeReportStart(p, { address: p.address, send_day: 5 }, "bulk") : { error: "No address." };
+    if (out.ok) started++;
+    else skipped.push({ id, why: out.error });
+  }
+  return { ok: true, started, skipped };
+}
+function homeReportMonth() {
+  const today = denverDay();
+  const month = lastMonthOf(today);
+  const reports = [...S.homeReports].flatMap(([cid, rs]) => rs.filter((r) => r.is_on).map((r) => ({
+    id: r.id, contact_id: cid, name: S.people.get(cid)?.name ?? "No name", address: r.address, send_day: r.send_day, sent: r.last_sent_month === month, started_by: r.started_by,
+  }))).sort((a, b) => a.send_day - b.send_day);
+  return { month, today, autostart: S.homeReportAuto, reports };
+}
+
 const mv = (path) => (url) => url.origin === MOVE && (typeof path === "string" ? url.pathname === `/api/brain/${path}` : path.test(url.pathname));
 const site = (path) => (url, _m, origin) => url.origin === origin && (typeof path === "string" ? url.pathname === `/api/${path}` : path.test(url.pathname));
 const GET = (m) => m === "GET" || m === "HEAD";
@@ -1174,6 +1279,13 @@ const ROUTES = [
   { match: site(/^\/api\/site\//), body: () => ({ ok: true }) },
   { match: site("site-alerts"), body: () => ({ alerts: [] }) },
   { match: site("timeline"), body: () => ({ dated: [] }) },
+  // Home Reports (HOME-REPORT §5.2): the card on a person, the bulk start, the monthly card, the My Profile switch
+  { match: (u, m) => mv("home-report/bulk")(u) && GET(m), body: () => homeReportBulk() },
+  { match: (u, m) => mv("home-report/bulk")(u) && m === "POST", body: (_u, _m, d) => homeReportBulkPost(json(d)) },
+  { match: (u, m) => mv("home-report/month")(u) && GET(m), body: () => homeReportMonth() },
+  { match: (u, m) => mv("home-report")(u) && GET(m), body: (u) => homeReportGet(u) },
+  { match: (u, m) => mv("home-report")(u) && m === "POST", body: (_u, _m, d) => homeReportPost(json(d)) },
+  { match: (u, m) => mv("home-report")(u) && m === "DELETE", body: (u) => homeReportStop(u) },
   // Anything else on ONE MOVE's API: a quiet "not here" for reads (cards hide), "done" for writes. Never the real server.
   { match: (u, m) => u.origin === MOVE && u.pathname.startsWith("/api/") && GET(m), status: 404, body: { error: "Not in this example." } },
   { match: (u) => u.origin === MOVE && u.pathname.startsWith("/api/"), body: { ok: true } },

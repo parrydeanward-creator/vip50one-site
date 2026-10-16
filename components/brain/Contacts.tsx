@@ -10,6 +10,7 @@ import { focusFace, focusRings } from "@/lib/orbs.ts";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import PulseRing, { PULSE_COLOR, levelOf, type PulseLevel } from "./PulseRing.tsx";
 import PermissionsSection from "./PermissionsSection.tsx";
+import HomeReportSection from "./HomeReportSection.tsx";
 import CallPrepCard from "./CallPrepCard.tsx";
 
 // VIP-SUMMARY §3k (Parry, 4 Oct, option C): Contacts in ONE Brain. A map of
@@ -746,6 +747,10 @@ export default function Contacts({
                 onSave={saveField}
               />
             ))}
+            {/* HOME-REPORT §4.1 (16 Oct): the monthly report on this person's home, on the card in both Classic and the Brain */}
+            <section className="pc-card">
+              <HomeReportSection contactId={person.id} first={person.firstName || person.name.split(" ")[0] || ""} />
+            </section>
             <section className="pc-card">
               <button
                 className="pc-card-h"
