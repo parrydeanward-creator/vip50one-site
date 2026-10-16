@@ -1,4 +1,3 @@
-import type { GraphEdge, GraphNode } from "./graph/types.ts";
 import type { Commitments, Draft, Kind } from "./commitments.ts";
 
 // Pulse Coach (VIP-SUMMARY §3q; Parry, 7 Oct: "pulse coach I like how can we beef that up", then yes): a weekly
@@ -6,6 +5,7 @@ import type { Commitments, Draft, Kind } from "./commitments.ts";
 // quiet, the "you" habits, the commitment keep rate, and one focus for next week the agent can make a commitment.
 // Rules only, from the agent's own numbers; nothing is made up, sent or set for the agent.
 
+/** The retired ONE YOU orb (Parry, 16 Oct: Pulse Coach folds into Weekly Review, part 2). */
 export const PULSE_COACH_NODE = "go-pulse-coach";
 export const historyUrl = (weeks = 8, agent?: string) => `https://move.vip50one.com/api/brain/history?weeks=${weeks}${agent ? `&agent=${encodeURIComponent(agent)}` : ""}`;
 export const nextCommitKey = "one.cm.next"; // the focus the agent chose, first in Monday's starters
@@ -225,28 +225,6 @@ export function pulseRead(h: History, c: Commitments | null, today: string, who?
   if (focus)
     parts.push({ key: "focus", title: "One focus", big: "1", line: focus.text, rows: [{ text: focus.text, sub: focus.why }], level: null, good: true });
   return { headline, parts, focus };
-}
-
-/** The Pulse Coach orb under ONE YOU: yellow when part of the read needs the agent. */
-export function withPulseCoachNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, r: Read | null): G {
-  const go = g.nodes.find((n) => n.id === "go");
-  const nodes = g.nodes.filter((n) => n.id !== PULSE_COACH_NODE);
-  const edges = g.edges.filter((e) => e.target !== PULSE_COACH_NODE);
-  if (!go || go.locked || !r) return { ...g, nodes, edges };
-  const need = r.parts.filter((p) => p.level).length;
-  nodes.push({
-    id: PULSE_COACH_NODE,
-    type: "feature",
-    label: "Pulse Coach",
-    secondaryLabel: r.focus ? `Focus: ${r.focus.text}` : r.headline,
-    parentId: "go",
-    product: "go",
-    importance: 1.0,
-    status: need ? "attention" : "healthy",
-    summary: "A weekly read on your own numbers: what's rising, what's slipping, your best day, your habits, and one focus for next week.",
-  });
-  edges.push({ id: `go>${PULSE_COACH_NODE}`, source: "go", target: PULSE_COACH_NODE, relationshipType: "belongs_to", strength: 1 });
-  return { ...g, nodes, edges };
 }
 
 /** The example agent's eight weeks, so the sales demo shows a read. */

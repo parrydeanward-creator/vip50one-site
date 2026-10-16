@@ -50,12 +50,10 @@ import ForecastView from "./ForecastView.tsx";
 import PulseCoachView from "./PulseCoachView.tsx";
 import ReferralsView from "./ReferralsView.tsx";
 import WinsView from "./WinsView.tsx";
-import EnergyView from "./EnergyView.tsx";
 import LifeEventsView from "./LifeEventsView.tsx";
 import MarketPulseView from "./MarketPulseView.tsx";
 import MoveLikelyView from "./MoveLikelyView.tsx";
 import DealsView, { type SetStatus as DealSetStatus } from "./DealsView.tsx";
-import TimeOffView from "./TimeOffView.tsx";
 import TeamView from "./TeamView.tsx";
 import WarRoomView from "./WarRoomView.tsx";
 import ReviewCallsView from "./ReviewCallsView.tsx";
@@ -64,16 +62,20 @@ import PartnersView from "./PartnersView.tsx";
 import PowerHourView from "./PowerHourView.tsx";
 import CoachView from "./CoachView.tsx";
 import { commitmentWork } from "@/lib/assist.ts";
-import { PULSE_COACH_NODE, demoHistory, historyUrl, pulseRead, readHistory, withPulseCoachNode, type History, type Read as PulseRead } from "@/lib/pulseCoach.ts";
+import { demoHistory, historyUrl, pulseRead, readHistory, type History, type Read as PulseRead } from "@/lib/pulseCoach.ts";
 import { POWER_NODE, lineUp, newSession, powerKey, readSession, withPowerNode, type Call, type Session as PowerSession } from "@/lib/powerHour.ts";
-import { ASSUME_DEFAULT, INCOME_NODE, START as INCOME_START, goalFacts, incomeKey, incomeMap, readAssume, withIncomeNode, type Assume, type GoalKey, type IncomeMap } from "@/lib/goals.ts";
+import { ASSUME_DEFAULT, START as INCOME_START, goalFacts, incomeKey, incomeMap, readAssume, type Assume, type GoalKey } from "@/lib/goals.ts";
 import GoalsPanel from "./GoalsPanel.tsx";
-import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
+import { REVIEW_NODE, demoRoster, goalsFromGraph, lateInWeek, review as buildReview, withReviewNode, type Review, type Thing } from "@/lib/review.ts";
+import { CHALLENGE_NODE, GOALS_NODE, SCORE_NODE, goalsThree, withoutRetired } from "@/lib/oneYou.ts";
+import ScoreboardPanel from "./ScoreboardPanel.tsx";
+import ChallengePanel from "./ChallengePanel.tsx";
+import GoalsView from "./GoalsView.tsx";
 import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
 import { REVIEW_CALLS_NODE, agentsUrl, demoAgents, readAgents, withReviewCallsNode, type ReviewAgent } from "@/lib/reviewCalls.ts";
 import { TEAM_LEADS_PATH, WAR_NODE, demoWarRoom, teamDealsUrl, leadsUrl, logUrl, readWarRoom, withWarRoomNode, type WarRoom } from "@/lib/warroom.ts";
 import { TEAM_NODE, demoTeam, readTeam, teamUrl, withTeamNode, type Scope as TeamScope, type Team } from "@/lib/team.ts";
-import { TIME_OFF_NODE, demoTimeOff, readTimeOff, saveBody as timeOffBody, timeOffUrl, withTimeOffNode, type TimeOffState } from "@/lib/timeOff.ts";
+import { awayLine, demoTimeOff, readTimeOff, timeOffUrl, withAwayLabel, type TimeOffState } from "@/lib/timeOff.ts";
 import { DAY_FILM_KEY } from "@/lib/dayFilm.ts";
 import { demoPulseReport, pulseReportUrl, readPulseReport, type PulseReport } from "@/lib/pulseReport.ts";
 import AskAiView from "./AskAiView.tsx";
@@ -84,14 +86,14 @@ import { LIKELY_NODE, demoMoveLikely, moveLikelyUrl, notUsefulUrl, readMoveLikel
 import { MARKET_NODE, demoMarketPulse, marketPulseUrl, marketSendUrl, readMarketPulse, sendBody as marketSendBody, withMarketPulseNode, withSent as withMarketSent, type MarketPulse, type Vip as MarketVip } from "@/lib/marketPulse.ts";
 import { DEALS_NODE, dealUrl, dealsUrl, demoDeals, readClosingAsk, readDeals, statusBody as dealStatusBody, withDealsNode, withStatus as withDealStatus, type Deal } from "@/lib/deals.ts";
 import { LIFE_NODE, applyKeep, demoRadar, keepBody as lifeKeepBody, keepUrl as lifeKeepUrl, lifeEventsUrl, readRadar, withLifeEventsNode, type Found as LifeFound, type Radar } from "@/lib/lifeEvents.ts";
-import { ENERGY_NODE, applyCheck, demoEnergy, energyUrl, readEnergy, saveBody as energyBody, saveEnergyUrl, withEnergyNode, type Energy, type Level as EnergyLevel } from "@/lib/energy.ts";
-import { WINS_NODE, demoWins, newSince, readWins, total as winsTotal, winsUrl, withWinsNode, type Wins } from "@/lib/wins.ts";
-import { PARTNERS_NODE, demoPartners, partnersActionUrl, partnersUrl, readPartners, unseenNudges, withAllSeen, withPartnersNode, type PartnersState } from "@/lib/partners.ts";
+import { demoWins, readWins, total as winsTotal, winsUrl, type Wins } from "@/lib/wins.ts";
+import { demoPartners, partnersActionUrl, partnersUrl, readPartners, unseenNudges, withAllSeen, type PartnersState } from "@/lib/partners.ts";
 import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, mondayOf, type HabitToday } from "@/lib/habits.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
 import { REFERRALS_NODE, applyThank, askUrl, demoReferrals, thankUrl, readReferrals, referralsUrl, withReferralsNode, type Referrals, demoNetwork, networkUrl, readNetwork, type NetworkCounts } from "@/lib/referrals.ts";
 import { COACH_NODE, coachedUrl, demoCoached, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
-import { WEEK_NODE, commitmentsUrl, demoCommitments, readCommitments, withWeekNode, type Commitments } from "@/lib/commitments.ts";
+import { WEEK_NODE, commitWay, commitmentsUrl, demoCommitments, queueDraft, readCommitments, readQueued, withWeekNode, type Commitments } from "@/lib/commitments.ts";
+import { nextCommitKey } from "@/lib/pulseCoach.ts";
 import { PLAN_NODE, planKey, planState, planUrl, readPlan, timed, withPlanNode, type Plan, type PlanState } from "@/lib/plan.ts";
 import { hwcUrl, readHwc, todayIn, type HwcClass } from "@/lib/hwc.ts";
 import { demoSignals, readSignals, signalsUrl, withSignalsNode, type WebSignal } from "@/lib/webSignals.ts";
@@ -116,7 +118,7 @@ import ClosedCards from "./ClosedCards.tsx";
 import { LAST_COOKIE, LAST_MAX_AGE } from "@/lib/landing.ts";
 import { HINT, menuRows, type MenuRow } from "@/lib/phoneMenu.ts";
 import { ROW_COLOR, rowState } from "@/lib/rowState.ts";
-import { FORECAST_NODE, demoClasses, forecast, withForecastNode, type Forecast } from "@/lib/forecast.ts";
+import { demoClasses, forecast, type ForecastPerson } from "@/lib/forecast.ts";
 import { needWords, needsOf, type Need } from "@/lib/needs.ts";
 import { SEEN_KEY } from "@/lib/pulseIntro.ts";
 import type { SceneNeed } from "./scene.ts";
@@ -197,9 +199,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const coachRef = useRef<Coached[] | null>(null);
   // ONE YOU's Weekly Review orb (PULSE-ROADMAP "ONE YOU"): pulses when part of the week needs the agent.
   const reviewRef = useRef<Review | null>(null);
-  // ONE YOU's Income Map orb: the income goal worked back to the week.
-  const incomeRef = useRef<IncomeMap | null>(null);
-  const forecastRef = useRef<Forecast | null>(null);
   const webRef = useRef<WebSignal[] | null>(null);
   const adsRef = useRef<SiteAlert[] | null>(null);
   const growthRef = useRef<GrowthState | null>(null);
@@ -212,9 +211,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const launchRef = useRef<Launch[] | null>(null);
   const refsRef = useRef<Referrals | null>(null);
   const habitsRef = useRef<HabitToday[] | null>(null);
-  const partnersRef = useRef<PartnersState | null>(null);
-  const winsRef = useRef<{ w: Wins; fresh: number } | null>(null);
-  const energyRef = useRef<Energy | null>(null);
   const lifeRef = useRef<Radar | null>(null);
   const dealsRef = useRef<Deal[] | null>(null);
   const marketRef = useRef<MarketPulse | null>(null);
@@ -224,8 +220,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const teamRef = useRef<Team | null>(null);
   const warRef = useRef<WarRoom | null>(null);
   const rcRef = useRef(false);
-  // ONE YOU's Pulse Coach orb (§3q): the weekly read on the agent's own numbers.
-  const pcRef = useRef<PulseRead | null>(null);
   // ONE YOU's Power Hour orb: today's calls lined up.
   const powerRef = useRef<{ calls: Call[]; session: PowerSession | null } | null>(null);
   const admin = agent.admin === true;
@@ -237,7 +231,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes(withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current, onbRemovedRef.current), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current);
+    const next = withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes(withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withAwayLabel(withReviewCallsNode(withTeamNode(withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current), teamRef.current), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current, onbRemovedRef.current), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current));
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -534,13 +528,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   );
   const factsKey = JSON.stringify(goalFacts(graph.nodes));
   const theIncome = useMemo(() => incomeMap(JSON.parse(factsKey), assume, todayIn()), [factsKey, assume]);
-  useEffect(() => {
-    incomeRef.current = theIncome;
-    setGraph((g) => withIncomeNode(g, theIncome));
-  }, [theIncome]);
   // Pulse Coach (§3q): eight weeks of the agent's own numbers from ONE MOVE; the example agent's until it answers.
   const [history, setHistory] = useState<History | null>(null);
-  const [pcOpen, setPcOpen] = useState(false);
   useEffect(() => {
     if (!live) return setHistory(demoHistory(todayIn()));
     fetch(historyUrl(8), { credentials: "include", cache: "no-store" })
@@ -549,6 +538,36 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       .catch(() => {});
   }, [live]);
   const thePulseRead = useMemo(() => (history ? pulseRead(history, commitments, todayIn()) : null), [history, commitments]);
+  // Weekly Review's "Make it a commitment" (Parry, 16 Oct): only on the agent's tap. This week's commitments are set
+  // through ONE MOVE's set route when the week is not set yet (Monday to Thursday); otherwise the commitment waits first
+  // in next Monday's set form, as Pulse Coach's focus did.
+  const commitThing = useCallback(
+    async (t: Thing): Promise<{ ok: boolean; text: string }> => {
+      const w = commitWay(commitments, t.draft, lateInWeek(todayIn()));
+      if (w.way === "set_now") {
+        if (!live) return { ok: true, text: "Example agent: this would be set as this week's commitment. Nothing is saved." };
+        try {
+          const r = await fetch(`${commitmentsUrl}/set`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(w.body) });
+          const j = await r.json().catch(() => null);
+          const next = r.ok ? readCommitments(j) : null;
+          if (next) {
+            setCommitments(next);
+            return { ok: true, text: "Set as this week's commitment. Your coach sees it; ONE GO shows it on your phone." };
+          }
+          return { ok: false, text: (j as { error?: string } | null)?.error || "That didn't save. Nothing was changed." };
+        } catch {
+          return { ok: false, text: "That didn't save. Check your connection and try again." };
+        }
+      }
+      try {
+        localStorage.setItem(nextCommitKey, JSON.stringify(queueDraft(readQueued(localStorage.getItem(nextCommitKey)), t.draft)));
+      } catch {
+        return { ok: false, text: "This browser could not keep it. Add it when you set next week's commitments." };
+      }
+      return { ok: true, text: "Saved for next week: it goes first when you set Monday's commitments. You still choose." };
+    },
+    [commitments, live],
+  );
   // Referral Scoreboard (§3r): who sent business and who is likely next, from ONE MOVE; the example agent's until it answers.
   const [refs, setRefs] = useState<Referrals | null>(null);
   const [refsOpen, setRefsOpen] = useState(false);
@@ -697,63 +716,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     warRef.current = war;
     setGraph((g) => withTeamLeadsPage(withWarRoomNode(g, war, Date.now()), !!war || teamLeadsHint));
   }, [war]);
-  // Wins (§3t): every good thing in one place, from ONE MOVE; the example agent's in the demo. A win newer than the
-  // agent's last look glows gold; the last look is kept in this browser only.
-  const WINS_SEEN = "one.wins.seen";
+  // Wins (§3t), from ONE MOVE; the example agent's in the demo. No orb since Parry, 16 Oct: this week's are the
+  // Scoreboard's "This week's wins" and the Weekly Review's Wins card (one list); the year's list opens from the Scoreboard.
   const [winsOpen, setWinsOpen] = useState(false);
-  const [winsSeen, setWinsSeen] = useState<string | null>(null);
   useEffect(() => {
-    try {
-      setWinsSeen(localStorage.getItem(WINS_SEEN) ?? (live ? null : new Date(Date.parse(`${todayIn()}T12:00:00Z`) - 3 * 86_400_000).toISOString().slice(0, 10)));
-    } catch {}
     if (!live) return setWins(demoWins(todayIn()));
     fetch(winsUrl(), { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setWins(j ? readWins(j) : null))
       .catch(() => {});
   }, [live]);
-  const freshWins = useMemo(() => (wins ? newSince(wins, winsSeen) : []), [wins, winsSeen]);
-  useEffect(() => {
-    winsRef.current = wins ? { w: wins, fresh: freshWins.length } : null;
-    setGraph((g) => withWinsNode(g, wins, freshWins.length));
-  }, [wins, freshWins]);
-  const closeWins = useCallback(() => {
-    setWinsOpen(false);
-    const t = todayIn();
-    setWinsSeen(t);
-    try {
-      localStorage.setItem(WINS_SEEN, t);
-    } catch {}
-  }, []);
-  // Energy check (§3w): one tap a morning, private to the agent; from ONE MOVE once it answers, the example agent's in
-  // the demo (saved in this page only).
-  const [energy, setEnergy] = useState<Energy | null>(null);
-  const [energyOpen, setEnergyOpen] = useState(false);
-  useEffect(() => {
-    if (!live) return setEnergy(demoEnergy(todayIn()));
-    fetch(energyUrl(), { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => setEnergy(j ? readEnergy(j, todayIn()) : null))
-      .catch(() => {});
-  }, [live]);
-  useEffect(() => {
-    energyRef.current = energy;
-    setGraph((g) => withEnergyNode(g, energy, denverHour()));
-  }, [energy]);
-  const saveEnergy = useCallback(
-    async (level: EnergyLevel): Promise<boolean> => {
-      if (!energy) return false;
-      if (live) {
-        const ok = await fetch(saveEnergyUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(energyBody(energy, level)) })
-          .then((r) => r.ok)
-          .catch(() => false);
-        if (!ok) return false;
-      }
-      setEnergy((e) => (e ? applyCheck(e, level) : e));
-      return true;
-    },
-    [energy, live],
-  );
+  const closeWins = useCallback(() => setWinsOpen(false), []);
+  // Energy (§3w): retired from ONE YOU by Parry, 16 Oct ("lets drop the energy orb"). Nothing asks for it or reads it
+  // here any more; stored answers stay in MASTER.
   // Life-event radar (§3y): from ONE MOVE once it answers (404 until then: no orb), the example agent's in the demo.
   const [life, setLife] = useState<Radar | null>(null);
   const [lifeOpen, setLifeOpen] = useState(false);
@@ -1111,22 +1086,30 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     setGraph((g) => withLaunchNodes(g, launches));
   }, [launches]);
   // Income forecast (K20): deals under contract and the Hot/Warm/Cold list as expected GCI by month, at the Income
-  // Map's average GCI per closing. Only the classes are read from the list; nothing about a person is kept here.
+  // Map's average GCI per closing. Part 2 of the Goals orb since Parry, 16 Oct ("Likely next 3 months": each month with
+  // who makes it up, first names, one click to the record), so the Hot people's first names are kept for that.
   const [classes, setClasses] = useState<HwcClass[] | null>(null);
+  const [hotPeople, setHotPeople] = useState<ForecastPerson[] | null>(null);
   const [forecastOpen, setForecastOpen] = useState(false);
+  const [goalsOpen, setGoalsOpen] = useState(false);
   useEffect(() => {
-    if (!live) return setClasses(demoClasses());
+    if (!live) {
+      setHotPeople([{ cls: "hot", name: "Amy Chen", contactId: null }, { cls: "hot", name: "Marcus Lee", contactId: null }, { cls: "hot", name: "Priya Shah", contactId: null }]);
+      return setClasses(demoClasses());
+    }
     fetch(hwcUrl, { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => setClasses(readHwc(j)?.people.map((p) => p.cls) ?? null))
+      .then((j) => {
+        const h = readHwc(j);
+        setClasses(h?.people.map((p) => p.cls) ?? null);
+        setHotPeople(h ? h.people.filter((p) => p.cls === "hot").map((p) => ({ cls: p.cls, name: p.name, contactId: p.contactId })) : null);
+      })
       .catch(() => {});
   }, [live]);
   const forecastAvg = theIncome?.avgGci ?? { value: INCOME_START.avgGci, from: "start" as const };
-  const theForecast = useMemo(() => forecast(deals, classes, forecastAvg.value, todayIn()), [deals, classes, forecastAvg.value]);
-  useEffect(() => {
-    forecastRef.current = theForecast;
-    setGraph((g) => withForecastNode(g, theForecast));
-  }, [theForecast]);
+  const theForecast = useMemo(() => forecast(deals, classes, forecastAvg.value, todayIn(), hotPeople), [deals, classes, forecastAvg.value, hotPeople]);
+  // Goals, one orb in three parts (Parry, 16 Oct): closed so far, likely next 3 months, what to do each week. One source.
+  const theGoals = useMemo(() => goalsThree(JSON.parse(factsKey), theIncome, theForecast, todayIn()), [factsKey, theIncome, theForecast]);
   const setDealStatus: DealSetStatus = useCallback(
     async (d, status, closing) => {
       if (live) {
@@ -1143,10 +1126,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     },
     [live],
   );
-  // Time off (§3x): plan days away; from ONE MOVE once it answers, the example agent's long weekend in the demo
-  // (saved in this page only).
+  // Time off (§3x): a card on My Profile since Parry, 16 Oct (components/brain/TimeOffSection.tsx plans and cancels).
+  // Read here only for "Away until <date>" in ONE YOU's panel and the centre ONE orb.
   const [timeOff, setTimeOff] = useState<TimeOffState | null>(null);
-  const [timeOffOpen, setTimeOffOpen] = useState(false);
   const loadTimeOff = useCallback(() => {
     if (!live) return setTimeOff(demoTimeOff(todayIn()));
     fetch(timeOffUrl, { credentials: "include", cache: "no-store" })
@@ -1157,34 +1139,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   useEffect(() => loadTimeOff(), [loadTimeOff]);
   useEffect(() => {
     timeOffRef.current = timeOff;
-    setGraph((g) => withTimeOffNode(g, timeOff));
+    setGraph((g) => withAwayLabel(g, timeOff));
   }, [timeOff]);
-  const saveTimeOff = useCallback(
-    async (starts: string, ends: string, note: string): Promise<string | null> => {
-      if (!live) {
-        setTimeOff((s) => (s ? { ...s, upcoming: [...s.upcoming, { id: `demo-${starts}`, starts, ends, note: note.trim() || null }].sort((a, b) => a.starts.localeCompare(b.starts)) } : s));
-        return null;
-      }
-      const r = await fetch(timeOffUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(timeOffBody(starts, ends, note)) }).catch(() => null);
-      if (!r || !r.ok) return (r && ((await r.json().catch(() => null)) as { error?: string } | null)?.error) || "Could not save that just now.";
-      loadTimeOff();
-      return null;
-    },
-    [live, loadTimeOff],
-  );
-  const cancelTimeOff = useCallback(
-    async (id: string): Promise<string | null> => {
-      if (!live) {
-        setTimeOff((s) => (s ? { ...s, current: s.current?.id === id ? null : s.current, upcoming: s.upcoming.filter((o) => o.id !== id) } : s));
-        return null;
-      }
-      const r = await fetch(`${timeOffUrl}?id=${encodeURIComponent(id)}`, { method: "DELETE", credentials: "include" }).catch(() => null);
-      if (!r || !r.ok) return "Could not change that just now.";
-      loadTimeOff();
-      return null;
-    },
-    [live, loadTimeOff],
-  );
   // Accountability partners (§3s): from ONE MOVE once it answers; example partners in the demo.
   const [partners, setPartners] = useState<PartnersState | null>(null);
   const [partnersOpen, setPartnersOpen] = useState(false);
@@ -1196,10 +1152,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       .catch(() => {});
   }, [live]);
   useEffect(() => loadPartners(), [loadPartners]);
-  useEffect(() => {
-    partnersRef.current = partners;
-    setGraph((g) => withPartnersNode(g, partners, todayIn()));
-  }, [partners]);
   // Opening Partners marks the nudges seen (§3s.4 v1.67), so the orb stops pulsing for them.
   useEffect(() => {
     if (!partnersOpen || !partners || !unseenNudges(partners)) return;
@@ -1262,10 +1214,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     },
     [live, coached],
   );
-  useEffect(() => {
-    pcRef.current = thePulseRead;
-    setGraph((g) => withPulseCoachNode(g, thePulseRead));
-  }, [thePulseRead]);
   // Power Hour: today's calls, most urgent first, then the VIP-50 with no call this month.
   const [powerOpen, setPowerOpen] = useState(false);
   const callsKey = JSON.stringify(lineUp(graph.today ?? [], roster));
@@ -2086,21 +2034,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     if (id === WEEK_NODE) return setCmOpen(true);
     if (id === COACH_NODE) return setCoachOpen(true);
     if (id === REVIEW_NODE) return setReviewOpen(true);
-    if (id === INCOME_NODE) return setIncomeOpen(true);
-    if (id === FORECAST_NODE) return setForecastOpen(true);
     if (id === POWER_NODE) return setPowerOpen(true);
-    if (id === PULSE_COACH_NODE) return setPcOpen(true);
     if (id === REFERRALS_NODE) return setRefsOpen(true);
     if (id === HABITS_NODE) return openHabits();
-    if (id === PARTNERS_NODE) return setPartnersOpen(true);
-    if (id === WINS_NODE) return setWinsOpen(true);
-    if (id === ENERGY_NODE) return setEnergyOpen(true);
     if (id === LIFE_NODE) return setLifeOpen(true);
     if (id === DEALS_NODE) return setDealsOpen(true);
     if (id === MARKET_NODE) return setMarketOpen(true);
     if (id === LIKELY_NODE) return setLikelyOpen(true);
     if (id === ASK_AI_NODE) return setAiOpen(true);
-    if (id === TIME_OFF_NODE) return setTimeOffOpen(true);
     if (id === TEAM_NODE) return setTeamOpen(true);
     if (id === WAR_NODE) return setWarOpen(true);
     if (id === REVIEW_CALLS_NODE) return setRcOpen(true);
@@ -2808,6 +2749,22 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           {/* ONE YOU on a phone (Parry, 16 Oct, Plan my day audit 3.1.8: 8 of its 20 tools showed round the orb, labels about
               6 px): every tool in a readable list right under the orb view; a row opens the tool as tapping its orb does.
               Phones only (globals.css .phone-tools); desktop unchanged. */}
+          {/* Away (Parry, 16 Oct): one line in ONE YOU, linking to the Time off card on My Profile; no orb. */}
+          {focus.id === "go" && awayLine(timeOff) && !ask && (
+            <p className="d-sub d-away">
+              <button
+                className="link"
+                onClick={() => {
+                  try {
+                    window.history.replaceState(null, "", "#time-off");
+                  } catch {}
+                  goTo(movePageId("/profile"));
+                }}
+              >
+                {awayLine(timeOff)}
+              </button>
+            </p>
+          )}
           {focus.id === "go" && kids.length > 0 && !ask && (
             <div className="d-list phone-tools">
               <h2>Your ONE YOU tools</h2>
@@ -2919,20 +2876,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               <span className="pi-play" aria-hidden="true">☰</span>
               <span>
                 <b>Open Weekly Review</b>
-                <span>Your score, VIP touches, who you haven&apos;t reached, commitments, goals, and three things for next week.</span>
+                <span>Your week, Pulse&apos;s read on the last 8 weeks, and three things for next week you can make commitments.</span>
               </span>
             </button>
           )}
 
-          {focus.id === PULSE_COACH_NODE && thePulseRead && !tour && (
-            <button className="pi-film pm-open" onClick={() => setPcOpen(true)}>
-              <span className="pi-play" aria-hidden="true">♥</span>
-              <span>
-                <b>Open Pulse Coach</b>
-                <span>Your week read by Pulse: what&apos;s rising, what&apos;s slipping, your best day, your habits, and one focus.</span>
-              </span>
-            </button>
-          )}
 
           {focus.id === POWER_NODE && !tour && (
             <button className="pi-film pm-open" onClick={() => setPowerOpen(true)}>
@@ -2968,15 +2916,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               <span>
                 <b>Open the Team screen</b>
                 <span>The week's leaderboard. Show it full screen on the office TV.</span>
-              </span>
-            </button>
-          )}
-          {focus.id === TIME_OFF_NODE && timeOff && !tour && (
-            <button className="pi-film pm-open" onClick={() => setTimeOffOpen(true)}>
-              <span className="pi-play" aria-hidden="true">☼</span>
-              <span>
-                <b>Plan time off</b>
-                <span>Touches pause, Autopilot waits, and Pulse plans your first day back.</span>
               </span>
             </button>
           )}
@@ -3043,33 +2982,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               </span>
             </button>
           )}
-          {focus.id === ENERGY_NODE && energy && !tour && (
-            <button className="pi-film pm-open" onClick={() => setEnergyOpen(true)}>
-              <span className="pi-play" aria-hidden="true">◐</span>
-              <span>
-                <b>Check your energy</b>
-                <span>One tap a morning. See how it lines up with your best weeks. Yours only.</span>
-              </span>
-            </button>
-          )}
-          {focus.id === WINS_NODE && wins && !tour && (
-            <button className="pi-film pm-open" onClick={() => setWinsOpen(true)}>
-              <span className="pi-play" aria-hidden="true">★</span>
-              <span>
-                <b>Open your Wins</b>
-                <span>Every closing, referral, five-star review, week at 100, badge and goal reached, in one place.</span>
-              </span>
-            </button>
-          )}
-          {focus.id === PARTNERS_NODE && partners && !tour && (
-            <button className="pi-film pm-open" onClick={() => setPartnersOpen(true)}>
-              <span className="pi-play" aria-hidden="true">⇄</span>
-              <span>
-                <b>Open your Partners</b>
-                <span>The agents you chose to keep each other honest: their weekly score, and a one-tap nudge.</span>
-              </span>
-            </button>
-          )}
           {focus.id === HABITS_NODE && theHabits.length > 0 && !tour && (
             <button className="pi-film pm-open" onClick={openHabits}>
               <span className="pi-play" aria-hidden="true">♥</span>
@@ -3088,27 +3000,80 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               </span>
             </button>
           )}
-          {focus.id === FORECAST_NODE && theForecast && !tour && (
-            <button className="pi-film pm-open" onClick={() => setForecastOpen(true)}>
-              <span className="pi-play" aria-hidden="true">$</span>
-              <span>
-                <b>Open the income forecast</b>
-                <span>Deals under contract and your Hot, Warm and Cold people as expected GCI by month.</span>
-              </span>
-            </button>
+          {/* Goals, one orb in three parts (Parry, 16 Oct 13:38 MT: "yes do that"): a line from each part here; opening it
+              shows all three. Each goal orb keeps its own Closings / Referrals / GCI panel with pace and "Change goal". */}
+          {focus.id === GOALS_NODE && !focus.locked && !ask && (
+            <>
+              <ul className="pm-list pm-compact gl-three" aria-label="Goals, in three parts">
+                {[
+                  { k: "1", t: "Closed so far", l: theGoals.closed.line },
+                  { k: "2", t: "Likely next 3 months", l: theGoals.likely?.line ?? "Coming once you have deals under contract or Hot people in ONE MOVE" },
+                  { k: "3", t: "What to do each week", l: theGoals.weekly?.line ?? "Set a GCI or closings goal to see your weekly numbers" },
+                ].map((r) => (
+                  <li key={r.k}>
+                    <span className="pm-time">{r.k}</span>
+                    <span className="pm-body">
+                      <b>{r.t}</b>
+                      <small>{r.l}</small>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {!tour && (
+                <button className="pi-film pm-open" onClick={() => setGoalsOpen(true)}>
+                  <span className="pi-play" aria-hidden="true">$</span>
+                  <span>
+                    <b>Open Goals</b>
+                    <span>Closed so far, likely in the next 3 months, and what to do each week to close the gap.</span>
+                  </span>
+                </button>
+              )}
+            </>
           )}
-          {focus.id === INCOME_NODE && theIncome && !tour && (
-            <button className="pi-film pm-open" onClick={() => setIncomeOpen(true)}>
-              <span className="pi-play" aria-hidden="true">$</span>
-              <span>
-                <b>Open the Income Map</b>
-                <span>Your income goal worked back to closings, referrals, conversations and touches a week.</span>
-              </span>
-            </button>
+          {/* The Scoreboard (Parry, 16 Oct: "yes on combining into Scoreboard"), live and demo. */}
+          {focus.id === SCORE_NODE && !focus.locked && !ask && (
+            <ScoreboardPanel
+              key={focus.id}
+              node={focus}
+              nodes={graph.nodes}
+              live={live}
+              today={todayIn()}
+              team={team}
+              partners={partners}
+              wins={wins}
+              onPartner={partnerAct}
+              onOpenPartners={() => setPartnersOpen(true)}
+              onOpenWins={() => setWinsOpen(true)}
+              onOpenTeam={team ? () => setTeamOpen(true) : undefined}
+              onWhere={(w) => {
+                if (w === "badges") {
+                  try {
+                    window.history.replaceState(null, "", "#badges");
+                  } catch {}
+                  return goTo(movePageId("/profile"));
+                }
+                if (w === "referrals") return refs ? setRefsOpen(true) : goTo(REFERRALS_NODE);
+                if (w === "goals") return goTo(GOALS_NODE);
+                setWinsOpen(true);
+              }}
+            />
           )}
-          {/* Goals (Parry, 16 Oct, audit 3.4.1 and 3.4.4): the same Closings / Referrals / GCI list as the phone, with pace and
-              "Change goal", on the Goals orb and on each goal orb. */}
-          {(focus.id === "go-goals" || (focus.type === "goal" && focus.goal)) && !focus.locked && !tour && !ask && (
+          {/* The 90-Day Challenge in full (Parry, 16 Oct 13:43 MT: "it needs to go much deeper"), live and demo. */}
+          {focus.id === CHALLENGE_NODE && !focus.locked && !ask && (
+            <ChallengePanel
+              key={focus.id}
+              node={focus}
+              nodes={graph.nodes}
+              live={live}
+              tour={!!tour}
+              onOpenPage={() => {
+                const page = movePageId("/challenge");
+                if (ix.byId.has(page)) return goTo(page);
+                window.open(moveMenuHref("/challenge"), "_blank", "noopener,noreferrer");
+              }}
+            />
+          )}
+          {focus.type === "goal" && focus.goal && !focus.locked && !tour && !ask && (
             <GoalsPanel
               goals={goalFacts(graph.nodes)}
               today={todayIn()}
@@ -3402,7 +3367,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             </div>
           )}
 
-          {kids.length > 0 && !isMoveGroup(focus.id) && focus.id !== "go-goals" && (
+          {kids.length > 0 && !isMoveGroup(focus.id) && focus.id !== GOALS_NODE && focus.id !== SCORE_NODE && focus.id !== CHALLENGE_NODE && (
             <div className={`d-list inside ${railCount > childrenOf(ix, focus.id).length - 1 && !moveQuiet ? "" : "keep"}${focus.id === "go" ? " go-inside" : ""}`}>
               <h2>{focus.type === "core" ? "Your products" : "Inside"}</h2>
               <ul>
@@ -3587,8 +3552,33 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       )}
       {oneFilm && <SignalsFilm film={ONE_FILM} onClose={() => setOneFilm(false)} />}
       {goTour && <SignalsFilm film={GO_TOUR_FILM} onClose={() => setGoTour(false)} />}
-      {reviewOpen && theReview ? <ReviewView review={theReview} week={weekScore} demo={!live} onClose={() => setReviewOpen(false)} /> : null}
-      {pcOpen && thePulseRead ? <PulseCoachView read={thePulseRead} demo={!live} onClose={() => setPcOpen(false)} /> : null}
+      {reviewOpen && theReview ? <ReviewView review={theReview} read={thePulseRead} week={weekScore} demo={!live} onClose={() => setReviewOpen(false)} onCommit={commitThing} /> : null}
+      {goalsOpen ? (
+        <GoalsView
+          three={theGoals}
+          goals={goalFacts(graph.nodes)}
+          map={theIncome}
+          today={todayIn()}
+          demo={!live}
+          rezenConnected={rezenOn}
+          onSaveGoal={saveGoal}
+          onProfile={() => {
+            setGoalsOpen(false);
+            goTo(movePageId("/profile"));
+          }}
+          onReferrals={() => (refs ? setRefsOpen(true) : goTo(REFERRALS_NODE))}
+          onPerson={(id) => {
+            const page = movePageId("/contacts");
+            if (!ix.byId.has(page)) return;
+            setGoalsOpen(false);
+            setContactOpen({ id, k: Date.now() });
+            goTo(page);
+          }}
+          onForecast={theForecast ? () => setForecastOpen(true) : undefined}
+          onIncomeMap={theIncome ? () => setIncomeOpen(true) : undefined}
+          onClose={() => setGoalsOpen(false)}
+        />
+      ) : null}
       {powerOpen ? (
         <PowerHourView calls={calls} session={session} live={live} onSession={savePower} onTick={(ref, on) => tickDay(`day:${ref}`, on)} onClose={() => setPowerOpen(false)} />
       ) : null}
@@ -3605,17 +3595,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       {rcOpen && rcAgents ? <ReviewCallsView agents={rcAgents} demo={!live} onClose={() => setRcOpen(false)} onSearch={loadRcAgents} /> : null}
       {warOpen && war ? <WarRoomView room={war} demo={!live} onClose={() => setWarOpen(false)} onTeamLeads={() => { setWarOpen(false); goTo(movePageId(TEAM_LEADS_PATH)); }} /> : null}
       {teamOpen && team ? <TeamView team={team} demo={!live && !productTour} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} canAdd={teamSites.length > 0 || productTour} /> : null}
-      {timeOffOpen && timeOff ? <TimeOffView data={timeOff} demo={!live} onSave={saveTimeOff} onCancel={cancelTimeOff} onClose={() => setTimeOffOpen(false)} /> : null}
       {aiOpen && askAi ? <AskAiView name={live ? agent.label.split(",")[0] : "Sarah Bennett"} area={askArea} results={askAi} demo={!live} onArea={saveArea} onMark={markAi} onClose={() => setAiOpen(false)} /> : null}
       {likelyOpen && likely ? <MoveLikelyView data={likely} demo={!live} onNotUseful={likelyNotUseful} onClose={() => setLikelyOpen(false)} /> : null}
       {marketOpen && market ? <MarketPulseView data={market} demo={!live} onSend={sendMarket} onClose={() => setMarketOpen(false)} /> : null}
       {dealsOpen && deals ? <DealsView deals={deals} today={todayIn()} demo={!live} onStatus={setDealStatus} onClose={() => setDealsOpen(false)} /> : null}
       {lifeOpen && life ? <LifeEventsView data={life} demo={!live} onKeep={keepLife} onClose={() => setLifeOpen(false)} /> : null}
-      {energyOpen && energy ? <EnergyView data={energy} demo={!live} onSave={saveEnergy} onClose={() => setEnergyOpen(false)} /> : null}
       {winsOpen && wins ? (
         <WinsView
           data={wins}
-          fresh={freshWins}
+          fresh={[]}
           today={todayIn()}
           demo={!live}
           onClose={closeWins}

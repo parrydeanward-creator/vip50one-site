@@ -1,8 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
 import {
-  ENERGY_NODE, KEEP_GOING, applyCheck, bestWeeksLine, demoEnergy, energyLine, energyUrl, needsRest, readEnergy, saveBody, strip, todayCheck, weekPairs, withEnergyNode,
+  ENERGY_NODE, KEEP_GOING, applyCheck, bestWeeksLine, demoEnergy, energyLine, energyUrl, needsRest, readEnergy, saveBody, strip, todayCheck, weekPairs,
   type Energy, type Level,
 } from "../lib/energy.ts";
 
@@ -83,27 +82,11 @@ test("strip: the last 14 days oldest first, gaps as null", () => {
   assert.equal(s[0].level, null);
 });
 
-test("withEnergyNode: yellow from 5 am to noon until checked; still after; never red; gone when locked", () => {
-  const base = {
-    nodes: [{ id: "go", type: "product", label: "ONE YOU", importance: 1 } as GraphNode],
-    edges: [] as GraphEdge[],
-  };
-  const e = of([4, 4]);
-  const morning = withEnergyNode(base, e, 8).nodes.find((n) => n.id === ENERGY_NODE)!;
-  assert.equal(morning.status, "attention");
-  assert.equal(morning.secondaryLabel, "How's your energy?");
-  const afternoon = withEnergyNode(base, e, 14).nodes.find((n) => n.id === ENERGY_NODE)!;
-  assert.equal(afternoon.status, "healthy");
-  assert.equal(afternoon.secondaryLabel, "No check today");
-  const done = withEnergyNode(base, applyCheck(e, 5), 8).nodes.find((n) => n.id === ENERGY_NODE)!;
-  assert.equal(done.status, "healthy");
-  assert.equal(done.secondaryLabel, "Full of energy today");
-  assert.equal(withEnergyNode(base, null, 8).nodes.length, 1);
-  const locked = { ...base, nodes: [{ ...base.nodes[0], locked: true }] };
-  assert.equal(withEnergyNode(locked, e, 8).nodes.length, 1);
-  const twice = withEnergyNode(withEnergyNode(base, e, 8), e, 8);
-  assert.equal(twice.nodes.filter((n) => n.id === ENERGY_NODE).length, 1);
-  assert.equal(twice.edges.length, 1);
+test("Energy is retired from ONE YOU (Parry, 16 Oct): no orb builder left; stored answers still read", async () => {
+  const m = (await import("../lib/energy.ts")) as Record<string, unknown>;
+  assert.equal(m.withEnergyNode, undefined);
+  assert.equal(ENERGY_NODE, "go-energy");
+  assert.equal(todayCheck(applyCheck(of([4, 4]), 5))!.level, 5);
 });
 
 test("energyLine: rest shows beside today's level", () => {

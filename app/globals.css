@@ -2524,3 +2524,19 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 
 /* Home Reports: the two links under a person sit apart (one per line) */
 .hr-links { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 10px 0 0; }
+
+/* ONE YOU reshaped (Parry, 16 Oct): Scoreboard, 90-Day Challenge and Goals side panels; Weekly Review commitments */
+.sb-panel h2:first-child, .ch-panel h2:first-child { margin-top: 14px; }
+.sb-coming { font-style: italic; }
+.ch-start { margin: 10px 0 4px; }
+.gl-three { margin: 12px 0 14px; }
+.d-away { margin-top: 6px; }
+.d-away .link { padding: 0; text-decoration: underline; }
+.gv-who { margin: 10px 0 4px; }
+.gv-person { padding: 0; font-size: inherit; text-decoration: underline; }
+.rv-commit { white-space: nowrap; color: var(--gold-2) !important; border-color: rgba(212, 175, 55, 0.45) !important; font-size: 12px; }
+.rv-made { color: var(--gold-2) !important; }
+.rv-made.bad { color: #ffb36b !important; }
+.pf-card .to-form { display: grid; gap: 8px; }
+.pf-card .to-form label { display: grid; gap: 4px; font-size: 13px; color: var(--text-2); }
+.pf-card .to-form input { min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); font: inherit; color-scheme: dark; }

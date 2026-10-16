@@ -358,7 +358,7 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
     product: "go",
     importance: 0.95,
     status: found ? worst(goItems) : undefined,
-    summary: found ? "Plan your day and send it to ONE GO on your phone. Today's VIP touches, your weekly score and your goals." : "Plan your day, review your week and track your goals. Your plan goes to ONE GO on your phone.",
+    summary: found ? "Plan your day and send it to ONE GO on your phone. Today's VIP touches, your Scoreboard, the 90-Day Challenge and your goals." : "Plan your day, review your week and track your goals. Your plan goes to ONE GO on your phone.",
     stats: found
       ? [
           ofMax(daily) && { label: "Daily score", value: ofMax(daily)! },
@@ -381,6 +381,40 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
       summary: goItems.length ? "The VIP-50 touches ONE GO scheduled for today." : "No VIP-50 touches are left for today.",
     });
     goItems.forEach((it, k) => itemNode(add, it, "go-today", "go", 1 - k * 0.03));
+    // The Scoreboard and the 90-Day Challenge, as in the demo's ONE YOU (Parry, 6 Oct; walker 2026-10-16-1905: "it
+    // clearly says scoreboard"). Their side panels (components/brain/ScoreboardPanel.tsx, ChallengePanel.tsx) read
+    // the rest: the leaderboard, partners, badges and wins from their own routes.
+    const challengeDay = stat(env!, "challenge_day");
+    add({
+      id: "go-score",
+      type: "category",
+      label: "Scoreboard",
+      secondaryLabel: env!.weekly_rank != null ? `#${env!.weekly_rank} this week` : ofMax(weekly) ? `${ofMax(weekly)} this week` : "This week",
+      parentId: "go",
+      product: "go",
+      importance: 0.97,
+      status: env!.weekly_rank === 1 ? "healthy" : "opportunity",
+      summary: "Mission Control, the leaderboard, your accountability partners, this week's badges, your streak and XP, and this week's wins. It resets Monday.",
+      stats: [
+        ofMax(daily) && { label: "Daily score", value: ofMax(daily)! },
+        ofMax(weekly) && { label: "Weekly score", value: ofMax(weekly)! },
+        env!.streak != null && { label: "Streak", value: `${env!.streak} ${env!.streak === 1 ? "day" : "days"}` },
+        env!.weekly_rank != null && { label: "Leaderboard", value: `#${env!.weekly_rank}` },
+      ].filter((s): s is { label: string; value: string } => !!s),
+    });
+    const onDay = challengeDay?.value != null && challengeDay.value > 0;
+    add({
+      id: "go-challenge",
+      type: "category",
+      label: "90-Day Challenge",
+      secondaryLabel: onDay ? `Day ${challengeDay!.value} of ${challengeDay!.max ?? 90}` : "Five arenas, 100 a day",
+      parentId: "go",
+      product: "go",
+      importance: 0.92,
+      status: onDay ? "healthy" : undefined,
+      summary: "Five arenas. One daily score. 90 days to build the version of yourself that others want to follow.",
+      stats: onDay ? [{ label: "Day", value: `${challengeDay!.value} / ${challengeDay!.max ?? 90}` }] : undefined,
+    });
     addGoals(
       add,
       goals.map((g) => ({ key: g.key as GoalKey, label: g.label, value: g.value, max: g.max ?? null, pace: g.pace ?? null, from: g.from, to: g.to, from_referrals: g.from_referrals ?? null })),

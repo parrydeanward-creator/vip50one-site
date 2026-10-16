@@ -1,4 +1,3 @@
-import type { GraphEdge, GraphNode } from "./graph/types.ts";
 import type { Deal } from "./deals.ts";
 import type { HwcClass } from "./hwc.ts";
 import { money } from "./goals.ts";
@@ -8,6 +7,7 @@ import { money } from "./goals.ts";
 // 0-3 months, Warm 3-12, Cold 12 and up) and the agent's average GCI per closing (the Income Map's number). ONE MOVE
 // keeps no price per person, so every closing counts at that average. A forecast, never a promise: the words say so.
 
+/** The retired ONE YOU orb (Parry, 16 Oct: the forecast is part 2 of the Goals orb, "Likely next 3 months"). */
 export const FORECAST_NODE = "go-forecast";
 export const MONTHS = 12;
 
@@ -25,6 +25,20 @@ export interface MonthForecast {
   total: number;
   /** Clients under contract settling this month, by first name. */
   settling: string[];
+  /** Who makes the month up (Goals part 2, Parry 16 Oct): first names, with the record to open. Under contract first,
+   * then the Hot people (months 1-3) when their names were given; empty when only the counts were. */
+  who: Who[];
+}
+export interface Who {
+  name: string; // first name
+  contactId: string | null;
+  why: "contract" | "hot" | "warm";
+}
+/** A person on the Hot/Warm/Cold list, as the forecast may name them. */
+export interface ForecastPerson {
+  cls: HwcClass;
+  name: string;
+  contactId: string | null;
 }
 export interface Forecast {
   months: MonthForecast[];
@@ -54,24 +68,30 @@ export function settlesOn(d: Deal): string | null {
  * month (a settlement already past still counts this month: it has not been marked closed). Hot people spread evenly
  * over months 1-3, Warm over 4-12; each at its chance times the average GCI. Null when there is nothing to forecast.
  */
-export function forecast(deals: Deal[] | null, classes: HwcClass[] | null, avgGci: number, today: string): Forecast | null {
+export function forecast(deals: Deal[] | null, classes: HwcClass[] | null, avgGci: number, today: string, people?: ForecastPerson[] | null): Forecast | null {
   const open = (deals ?? []).filter((d) => d.status === "under_contract");
   const n = { hot: 0, warm: 0, cold: 0 };
   for (const c of classes ?? []) n[c]++;
   if (!open.length && !n.hot && !n.warm && !n.cold) return null;
   const first = monthOf(today);
-  const months: MonthForecast[] = Array.from({ length: MONTHS }, (_, k) => ({ month: addMonths(first, k), contract: 0, hot: 0, warm: 0, total: 0, settling: [] }));
+  const months: MonthForecast[] = Array.from({ length: MONTHS }, (_, k) => ({ month: addMonths(first, k), contract: 0, hot: 0, warm: 0, total: 0, settling: [], who: [] as Who[] }));
   for (const d of open) {
     const on = settlesOn(d);
     const idx = on ? Math.max(0, months.findIndex((m) => m.month === monthOf(on))) : 0;
     const at = on && monthOf(on) > months[MONTHS - 1].month ? MONTHS - 1 : idx;
     months[at].contract += avgGci * CHANCE.contract;
     months[at].settling.push(d.contact.name.split(" ")[0]);
+    months[at].who.push({ name: d.contact.name.split(" ")[0], contactId: d.contact.id || null, why: "contract" });
   }
   for (const cls of ["hot", "warm"] as const) {
     const [a, b] = SPAN[cls];
     const each = (n[cls] * CHANCE[cls] * avgGci) / (b - a + 1);
     for (let k = a; k <= b; k++) months[k - 1][cls] += each;
+  }
+  // The Hot people by name in months 1-3 (Warm spreads over 4-12, where a name per month would mislead).
+  for (const p of people ?? []) {
+    if (p.cls !== "hot") continue;
+    for (let k = SPAN.hot[0]; k <= SPAN.hot[1]; k++) months[k - 1].who.push({ name: p.name.split(/\s+/)[0] || p.name, contactId: p.contactId, why: "hot" });
   }
   // A forecast, so to the nearest $100; the year's total from the exact numbers so it does not add up rounding.
   const exact = months.reduce((s, m) => s + m.contract + m.hot + m.warm, 0);
@@ -97,27 +117,6 @@ export const monthWords = (month: string) =>
 export function forecastLine(f: Forecast): string {
   const next3 = f.months.slice(0, 3).reduce((s, m) => s + m.total, 0);
   return `About ${money(next3)} in the next 3 months`;
-}
-
-/** The forecast orb under ONE YOU, beside the Income Map. Quiet: a forecast never nags. */
-export function withForecastNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, f: Forecast | null): G {
-  const go = g.nodes.find((n) => n.id === "go");
-  const nodes = g.nodes.filter((n) => n.id !== FORECAST_NODE);
-  const edges = g.edges.filter((e) => e.target !== FORECAST_NODE);
-  if (!go || go.locked || !f) return { ...g, nodes, edges };
-  nodes.push({
-    id: FORECAST_NODE,
-    type: "feature",
-    label: "Income forecast",
-    secondaryLabel: forecastLine(f),
-    parentId: "go",
-    product: "go",
-    importance: 0.86,
-    status: "healthy",
-    summary: "Your deals under contract and your Hot, Warm and Cold people as expected GCI by month. A forecast, not a promise.",
-  });
-  edges.push({ id: `go>${FORECAST_NODE}`, source: "go", target: FORECAST_NODE, relationshipType: "belongs_to", strength: 1 });
-  return { ...g, nodes, edges };
 }
 
 /** The example agent's classes for the demo: 3 Hot, 6 Warm, 9 Cold. */

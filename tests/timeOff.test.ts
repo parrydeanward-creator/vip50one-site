@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
 import {
-  TIME_OFF_NODE, addDays, backOn, coverNeeded, demoTimeOff, dueIn, firstDayBack, focusOff, planProblem, readTimeOff, saveBody, timeOffLine, timeOffUrl, withTimeOffNode,
+  TIME_OFF_NODE, addDays, backOn, coverNeeded, demoTimeOff, dueIn, firstDayBack, focusOff, planProblem, readTimeOff, saveBody, timeOffLine, timeOffUrl, withAwayLabel, awayLine,
 } from "../lib/timeOff.ts";
 
 const today = "2026-10-09";
@@ -61,29 +61,26 @@ test("demo: closings and appointments need cover; the rest wait for the first da
   assert.match(back[1], /2 tasks/);
 });
 
-test("timeOffLine and the orb: quiet, gold only when something needs cover before going; gone when locked", () => {
-  const base = { nodes: [{ id: "go", type: "product", label: "ONE YOU", importance: 1 } as GraphNode], edges: [] as GraphEdge[] };
+test("Time off has no ONE YOU orb (Parry, 16 Oct: it is a My Profile card); the line still reads right", () => {
+  // Rewritten: this asserted the Time off orb under ONE YOU, which Parry removed on 16 Oct.
+  const base = { nodes: [{ id: "go", type: "product", label: "ONE YOU", importance: 1 } as GraphNode, { id: TIME_OFF_NODE, type: "feature", label: "Time off", parentId: "go", importance: 1 } as GraphNode], edges: [{ id: `go>${TIME_OFF_NODE}`, source: "go", target: TIME_OFF_NODE, relationshipType: "belongs_to", strength: 1 }] as GraphEdge[] };
   const s = demoTimeOff(today);
-  const n = withTimeOffNode(base, s).nodes.find((x) => x.id === TIME_OFF_NODE)!;
-  assert.equal(n.status, "attention");
-  assert.match(n.secondaryLabel!, /2 to cover$/);
+  const g = withAwayLabel(base, s);
+  assert.equal(g.nodes.some((x) => x.id === TIME_OFF_NODE), false, "an old graph's orb is dropped");
+  assert.equal(g.edges.length, 0);
+  assert.equal(awayLine(s), null, "not away: no line in ONE YOU");
   const none = readTimeOff({ today, current: null, upcoming: [], due: [] }, today)!;
-  const q = withTimeOffNode(base, none).nodes.find((x) => x.id === TIME_OFF_NODE)!;
-  assert.equal(q.status, "healthy");
-  assert.equal(q.secondaryLabel, "Plan time off");
+  assert.equal(timeOffLine(none), "Plan time off");
   const awayNow = readTimeOff({ today, current: { id: "c", starts: "2026-10-08", ends: "2026-10-12" }, upcoming: [], due: [{ kind: "closing", title: "X", date: "2026-10-10" }] }, today)!;
   assert.equal(timeOffLine(awayNow), "Away until Mon, Oct 12");
-  assert.equal(withTimeOffNode(base, awayNow).nodes.find((x) => x.id === TIME_OFF_NODE)!.status, "healthy", "never nags while away");
-  const locked = { ...base, nodes: [{ ...base.nodes[0], locked: true }] };
-  assert.equal(withTimeOffNode(locked, s).nodes.length, 1);
-  assert.equal(withTimeOffNode(withTimeOffNode(base, s), s).nodes.filter((x) => x.id === TIME_OFF_NODE).length, 1);
+  assert.equal(awayLine(awayNow), "Away until Mon, Oct 12");
 });
 
 test("while away, the centre ONE orb says when the agent is back", async () => {
-  const { readTimeOff, withTimeOffNode } = await import("../lib/timeOff.ts");
+  const { readTimeOff, withAwayLabel } = await import("../lib/timeOff.ts");
   const base = { nodes: [{ id: "one", type: "core", label: "ONE", importance: 1 } as GraphNode, { id: "go", type: "product", label: "ONE YOU", importance: 1 } as GraphNode], edges: [] as GraphEdge[] };
   const away = readTimeOff({ today: "2026-10-09", current: { id: "c", starts: "2026-10-08", ends: "2026-10-12" }, upcoming: [], due: [] }, "2026-10-09")!;
-  assert.equal(withTimeOffNode(base, away).nodes.find((n) => n.id === "one")!.secondaryLabel, "Away until Mon, Oct 12");
+  assert.equal(withAwayLabel(base, away).nodes.find((n) => n.id === "one")!.secondaryLabel, "Away until Mon, Oct 12");
   const home = readTimeOff({ today: "2026-10-09", current: null, upcoming: [], due: [] }, "2026-10-09")!;
-  assert.equal(withTimeOffNode(base, home).nodes.find((n) => n.id === "one")!.secondaryLabel, undefined);
+  assert.equal(withAwayLabel(base, home).nodes.find((n) => n.id === "one")!.secondaryLabel, undefined);
 });

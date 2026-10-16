@@ -23,6 +23,7 @@ import {
   progressWords,
   reached,
   readCommitments,
+  readQueued,
   resultWord,
   setBody,
   starters,
@@ -102,14 +103,14 @@ export default function CommitmentsView({
   useEffect(() => {
     if (mode.kind === "set") {
       const cur = (mode.period === "week" ? c.week : c.weekend)?.items ?? [];
-      // Pulse Coach's focus, when the agent chose it (§3q.3), goes first in the week's starters
-      let chosen: Draft | null = null;
+      // What the agent chose in the Weekly Review's three things (Pulse's focus first; §3q.3, Parry 16 Oct) goes first
+      // in the week's starters
+      let chosen: Draft[] = [];
       try {
-        const j = JSON.parse(localStorage.getItem(nextCommitKey) ?? "null");
-        if (j && typeof j.text === "string" && typeof j.kind === "string") chosen = { text: j.text.slice(0, 140), kind: j.kind, target: typeof j.target === "number" ? j.target : null };
+        chosen = readQueued(localStorage.getItem(nextCommitKey));
       } catch {}
       const weekStart = starters({ vipsUntouched: 12, faceToFaceLastWeek: 0, overdueFollowUps: 1 });
-      setDrafts(cur.length ? cur.map((i) => ({ text: i.text, kind: i.kind, target: i.target })) : mode.period === "week" ? (chosen ? [chosen, ...weekStart.filter((d) => d.kind !== chosen!.kind)].slice(0, 3) : weekStart) : [{ text: "", kind: "yes_no", target: null }]);
+      setDrafts(cur.length ? cur.map((i) => ({ text: i.text, kind: i.kind, target: i.target })) : mode.period === "week" ? (chosen.length ? [...chosen, ...weekStart.filter((d) => !chosen.some((x) => x.kind !== "yes_no" && x.kind === d.kind))].slice(0, Math.max(3, chosen.length)) : weekStart) : [{ text: "", kind: "yes_no", target: null }]);
     }
     if (mode.kind === "daily") {
       const cur = c.daily?.items ?? [];

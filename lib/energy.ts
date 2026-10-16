@@ -1,11 +1,11 @@
-import type { GraphEdge, GraphNode } from "./graph/types.ts";
 import { mondayOf } from "./habits.ts";
 
-// Energy check in ONE YOU (VIP-SUMMARY §3w; PULSE-ROADMAP: "one tap a morning; how energy lines up with best weeks;
-// rest before burnout"). Private to the agent: no coach reads it, nothing is sent, no points. The reading (best weeks,
-// rest) is all here so ONE GO can copy it word for word.
+// Energy check (VIP-SUMMARY §3w). Retired from ONE YOU (Parry, 16 Oct: "lets drop the energy orb in ONE You.. I just
+// dont think it is neccesary and will not be used"): no orb, no morning ask, and nothing (Plan my day included) waits on
+// it. Stored answers are kept, never deleted; these readers stay so the data can still be read.
 
 const MOVE_URL = "https://move.vip50one.com";
+/** The retired orb's id, so a graph that still carries it can drop it (lib/oneYou.ts). */
 export const ENERGY_NODE = "go-energy";
 export const energyUrl = (days = 84) => `${MOVE_URL}/api/brain/energy?days=${days}`;
 export const saveEnergyUrl = `${MOVE_URL}/api/brain/energy`;
@@ -114,28 +114,6 @@ export function energyLine(e: Energy, hour: number): string {
   const t = todayCheck(e);
   if (t) return needsRest(e) ? `${LEVEL_NAME[t.level]} today · Pulse suggests a lighter day` : `${LEVEL_NAME[t.level]} today`;
   return hour >= 5 && hour < 12 ? "How's your energy?" : "No check today";
-}
-
-/** The Energy orb under ONE YOU: a yellow pulse from 5 am to noon until today is checked; never red, never after noon. */
-export function withEnergyNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, e: Energy | null, hour: number): G {
-  const go = g.nodes.find((n) => n.id === "go");
-  const nodes = g.nodes.filter((n) => n.id !== ENERGY_NODE);
-  const edges = g.edges.filter((x) => x.target !== ENERGY_NODE);
-  if (!go || go.locked || !e) return { ...g, nodes, edges };
-  const ask = !todayCheck(e) && hour >= 5 && hour < 12;
-  nodes.push({
-    id: ENERGY_NODE,
-    type: "feature",
-    label: "Energy",
-    secondaryLabel: energyLine(e, hour),
-    parentId: "go",
-    product: "go",
-    importance: ask ? 0.995 : 0.9,
-    status: ask ? "attention" : "healthy",
-    summary: "One tap a morning. How your energy lines up with your best weeks, and a nudge to rest before you burn out. Yours only.",
-  });
-  edges.push({ id: `go>${ENERGY_NODE}`, source: "go", target: ENERGY_NODE, relationshipType: "belongs_to", strength: 1 });
-  return { ...g, nodes, edges };
 }
 
 const addDays = (d: string, k: number) => new Date(Date.parse(`${d}T12:00:00Z`) + k * 86_400_000).toISOString().slice(0, 10);

@@ -1,4 +1,4 @@
-import type { GraphEdge, GraphNode } from "./graph/types.ts";
+import type { GraphNode } from "./graph/types.ts";
 
 // Goals with pace and the Income Map (PULSE-ROADMAP "ONE YOU"; Parry approved, 6 Oct). Each agent's goal year
 // runs from their own start date (Parry, 30 Sep), and MASTER keeps the goals and where the agent should be by
@@ -167,6 +167,7 @@ export function missingColumn(e: { code?: string | null; message?: string | null
 
 // ---- the Income Map --------------------------------------------------------------------------------
 
+/** The retired ONE YOU orb (Parry, 16 Oct: the Income Map is part 3 of the Goals orb, "What to do each week"). */
 export const INCOME_NODE = "go-income";
 export const incomeKey = "one.income";
 
@@ -345,29 +346,6 @@ export function incomeMap(goals: GoalFacts[], a: Assume, today: string): IncomeM
     },
   ];
   return { goal, basis, weeksLeft, avgGci: avg, referralShare: share, closingsLeft, referralsFromGoal, perWeek: { conversations, touches }, parts };
-}
-
-/** The Income Map orb under ONE YOU: "9 conversations this week". */
-export function withIncomeNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, m: IncomeMap | null): G {
-  const go = g.nodes.find((n) => n.id === "go");
-  const nodes = g.nodes.filter((n) => n.id !== INCOME_NODE);
-  const edges = g.edges.filter((e) => e.target !== INCOME_NODE);
-  if (!go || go.locked || !m) return { ...g, nodes, edges };
-  const behind = m.parts.some((p) => p.level);
-  nodes.push({
-    id: INCOME_NODE,
-    type: "feature",
-    label: "Income Map",
-    secondaryLabel: m.closingsLeft ? `${m.perWeek.conversations} conversations a week` : "Income goal reached",
-    parentId: "go",
-    product: "go",
-    importance: 1.01,
-    status: behind ? "attention" : "healthy",
-    summary: `${money(m.goal)} worked back to the week: ${m.closingsLeft} closings to go, ${m.perWeek.conversations} conversations and ${m.perWeek.touches} VIP touches a week.`,
-    pace: m.closingsLeft ? { headline: `${m.perWeek.conversations} conversations this week keep you on pace for ${money(m.goal)}` } : undefined,
-  });
-  edges.push({ id: `go>${INCOME_NODE}`, source: "go", target: INCOME_NODE, relationshipType: "belongs_to", strength: 1 });
-  return { ...g, nodes, edges };
 }
 
 /** The goals as the graph carries them (live.ts puts the facts on each goal orb). */

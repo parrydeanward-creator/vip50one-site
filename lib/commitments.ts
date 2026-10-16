@@ -447,3 +447,40 @@ export function demoDaily(today: string): Daily {
   ];
   return retally({ items, today: { due: 0, done: 0 }, week: { due: 0, done: 0 }, lastWeek: { due: 17, done: 13 } }, today);
 }
+
+// ---- "Make it a commitment" from the Weekly Review (Parry, 16 Oct: "each of the three has 'Make it a commitment'
+// (writes to next week's commitments, agent's tap only)") ---------------------------------------------------------------
+// MASTER's set route (§3n.3) writes only the period that is open now, so a commitment for a week not started yet waits
+// first in that Monday's set form (the same place Pulse Coach's focus has gone since 7 Oct), and the agent sets it.
+
+/** The drafts waiting for Monday's set form, read from storage: one object (Pulse Coach's focus) or a list. At most 3. */
+export function readQueued(raw: string | null): Draft[] {
+  let j: unknown = null;
+  try {
+    j = JSON.parse(raw ?? "null");
+  } catch {
+    return [];
+  }
+  const list = Array.isArray(j) ? j : j ? [j] : [];
+  const out: Draft[] = [];
+  for (const x of list as Record<string, unknown>[]) {
+    if (!x || typeof x.text !== "string" || !x.text.trim() || typeof x.kind !== "string") continue;
+    const kind = KINDS.includes(x.kind as Kind) ? (x.kind as Kind) : "yes_no";
+    out.push({ text: x.text.trim().slice(0, TEXT_MAX), kind, target: kind === "yes_no" ? null : typeof x.target === "number" ? x.target : null });
+  }
+  return out.slice(0, 3);
+}
+
+/** Add one draft to the queue (same words are not added twice); at most 3. */
+export const queueDraft = (q: Draft[], d: Draft): Draft[] => (q.some((x) => x.text === d.text) ? q : [...q, d]).slice(-3);
+
+/** How a tap on "Make it a commitment" is kept: set now when this week's commitments are not set yet (Monday to
+ * Thursday, nothing set, not checked in), else queued first for next Monday's set form. Never sent without the tap. */
+export function commitWay(c: Commitments | null, d: Draft, lateInWeek: boolean): { way: "set_now"; body: { period: Period; items: Draft[] } } | { way: "queue" } {
+  const open = !!c && !lateInWeek && !c.week?.checkedAt && !(c.week?.items.length);
+  if (open) {
+    const b = setBody("week", [d]);
+    if (!("error" in b)) return { way: "set_now", body: b };
+  }
+  return { way: "queue" };
+}

@@ -1,10 +1,9 @@
-import type { GraphEdge, GraphNode } from "./graph/types.ts";
-
 // Accountability partners (VIP-SUMMARY §3s; Parry, 7 Oct: "accountability partner..yes"). Two agents who agreed see
 // each other's weekly score against the 100, the last 4 weeks, the streak and whether today was ticked, and send
 // one preset nudge a day. Commitments, contacts and clients are never shared. Opt-in on both sides; either ends it.
 
 const MOVE_URL = "https://move.vip50one.com";
+/** The retired ONE YOU orb (Parry, 16 Oct: partners moved into the Scoreboard, under the Leaderboard). */
 export const PARTNERS_NODE = "go-partners";
 export const partnersUrl = `${MOVE_URL}/api/brain/partners`;
 export const partnersActionUrl = (a: "invite" | "respond" | "end" | "nudge" | "seen") => `${MOVE_URL}/api/brain/partners/${a}`;
@@ -91,29 +90,6 @@ export const withAllSeen = (s: PartnersState): PartnersState => ({ ...s, nudges:
 export function partnerLine(p: Partner): string {
   if (p.score == null) return "No score yet this week";
   return p.score >= p.minimum ? `${p.score} this week: at ${p.minimum}` : `${p.score} this week: ${p.minimum - p.score} to ${p.minimum}`;
-}
-
-/** The Partners orb under ONE YOU: yellow when an invite or today's nudge waits. Shown once anyone is invited. */
-export function withPartnersNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, s: PartnersState | null, today: string): G {
-  const go = g.nodes.find((n) => n.id === "go");
-  const nodes = g.nodes.filter((n) => n.id !== PARTNERS_NODE);
-  const edges = g.edges.filter((e) => e.target !== PARTNERS_NODE);
-  if (!go || go.locked || !s) return { ...g, nodes, edges };
-  const w = waiting(s, today);
-  const n = s.partners.length;
-  nodes.push({
-    id: PARTNERS_NODE,
-    type: "feature",
-    label: "Partners",
-    secondaryLabel: w ? `${w} waiting for you` : n ? `${n} accountability ${n === 1 ? "partner" : "partners"}` : "Pick an accountability partner",
-    parentId: "go",
-    product: "go",
-    importance: 0.99,
-    status: w ? "attention" : "healthy",
-    summary: "Agents you chose to keep each other honest: their weekly score, and a one-tap nudge. Nothing else is shared.",
-  });
-  edges.push({ id: `go>${PARTNERS_NODE}`, source: "go", target: PARTNERS_NODE, relationshipType: "belongs_to", strength: 1 });
-  return { ...g, nodes, edges };
 }
 
 /** Example partners for the demo dashboard. */

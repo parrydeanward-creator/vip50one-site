@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
-import { ASSUME_DEFAULT, INCOME_NODE, demoGoals, goalPace, incomeMap, perWeekWords, readAssume, withIncomeNode, yearShare, type GoalFacts } from "../lib/goals.ts";
+import { ASSUME_DEFAULT, INCOME_NODE, demoGoals, goalPace, incomeMap, perWeekWords, readAssume, yearShare, type GoalFacts } from "../lib/goals.ts";
 
 const year = { from: "2026-01-01", to: "2027-01-01" };
 const g = (key: GoalFacts["key"], value: number | null, max: number | null, pace: number | null = null): GoalFacts => ({ key, label: key, value, max, pace, ...year });
@@ -79,15 +79,17 @@ test("readAssume: anything out of range takes the starting number", () => {
   assert.equal(a.touchesPerConvo, 4);
 });
 
-test("withIncomeNode: one orb under ONE YOU, gone when locked or no goal", () => {
-  const base: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "go", type: "product", label: "ONE YOU", parentId: "one", product: "go", importance: 1 }], edges: [] };
-  const m = incomeMap(demoGoals("2026-10-06"), ASSUME_DEFAULT, "2026-10-06");
-  const g1 = withIncomeNode(base, m);
-  const n = g1.nodes.find((x) => x.id === INCOME_NODE)!;
-  assert.match(n.secondaryLabel!, /^\d+ conversations a week$/);
-  assert.equal(withIncomeNode(withIncomeNode(base, m), m).nodes.filter((x) => x.id === INCOME_NODE).length, 1);
-  assert.equal(withIncomeNode(base, null).nodes.length, 1);
-  assert.equal(withIncomeNode({ ...base, nodes: [{ ...base.nodes[0], locked: true }] }, m).nodes.length, 1);
+test("the Income Map has no ONE YOU orb (Parry, 16 Oct): it is part 3 of Goals, from the same numbers", async () => {
+  // Rewritten: this asserted the Income Map orb under ONE YOU, which Parry folded into the Goals orb on 16 Oct.
+  const m = (await import("../lib/goals.ts")) as Record<string, unknown>;
+  assert.equal(m.withIncomeNode, undefined);
+  const { goalsThree, withoutRetired } = await import("../lib/oneYou.ts");
+  const base: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "go", type: "product", label: "ONE YOU", parentId: "one", product: "go", importance: 1 }, { id: INCOME_NODE, type: "feature", label: "Income Map", parentId: "go", product: "go", importance: 1 }], edges: [] };
+  assert.equal(withoutRetired(base).nodes.some((x) => x.id === INCOME_NODE), false);
+  const map = incomeMap(demoGoals("2026-10-06"), ASSUME_DEFAULT, "2026-10-06")!;
+  const three = goalsThree(demoGoals("2026-10-06"), map, null, "2026-10-06");
+  assert.equal(three.weekly!.conversations, map.perWeek.conversations);
+  assert.match(three.weekly!.line, /^\d+ conversations and \d+ VIP touches a week$/);
 });
 
 import { goalPace as paceWithReferrals, referralNote } from "../lib/goals.ts";

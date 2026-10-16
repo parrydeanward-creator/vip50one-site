@@ -1,4 +1,3 @@
-import type { GraphEdge, GraphNode } from "./graph/types.ts";
 import { mondayOf } from "./habits.ts";
 
 // Wins (VIP-SUMMARY §3t; Parry approved ONE YOU's tools, 6 Oct: "every closing, referral, thank-you and five-star
@@ -6,6 +5,7 @@ import { mondayOf } from "./habits.ts";
 // (the special-day glow), never red: good news never nags.
 
 const MOVE_URL = "https://move.vip50one.com";
+/** The retired ONE YOU orb (Parry, 16 Oct: Wins moved into the Scoreboard as "This week's wins"). */
 export const WINS_NODE = "go-wins";
 export const winsUrl = (days = 365, agent?: string) => `${MOVE_URL}/api/brain/wins?days=${days}${agent ? `&agent=${encodeURIComponent(agent)}` : ""}`;
 export const MAX_WINS = 200;
@@ -103,27 +103,20 @@ export function winsLine(w: Wins): string {
   return `${n} ${n === 1 ? "win" : "wins"} this year`;
 }
 
-/** The Wins orb under ONE YOU: a gold glow when something new came in since the last look, never a red pulse. */
-export function withWinsNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, w: Wins | null, fresh: number): G {
-  const go = g.nodes.find((n) => n.id === "go");
-  const nodes = g.nodes.filter((n) => n.id !== WINS_NODE);
-  const edges = g.edges.filter((e) => e.target !== WINS_NODE);
-  if (!go || go.locked || !w) return { ...g, nodes, edges };
-  nodes.push({
-    id: WINS_NODE,
-    type: "feature",
-    label: "Wins",
-    secondaryLabel: fresh ? `${fresh} new since you last looked` : winsLine(w),
-    parentId: "go",
-    product: "go",
-    importance: 0.99,
-    status: "healthy",
-    celebrate: fresh > 0,
-    summary: "Every closing, referral, five-star review, week at 100, badge and goal reached, in one place.",
-  });
-  edges.push({ id: `go>${WINS_NODE}`, source: "go", target: WINS_NODE, relationshipType: "belongs_to", strength: 1 });
-  return { ...g, nodes, edges };
+/** What the Scoreboard's "This week's wins" counts (Parry, 16 Oct: "badges earned this week, new five-star reviews this
+ * week, new referrals and closings this week"). Weeks at 100 and goals reached stay in the year's list. */
+export const WEEK_WIN_KINDS: WinKind[] = ["badge", "five_star", "referral", "referral_closed", "closing"];
+
+/** This week's wins, the one list the Scoreboard and the Weekly Review both read (Parry, 16 Oct: "Weekly Review's Wins
+ * number reads from that same source, so the two can never disagree"). Reviews count in the week they were written. */
+export function weekWins(list: Win[], today: string): { mine: Win[]; imported: Win[] } {
+  const { mine, imported } = thisWeek(list, today);
+  return { mine: mine.filter((w) => WEEK_WIN_KINDS.includes(w.kind)), imported };
 }
+
+/** Where a win lives, for its row's link on the Scoreboard. */
+export type WinHome = "badges" | "review" | "referrals" | "goals";
+export const winHome = (k: WinKind): WinHome => (k === "badge" ? "badges" : k === "five_star" ? "review" : k === "referral" || k === "referral_closed" ? "referrals" : "goals");
 
 const addDays = (d: string, k: number) => new Date(Date.parse(`${d}T12:00:00Z`) + k * 86_400_000).toISOString().slice(0, 10);
 const short = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
