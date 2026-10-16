@@ -22,6 +22,7 @@ import SendsSection from "./SendsSection.tsx";
 import DraftsSection, { type DraftPreset } from "./DraftsSection.tsx";
 import LifeEventsSection from "./LifeEventsSection.tsx";
 import PermissionsSection from "./PermissionsSection.tsx";
+import HomeReportSection from "./HomeReportSection.tsx";
 import TalkSection from "./TalkSection.tsx";
 
 // A box the agent ticks by hand asks first, like Call and Text (Parry, 5 Oct:
@@ -219,6 +220,7 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
       <TalkSection contactId={contactId} first={first} onSaved={onLogged} />
       <DraftsSection contactId={contactId} phone={tel} email={mail} onSent={(k) => setAsk(askFor(k))} preset={preset} />
       <PermissionsSection contactId={contactId} />
+      <HomeReportSection contactId={contactId} first={first} />
       <SendsSection contactId={contactId} />
       {card.source_label && <p className="cc-source">{card.source_label}</p>}
     </div>

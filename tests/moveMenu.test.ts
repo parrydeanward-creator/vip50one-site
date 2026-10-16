@@ -9,12 +9,15 @@ import { liveGraph, type SummaryEnvelope, type SummaryItem } from "../lib/live.t
 // Rewritten 13 Oct: 25 pages. Referral Network and Buyer Needs join People (Parry: "you keep adding shit to the classic
 // or old version and not the new one brain..you need to add to both. make that a hard rule.").
 // Rewritten 14 Oct: 26 pages. Your listings joins People (LAUNCH.md, vip50-web-crm#228), under the same hard rule.
-test("ONE MOVE menu: all 26 Classic pages, in Parry's groups, no admin items", () => {
-  assert.equal(MOVE_MENU.length, 26);
+// Rewritten 16 Oct: 27 pages. Home Reports joins Outreach (HOME-REPORT.md §5.4; ONE MOVE's /home-reports), under the
+// same hard rule.
+test("ONE MOVE menu: all 27 Classic pages, in Parry's groups, no admin items", () => {
+  assert.equal(MOVE_MENU.length, 27);
   assert.deepEqual(MOVE_TOP.map((m) => m.label), ["Dashboard"]);
   assert.deepEqual(MOVE_GROUPS.map((g) => g.label), ["People", "Trackers", "Events", "Outreach", "Learn"]);
   assert.deepEqual(MOVE_BOTTOM.map((m) => m.label), ["The Lounge", "My Profile"]);
   assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "New to Sort", "Hot/Warm/Cold", "Business Rolodex", "Referral Network", "Buyer Needs", "Your listings"]);
+  assert.deepEqual(MOVE_GROUPS[3].pages.map((m) => m.label), ["Newsletter", "Landing Pages", "Action Plans", "Home Reports"]);
   assert.ok(MOVE_MENU.every((m) => m.path.startsWith("/") && !m.path.startsWith("/admin") && m.path !== "/users"));
   assert.equal(new Set(MOVE_MENU.map((m) => m.path)).size, MOVE_MENU.length);
 });
@@ -61,8 +64,10 @@ test("no ONE MOVE account: the pages still show, nothing lit", () => {
 test("every ONE MOVE menu page opens inside the Brain; other orbs do not", async () => {
   const { inBrainPage, movePageId, IN_BRAIN } = await import("../lib/moveMenu.ts");
   // 24 agent pages (Referral Network and Buyer Needs added 13 Oct), plus the 7 Coach pages for admins (Parry, 8 Oct:
-  // the admin pages belong in the Brain too), plus Team Leads for team members (13 Oct); Your listings 14 Oct
-  assert.equal(IN_BRAIN.size, 33);
+  // the admin pages belong in the Brain too), plus Team Leads for team members (13 Oct); Your listings 14 Oct; Home
+  // Reports 16 Oct (HOME-REPORT §5.4)
+  assert.equal(IN_BRAIN.size, 34);
+  assert.equal(inBrainPage(movePageId("/home-reports"))?.label, "Home Reports");
   assert.equal(inBrainPage(movePageId("/listings"))?.label, "Your listings");
   assert.equal(inBrainPage(movePageId("/referral-network"))?.label, "Referral Network");
   assert.equal(inBrainPage(movePageId("/buyer-needs"))?.label, "Buyer Needs");

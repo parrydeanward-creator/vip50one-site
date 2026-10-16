@@ -21,7 +21,7 @@ export async function GET() {
   const to = addDays(today, FEED_DAYS);
   const [touches, closings, referrals, leads, tasks, vips] = await Promise.all([
     sb.from("contact_touches").select("contact_id, touch_type, touched_at").eq("user_id", id).gte("touched_at", `${from}T00:00:00Z`).order("touched_at").limit(3000),
-    sb.from("agent_closings").select("closed_on, contact_id, side, price").eq("user_id", id).gte("closed_on", from).lte("closed_on", to),
+    sb.from("agent_closings").select("closed_on, contact_id, side, price, record_source").eq("user_id", id).gte("closed_on", from).lte("closed_on", to),
     sb.from("referrals").select("created_at, referred_name, referrer_contact_id").eq("user_id", id).gte("created_at", `${from}T00:00:00Z`),
     sb.from("contacts").select("id, first_name, last_name, created_at, source_label").eq("user_id", id).is("archived_at", null).gte("created_at", `${from}T00:00:00Z`).order("created_at").limit(2000),
     sb.from("tasks").select("title, due_date, contact_id").eq("user_id", id).or("completed.is.null,completed.eq.false").gt("due_date", today).lte("due_date", to).limit(500),

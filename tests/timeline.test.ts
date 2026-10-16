@@ -163,3 +163,27 @@ test("Marquee posts and ONE Open's held open houses reach the timeline (marquee-
   assert.equal(inWindow(lg.dated, -10, now, lix).length, 2);
   assert.equal(inWindow(lg.dated, 10, now, lix).length, 1);
 });
+
+// MASTER agent_closings.record_source (16 Oct): each closing says where it came from; none when the field is absent.
+test("feed: a closing says where it came from (reZEN, the MLS, typed), never the lead source", async () => {
+  const { closingFrom } = await import("../lib/timelineFeed.ts");
+  assert.equal(closingFrom("rezen"), "From reZEN");
+  assert.equal(closingFrom("mls"), "From the MLS");
+  assert.equal(closingFrom("manual"), "Typed by you");
+  assert.equal(closingFrom(null), null);
+  assert.equal(closingFrom("referral"), null);
+  const f = buildFeed(base({
+    names: new Map([["a", "Amy Chen"]]),
+    closings: [
+      { closed_on: "2026-10-01", contact_id: "a", side: "buy", price: 450000, record_source: "rezen" },
+      { closed_on: "2026-10-02", contact_id: null, side: "sell", price: null, record_source: "mls" },
+      { closed_on: "2026-10-03", contact_id: null, side: null, price: null, record_source: "manual" },
+      { closed_on: "2026-10-04", contact_id: null, side: null, price: 300000 },
+    ],
+  }));
+  const whats = f.map((d) => d.what);
+  assert.ok(whats.includes("Closed: Amy Chen, buyer side, $450,000. From reZEN."));
+  assert.ok(whats.includes("Closed: listing side. From the MLS."));
+  assert.ok(whats.includes("Closed. Typed by you."));
+  assert.ok(whats.includes("Closed: $300,000."));
+});

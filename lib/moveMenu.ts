@@ -64,11 +64,13 @@ export const MOVE_GROUPS: MoveGroup[] = [
   {
     key: "outreach",
     label: "Outreach",
-    blurb: "Newsletter, pages and plans",
+    blurb: "Newsletter, pages, plans and reports",
     pages: [
       { label: "Newsletter", path: "/newsletter" },
       { label: "Landing Pages", path: "/landing-pages" },
       { label: "Action Plans", path: "/action-plans" },
+      // HOME-REPORT.md §5.4 (16 Oct): every running Home Report this month, and the bulk start for past clients
+      { label: "Home Reports", path: "/home-reports" },
     ],
   },
   {

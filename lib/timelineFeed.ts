@@ -12,12 +12,20 @@ export const FEED_DAYS = 30;
 export interface FeedRows {
   today: string; // YYYY-MM-DD, Mountain
   touches: { contact_id: string | null; touch_type: string | null; touched_at: string }[];
-  closings: { closed_on: string; contact_id: string | null; side: string | null; price: number | null }[];
+  closings: { closed_on: string; contact_id: string | null; side: string | null; price: number | null; record_source?: string | null }[];
   referrals: { created_at: string; referred_name: string | null; referrer_contact_id: string | null }[];
   leads: { id: string; first_name?: string | null; last_name?: string | null; created_at: string; source_label?: string | null }[];
   tasks: { title: string | null; due_date: string; contact_id: string | null }[];
   vips: Record<string, unknown>[]; // VIP-50 / VIP-100 rows with the yearly dates and the quarterly *_at stamps
   names: Map<string, string>; // contact id -> name, for the rows above that carry only an id
+}
+
+/**
+ * MASTER agent_closings.record_source (16 Oct): how a closing came into ONE, shown on each one. Not the old `source`
+ * column, which is the lead source. No label when it is absent or unknown.
+ */
+export function closingFrom(recordSource: unknown): string | null {
+  return recordSource === "rezen" ? "From reZEN" : recordSource === "mls" ? "From the MLS" : recordSource === "manual" ? "Typed by you" : null;
 }
 
 const at = (day: string) => `${day}T18:00:00.000Z`; // about midday Mountain on that Mountain day
@@ -81,7 +89,8 @@ export function buildFeed(r: FeedRows, days = FEED_DAYS): DatedNote[] {
     const side = /^buy/.test(c.side ?? "") ? "buyer side" : /^(sell|list)/.test(c.side ?? "") ? "listing side" : null;
     const bits = [name, side, c.price ? money(c.price) : null].filter(Boolean).join(", ");
     const past = c.closed_on <= r.today;
-    out.push({ id: "go", product: "go", at: at(c.closed_on), what: `${past ? "Closed" : "Closing set"}${bits ? `: ${bits}` : ""}.`, contactId: c.contact_id ?? undefined });
+    const came = closingFrom(c.record_source);
+    out.push({ id: "go", product: "go", at: at(c.closed_on), what: `${past ? "Closed" : "Closing set"}${bits ? `: ${bits}` : ""}.${came ? ` ${came}.` : ""}`, contactId: c.contact_id ?? undefined });
   }
 
   for (const f of r.referrals) {
