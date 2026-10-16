@@ -5,10 +5,23 @@
 const BASE = process.env.BASE || "http://localhost:3102";
 const TOUR = `${BASE}/dashboard?demo=1&walk=1&slow=${process.env.SLOW || 3}`;
 
-// Open a tool inside an orb: centre on ONE, open the orb from the rail, then the tool from its panel.
-const openTool = async (T, orb, tool) => {
+// One step back (Parry, 16 Oct, on Film A: "it should jsut back up on step instead of going all the way to dashboard";
+// "one step"): inside a product, its name in the path line at the top goes back one level to that product's orbs. Only
+// when the chapter moves to another product does the film go back to the main map first.
+const toProduct = async (T, orb) => {
+  const path = (await T.p.locator("nav.crumbs").first().innerText().catch(() => "")).toUpperCase();
+  if (path.includes(orb.toUpperCase())) {
+    const up = T.p.locator("nav.crumbs button").filter({ hasText: new RegExp(`^${orb}$`, "i") });
+    if (await up.count()) await T.click(up); // in a tool: one step up; already on the product: stay
+    return;
+  }
+  if (process.env.TRACE) console.log(`MAINMAP for ${orb} (path was "${path.replace(/\s+/g, " ").trim()}")`);
   await T.home();
   await T.click(T.rail(orb));
+};
+// Open a tool inside an orb: the product's orbs (one step back if already inside it), then the tool from its panel.
+const openTool = async (T, orb, tool) => {
+  await toProduct(T, orb);
   await T.click(T.inside(tool));
 };
 // The tool's own full screen, from the "Open …" button in its panel.
@@ -18,8 +31,7 @@ const openFull = async (T, label) => {
 };
 // A product's own item: Marquee, Showly and ONE Open list them down the left (the rail).
 const openItem = async (T, orb, item) => {
-  await T.home();
-  await T.click(T.rail(orb));
+  await toProduct(T, orb);
   await T.click(T.rail(item));
   await T.wait(1200);
 };
@@ -27,15 +39,13 @@ const openItem = async (T, orb, item) => {
 // (Looks Hot, New leads today ...) are on the right.
 const MOVE_GROUP = { Contacts: "People", "VIP Management": "People", "Touch Audit": "People", "Hot/Warm/Cold": "People", "Business Rolodex": "People", "Daily Tracker": "Trackers", "Weekly Tracker": "Trackers" };
 const movePage = async (T, page, group = MOVE_GROUP[page]) => {
-  await T.home();
-  await T.click(T.rail("ONE MOVE"));
+  await toProduct(T, "ONE MOVE");
   if (group && !(await T.rail(`${group}▾`).count())) await T.click(T.rail(group));
   await T.click(T.rail(page));
   await T.wait(900);
 };
 const moveLive = async (T, item) => {
-  await T.home();
-  await T.click(T.rail("ONE MOVE"));
+  await toProduct(T, "ONE MOVE");
   await T.click(T.inside(item));
   await T.wait(1200);
 };
@@ -141,9 +151,9 @@ export const CHAPTERS = [
       { say: "The Business Rolodex holds the businesses you recommend. Share one with every VIP-50 agent if you like; your notes always stay yours.", do: async (T) => { await movePage(T, "Business Rolodex"); } },
       { say: "Your Trackers live here too: the Daily Tracker and the Weekly Tracker.", do: async (T) => { await movePage(T, "Daily Tracker"); } },
       { say: "Tick a box and the points add up toward your weekly score.", do: async (T) => { await movePage(T, "Weekly Tracker"); } },
-      { say: "Events holds your calendar, your VIP events and the mixer. Outreach holds your newsletter, landing pages and action plans.", do: async (T) => { await T.home(); await T.click(T.rail("ONE MOVE")); await T.click(T.rail("Events")); await T.wait(1200); await T.click(T.rail("Outreach")); await T.wait(800); } },
+      { say: "Events holds your calendar, your VIP events and the mixer. Outreach holds your newsletter, landing pages and action plans.", do: async (T) => { await toProduct(T, "ONE MOVE"); await T.click(T.rail("Events")); await T.wait(1200); await T.click(T.rail("Outreach")); await T.wait(800); } },
       { say: "An action plan's texts and emails never go out on their own. They wait as ready tasks until you switch them on.", do: async (T) => { await moveLive(T, "Action Plans"); } },
-      { say: "And Learn holds the video library, VIP docs and The Vault.", do: async (T) => { await T.home(); await T.click(T.rail("ONE MOVE")); await T.click(T.rail("Learn")); await T.wait(1200); } },
+      { say: "And Learn holds the video library, VIP docs and The Vault.", do: async (T) => { await toProduct(T, "ONE MOVE"); await T.click(T.rail("Learn")); await T.wait(1200); } },
     ],
   },
   {
