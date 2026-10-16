@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
 import type { Deal } from "../lib/deals.ts";
-import { CHANCE, FORECAST_NODE, forecast, forecastLine, monthWords, settlesOn, withForecastNode } from "../lib/forecast.ts";
+import { CHANCE, FORECAST_NODE, forecast, forecastLine, monthWords, settlesOn } from "../lib/forecast.ts";
 
 const today = "2026-10-13";
 const deal = (id: string, settle: string | null, status: Deal["status"] = "under_contract", moved: string | null = null): Deal => ({
@@ -45,12 +45,18 @@ test("month words", () => {
   assert.equal(monthWords("2026-10-01"), "Oct '26");
 });
 
-test("the orb sits under ONE YOU and stays quiet", () => {
-  const g: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "go", type: "product", label: "ONE YOU", parentId: "one", product: "go", importance: 1 }], edges: [] };
-  const f = forecast([], ["hot"], 10000, today);
-  const n = withForecastNode(g, f).nodes.find((x) => x.id === FORECAST_NODE)!;
-  assert.equal(n.status, "healthy");
-  assert.equal(n.parentId, "go");
-  assert.equal(withForecastNode(g, null).nodes.some((x) => x.id === FORECAST_NODE), false);
-  assert.equal(withForecastNode({ nodes: [{ ...g.nodes[0], locked: true }], edges: [] }, f).nodes.some((x) => x.id === FORECAST_NODE), false);
+test("the forecast has no ONE YOU orb (Parry, 16 Oct): it is Goals part 2, month by month with who and the gap", async () => {
+  // Rewritten: this asserted the Income forecast orb under ONE YOU, which Parry folded into the Goals orb on 16 Oct.
+  const m = (await import("../lib/forecast.ts")) as Record<string, unknown>;
+  assert.equal(m.withForecastNode, undefined);
+  const { goalsThree, monthWho } = await import("../lib/oneYou.ts");
+  const deal = { id: "d", contact: { id: "c9", name: "Jane Smith" }, side: "buy", status: "under_contract", dates: [{ key: "settlement", label: "Settlement", on: "2026-11-20", effectiveOn: null }] } as unknown as Deal;
+  const f = forecast([deal], ["hot"], 10000, today, [{ cls: "hot", name: "Amy Chen", contactId: "c1" }])!;
+  assert.deepEqual(f.months[0].who, [{ name: "Amy", contactId: "c1", why: "hot" }]);
+  assert.ok(f.months[1].who.some((w) => w.why === "contract" && w.name === "Jane" && w.contactId === "c9"));
+  assert.match(monthWho(f.months[1]), /Jane \(under contract\), Amy \(Hot\)$/);
+  const map = { goal: 500_000, closingsLeft: 30, perWeek: { conversations: 9, touches: 27 } } as Parameters<typeof goalsThree>[1];
+  const three = goalsThree([], map, f, today);
+  assert.equal(three.likely!.next3, f.months.slice(0, 3).reduce((s, x) => s + x.total, 0));
+  assert.match(three.likely!.gapLine!, /likely against \$500,000$/);
 });

@@ -5,13 +5,17 @@ import PulseRing, { PULSE_COLOR } from "./PulseRing.tsx";
 import PulseMark from "./PulseMark.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import OrbWords, { orbR, useOrbPhone } from "./OrbWords.tsx";
-import type { Card, Review, ReviewKey } from "@/lib/review.ts";
+import { nextThings, type Card, type Review, type ReviewKey, type Thing } from "@/lib/review.ts";
+import type { Read as PulseRead, ReadKey } from "@/lib/pulseCoach.ts";
 
 // Weekly Review in ONE YOU: the week's score in the middle, its parts round it (VIP touches, who you haven't
 // reached, commitments, goals). Tap one and it comes to the middle with its detail in the side panel; the
 // Week orb brings the score back (Parry, 6 Oct, the rule for every orb). The side panel opens on Pulse's
 // three things for the rest of the week (Mon-Thu) or next week (Fri-Sun). The number and its word sit inside each orb
 // (audit 3.3.4). Facts only: nothing is sent and nothing is marked done from here.
+// Three parts in the side panel (Parry, 16 Oct 13:41 MT, Pulse Coach folds in): 1 Your week, 2 Pulse's read on the last
+// 8 weeks (what was Pulse Coach), 3 Three things for next week, Pulse's one focus first, each with "Make it a
+// commitment": written only when the agent taps it.
 
 const SIZE = 1000;
 const C = SIZE / 2;
@@ -27,7 +31,21 @@ function arc(cx: number, cy: number, r: number, share: number): string {
 }
 const ringColor = (c: { level: Card["level"]; good: boolean }) => (c.level === "now" ? PULSE_COLOR.now : c.level === "today" ? PULSE_COLOR.today : c.good ? GREEN : "rgba(160,175,210,0.45)");
 
-export default function ReviewView({ review, week, demo, onClose }: { review: Review; week: { score: number; minimum: number } | null; demo: boolean; onClose: () => void }) {
+export default function ReviewView({
+  review,
+  read,
+  week,
+  demo,
+  onClose,
+  onCommit,
+}: {
+  review: Review;
+  read?: PulseRead | null;
+  week: { score: number; minimum: number } | null;
+  demo: boolean;
+  onClose: () => void;
+  onCommit?: (t: Thing) => Promise<{ ok: boolean; text: string }>;
+}) {
   const cam = useSvgCamera(SIZE);
   const phone = useOrbPhone();
   const R = orbR(phone);
@@ -35,6 +53,19 @@ export default function ReviewView({ review, week, demo, onClose }: { review: Re
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const [pick, setPick] = useState<ReviewKey | null>(null);
+  const [readPick, setReadPick] = useState<ReadKey | null>(null);
+  const [made, setMade] = useState<Record<number, { ok: boolean; text: string }>>({});
+  const [busy, setBusy] = useState<number | null>(null);
+  const things = nextThings(review, read?.focus ?? null);
+  const readParts = read ? read.parts.filter((p) => p.key !== "focus") : [];
+  const readSel = readParts.find((p) => p.key === readPick) ?? null;
+  const commit = async (k: number) => {
+    if (!onCommit || busy != null) return;
+    setBusy(k);
+    const r = await onCommit(things[k]);
+    setBusy(null);
+    setMade((m) => ({ ...m, [k]: r }));
+  };
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -48,6 +79,7 @@ export default function ReviewView({ review, week, demo, onClose }: { review: Re
 
   const open = (k: ReviewKey | null) => {
     setPick(k);
+    setReadPick(null);
     cam.reset();
   };
   const tap = (go: () => void) => ({
@@ -134,7 +166,24 @@ export default function ReviewView({ review, week, demo, onClose }: { review: Re
           <div className="d-head">
             <span className="chip" style={{ color: GOLD, borderColor: GOLD }}>ONE YOU</span>
           </div>
-          {sel ? (
+          {readSel ? (
+            <>
+              <h1 className="d-title" id="rv-title">{readSel.title}</h1>
+              <p className="d-sub">{readSel.line}</p>
+              <ul className="pm-list pm-compact">
+                {readSel.rows.map((r, k) => (
+                  <li key={k}>
+                    <i className="pm-dot" style={{ background: ringColor(readSel) }} aria-hidden="true" />
+                    <span className="pm-body">
+                      <b>{r.text}</b>
+                      {r.sub ? <small>{r.sub}</small> : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <button className="vr-classic" onClick={() => setReadPick(null)}>Whole review</button>
+            </>
+          ) : sel ? (
             <>
               <h1 className="d-title" id="rv-title">{sel.title}</h1>
               <p className="d-sub">{sel.line}</p>
@@ -159,20 +208,7 @@ export default function ReviewView({ review, week, demo, onClose }: { review: Re
             <>
               <h1 className="d-title" id="rv-title">Weekly Review</h1>
               <p className="d-sub">{week ? `${week.score} of ${week.minimum} this week` : "Your week"}</p>
-              <h2>
-                <PulseMark label={false} /> {review.nextTitle}
-              </h2>
-              <ol className="pm-list pm-compact rv-next">
-                {review.next.map((t, k) => (
-                  <li key={k}>
-                    <span className="pm-time">{k + 1}</span>
-                    <span className="pm-body">
-                      <b>{t}</b>
-                    </span>
-                  </li>
-                ))}
-              </ol>
-              <h2>The week</h2>
+              <h2>1. Your week</h2>
               <ul className="pm-list pm-compact">
                 {review.cards.map((c) => (
                   <li key={c.key}>
@@ -190,9 +226,57 @@ export default function ReviewView({ review, week, demo, onClose }: { review: Re
                   </li>
                 ))}
               </ul>
+              <h2>
+                <PulseMark label={false} /> 2. Pulse&apos;s read on the last 8 weeks
+              </h2>
+              {read ? (
+                <>
+                  <p className="d-sum">{read.headline}</p>
+                  <ul className="pm-list pm-compact">
+                    {readParts.map((p) => (
+                      <li key={p.key}>
+                        <i className="pm-dot" style={{ background: ringColor(p) }} aria-hidden="true" />
+                        <span className="pm-body">
+                          <b>
+                            {p.title}: {p.big}
+                          </b>
+                          <small>{p.line}</small>
+                        </span>
+                        <span className="pm-acts">
+                          <button onClick={() => setReadPick(p.key)} aria-label={`Open ${p.title}`}>→</button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="pm-empty">Pulse reads your weeks once one full week is in ONE MOVE.</p>
+              )}
+              <h2>
+                <PulseMark label={false} /> 3. {review.nextTitle}
+              </h2>
+              <ol className="pm-list pm-compact rv-next">
+                {things.map((t, k) => (
+                  <li key={k}>
+                    <span className="pm-time">{t.focus ? "Focus" : k + 1}</span>
+                    <span className="pm-body">
+                      <b>{t.text}</b>
+                      {t.why ? <small>{t.why}</small> : null}
+                      {made[k] ? <small className={made[k].ok ? "rv-made" : "rv-made bad"} role="status">{made[k].text}</small> : null}
+                    </span>
+                    {onCommit && !made[k]?.ok ? (
+                      <span className="pm-acts">
+                        <button className="rv-commit" disabled={busy != null} onClick={() => void commit(k)}>
+                          {busy === k ? "Saving…" : "Make it a commitment"}
+                        </button>
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
             </>
           )}
-          <p className="pm-promise">{demo ? "Example agent. " : ""}Facts from your week only. Pulse never sends anything or marks anything done.</p>
+          <p className="pm-promise">{demo ? "Example agent. " : ""}Facts from your own numbers only. Pulse never sends anything, marks anything done or sets a commitment for you.</p>
         </aside>
       </div>
     </div>

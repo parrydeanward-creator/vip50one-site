@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
-import { MAX_PARTNERS, PARTNERS_NODE, demoPartners, nudgedToday, partnerLine, readPartners, waiting, withPartnersNode, unseenNudges, withAllSeen } from "../lib/partners.ts";
+import { MAX_PARTNERS, PARTNERS_NODE, demoPartners, nudgedToday, partnerLine, readPartners, waiting, unseenNudges, withAllSeen } from "../lib/partners.ts";
 
 const today = "2026-10-08";
 
@@ -52,16 +52,14 @@ test("seen_at from ONE MOVE marks a nudge seen", () => {
   assert.equal(waiting(s, today), 1);
 });
 
-test("withPartnersNode: one orb under ONE YOU, yellow when an invite or today's nudge waits", () => {
-  const base: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "go", type: "product", label: "ONE YOU", parentId: "one", product: "go", importance: 1 }], edges: [] };
-  const s = demoPartners(today);
-  const g = withPartnersNode(withPartnersNode(base, s, today), s, today);
-  const n = g.nodes.filter((x) => x.id === PARTNERS_NODE);
-  assert.equal(n.length, 1);
-  assert.equal(n[0].status, "attention");
-  assert.equal(n[0].secondaryLabel, "2 waiting for you");
-  const calm = withPartnersNode(base, { ...s, invitesIn: [], nudges: [] }, today).nodes.find((x) => x.id === PARTNERS_NODE)!;
-  assert.equal(calm.status, "healthy");
-  assert.equal(calm.secondaryLabel, "2 accountability partners");
-  assert.equal(withPartnersNode(base, null, today).nodes.length, 1);
+test("Partners has no ONE YOU orb (Parry, 16 Oct): it is a Scoreboard section, under the Leaderboard", async () => {
+  // Rewritten: this asserted the Partners orb under ONE YOU, which Parry moved into the Scoreboard on 16 Oct.
+  const m = (await import("../lib/partners.ts")) as Record<string, unknown>;
+  assert.equal(m.withPartnersNode, undefined);
+  const { withoutRetired, SCOREBOARD_SECTIONS } = await import("../lib/oneYou.ts");
+  const base: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "go", type: "product", label: "ONE YOU", parentId: "one", product: "go", importance: 1 }, { id: PARTNERS_NODE, type: "feature", label: "Partners", parentId: "go", product: "go", importance: 1 }], edges: [{ id: "x", source: "go", target: PARTNERS_NODE, relationshipType: "belongs_to", strength: 1 }] };
+  assert.equal(withoutRetired(base).nodes.some((x) => x.id === PARTNERS_NODE), false);
+  assert.equal(SCOREBOARD_SECTIONS.indexOf("Your partners"), SCOREBOARD_SECTIONS.indexOf("Leaderboard") + 1);
+  // what the section still reads: an invite and today's nudge wait
+  assert.equal(waiting(demoPartners(today), today), 2);
 });

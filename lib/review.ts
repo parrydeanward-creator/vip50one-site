@@ -1,10 +1,10 @@
-import { GROUP_TITLE, groupOf, thisWeek, type Win } from "./wins.ts";
+import { GROUP_TITLE, groupOf, weekWins, type Win } from "./wins.ts";
 import { mondayOf } from "./habits.ts";
 import { reportLine, unseen, type PulseReport } from "./pulseReport.ts";
 import type { GraphEdge, GraphNode } from "./graph/types.ts";
 import { MONTH_BOXES } from "./contact.ts";
 import { audit } from "./audit.ts";
-import type { Commitments } from "./commitments.ts";
+import { TEXT_MAX, type Commitments, type Draft } from "./commitments.ts";
 import type { VipPerson, VipRoster } from "./vips.ts";
 
 // Weekly Review in ONE YOU (PULSE-ROADMAP "ONE YOU"; Parry approved, 6 Oct): the week in one place on the
@@ -206,7 +206,7 @@ export function review(i: ReviewIn): Review {
   if (i.wins) {
     // Only this week's wins; a review counts in the week it was written, never the week it was imported (Parry, 16 Oct,
     // audit 3.3.1: 35 imported reviews read as "Wins: 35").
-    const { mine, imported } = thisWeek(i.wins, i.today);
+    const { mine, imported } = weekWins(i.wins, i.today); // the Scoreboard's "This week's wins", one source
     const by = new Map<string, number>();
     for (const w of mine) by.set(GROUP_TITLE[groupOf(w.kind)], (by.get(GROUP_TITLE[groupOf(w.kind)]) ?? 0) + 1);
     const at = cards.findIndex((c) => c.key === "score");
@@ -224,7 +224,7 @@ export function review(i: ReviewIn): Review {
         ...(imported.length
           ? [{ text: `${imported.length} ${imported.length === 1 ? "review" : "reviews"} brought in from other sites`, sub: "Not this week's wins: they count in the week they were written once ONE has that date. They are in your Wins." }]
           : []),
-        ...(i.winsYear != null ? [{ text: `${i.winsYear} ${i.winsYear === 1 ? "win" : "wins"} this year`, sub: "The same list as Wins in ONE YOU." }] : []),
+        ...(i.winsYear != null ? [{ text: `${i.winsYear} ${i.winsYear === 1 ? "win" : "wins"} this year`, sub: "From the same list as This week's wins on your Scoreboard." }] : []),
       ],
     });
   }
@@ -295,4 +295,25 @@ export function demoRoster(): VipRoster {
     last_touch_on: k < 3 ? `2026-08-${10 + k}` : `2026-10-0${1 + (k % 5)}`,
   }));
   return { cap: 75, vip50, vip100: [] };
+}
+
+/** One of the Weekly Review's "Three things for next week" (Parry, 16 Oct): Pulse's one focus first (from the 8-week
+ * read), then the review's own; each carries the commitment it would become on the agent's tap. */
+export interface Thing {
+  text: string;
+  why?: string;
+  draft: Draft;
+  focus: boolean;
+}
+
+export function nextThings(r: Review, focus: (Draft & { why: string }) | null): Thing[] {
+  const out: Thing[] = [];
+  if (focus) out.push({ text: focus.text, why: focus.why, draft: { text: focus.text.slice(0, TEXT_MAX), kind: focus.kind, target: focus.target }, focus: true });
+  for (const t of r.next) {
+    if (out.length >= 3) break;
+    // "Keep the same rhythm" is not a commitment to add once there is a focus
+    if (focus && /^Keep the same rhythm/.test(t)) continue;
+    out.push({ text: t, draft: { text: t.replace(/\.$/, "").slice(0, TEXT_MAX), kind: "yes_no", target: null }, focus: false });
+  }
+  return out.slice(0, 3);
 }

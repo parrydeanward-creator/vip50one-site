@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
-import { PULSE_COACH_NODE, demoHistory, pulseRead, readHistory, run, withPulseCoachNode, type History } from "../lib/pulseCoach.ts";
+import { PULSE_COACH_NODE, demoHistory, pulseRead, readHistory, run, type History } from "../lib/pulseCoach.ts";
 
 const today = "2026-10-07"; // a Wednesday: the week of 5 Oct is not finished, so it is left out
 
@@ -48,14 +48,16 @@ test("pulseRead: a best week is named, and nothing slipping means no focus beyon
   assert.equal(pulseRead(h, null, today)!.headline, "Best week since August 31");
 });
 
-test("withPulseCoachNode: one orb under ONE YOU, yellow when part of the read needs the agent", () => {
-  const base: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "go", type: "product", label: "ONE YOU", parentId: "one", product: "go", importance: 1 }], edges: [] };
-  const r = pulseRead(demoHistory(today), null, today);
-  const n = withPulseCoachNode(withPulseCoachNode(base, r), r).nodes.filter((x) => x.id === PULSE_COACH_NODE);
-  assert.equal(n.length, 1);
-  assert.equal(n[0].status, "attention");
-  assert.match(n[0].secondaryLabel!, /^Focus: /);
-  assert.equal(withPulseCoachNode(base, null).nodes.length, 1);
+test("Pulse Coach has no ONE YOU orb (Parry, 16 Oct): its read is part 2 of the Weekly Review", async () => {
+  // Rewritten: this asserted the Pulse Coach orb under ONE YOU, which Parry folded into Weekly Review on 16 Oct.
+  const m = (await import("../lib/pulseCoach.ts")) as Record<string, unknown>;
+  assert.equal(m.withPulseCoachNode, undefined);
+  const { withoutRetired } = await import("../lib/oneYou.ts");
+  const base: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "go", type: "product", label: "ONE YOU", parentId: "one", product: "go", importance: 1 }, { id: PULSE_COACH_NODE, type: "feature", label: "Pulse Coach", parentId: "go", product: "go", importance: 1 }], edges: [] };
+  assert.equal(withoutRetired(base).nodes.some((x) => x.id === PULSE_COACH_NODE), false);
+  const r = pulseRead(demoHistory(today), null, today)!;
+  assert.ok(r.parts.some((p) => p.level), "the read still says what needs the agent");
+  assert.ok(r.focus, "and still has one focus for the review's three things");
 });
 
 test("pulseRead for a coach: the agent's weeks in the third person, never 'you'", () => {

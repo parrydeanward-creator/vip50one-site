@@ -1,10 +1,11 @@
 import type { GraphEdge, GraphNode } from "./graph/types.ts";
 
-// Time off in ONE YOU (VIP-SUMMARY §3x; PULSE-ROADMAP: "pause touches, warn what comes due, plan the first day
+// Time off (VIP-SUMMARY §3x; a card on My Profile since Parry, 16 Oct, no longer an orb in ONE YOU; PULSE-ROADMAP: "pause touches, warn what comes due, plan the first day
 // back"). While away nothing pulses, Autopilot waits, and a week away does not count against 100. Nothing is sent to
 // clients about it; the coach sees only the dates.
 
 const MOVE_URL = "https://move.vip50one.com";
+/** The retired ONE YOU orb's id (lib/oneYou.ts drops it from any graph that still carries it). */
 export const TIME_OFF_NODE = "go-time-off";
 export const timeOffUrl = `${MOVE_URL}/api/brain/time-off`;
 export const MAX_DAYS = 30;
@@ -118,30 +119,19 @@ export function timeOffLine(s: TimeOffState): string {
   return "Plan time off";
 }
 
-/** The Time off orb under ONE YOU: always quiet, with a gold ring only while a closing or appointment needs cover. */
-export function withTimeOffNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, s: TimeOffState | null): G {
-  const go = g.nodes.find((n) => n.id === "go");
+/** While away, the one line ONE YOU's panel shows (it links to the Time off card on My Profile); null when not away. */
+export const awayLine = (s: TimeOffState | null): string | null => (s?.current ? `Away until ${short(s.current.ends)}` : null);
+
+/** Time off has no orb any more (Parry, 16 Oct: "can we add time off somehow to profile page...get rid of that orb under
+ * one you?"): it is a card on My Profile. While away, the centre ONE orb still says when the agent is back (§3x.6). */
+export function withAwayLabel<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, s: TimeOffState | null): G {
   const nodes = g.nodes.filter((n) => n.id !== TIME_OFF_NODE);
   const edges = g.edges.filter((e) => e.target !== TIME_OFF_NODE);
-  if (!go || go.locked || !s) return { ...g, nodes, edges };
-  // While away, the centre ONE orb says when the agent is back (§3x.6).
-  if (s.current) {
+  const line = awayLine(s);
+  if (line) {
     const i = nodes.findIndex((n) => n.id === "one");
-    if (i >= 0) nodes[i] = { ...nodes[i], secondaryLabel: `Away until ${short(s.current.ends)}` };
+    if (i >= 0) nodes[i] = { ...nodes[i], secondaryLabel: line };
   }
-  const cover = !s.current && s.upcoming.length > 0 && coverNeeded(s).length > 0;
-  nodes.push({
-    id: TIME_OFF_NODE,
-    type: "feature",
-    label: "Time off",
-    secondaryLabel: cover ? `${timeOffLine(s)} · ${coverNeeded(s).length} to cover` : timeOffLine(s),
-    parentId: "go",
-    product: "go",
-    importance: s.current || s.upcoming.length ? 0.97 : 0.6,
-    status: cover ? "attention" : "healthy",
-    summary: "Plan days away: touches pause, Autopilot waits, the week does not count against 100, and Pulse plans your first day back.",
-  });
-  edges.push({ id: `go>${TIME_OFF_NODE}`, source: "go", target: TIME_OFF_NODE, relationshipType: "belongs_to", strength: 1 });
   return { ...g, nodes, edges };
 }
 

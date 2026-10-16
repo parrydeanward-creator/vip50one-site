@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
-import { WINS_NODE, demoWins, groupOf, inGroup, newSince, readWins, total, winsLine, winsUrl, withWinsNode } from "../lib/wins.ts";
+import { WINS_NODE, demoWins, groupOf, inGroup, newSince, readWins, total, winsLine, winsUrl, weekWins, winHome, WEEK_WIN_KINDS } from "../lib/wins.ts";
 
 const today = "2026-10-08";
 
@@ -56,23 +55,17 @@ test("winsLine and winsUrl", () => {
   assert.equal(winsUrl(90, "a b"), "https://move.vip50one.com/api/brain/wins?days=90&agent=a%20b");
 });
 
-const base = () => ({
-  nodes: [{ id: "one", type: "root", label: "ONE" } as unknown as GraphNode, { id: "go", type: "product", label: "ONE YOU", product: "go" } as unknown as GraphNode],
-  edges: [] as GraphEdge[],
-});
-
-test("withWinsNode: gold glow when new, never a pulse; none when locked or not loaded", () => {
+test("Wins has no ONE YOU orb (Parry, 16 Oct); this week's wins are one list for the Scoreboard and the Weekly Review", async () => {
+  // Rewritten: this asserted the Wins orb under ONE YOU, which Parry moved into the Scoreboard on 16 Oct.
+  const m = (await import("../lib/wins.ts")) as Record<string, unknown>;
+  assert.equal(m.withWinsNode, undefined);
+  assert.equal(WINS_NODE, "go-wins");
   const w = demoWins(today);
-  const g = withWinsNode(base(), w, 2);
-  const n = g.nodes.find((x) => x.id === WINS_NODE)!;
-  assert.equal(n.status, "healthy");
-  assert.equal(n.celebrate, true);
-  assert.equal(n.secondaryLabel, "2 new since you last looked");
-  const quiet = withWinsNode(g, w, 0).nodes.find((x) => x.id === WINS_NODE)!;
-  assert.equal(quiet.celebrate, false);
-  assert.equal(withWinsNode(g, w, 0).nodes.filter((x) => x.id === WINS_NODE).length, 1);
-  assert.equal(withWinsNode(base(), null, 0).nodes.some((x) => x.id === WINS_NODE), false);
-  const locked = base();
-  (locked.nodes[1] as GraphNode & { locked?: boolean }).locked = true;
-  assert.equal(withWinsNode(locked, w, 1).nodes.some((x) => x.id === WINS_NODE), false);
+  const { mine } = weekWins(w.wins, today);
+  assert.ok(mine.every((x) => WEEK_WIN_KINDS.includes(x.kind)));
+  assert.equal(mine.some((x) => x.kind === "week_100" || x.kind === "goal_reached"), false);
+  assert.equal(winHome("five_star"), "review");
+  assert.equal(winHome("referral_closed"), "referrals");
+  assert.equal(winHome("badge"), "badges");
+  assert.equal(winHome("closing"), "goals");
 });
