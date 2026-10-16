@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { learnFromSend } from "@/lib/agentVoice.ts";
 import { callPrep } from "@/lib/callPrep.ts";
 import { personUrl, readPerson, readTimeline, timelineUrl } from "@/lib/people.ts";
 import { DRAFT_KINDS, DRAFT_LABEL, factsFrom, mailHref, smsHref, type Draft, type DraftFacts, type DraftKind } from "@/lib/drafts.ts";
 
 // Pulse Drafts on the contact card (PULSE-ROADMAP #2): pick what to write, Pulse drafts it from what ONE MOVE knows
 // about this person, the agent edits it, then sends it from their own phone or mail. Pulse never sends anything.
+// A draft the agent changed before sending teaches "Pulse knows me" (PROFILE §5c.3): body only, never the subject.
 
 const isIOS = () => typeof navigator !== "undefined" && /iPhone|iPad|Macintosh/.test(navigator.userAgent);
 
@@ -89,10 +91,10 @@ export default function DraftsSection({ contactId, phone, email, onSent, preset 
           {draft.flags.length ? <p className="cc-err">Check before sending: {draft.flags.join("; ")}. Describe the home, never who it suits.</p> : null}
           <div className="cc-draft-acts">
             {draft.kind === "text" && phone ? (
-              <a className="cc-btn" href={smsHref(phone, body, isIOS())} onClick={() => onSent("text")}>Open in Messages</a>
+              <a className="cc-btn" href={smsHref(phone, body, isIOS())} onClick={() => { learnFromSend(draft.body, body, "brain:text", contactId); onSent("text"); }}>Open in Messages</a>
             ) : null}
             {draft.kind === "email" && email ? (
-              <a className="cc-btn" href={mailHref(email, subject || null, body)} onClick={() => onSent("email")}>Open in Mail</a>
+              <a className="cc-btn" href={mailHref(email, subject || null, body)} onClick={() => { learnFromSend(draft.body, body, "brain:email", contactId); onSent("email"); }}>Open in Mail</a>
             ) : null}
             <button type="button" className="cc-btn" onClick={() => void copy()}>{copied ? "Copied" : "Copy"}</button>
           </div>

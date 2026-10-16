@@ -685,6 +685,17 @@ function itemNode(add: (n: Omit<GraphNode, "importance"> & { importance?: number
   });
 }
 
+/**
+ * "Host it again" (ONE Open, vip-open#49, 16 Oct): the same home on a new date, nothing retyped. ONE Open's page takes
+ * only the agent's own open houses; `open_houses` lists only those (agent_id = the agent), so every upcoming one with a
+ * real event id gets the link. The single `next_open_house` fallback has no id, so it gets none. Takes the orb id
+ * (`live:open:upcoming:<event id>`).
+ */
+export function hostAgainHref(nodeId: string): string | undefined {
+  const m = /^live:open:upcoming:([0-9a-f-]{36})$/i.exec(nodeId);
+  return m && UUID.test(m[1]) ? `https://open.vip-50.com/app/events/${m[1].toLowerCase()}/again` : undefined;
+}
+
 /** "go:task:<uuid>" -> the uuid (VIP-SUMMARY §3c.3, `task_id`). */
 export function taskIdOf(id: string): string | undefined {
   const m = /^go:task:([0-9a-f-]{36})$/i.exec(id);

@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LeadMailSection, OwnAISection, PulseModesSection } from "./ConnectSections.tsx";
 import RezenSection from "./RezenSection.tsx";
+import VoiceSection from "./VoiceSection.tsx";
 import { autostartBody, homeReportUrl, monthUrl, readMonthCard } from "@/lib/homeReport.ts";
 import { BadgesSection, GoogleSections, MembershipBadge, NotificationsSection, TeamAdsSection } from "./ProfileCards.tsx";
-import { brokerageAsk, CONNECTIONS, FIELDS, TIME_ZONES, UPLOAD_MAX, aboutChanges, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, winsChange, WINS_MAX, type Profile } from "@/lib/profile.ts";
+import { brokerageAsk, CONNECTIONS, demoProfile, FIELDS, TIME_ZONES, UPLOAD_MAX, aboutChanges, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, winsChange, WINS_MAX, type Profile } from "@/lib/profile.ts";
 
 /** Draw the photo at most 1200px on the long side as a JPEG, so it fits ONE MOVE's 4 MB limit. */
 async function shrink(file: File): Promise<Blob> {
@@ -43,11 +44,14 @@ export default function MyProfile({
   onChanged,
   onBack,
   onClassic,
+  demo = false,
 }: {
   onUnavailable: () => void;
   onChanged: () => void;
   onBack: () => void;
   onClassic: () => void;
+  /** The example agent (?demo=1): example data, nothing called, nothing saved. */
+  demo?: boolean;
 }) {
   const [saved, setSaved] = useState<Profile | null>(null);
   const [draft, setDraft] = useState<Profile | null>(null);
@@ -57,7 +61,7 @@ export default function MyProfile({
   const [pending, setPending] = useState<{ file: File; preview: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   // /dashboard/profile#pulse (and #badges, #settings, #connections) opens that section, as Classic does.
-  const [tab, setTab] = useState<PfTab>("connections");
+  const [tab, setTab] = useState<PfTab>(demo ? "pulse" : "connections");
   useEffect(() => {
     const h = window.location.hash.slice(1);
     if (PF_TABS.some((t) => t.key === h)) setTab(h as PfTab);
@@ -70,6 +74,12 @@ export default function MyProfile({
   };
 
   const load = useCallback(async () => {
+    if (demo) {
+      const p = demoProfile();
+      setSaved(p);
+      setDraft(p);
+      return;
+    }
     let r: Response;
     try {
       r = await fetch(profileUrl, { credentials: "include", cache: "no-store" });
@@ -83,7 +93,8 @@ export default function MyProfile({
     setSaved(p);
     setDraft(p);
     setErr(null);
-  }, [onUnavailable]);
+  }, [onUnavailable, demo]);
+  const demoNote = () => setNote({ ok: true, text: "Example agent. Nothing is saved." });
 
   useEffect(() => {
     load();
@@ -101,6 +112,7 @@ export default function MyProfile({
 
   const save = async () => {
     if (!saved || !draft || busy) return;
+    if (demo) return demoNote();
     const bad = problem(draft);
     if (bad) return setNote({ ok: false, text: bad });
     const about = aboutChanges(saved.about, draft.about);
@@ -125,6 +137,7 @@ export default function MyProfile({
   // The one-time legal-name confirm (PROFILE.md v1.1): saved on its own, never with other edits.
   const confirmBrokerage = async () => {
     if (!saved || busy) return;
+    if (demo) return demoNote();
     setBusy(true);
     setNote(null);
     try {
@@ -143,6 +156,7 @@ export default function MyProfile({
   // Privacy (§3j.4, PROFILE.md §2): saved the moment it is switched, off by default, the agent's own choice.
   const setShare = async (on: boolean) => {
     if (!saved || busy) return;
+    if (demo) return demoNote();
     setBusy(true);
     setNote(null);
     try {
@@ -167,6 +181,10 @@ export default function MyProfile({
   };
   const savePhoto = async () => {
     if (!pending || busy) return;
+    if (demo) {
+      setPending(null);
+      return demoNote();
+    }
     setBusy(true);
     setNote(null);
     try {
@@ -219,7 +237,7 @@ export default function MyProfile({
             <p className="pf-kicker">My Profile</p>
             <h1>{greetingName(draft) || "You"}</h1>
             <p className="pf-sub">{saved.email}</p>
-            <MembershipBadge />
+            {demo ? <p className="pf-sub">Example agent. Nothing is saved.</p> : <MembershipBadge />}
             <p className="pf-sub">One profile for ONE GO, ONE MOVE, Marquee, ONE Open and Showly.</p>
             {pending && (
               <div className="ta-log">
@@ -281,7 +299,11 @@ export default function MyProfile({
         ))}
       </div>
       <div className="pf-cards" role="tabpanel" aria-label={PF_TABS.find((t) => t.key === tab)?.label}>
-        {tab === "connections" ? (
+        {demo && tab !== "pulse" ? (
+          <section className="pf-card pf-span" aria-label="Example agent">
+            <small className="pf-sub">Example agent. Your own connections, badges and settings show here when you sign in.</small>
+          </section>
+        ) : tab === "connections" ? (
           <>
             <RezenSection />
             <LeadMailSection />
@@ -328,9 +350,14 @@ export default function MyProfile({
             ))}
           </>
         ) : (
-          <div className="pf-span">
-            <PulseModesSection />
-          </div>
+          <>
+            <VoiceSection demo={demo} />
+            {demo ? null : (
+              <div className="pf-span">
+                <PulseModesSection />
+              </div>
+            )}
+          </>
         )}
       </div>
       <div className="controls pf-controls" role="toolbar" aria-label="Back">
