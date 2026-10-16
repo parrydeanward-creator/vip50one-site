@@ -272,7 +272,8 @@ export function dayKind(it: SummaryItem): DayKind {
   if (it.kind === "book_open_house" || it.kind === "agent_attraction") return "other";
   const t = it.title.toLowerCase();
   if (it.kind === "follow_up" || it.kind === "other") return "follow_up";
-  if (/video|text/.test(t)) return "text";
+  // a social media touch is done on the phone with the texts, never a call in the Power Hour (Parry, 16 Oct)
+  if (/video|text|social/.test(t)) return "text";
   if (/note|card/.test(t)) return "note";
   if (/lunch|coffee|meet|drop/.test(t)) return "meeting";
   return "call";
@@ -598,9 +599,12 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
 
   // ---- the day and the timeline ------------------------------------------
   // Everything due today (Your day shows the first 8; Plan My Day offers them all, §3l).
+  // Every one of the day's VIP touches is carried, however many overdue tasks come first (Parry, 16 Oct: "every day the
+  // plan must carry that day's generated VIP touch tasks"); the 25 limit is for the rest.
+  let rest = 0;
   const today: DayItem[] = tagged
     .filter(({ it }) => isToday(it))
-    .slice(0, 25)
+    .filter(({ it }) => it.kind === "vip_touch" || rest++ < 25)
     .map(({ it: i, p }) => {
       const kind = dayKind(i);
       return {

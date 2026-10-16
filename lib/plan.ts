@@ -32,6 +32,7 @@ export interface PlanItem {
   nodeId?: string; // the Brain's own: the orb to go to (not sent)
   urgency?: "alert" | "today" | "soon"; // the Brain's own: the pulse colour (not sent)
   special?: boolean; // the Brain's own: a special day (not sent)
+  vip?: boolean; // the Brain's own: one of the day's generated VIP touches (not sent)
 }
 
 export interface Plan {
@@ -57,22 +58,26 @@ export function fromDay(d: DayItem): PlanItem {
     nodeId: d.nodeId,
     urgency: d.urgency,
     special: d.special,
+    ...(d.vip ? { vip: true } : {}),
   };
 }
 
 const rank = (p: PlanItem) => (p.urgency === "alert" ? 0 : p.special ? 1 : p.urgency === "today" ? 2 : 3);
 
 /** Pulse suggests: what is pulsing today, red first, then special days, then yellow; the products' own
- * order kept inside each; at most 15 (the rest wait until these are done). */
+ * order kept inside each; at most 15 other tasks (the rest wait until these are done). Every one of the day's VIP
+ * touches is in the plan, always (Parry, 16 Oct: "every day the plan must carry that day's generated VIP touch tasks"):
+ * they sit in the day's Power Hour, texts and notes blocks, so they never crowd out the 15. */
 export function suggest(today: DayItem[], max = MAX_TASKS_SHOWN): PlanItem[] {
   const seen = new Set<string>();
+  let others = 0;
   return today
     .map(fromDay)
     .filter((p) => (seen.has(p.ref) ? false : (seen.add(p.ref), true)))
     .map((p, n) => ({ p, n }))
     .sort((a, b) => rank(a.p) - rank(b.p) || a.n - b.n)
     .map(({ p }) => p)
-    .slice(0, max);
+    .filter((p) => (p.vip && p.urgency !== "soon") || others++ < max);
 }
 
 /** A first plan when the agent has none: Pulse's order, everything red and special, then yellow up to
@@ -80,12 +85,16 @@ export function suggest(today: DayItem[], max = MAX_TASKS_SHOWN): PlanItem[] {
 export function firstPlan(suggestions: PlanItem[], budget = 180, start = "08:00", max = PLAN_MAX): PlanItem[] {
   const out: PlanItem[] = [];
   let used = 0;
+  let others = 0;
   for (const p of suggestions) {
-    if (out.length >= max) break;
-    const must = rank(p) < 2;
+    // the day's VIP touches always (Parry, 16 Oct); the rest up to the 15
+    const vip = !!p.vip && p.urgency !== "soon";
+    if (!vip && others >= max) continue;
+    const must = rank(p) < 2 || vip;
     if (!must && used + p.minutes > budget) continue;
     out.push(p);
     used += p.minutes;
+    if (!vip) others++;
   }
   // A fixed time (a lunch) goes where the day reaches it, not where Pulse ranked it.
   const flex = out.filter((p) => !isTime(p.at));

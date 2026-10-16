@@ -120,7 +120,8 @@ export function batches(items: PlanItem[], bestCalls: [number, number]): Group[]
   flush();
   const take = (pred: (p: PlanItem) => boolean) => items.filter((p) => !isCall(p) && pred(p));
   const texts = take((p) => p.kind === "text");
-  if (texts.length) groups.push({ kind: "texts", title: `Texts and video texts (${texts.length})`, items: texts, minutes: Math.max(15, texts.reduce((t, p) => t + p.minutes, 0)), rank: Math.min(...texts.map(rank)), why: "One sitting for every text, so none slip." });
+  const social = texts.some((p) => /social/i.test(p.title));
+  if (texts.length) groups.push({ kind: "texts", title: `${social ? "Texts, video texts and social touches" : "Texts and video texts"} (${texts.length})`, items: texts, minutes: Math.max(15, texts.reduce((t, p) => t + p.minutes, 0)), rank: Math.min(...texts.map(rank)), why: "One sitting for every text, so none slip." });
   const notes = take((p) => p.kind === "note");
   if (notes.length) groups.push({ kind: "notes", title: `Handwritten notes (${notes.length})`, items: notes, minutes: notes.reduce((t, p) => t + p.minutes, 0), rank: Math.min(...notes.map(rank)), why: "Done together, out in today's mail." });
   const approvals = take((p) => p.kind === "approval");

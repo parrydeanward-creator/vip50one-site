@@ -132,6 +132,13 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
       { id: "day-video", nodeId: "dt-video", product: "go", kind: "text", what: "Send 2 video texts to your VIP-50.", minutes: 10, vip: true, urgency: "today" },
       { id: "day-approve", nodeId: "task-approve", product: "marquee", kind: "approval", what: "Approve 5 posts for 1482 Maple Ridge Dr.", minutes: 15, urgency: "today" },
       { id: "day-note", nodeId: "p-dave", product: "move", kind: "note", what: "Write Dave Kim a handwritten note.", minutes: 5, vip: true },
+      // a full example day (Parry, 16 Oct): every VIP touch ONE GO set for today, a real Power Hour and the texts
+      { id: "day-millers", nodeId: "p-millers", product: "move", kind: "text", what: "Video text the Millers.", minutes: 5, vip: true, urgency: "today" },
+      { id: "day-parkers", nodeId: "p-parkers", product: "move", kind: "text", what: "Social media touch: the Parkers.", minutes: 5, vip: true, urgency: "today" },
+      { id: "day-nina", nodeId: "mv-c-vip100", product: "move", kind: "call", what: "Call Nina Brooks (VIP-100, 90-day call).", minutes: 10, vip: true, urgency: "today" },
+      { id: "day-kim", nodeId: "mv-n1", product: "move", kind: "call", what: "Call Kim Reyes, Saturday's open house visitor.", minutes: 10, urgency: "today" },
+      { id: "day-luis", nodeId: "mv-f4", product: "move", kind: "call", what: "Call Luis Ortega to check in.", minutes: 10, urgency: "today" },
+      { id: "day-priya", nodeId: "mv-f3", product: "move", kind: "text", what: "Text Priya Shah.", minutes: 5, urgency: "today" },
       { id: "day-marcus", nodeId: "p-marcus", product: "move", kind: "meeting", what: "Lunch with Marcus Lee.", minutes: 60, vip: true, at: "12:30" },
       { id: "day-rate", nodeId: "open-3", product: "open", kind: "rating", what: "Rate the 2 visitors from Saturday.", minutes: 5, urgency: "soon" },
       { id: "day-follow", nodeId: "task-followups", product: "move", kind: "follow_up", what: "Clear the 4 overdue follow-ups.", minutes: 20, urgency: "alert" },
