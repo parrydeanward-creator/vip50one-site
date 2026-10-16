@@ -172,3 +172,25 @@ test("demo (?demo=1): one running report on a demo contact, a bulk list of 3, a 
   assert.ok(after.reports.filter((r) => r.startedBy === "bulk").every((r) => r.sendDay === 5 || r.sent));
   assert.equal(withBulkStarted(after, bulk.slice(0, 2), (p) => `y-${p.id}`).reports.length, 5, "never twice for one person");
 });
+
+import { parseValue, valueLine, valueShown, valueBody, withValue, readContactReports as readCR } from "../lib/homeReport.ts";
+
+test("the agent's value: typed forms, limits and the 92-day rule (HOME-REPORT §3.7)", () => {
+  assert.equal(parseValue("$650,000"), 650000);
+  assert.equal(parseValue("650k"), 650000);
+  assert.equal(parseValue("1.2m"), 1200000);
+  assert.equal(parseValue("abc"), null);
+  assert.equal(parseValue("500"), null);
+  const c = readCR({ reports: [{ id: "r1", address: "1 Main St, Draper, UT", send_day: 5, is_on: true, agent_value: 650000, agent_value_on: "2026-07-01" }], suggested_address: null, can_email: true, email: "a@b.co", autostart: false })!;
+  const r = c.reports[0];
+  assert.equal(r.agentValue, 650000);
+  assert.equal(valueShown(r, "2026-10-01"), true);
+  assert.equal(valueShown(r, "2026-10-02"), false);
+  assert.match(valueLine(r, "2026-08-01"), /\$650,000, as of Jul 1, 2026\. On the report until/);
+  assert.match(valueLine(r, "2026-11-01"), /leaves it out until you confirm it/);
+  assert.deepEqual(valueBody("r1", ""), { id: "r1", agent_value: "" });
+  const cleared = withValue(c, "r1", null, "2026-10-16").reports[0];
+  assert.equal(cleared.agentValue, null);
+  assert.match(valueLine(cleared, "2026-10-16"), /not set/);
+  assert.equal(withValue(c, "r1", 700000, "2026-10-16").reports[0].agentValueOn, "2026-10-16");
+});

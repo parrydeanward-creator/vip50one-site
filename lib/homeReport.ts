@@ -31,6 +31,9 @@ export interface HomeReport {
   stoppedAt: string | null;
   stoppedBy: string | null;
   sends: ReportSend[];
+  /** The agent's own view of the home's value (§3.7, vip50-web-crm#271): whole dollars, and the day it was set or confirmed. */
+  agentValue: number | null;
+  agentValueOn: string | null;
 }
 /** GET /api/brain/home-report?contact_id= */
 export interface ContactReports { reports: HomeReport[]; suggestedAddress: string | null; canEmail: boolean; email: string | null; autostart: boolean }
@@ -75,6 +78,8 @@ function readReport(x: unknown): HomeReport | null {
     stoppedAt: str(r.stopped_at, 40),
     stoppedBy: str(r.stopped_by, 20),
     sends,
+    agentValue: typeof r.agent_value === "number" && Number.isFinite(r.agent_value) && r.agent_value > 0 ? Math.round(r.agent_value) : null,
+    agentValueOn: str(r.agent_value_on, 10)?.match(/^\d{4}-\d{2}-\d{2}$/)?.[0] ?? null,
   };
 }
 
@@ -184,6 +189,42 @@ export const startBody = (contactId: string, address: string, sendDay: number, n
 });
 export const changeBody = (id: string, sendDay: number, note: string) => ({ id, send_day: sendDay, note: note.trim() });
 export const rprBody = (id: string, link: string) => ({ id, rpr_url: link });
+
+// ---- the agent's view of the value (§3.7) ----------------------------------------------------------------------------
+
+/** How long a set or confirmed value is printed on the report (GO/MOVE's rule, 16 Oct). */
+export const VALUE_SHOWN_DAYS = 92;
+export const VALUE_RULE = "Shown on the report as your opinion for three months after you set or confirm it. ONE never estimates a value itself.";
+
+/** The value as typed: "$650,000", "650k", "1.2m" become whole dollars; anything else null. */
+export function parseValue(text: string): number | null {
+  const t = text.trim().toLowerCase().replace(/[$,\s]/g, "");
+  const m = t.match(/^(\d+(?:\.\d+)?)(k|m)?$/);
+  if (!m) return null;
+  const n = Math.round(Number(m[1]) * (m[2] === "m" ? 1_000_000 : m[2] === "k" ? 1_000 : 1));
+  return n >= 10_000 && n <= 100_000_000 ? n : null;
+}
+export const dollars = (n: number) => `$${n.toLocaleString("en-US")}`;
+const dayWords = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+const plusDays = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+/** True while the value still prints on the report (within 92 days of being set or confirmed). */
+export function valueShown(r: HomeReport, today: string): boolean {
+  return r.agentValue != null && !!r.agentValueOn && today <= plusDays(r.agentValueOn, VALUE_SHOWN_DAYS);
+}
+/** "Your view: $650,000, as of 16 Oct 2026. On the report until 16 Jan 2027." */
+export function valueLine(r: HomeReport, today: string): string {
+  if (r.agentValue == null || !r.agentValueOn) return "Your view of the value: not set. The report shows no value.";
+  const head = `Your view: ${dollars(r.agentValue)}, as of ${dayWords(r.agentValueOn)}.`;
+  return valueShown(r, today)
+    ? `${head} On the report until ${dayWords(plusDays(r.agentValueOn, VALUE_SHOWN_DAYS))}.`
+    : `${head} Over three months old, so the report leaves it out until you confirm it.`;
+}
+/** Set, change or "Still right" (the same amount, dated today); "" removes it. */
+export const valueBody = (id: string, amount: number | "") => ({ id, agent_value: amount });
+export function withValue(c: ContactReports, id: string, amount: number | null, today: string): ContactReports {
+  return { ...c, reports: c.reports.map((r) => (r.id === id ? { ...r, agentValue: amount, agentValueOn: amount == null ? null : today } : r)) };
+}
 export const autostartBody = (on: boolean) => ({ autostart: on });
 export const bulkBody = (ids: Iterable<string>) => ({ contact_ids: [...new Set(ids)] });
 
@@ -201,7 +242,7 @@ export function monthGroups(card: MonthCard): { due: MonthRow[]; coming: MonthRo
 // ---- after a change, before ONE MOVE answers again (and the whole of the demo) ---------------------------------------
 
 export function withStarted(c: ContactReports, r: { id: string; address: string; sendDay: number; note: string | null; startedBy?: StartedBy }): ContactReports {
-  const fresh: HomeReport = { id: r.id, address: r.address, sendDay: r.sendDay, isOn: true, startedBy: r.startedBy ?? "agent", note: r.note, lastSentMonth: null, stoppedAt: null, stoppedBy: null, sends: [] };
+  const fresh: HomeReport = { id: r.id, address: r.address, sendDay: r.sendDay, isOn: true, startedBy: r.startedBy ?? "agent", note: r.note, lastSentMonth: null, stoppedAt: null, stoppedBy: null, sends: [], agentValue: null, agentValueOn: null };
   return { ...c, reports: [fresh, ...c.reports.filter((x) => x.id !== r.id)] };
 }
 export function withChanged(c: ContactReports, id: string, sendDay: number, note: string | null): ContactReports {
@@ -232,6 +273,7 @@ export function demoContactReports(contactId: string, today: string): ContactRep
   if (contactId === "demo-hr-jane")
     return readContactReports({
       reports: [{ id: "demo-report-1", address: "1482 E Willow Creek Dr, Draper, UT 84020", send_day: 5, is_on: true, started_by: "agent", note: null, last_sent_month: before, stopped_at: null, stopped_by: null,
+        agent_value: 685000, agent_value_on: `${before}-20`,
         sends: [{ month: before, channel: "rpr", via: "agent", sent_at: `${before}-05T15:00:00Z` }] }],
       suggested_address: "1482 E Willow Creek Dr, Draper, UT 84020",
       can_email: true,
