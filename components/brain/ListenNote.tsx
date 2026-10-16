@@ -10,6 +10,8 @@ export default function ListenNote({ greeting, firstName, note }: { greeting: st
   const [on, setOn] = useState(false);
   useEffect(() => {
     setCan(typeof window !== "undefined" && "speechSynthesis" in window);
+    // Chrome lists its voices only after a first ask; asking now means the natural voice is ready on the first Listen.
+    try { window.speechSynthesis?.getVoices(); } catch { /* no voices */ }
     return () => {
       try { window.speechSynthesis?.cancel(); } catch { /* nothing to stop */ }
     };
