@@ -1,6 +1,7 @@
 "use client";
 
 import { CLASSIC_DASHBOARD_URL } from "@/lib/host.ts";
+import { hostAgainHref } from "@/lib/live.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PersonPanel from "./PersonPanel.tsx";
 import VipRings from "./VipRings.tsx";
@@ -161,7 +162,8 @@ const TOUR_PAGES: [string, string, string][] = [
 ];
 // The example agent (?demo=1) has no ONE MOVE menu either; Home Reports gets its orb so the example shows it (HOME-REPORT
 // §5.4, 16 Oct). It runs on example data there, with no network.
-const DEMO_PAGES: [string, string, string][] = [["/home-reports", "Home Reports", "move"]];
+// My Profile too, for "Pulse knows me" (PROFILE §5c, 16 Oct), on the example agent's own data.
+const DEMO_PAGES: [string, string, string][] = [["/home-reports", "Home Reports", "move"], ["/profile", "My Profile", "move"]];
 function withTourPages(g: BusinessGraph, pages = TOUR_PAGES): BusinessGraph {
   const have = new Set(g.nodes.map((n) => n.id));
   const nodes = [...g.nodes];
@@ -2112,6 +2114,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   if (!ask && !moveQuiet && focus.href && !focus.locked) orbActions.push({ label: `Open in ${productName(focus.product)} ↗`, href: focus.href });
   else if (!ask && !moveQuiet && productHref && focus.type !== "core" && !focus.locked && !isMoveGroup(focus.id)) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
   if (!ask && focus.locked) orbActions.push({ label: "Add with Complete", href: UPGRADE_URL });
+  const again = !ask && !focus.locked ? hostAgainHref(focus.id) : undefined;
+  if (again) orbActions.push({ label: "Host it again ↗", href: again });
 
   // ONE MOVE's menu in the rail: one link per page, groups as drop-downs.
   const moveLink = (m: MovePage) => {
@@ -3424,6 +3428,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                 />
               ) : vipNative && nativeKind === "profile" ? (
                 <MyProfile
+                  demo={!live && !productTour}
                   onUnavailable={vipUnavailable}
                   onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}

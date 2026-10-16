@@ -38,3 +38,18 @@ test("ONE Open's open_houses list shows every upcoming one; the single stat is t
   const fallback: SummaryEnvelope = { v: 1, product: "open", found: true, stats: [{ key: "next_open_house", label: "x", value: 1, address: "1 A St", starts_at: "2026-10-04T17:00:00Z", link: "https://open.vip-50.com/app/events/z" }], items: [] };
   assert.equal(openHouseItems(fallback, "2026-10-03").length, 1);
 });
+
+test("Host it again: every upcoming ONE Open orb with a real event id links to /again; the fallback stat gets none", async () => {
+  const { hostAgainHref } = await import("../lib/live.ts");
+  const id = "73f13822-dfbf-4dd9-9d04-9aff09a29912";
+  const env: SummaryEnvelope = { v: 1, product: "open", found: true, stats: [], items: [], open_houses: [
+    { id, address: "970 E 2050 S", starts_at: "2026-10-17T16:00:00Z", link: `https://open.vip-50.com/app/events/${id}`, hosting: "other" },
+  ] };
+  const g = liveGraph(MASTER, opts, { open: { reachable: true, env } });
+  const oh = g.nodes.find((n) => n.label === "970 E 2050 S");
+  assert.ok(oh, "the open house is an orb");
+  assert.equal(hostAgainHref(oh!.id), `https://open.vip-50.com/app/events/${id}/again`);
+  assert.equal(hostAgainHref(`live:open:upcoming:2026-10-04:1 A St`), undefined, "the next_open_house fallback has no event id");
+  assert.equal(hostAgainHref(`live:open:upcoming:e1`), undefined);
+  assert.equal(hostAgainHref(`marquee:listing:${id}`), undefined);
+});

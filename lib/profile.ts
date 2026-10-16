@@ -203,3 +203,20 @@ export function brokerageAsk(p: Profile): string | null {
   if (!p.brokerage_address.trim()) return "Add your brokerage's address. Your marketing emails wait until it is in.";
   return null;
 }
+
+/** The example agent (?demo=1): My Profile shows these and nothing is called or saved. */
+export function demoProfile(): Profile {
+  return readProfile({
+    email: "sarah@example.com",
+    full_name: "Sarah Bennett",
+    preferred_name: "Sarah",
+    mobile: "(801) 555-0142",
+    brokerage: "Example Realty, LLC",
+    team_name: "The Example Team",
+    license_state: "UT",
+    title: "REALTOR",
+    time_zone: "America/Denver",
+    bio: "Helping families in Davis County buy and sell with straight answers and calm negotiating.",
+    brokerage_confirmed_at: "2026-10-08T16:00:00Z",
+  })!;
+}
