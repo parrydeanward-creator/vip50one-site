@@ -64,6 +64,7 @@ import CoachView from "./CoachView.tsx";
 import { commitmentWork } from "@/lib/assist.ts";
 import { demoHistory, historyUrl, pulseRead, readHistory, type History, type Read as PulseRead } from "@/lib/pulseCoach.ts";
 import { POWER_NODE, lineUp, newSession, powerKey, readSession, withPowerNode, type Call, type Session as PowerSession } from "@/lib/powerHour.ts";
+import { goalsPlanUrl, goalsShown, readGoalsPlan, type GoalsPlan } from "@/lib/goalsPlan.ts";
 import { ASSUME_DEFAULT, START as INCOME_START, goalFacts, incomeKey, incomeMap, readAssume, type Assume, type GoalKey } from "@/lib/goals.ts";
 import GoalsPanel from "./GoalsPanel.tsx";
 import { REVIEW_NODE, demoRoster, goalsFromGraph, lateInWeek, review as buildReview, withReviewNode, type Review, type Thing } from "@/lib/review.ts";
@@ -89,13 +90,14 @@ import { LIKELY_NODE, demoMoveLikely, moveLikelyUrl, notUsefulUrl, readMoveLikel
 import { MARKET_NODE, demoMarketPulse, marketPulseUrl, marketSendUrl, readMarketPulse, sendBody as marketSendBody, withMarketPulseNode, withSent as withMarketSent, type MarketPulse, type Vip as MarketVip } from "@/lib/marketPulse.ts";
 import { DEALS_NODE, dealUrl, dealsUrl, demoDeals, readClosingAsk, readDeals, statusBody as dealStatusBody, withDealsNode, withStatus as withDealStatus, type Deal } from "@/lib/deals.ts";
 import { LIFE_NODE, applyKeep, demoRadar, keepBody as lifeKeepBody, keepUrl as lifeKeepUrl, lifeEventsUrl, readRadar, withLifeEventsNode, type Found as LifeFound, type Radar } from "@/lib/lifeEvents.ts";
+import { readScoreboard, scoreboardUrl, type ScoreboardLive } from "@/lib/scoreboard.ts";
 import { demoWins, readWeekWins, readWins, total as winsTotal, weekWinsUrl, winsUrl, type WeekWinsLive, type Wins } from "@/lib/wins.ts";
 import { demoPartners, partnersActionUrl, partnersUrl, readPartners, unseenNudges, withAllSeen, type PartnersState } from "@/lib/partners.ts";
 import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, mondayOf, type HabitToday } from "@/lib/habits.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
 import { REFERRALS_NODE, applyThank, askUrl, demoReferrals, thankUrl, readReferrals, referralsUrl, withReferralsNode, type Referrals, demoNetwork, networkUrl, readNetwork, type NetworkCounts } from "@/lib/referrals.ts";
 import { COACH_NODE, coachedUrl, demoCoached, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
-import { WEEK_NODE, commitWay, commitmentsUrl, demoCommitments, queueDraft, readCommitments, readQueued, withWeekNode, type Commitments } from "@/lib/commitments.ts";
+import { WEEK_NODE, commitWay, commitmentsUrl, demoCommitments, queueBody, queueDraft, queueUrl, readCommitments, readQueueAnswer, readQueued, withWeekNode, type Commitments } from "@/lib/commitments.ts";
 import { nextCommitKey } from "@/lib/pulseCoach.ts";
 import { PLAN_NODE, planKey, planState, planUrl, readPlan, timed, withPlanNode, type Plan, type PlanState } from "@/lib/plan.ts";
 import { hwcUrl, readHwc, todayIn, type HwcClass } from "@/lib/hwc.ts";
@@ -446,6 +448,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [wins, setWins] = useState<Wins | null>(null);
   // This week's wins as ONE MOVE counts them (vip50-web-crm#278, `?week=this`); the year's list is the fallback.
   const [weekWinsLive, setWeekWinsLive] = useState<WeekWinsLive | null>(null);
+  // The Scoreboard's Mission Control, streak and XP as ONE MOVE counts them (vip50-web-crm#281); the demo graph's otherwise.
+  const [scoreLive, setScoreLive] = useState<ScoreboardLive | null>(null);
   // Weekly Review: the week's score (ONE MOVE's daily feed), the VIP-50 roster, commitments and goals.
   const [weekScore, setWeekScore] = useState<{ score: number; minimum: number } | null>(null);
   // The Habits ring: the Daily Tracker's "habits" boxes (same feed), ticked from the Brain like any box.
@@ -485,6 +489,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [assume, setAssume] = useState<Assume>(ASSUME_DEFAULT);
   const [assumeKept, setAssumeKept] = useState<"master" | "browser">("browser");
   const [incomeOpen, setIncomeOpen] = useState(false);
+  // Goals as ONE MOVE works them out (vip50-web-crm#279), so ONE MOVE and the Brain can never differ; read again after
+  // a goal or the Income Map's numbers change. The Brain's own working-out below is the fallback and the demo.
+  const [goalsPlan, setGoalsPlan] = useState<GoalsPlan | null>(null);
+  const loadGoalsPlan = useCallback(() => {
+    if (!live) return Promise.resolve();
+    return fetch(goalsPlanUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setGoalsPlan(j ? readGoalsPlan(j) : null))
+      .catch(() => {});
+  }, [live]);
+  useEffect(() => {
+    void loadGoalsPlan();
+  }, [loadGoalsPlan]);
   useEffect(() => {
     let local: Assume | null = null;
     try {
@@ -513,7 +530,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     fetch("/api/goals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ income_assumptions: a }) })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setAssumeKept(j?.assumptions_saved === true ? "master" : "browser"))
-      .catch(() => setAssumeKept("browser"));
+      .catch(() => setAssumeKept("browser"))
+      .then(() => loadGoalsPlan());
   };
   // Change goal (Parry, 16 Oct, audit 3.4.1 and 3.5.2): saved to MASTER agent_goals, then the goal orbs are read again.
   const saveGoal = useCallback(
@@ -527,10 +545,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       } catch {
         return "That didn't save. Check your connection and try again.";
       }
-      await refreshLive();
+      await Promise.all([refreshLive(), loadGoalsPlan()]);
       return null;
     },
-    [live, refreshLive, graph.nodes],
+    [live, refreshLive, graph.nodes, loadGoalsPlan],
   );
   const factsKey = JSON.stringify(goalFacts(graph.nodes));
   const theIncome = useMemo(() => incomeMap(JSON.parse(factsKey), assume, todayIn()), [factsKey, assume]);
@@ -544,27 +562,25 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       .catch(() => {});
   }, [live]);
   const thePulseRead = useMemo(() => (history ? pulseRead(history, commitments, todayIn()) : null), [history, commitments]);
-  // Weekly Review's "Make it a commitment" (Parry, 16 Oct): only on the agent's tap. This week's commitments are set
-  // through ONE MOVE's set route when the week is not set yet (Monday to Thursday); otherwise the commitment waits first
-  // in next Monday's set form, as Pulse Coach's focus did.
+  // Weekly Review's "Make it a commitment" (Parry, 16 Oct): only on the agent's tap. For a signed-in agent the tap goes
+  // into ONE MOVE's queue (vip50-web-crm#280), so the draft waits first in the set form on the desktop and on the phone;
+  // ONE MOVE picks the week (this week Monday to Thursday while nothing is set, else next Monday) and says which in its
+  // own words. Nothing is set for the agent. The example agent keeps the browser copy.
   const commitThing = useCallback(
     async (t: Thing): Promise<{ ok: boolean; text: string }> => {
-      const w = commitWay(commitments, t.draft, lateInWeek(todayIn()));
-      if (w.way === "set_now") {
-        if (!live) return { ok: true, text: "Example agent: this would be set as this week's commitment. Nothing is saved." };
+      if (live) {
         try {
-          const r = await fetch(`${commitmentsUrl}/set`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(w.body) });
+          const r = await fetch(queueUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(queueBody(t.draft)) });
           const j = await r.json().catch(() => null);
-          const next = r.ok ? readCommitments(j) : null;
-          if (next) {
-            setCommitments(next);
-            return { ok: true, text: "Set as this week's commitment. Your coach sees it; ONE GO shows it on your phone." };
-          }
+          const a = r.ok ? readQueueAnswer(j) : null;
+          if (a) return { ok: true, text: a.words };
           return { ok: false, text: (j as { error?: string } | null)?.error || "That didn't save. Nothing was changed." };
         } catch {
           return { ok: false, text: "That didn't save. Check your connection and try again." };
         }
       }
+      const w = commitWay(commitments, t.draft, lateInWeek(todayIn()));
+      if (w.way === "set_now") return { ok: true, text: "Example agent: this would be set as this week's commitment. Nothing is saved." };
       try {
         localStorage.setItem(nextCommitKey, JSON.stringify(queueDraft(readQueued(localStorage.getItem(nextCommitKey)), t.draft)));
       } catch {
@@ -734,6 +750,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     fetch(weekWinsUrl(), { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setWeekWinsLive(j ? readWeekWins(j) : null))
+      .catch(() => {});
+    fetch(scoreboardUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setScoreLive(j ? readScoreboard(j) : null))
       .catch(() => {});
   }, [live]);
   const closeWins = useCallback(() => setWinsOpen(false), []);
@@ -1125,6 +1145,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [hotPeople, setHotPeople] = useState<ForecastPerson[] | null>(null);
   const [forecastOpen, setForecastOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
+  // Opening Goals reads ONE MOVE's plan again, so a deal or a Hot person added since shows.
+  useEffect(() => {
+    if (goalsOpen) void loadGoalsPlan();
+  }, [goalsOpen, loadGoalsPlan]);
   useEffect(() => {
     if (!live) {
       setHotPeople([{ cls: "hot", name: "Amy Chen", contactId: null }, { cls: "hot", name: "Marcus Lee", contactId: null }, { cls: "hot", name: "Priya Shah", contactId: null }]);
@@ -1142,7 +1166,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const forecastAvg = theIncome?.avgGci ?? { value: INCOME_START.avgGci, from: "start" as const };
   const theForecast = useMemo(() => forecast(deals, classes, forecastAvg.value, todayIn(), hotPeople), [deals, classes, forecastAvg.value, hotPeople]);
   // Goals, one orb in three parts (Parry, 16 Oct): closed so far, likely next 3 months, what to do each week. One source.
-  const theGoals = useMemo(() => goalsThree(JSON.parse(factsKey), theIncome, theForecast, todayIn()), [factsKey, theIncome, theForecast]);
+  const theGoalsOwn = useMemo(() => goalsThree(JSON.parse(factsKey), theIncome, theForecast, todayIn()), [factsKey, theIncome, theForecast]);
+  // For a signed-in agent ONE MOVE's answer (vip50-web-crm#279) when it came for today; the Brain's own otherwise.
+  const shownGoals = useMemo(
+    () => goalsShown(live ? goalsPlan : null, { three: theGoalsOwn, goals: JSON.parse(factsKey), income: theIncome, forecast: theForecast }, todayIn()),
+    [live, goalsPlan, theGoalsOwn, factsKey, theIncome, theForecast],
+  );
+  const theGoals = shownGoals.three;
   const setDealStatus: DealSetStatus = useCallback(
     async (d, status, closing) => {
       if (live) {
@@ -3075,6 +3105,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               partners={partners}
               wins={wins}
               weekWins={weekWinsLive}
+              scoreboard={live ? scoreLive : null}
               onPartner={partnerAct}
               onOpenPartners={() => setPartnersOpen(true)}
               onOpenWins={() => setWinsOpen(true)}
@@ -3593,8 +3624,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       {goalsOpen ? (
         <GoalsView
           three={theGoals}
-          goals={goalFacts(graph.nodes)}
-          map={theIncome}
+          goals={shownGoals.goals}
+          map={shownGoals.income}
           today={todayIn()}
           demo={!live}
           rezenConnected={rezenOn}
@@ -3611,7 +3642,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             setContactOpen({ id, k: Date.now() });
             goTo(page);
           }}
-          onForecast={theForecast ? () => setForecastOpen(true) : undefined}
+          onForecast={shownGoals.forecast ? () => setForecastOpen(true) : undefined}
           onIncomeMap={theIncome ? () => setIncomeOpen(true) : undefined}
           onClose={() => setGoalsOpen(false)}
         />
@@ -3619,10 +3650,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       {powerOpen ? (
         <PowerHourView calls={calls} session={session} live={live} onSession={savePower} onTick={(ref, on) => tickDay(`day:${ref}`, on)} onClose={() => setPowerOpen(false)} />
       ) : null}
-      {forecastOpen && theForecast ? (
+      {forecastOpen && shownGoals.forecast ? (
         <ForecastView
-          f={theForecast}
-          avgFrom={forecastAvg.from === "you" ? "your number in the Income Map" : forecastAvg.from === "closings" ? "your average so far" : "a starting number: set yours in the Income Map"}
+          f={shownGoals.forecast}
+          avgFrom={(shownGoals.income?.avgGci.from ?? forecastAvg.from) === "you" ? "your number in the Income Map" : (shownGoals.income?.avgGci.from ?? forecastAvg.from) === "closings" ? "your average so far" : "a starting number: set yours in the Income Map"}
           demo={!live}
           onClose={() => setForecastOpen(false)}
         />

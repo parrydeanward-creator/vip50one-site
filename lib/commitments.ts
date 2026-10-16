@@ -484,3 +484,58 @@ export function commitWay(c: Commitments | null, d: Draft, lateInWeek: boolean):
   }
   return { way: "queue" };
 }
+
+// ---- The queue in MASTER (vip50-web-crm#280): a tap on the desktop reaches the phone ----------------------------------
+// `POST /api/brain/commitments/queue {text, kind?, target?, source?}` -> `{ok, for_week, words, queued}`; `GET` lists the
+// drafts still waiting from this Monday on; `DELETE ?id=` removes one. ONE MOVE decides the week (this week while it is
+// Monday to Thursday and nothing is set, else next Monday) and clears a week's drafts when that week is set. The example
+// agent keeps the browser copy (`one.cm.next`).
+
+export const queueUrl = `${commitmentsUrl}/queue`;
+export const queueDeleteUrl = (id: string) => `${queueUrl}?id=${encodeURIComponent(id)}`;
+
+export interface QueuedDraft extends Draft {
+  id: string;
+  /** The Monday whose set form shows it first. */
+  forWeek: string;
+  source: string | null;
+}
+
+/** The body for one tap: the draft's own fields and where it came from. */
+export const queueBody = (d: Draft, source = "weekly_review") => ({ text: d.text, kind: d.kind, target: d.kind === "yes_no" ? null : d.target, source });
+
+/** The `queued` list of any queue answer (GET, POST or DELETE), checked; [] when there is none. */
+export function readQueueList(j: unknown): QueuedDraft[] {
+  const list = j && typeof j === "object" && Array.isArray((j as Record<string, unknown>).queued) ? ((j as Record<string, unknown>).queued as unknown[]) : [];
+  const out: QueuedDraft[] = [];
+  for (const raw of list) {
+    if (!raw || typeof raw !== "object") continue;
+    const x = raw as Record<string, unknown>;
+    const id = typeof x.id === "string" ? x.id : typeof x.id === "number" ? String(x.id) : "";
+    const forWeek = typeof x.for_week === "string" && /^\d{4}-\d{2}-\d{2}/.test(x.for_week) ? x.for_week.slice(0, 10) : "";
+    const text = typeof x.text === "string" ? x.text.trim().slice(0, TEXT_MAX) : "";
+    if (!id || !forWeek || !text) continue;
+    const kind = KINDS.includes(x.kind as Kind) ? (x.kind as Kind) : "yes_no";
+    const target = kind === "yes_no" ? null : typeof x.target === "number" && Number.isFinite(x.target) ? x.target : null;
+    out.push({ id, forWeek, text, kind, target, source: typeof x.source === "string" ? x.source : null });
+  }
+  return out.sort((a, b) => a.forWeek.localeCompare(b.forWeek)).slice(0, 20);
+}
+
+/** A POST answer: the week it was kept for and ONE MOVE's own words to show; null when it is not one. */
+export function readQueueAnswer(j: unknown): { forWeek: string; words: string; queued: QueuedDraft[] } | null {
+  if (!j || typeof j !== "object") return null;
+  const r = j as Record<string, unknown>;
+  if (r.ok !== true || typeof r.for_week !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(r.for_week)) return null;
+  const words = typeof r.words === "string" && r.words.trim() ? r.words.trim().slice(0, 200) : "Added to your commitments to set.";
+  return { forWeek: r.for_week.slice(0, 10), words, queued: readQueueList(j) };
+}
+
+/** The drafts waiting for the week that holds `today` (the set form sets that week): first in its starters. */
+export const queuedFor = (q: QueuedDraft[], today: string): QueuedDraft[] => q.filter((x) => x.forWeek === mondayOf(today)).slice(0, 3);
+
+/** The week's set form: the agent's chosen drafts first, then Pulse's starters of other kinds, at least 3 rows. */
+export function withChosen(chosen: Draft[], starts: Draft[]): Draft[] {
+  if (!chosen.length) return starts;
+  return [...chosen, ...starts.filter((d) => !chosen.some((x) => x.kind !== "yes_no" && x.kind === d.kind))].slice(0, Math.max(3, chosen.length));
+}
