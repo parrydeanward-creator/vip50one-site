@@ -2,7 +2,7 @@ import Logo from "@/components/brand/Logo.tsx";
 import InlineFilm from "@/components/sales/InlineFilm.tsx";
 import TalkForm from "@/components/sales/TalkForm.tsx";
 import TrialBar from "@/components/sales/TrialBar.tsx";
-import { FAQ, GROWTH_JOIN, GROWTH_PLAN, JOIN, PACKAGES, PRODUCTS, TEAMS, WHICH, joinFor, shownTestimonials } from "@/lib/sales.ts";
+import { FAQ, GROWTH_COMPARE, GROWTH_COMPARE_ROWS, GROWTH_COMPARE_SOURCE, GROWTH_JOIN, GROWTH_PLAN, JOIN, PACKAGES, PRODUCTS, TEAMS, WHICH, joinFor, shownTestimonials } from "@/lib/sales.ts";
 
 // vip50one.com (Parry, 29 Sep): visitors see the sales page; signed-in
 // clients go straight to their dashboard, ONE Brain (middleware.ts does that,
@@ -215,6 +215,26 @@ export default function Home() {
               <a className="sp-ghost" href={GROWTH_JOIN}>{GROWTH_PLAN.cta}</a>
             </article>
           </div>
+          <section className="sp-compare" aria-labelledby="compare-title">
+            <h3 id="compare-title" className="center">How ONE Growth compares</h3>
+            <p className="sp-sub center">What agents report paying for the three usual kinds of lead generation.</p>
+            <div className="sp-compare-grid">
+              {GROWTH_COMPARE.map((m) => (
+                <article key={m.name} className={m.ours ? "sp-compare-card ours" : "sp-compare-card"}>
+                  <h4>{m.name}</h4>
+                  <dl>
+                    {GROWTH_COMPARE_ROWS.map((r) => (
+                      <div key={r.key}>
+                        <dt>{r.label}</dt>
+                        <dd>{m[r.key]}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </article>
+              ))}
+            </div>
+            <small className="sp-fine center">{GROWTH_COMPARE_SOURCE}</small>
+          </section>
         </section>
 
         <section id="teams" className="sp-packages">

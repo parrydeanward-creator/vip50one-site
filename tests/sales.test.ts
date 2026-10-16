@@ -158,3 +158,24 @@ test("phone trial bar goes to the join page and is hidden on desktop", async () 
   const css = readFileSync("app/globals.css", "utf8");
   assert.match(css, /\.sp-trialbar \{ display: none; \}/);
 });
+
+test("ONE Growth comparison (Parry, 16 Oct): names no competitor, shows $499 and month-to-month, dated source", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { GROWTH_COMPARE, GROWTH_COMPARE_ROWS, GROWTH_COMPARE_SOURCE } = await import("../lib/sales.ts");
+  const page = readFileSync("app/page.tsx", "utf8");
+  const block = page.slice(page.indexOf('className="sp-compare"'), page.indexOf('id="teams"'));
+  const text = JSON.stringify({ GROWTH_COMPARE, GROWTH_COMPARE_ROWS, GROWTH_COMPARE_SOURCE }) + block;
+  for (const brand of ["BoldLeads", "Market Leader", "CINC", "Real Geeks", "Lofty", "Zillow", "Realtor.com"]) {
+    assert.ok(!text.toLowerCase().includes(brand.toLowerCase()), `names ${brand}`);
+  }
+  assert.equal(GROWTH_COMPARE.length, 4);
+  const ours = GROWTH_COMPARE.find((m) => m.ours)!;
+  assert.equal(ours.name, "ONE Growth");
+  assert.match(ours.monthly, /\$499/);
+  assert.match(ours.monthly, /\$199 added to ONE Complete or Elite/);
+  assert.equal(ours.term, "Month-to-month");
+  assert.match(ours.ads, /at cost\. No markup/);
+  assert.match(ours.fees, /No per-lead fee\. No referral fee at closing/);
+  assert.match(GROWTH_COMPARE_SOURCE, /read 12 Oct 2026; prices vary by market/);
+  assert.ok(page.indexOf('className="sp-compare"') > page.indexOf('id="growth"') && block.length > 0, "sits under ONE Growth");
+});

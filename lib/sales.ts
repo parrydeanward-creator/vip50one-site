@@ -195,6 +195,57 @@ export const GROWTH_PLAN: ExtraPlan = {
   cta: "Start 7 days free",
 };
 
+/** One comparison block under ONE Growth (Parry, 16 Oct: yes). Figures from Scout's brief
+ * (research/scout/2026-10-12-queue-growth-competitor-pricing.md): third-party reviews and cost guides, not confirmed
+ * with any vendor, so no competitor is named; each model is "what agents report paying". ONE Growth's terms are
+ * ECOSYSTEM §7.1 / GROWTH.md §2. */
+export interface GrowthModel {
+  name: string;
+  ours?: boolean;
+  monthly: string;
+  ads: string;
+  fees: string;
+  term: string;
+}
+export const GROWTH_COMPARE_ROWS: { key: "monthly" | "ads" | "fees" | "term"; label: string }[] = [
+  { key: "monthly", label: "Monthly" },
+  { key: "ads", label: "Ad spend" },
+  { key: "fees", label: "Per lead or at closing" },
+  { key: "term", label: "Contract" },
+];
+export const GROWTH_COMPARE: GrowthModel[] = [
+  {
+    name: "Lead platform, ads and a management fee",
+    monthly: "About $1,700-3,500 all-in",
+    ads: "Run through the platform, with a management fee, often a percentage of ad spend",
+    fees: "Usually none",
+    term: "Usually 6-12 months",
+  },
+  {
+    name: "Platform plus bought leads or ZIP codes",
+    monthly: "About $139-1,800",
+    ads: "You pay for leads or a share of ZIP codes",
+    fees: "Per-lead or ZIP code costs on top",
+    term: "Usually 6-12 months",
+  },
+  {
+    name: "Pay at closing",
+    monthly: "No monthly fee",
+    ads: "The lead company's own",
+    fees: "15-40% of your commission",
+    term: "The lead company's agreement",
+  },
+  {
+    name: "ONE Growth",
+    ours: true,
+    monthly: "$499, or $199 added to ONE Complete or Elite",
+    ads: "Paid by you on your own Google and Meta accounts, at cost. No markup.",
+    fees: "No per-lead fee. No referral fee at closing.",
+    term: "Month-to-month",
+  },
+];
+export const GROWTH_COMPARE_SOURCE = "Typical 2026 prices from published reviews and cost guides, read 12 Oct 2026; prices vary by market.";
+
 /** "Which one is for me?" under the packages (Parry, 14 Oct: "explain better what the difference is"). */
 export const WHICH: { name: string; line: string }[] = [
   { name: "ONE Relationship", line: "The VIP-50 method every day: your VIP contacts, touches and trackers on your phone and desktop." },
