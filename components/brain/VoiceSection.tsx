@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useVoice } from "./useVoice.ts";
+import { say, useVoice } from "./useVoice.ts";
+import { fallbackLine, pickVoiceOf, readKind, saveKind, type VoiceKind } from "@/lib/voicePick.ts";
 import {
   EMPTY_VOICE,
   VOICE_FIELDS,
@@ -240,6 +241,7 @@ export default function VoiceSection({ demo = false }: { demo?: boolean }) {
           {msg ? <small className={`pf-sub${msg.ok ? "" : " warn"}`} role="status">{msg.text}</small> : null}
         </div>
         <div className="vc-col">
+          <PulseVoicePick />
           <label className="dc-switch">
             <input type="checkbox" checked={s.learnOn} disabled={busy} onChange={(e) => void setLearn(e.target.checked)} />
             <span>
@@ -266,5 +268,45 @@ export default function VoiceSection({ demo = false }: { demo?: boolean }) {
         </div>
       </div>
     </section>
+  );
+}
+
+// Pulse's spoken voice: Man or Woman (Parry, 16 Oct: "can we let the user pick which voice they want man or woman?").
+// Default Man. Free: the best natural voice this device already has of that kind. Kept on this device until MASTER
+// keeps it (GO/MOVE: user_profiles.pulse_voice), then read from there.
+function PulseVoicePick() {
+  const [kind, setKind] = useState<VoiceKind>("man");
+  const [fell, setFell] = useState(false);
+  useEffect(() => {
+    setKind(readKind());
+  }, []);
+  useEffect(() => {
+    const check = () => {
+      try {
+        const vs = window.speechSynthesis?.getVoices() ?? [];
+        setFell(vs.length > 0 && pickVoiceOf(vs, kind).fellBack);
+      } catch { /* no voices */ }
+    };
+    check();
+    try { window.speechSynthesis?.addEventListener?.("voiceschanged", check); } catch { /* old browser */ }
+    return () => { try { window.speechSynthesis?.removeEventListener?.("voiceschanged", check); } catch { /* gone */ } };
+  }, [kind]);
+  const choose = (k: VoiceKind) => {
+    setKind(k);
+    saveKind(k);
+  };
+  return (
+    <div className="vc-voice">
+      <b>Pulse&apos;s voice</b>
+      <div className="pm-modes" role="radiogroup" aria-label="Pulse's voice">
+        {(["man", "woman"] as const).map((k) => (
+          <button key={k} type="button" role="radio" aria-checked={kind === k} className={`chip-btn${kind === k ? " on" : ""}`} onClick={() => choose(k)}>
+            {k === "man" ? "Man" : "Woman"}
+          </button>
+        ))}
+        <button type="button" className="chip-btn" onClick={() => say("Good morning. Here is what needs you today.")}>Hear it</button>
+      </div>
+      <small className="pf-sub">{fell ? fallbackLine(kind) : "Free: the most natural voice this device already has."}</small>
+    </div>
   );
 }
