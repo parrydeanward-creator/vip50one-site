@@ -114,6 +114,41 @@ export function weekWins(list: Win[], today: string): { mine: Win[]; imported: W
   return { mine: mine.filter((w) => WEEK_WIN_KINDS.includes(w.kind)), imported };
 }
 
+/** ONE MOVE's own "this week" (vip50-web-crm#278): `GET /api/brain/wins?week=this`, Monday to today in Mountain time,
+ * five-star reviews already dated by the day they were written (undated imports left out by ONE MOVE). */
+export const weekWinsUrl = (agent?: string) => `${MOVE_URL}/api/brain/wins?week=this${agent ? `&agent=${encodeURIComponent(agent)}` : ""}`;
+
+export interface WeekWinsLive {
+  from: string;
+  to: string;
+  wins: Win[];
+}
+
+/** A `?week=this` answer (`{days, from, to, wins[], counts}`), checked; null when it is not one. Keeps only the kinds
+ * "This week's wins" counts, dated inside from..to, newest first. No import guess here: ONE MOVE has dated the reviews. */
+export function readWeekWins(j: unknown): WeekWinsLive | null {
+  if (!j || typeof j !== "object") return null;
+  const r = j as Record<string, unknown>;
+  const from = day(r.from), to = day(r.to);
+  if (!from || !to || from > to || !Array.isArray(r.wins)) return null;
+  const wins: Win[] = [];
+  for (const x of r.wins as Record<string, unknown>[]) {
+    if (!x || typeof x !== "object") continue;
+    const at = day(x.at), title = str(x.title, 90);
+    if (!at || !title || !isKind(x.kind) || !WEEK_WIN_KINDS.includes(x.kind) || at < from || at > to) continue;
+    wins.push({ kind: x.kind, at, title, detail: str(x.detail, 120), contactId: str(x.contact_id, 60), amount: amt(x.amount) });
+  }
+  wins.sort((a, b) => b.at.localeCompare(a.at));
+  return { from, to, wins: wins.slice(0, MAX_WINS) };
+}
+
+/** The one list "This week's wins" and the Weekly Review's Wins card read: ONE MOVE's week when it answered for this
+ * week, else this week counted from the year's list (the demo, or ONE MOVE not answering the week yet). */
+export function weekWinsFrom(live: WeekWinsLive | null | undefined, year: Win[] | null | undefined, today: string): { mine: Win[]; imported: Win[] } | null {
+  if (live && live.from === mondayOf(today)) return { mine: live.wins.filter((w) => w.at <= today), imported: year ? weekWins(year, today).imported : [] };
+  return year ? weekWins(year, today) : null;
+}
+
 /** Where a win lives, for its row's link on the Scoreboard. */
 export type WinHome = "badges" | "review" | "referrals" | "goals";
 export const winHome = (k: WinKind): WinHome => (k === "badge" ? "badges" : k === "five_star" ? "review" : k === "referral" || k === "referral_closed" ? "referrals" : "goals");

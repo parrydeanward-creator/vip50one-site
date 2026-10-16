@@ -50,6 +50,8 @@ export const MOVE_GROUPS: MoveGroup[] = [
       { label: "Daily Tracker", path: "/daily" },
       { label: "Weekly Tracker", path: "/weekly" },
       { label: "90-Day Challenge", path: "/challenge" },
+      // ONE MOVE's Scoreboard (was Achievements; vip50-web-crm#278, Parry 16 Oct: "yes on combining into Scoreboard")
+      { label: "Scoreboard", path: "/achievements" },
       { label: "Analytics", path: "/analytics" },
     ],
   },

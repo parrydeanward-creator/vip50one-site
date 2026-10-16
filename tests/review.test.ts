@@ -171,3 +171,20 @@ test("imported reviews never count as this week's wins; a review counts in the w
   const named = readWins({ wins: [{ kind: "five_star", at: "2026-10-15", reviewed_on: "2026-09-02", title: "Old review" }] })!;
   assert.equal(named.wins[0].at, "2026-09-02");
 });
+
+test("the Weekly Review's Wins number reads ONE MOVE's week (`?week=this`) when it answered, the same as the Scoreboard", async () => {
+  const { readWeekWins } = await import("../lib/wins.ts");
+  const live = readWeekWins({
+    from: "2026-10-12", to: "2026-10-15",
+    wins: [{ kind: "closing", at: "2026-10-13", title: "Closed with Tom Lee" }, { kind: "five_star", at: "2026-10-14", title: "Jane Smith" }],
+  })!;
+  const yearOnly = [{ kind: "referral" as const, at: "2026-10-14", title: "Year list only", detail: null, contactId: null, amount: null }];
+  const r = review({ today: "2026-10-15", week: { score: 80, minimum: 100 }, roster: null, commitments: null, goals: [], wins: yearOnly, weekWins: live });
+  const c = r.cards.find((x) => x.key === "wins")!;
+  assert.equal(c.big, "2");
+  assert.deepEqual(c.rows.slice(0, 2).map((x) => x.text), ["Jane Smith", "Closed with Tom Lee"]); // newest first
+  // ONE MOVE's week alone is enough for the card.
+  assert.equal(review({ today: "2026-10-15", week: null, roster: null, commitments: null, goals: [], weekWins: live }).cards.find((x) => x.key === "wins")?.big, "2");
+  // Without it, the year's list still counts (the demo, or ONE MOVE not answering the week).
+  assert.equal(review({ today: "2026-10-15", week: { score: 80, minimum: 100 }, roster: null, commitments: null, goals: [], wins: yearOnly }).cards.find((x) => x.key === "wins")?.big, "1");
+});

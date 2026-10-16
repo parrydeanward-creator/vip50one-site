@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { GraphNode } from "@/lib/graph/types.ts";
 import { badgesUrl, readBadges, type Badges } from "@/lib/badges.ts";
 import { partnerLine, type PartnersState } from "@/lib/partners.ts";
-import { GROUP_TITLE, groupOf, weekWins, winHome, type WinHome, type Wins } from "@/lib/wins.ts";
+import { GROUP_TITLE, groupOf, weekWinsFrom, winHome, type WeekWinsLive, type WinHome, type Wins } from "@/lib/wins.ts";
 import { COMING, leaderRows } from "@/lib/oneYou.ts";
 import type { Team } from "@/lib/team.ts";
 
@@ -36,6 +36,7 @@ export default function ScoreboardPanel({
   team,
   partners,
   wins,
+  weekWins,
   onPartner,
   onOpenPartners,
   onOpenWins,
@@ -49,6 +50,8 @@ export default function ScoreboardPanel({
   team: Team | null;
   partners: PartnersState | null;
   wins: Wins | null;
+  /** ONE MOVE's own count of this week (`/api/brain/wins?week=this`); the year's `wins` is the fallback and the demo. */
+  weekWins?: WeekWinsLive | null;
   onPartner: (a: Act) => Promise<string | null>;
   onOpenPartners: () => void;
   onOpenWins: () => void;
@@ -74,7 +77,7 @@ export default function ScoreboardPanel({
   const streak = streakNode?.secondaryLabel ?? statOf(node, "Streak");
   const rank = statOf(node, "Leaderboard");
   const rows = team ? leaderRows(team) : [];
-  const week = wins ? weekWins(wins.wins, today).mine : null;
+  const week = weekWinsFrom(weekWins, wins?.wins, today)?.mine ?? null;
   const earned = badges ? badges.weekly.filter((b) => b.earned) : null;
 
   const respond = async (pairId: string, accept: boolean) => {
