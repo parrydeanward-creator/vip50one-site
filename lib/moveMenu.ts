@@ -30,6 +30,8 @@ export const MOVE_GROUPS: MoveGroup[] = [
       { label: "Contacts", path: "/contacts" },
       { label: "VIP Management", path: "/contacts/vip" },
       { label: "Touch Audit", path: "/contacts/audit" },
+      // ONE GO's Drop-By Map on ONE MOVE (Parry 16 Oct: everything in ONE GO on ONE MOVE; vip50-web-crm#276)
+      { label: "Drop-By Map", path: "/drop-by" },
       { label: "New to Sort", path: "/contacts/visitors" },
       { label: "Hot/Warm/Cold", path: "/hot-warm-cold" },
       { label: "Business Rolodex", path: "/rolodex" },
