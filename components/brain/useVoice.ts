@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { speakable } from "@/lib/spoken.ts";
+import { pickVoice } from "@/lib/voicePick.ts";
 
 // Talk to Pulse (Parry, 6 Oct: "by talking to pulse or typing"): the browser's own speech recognition
 // (Chrome, Edge, Safari), words shown as they are heard; and Pulse saying its question back when the
@@ -107,6 +108,12 @@ export function say(text: string, then?: () => void) {
     if (!s) return then?.();
     s.cancel();
     const u = new SpeechSynthesisUtterance(speakable(text));
+    // The most natural free voice this device has (lib/voicePick.ts); the browser's default where there is none.
+    const best = pickVoice(s.getVoices());
+    if (best) {
+      u.voice = best;
+      u.lang = best.lang;
+    }
     u.rate = 1.03;
     u.onend = () => then?.();
     u.onerror = () => then?.();
