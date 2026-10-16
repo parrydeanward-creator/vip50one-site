@@ -1,4 +1,5 @@
 import { MOVE_URL } from "./host.ts";
+import { goHref } from "./productSignIn.ts";
 
 // VIP-SUMMARY §3j (v1.14) and PROFILE.md: the one My Profile, in ONE Brain.
 // The facts live once in MASTER (user_profiles); ONE MOVE's route reads and
@@ -191,9 +192,9 @@ export const greetingName = (p: Profile) => p.preferred_name.trim() || p.full_na
 export const CONNECTIONS: { product: string; color: string; rows: { label: string; href?: string; classic?: boolean; note?: string }[] }[] = [
   { product: "ONE MOVE", color: "#2fb7a3", rows: [{ label: "Goals", href: `${MOVE_URL}/profile/goals` }, { label: "Agent Hub (your public page)", href: `${MOVE_URL}/profile/agent-hub` }] },
   { product: "ONE GO", color: "#f5c542", rows: [{ label: "Phone notifications and the daily VIP reminder", note: "In the ONE GO app: Profile, Notification Settings." }] },
-  { product: "Marquee", color: "#e05a8a", rows: [{ label: "Instagram and Facebook", href: "https://marquee.vip-50.com/go?open=connections" }, { label: "Writing voice", href: "https://marquee.vip-50.com/go?open=voice" }, { label: "Your team", href: "https://marquee.vip-50.com/go?open=team" }] },
-  { product: "ONE Open", color: "#5aa9ff", rows: [{ label: "Open house settings (slot, texts, safety buddy, posts, follow-ups)", href: "https://open.vip-50.com/app/settings" }] },
-  { product: "Showly", color: "#b07cff", rows: [{ label: "Lender sharing, buyer-answer emails, recap colour", href: "https://showly.net/app" }] },
+  { product: "Marquee", color: "#e05a8a", rows: [{ label: "Instagram and Facebook", href: goHref("marquee", "/go?open=connections") }, { label: "Writing voice", href: goHref("marquee", "/go?open=voice") }, { label: "Your team", href: goHref("marquee", "/go?open=team") }] },
+  { product: "ONE Open", color: "#5aa9ff", rows: [{ label: "Open house settings (slot, texts, safety buddy, posts, follow-ups)", href: goHref("vip-open", "/app/settings") }] },
+  { product: "Showly", color: "#b07cff", rows: [{ label: "Lender sharing, buyer-answer emails, recap colour", href: goHref("showly", "/app") }] },
 ];
 
 /** "Confirm your brokerage" (PROFILE.md v1.1-v1.2): while the legal name is unconfirmed or the address is missing. */

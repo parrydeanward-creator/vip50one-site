@@ -2,6 +2,7 @@ import { stripMarkers } from "./personTask.ts";
 import { celebrateIds, withSpecialDays } from "./specialDays.ts";
 import { addGoals, type GoalKey } from "./goals.ts";
 import { includes } from "./products.ts";
+import { goHref, goUrl } from "./productSignIn.ts";
 import { MOVE_BOTTOM, MOVE_GROUPS, moveGroupId, moveMenuHref, movePageId } from "./moveMenu.ts";
 import type { DayItem, DayKind } from "./day.ts";
 import type { BusinessGraph, DatedNote, GraphEdge, GraphNode, NodeStatus, ProductKey } from "./graph/types.ts";
@@ -167,8 +168,9 @@ const KIND_GROUP: Record<string, string> = {
   book_open_house: "Book your next open house",
 };
 
-// REMINDERS.md: ONE Open's page for booking a new open house.
-export const OPEN_NEW_EVENT = "https://open.vip-50.com/app/events/new";
+// REMINDERS.md: ONE Open's page for booking a new open house, through the one sign-in hop (ENTITLEMENT §6b). A full
+// address, because this link also travels in the day's plan to ONE GO.
+export const OPEN_NEW_EVENT = goUrl("vip-open", "/app/events/new");
 
 // "Sat 4 Oct, 11:00 AM" in Mountain time.
 export function openHouseWhen(iso: string): string {
@@ -693,7 +695,7 @@ function itemNode(add: (n: Omit<GraphNode, "importance"> & { importance?: number
  */
 export function hostAgainHref(nodeId: string): string | undefined {
   const m = /^live:open:upcoming:([0-9a-f-]{36})$/i.exec(nodeId);
-  return m && UUID.test(m[1]) ? `https://open.vip-50.com/app/events/${m[1].toLowerCase()}/again` : undefined;
+  return m && UUID.test(m[1]) ? goHref("vip-open", `/app/events/${m[1].toLowerCase()}/again`) : undefined;
 }
 
 /** "go:task:<uuid>" -> the uuid (VIP-SUMMARY §3c.3, `task_id`). */
