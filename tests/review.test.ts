@@ -167,4 +167,7 @@ test("imported reviews never count as this week's wins; a review counts in the w
   // a few reviews on one day are real reviews, not an import
   const few = readWins({ wins: [{ kind: "five_star", at: "2026-10-15", title: "A" }, { kind: "five_star", at: "2026-10-15", title: "B" }] })!;
   assert.equal(few.wins.some((x) => x.imported), false);
+  // GO/MOVE sends the written day as `reviewed_on` (16 Oct)
+  const named = readWins({ wins: [{ kind: "five_star", at: "2026-10-15", reviewed_on: "2026-09-02", title: "Old review" }] })!;
+  assert.equal(named.wins[0].at, "2026-09-02");
 });
