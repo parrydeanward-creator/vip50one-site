@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { masterClient } from "@/lib/server/auth.ts";
-import { LAST_COOKIE, afterSignIn } from "@/lib/landing.ts";
+import { LAST_COOKIE, afterSignIn, confirmNext } from "@/lib/landing.ts";
 import { SITE } from "@/lib/reset.ts";
 
 // Sign in with the same email and password as ONE GO and ONE MOVE (MASTER). Afterwards: the place asked for, else
@@ -26,20 +26,26 @@ const origin = async () => {
   return host.startsWith("localhost") ? `http://${host}` : SITE;
 };
 
+// Google and the email link come back through /auth/confirm; they keep the place asked for (a product hop
+// /go/<product>, a studio, a Brain page) the same way the password form does (ENTITLEMENT §6b: one sign-in).
+const confirmTo = async (form: FormData) => {
+  return `${await origin()}/auth/confirm?next=${encodeURIComponent(confirmNext(String(form.get("next") ?? "")))}`;
+};
+
 // A one-time sign-in link by email (audit stage 1 idea, approved 14 Oct). Only for existing accounts, and the page says
 // the same thing either way.
 export async function emailLink(form: FormData) {
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) redirect("/login?error=missing&link=1");
   const sb = await masterClient();
-  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: `${await origin()}/auth/confirm?next=%2Fdashboard` } });
+  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: await confirmTo(form) } });
   if (error?.status === 429) redirect("/login?error=slow&link=1");
   redirect("/login?sent=1");
 }
 
 // Sign in with Google (approved 14 Oct); the button shows once MASTER's Google provider is on (GOOGLE_SIGNIN).
-export async function google() {
+export async function google(form: FormData) {
   const sb = await masterClient();
-  const { data } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${await origin()}/auth/confirm?next=%2Fdashboard` } });
+  const { data } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: await confirmTo(form) } });
   redirect(data?.url ?? "/login?error=down");
 }
