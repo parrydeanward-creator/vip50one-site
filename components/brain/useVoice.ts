@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { speakable } from "@/lib/spoken.ts";
 
 // Talk to Pulse (Parry, 6 Oct: "by talking to pulse or typing"): the browser's own speech recognition
 // (Chrome, Edge, Safari), words shown as they are heard; and Pulse saying its question back when the
@@ -98,13 +99,14 @@ export function useVoice(onFinal: (text: string) => void) {
   return { can, listening, heard, error, listen, stop };
 }
 
-/** Pulse says it out loud (the browser's own voice), then calls back so it can listen for the answer. */
+/** Pulse says it out loud (the browser's own voice), then calls back so it can listen for the answer. Every line is
+ * said as a person would say it first (lib/spoken.ts speakable: VIP fifty, addresses, times, dollars, pauses). */
 export function say(text: string, then?: () => void) {
   try {
     const s = window.speechSynthesis;
     if (!s) return then?.();
     s.cancel();
-    const u = new SpeechSynthesisUtterance(text);
+    const u = new SpeechSynthesisUtterance(speakable(text));
     u.rate = 1.03;
     u.onend = () => then?.();
     u.onerror = () => then?.();

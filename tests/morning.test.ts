@@ -49,3 +49,23 @@ test("since label", () => {
   assert.equal(sinceLabel("2026-09-30T00:12:00Z", now), "Since yesterday at 6:12 PM");
   assert.equal(sinceLabel("2026-09-30T14:05:00Z", now), "Since 8:05 AM today");
 });
+
+test("speakable: Listen says it as a person would (Parry, 16 Oct)", async () => {
+  const { speakable, houseWords, dollarWords, numberWords } = await import("../lib/spoken.ts");
+  assert.equal(speakable("Your VIP-50 and VIP-100"), "Your VIP fifty and VIP one hundred.");
+  assert.equal(speakable("Drop by 450 E 100 S #20 today"), "Drop by four fifty East one hundred South, number twenty today.");
+  assert.equal(speakable("Showing at 1482 Maple Ridge Dr. Then lunch"), "Showing at fourteen eighty-two Maple Ridge Drive. Then lunch.");
+  assert.equal(speakable("77 Juniper Ct, 9 Elm St, 12 Oak Ave, 5 Pine Ln, 3 Main Rd, 8 State Blvd"), "seventy-seven Juniper Court, nine Elm Street, twelve Oak Avenue, five Pine Lane, three Main Road, eight State Boulevard.");
+  assert.equal(speakable("Call at 9:30am"), "Call at nine thirty a.m.");
+  assert.equal(speakable("Lunch 12:05 PM, coffee 3pm"), "Lunch twelve oh five p.m., coffee three p.m.");
+  assert.equal(speakable("Fee $1,500 on $240,000"), "Fee fifteen hundred dollars on two hundred forty thousand dollars.");
+  // pauses kept, never a run-on
+  assert.equal(speakable("Score 82 · 18 to go\nCall Jen — today"), "Score 82, 18 to go. Call Jen, today.");
+  // a title before a name is not a street
+  assert.equal(speakable("Call Dr Smith"), "Call Dr Smith.");
+  assert.equal(houseWords(309), "three oh nine");
+  assert.equal(houseWords(1300), "thirteen hundred");
+  assert.equal(houseWords(2000), "two thousand");
+  assert.equal(dollarWords(12.5), "twelve dollars and fifty cents");
+  assert.equal(numberWords(42), "forty-two");
+});
