@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { LeadMailSection, OwnAISection, PulseModesSection } from "./ConnectSections.tsx";
 import RezenSection from "./RezenSection.tsx";
 import VoiceSection from "./VoiceSection.tsx";
+import { syncKind, type VoiceKind } from "@/lib/voicePick.ts";
 import WhereIWorkSection from "./WhereIWorkSection.tsx";
 import TimeOffSection from "./TimeOffSection.tsx";
 import { autostartBody, homeReportUrl, monthUrl, readMonthCard } from "@/lib/homeReport.ts";
@@ -61,6 +62,7 @@ export default function MyProfile({
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ file: File; preview: string } | null>(null);
+  const [pulseVoice, setPulseVoice] = useState<VoiceKind | undefined>(undefined);
   const fileRef = useRef<HTMLInputElement>(null);
   // /dashboard/profile#pulse (and #badges, #settings, #connections) opens that section, as Classic does.
   const [tab, setTab] = useState<PfTab>(demo ? "pulse" : "connections");
@@ -90,8 +92,12 @@ export default function MyProfile({
     }
     if (r.status === 404 || r.status === 405) return onUnavailable();
     if (!r.ok) return setErr(r.status === 401 ? "Sign in again to see your profile." : "ONE couldn't load your profile just now.");
-    const p = readProfile(await r.json().catch(() => null));
+    const j = await r.json().catch(() => null);
+    const p = readProfile(j);
     if (!p) return onUnavailable();
+    // Pulse's voice from MASTER (vip50-web-crm#277): into the local copy every say() reads, and to the picker.
+    const k = syncKind(j);
+    if (k) setPulseVoice(k);
     setSaved(p);
     setDraft(p);
     setErr(null);
@@ -360,7 +366,7 @@ export default function MyProfile({
           </>
         ) : (
           <>
-            <VoiceSection demo={demo} />
+            <VoiceSection demo={demo} pulseVoice={pulseVoice} />
             {demo ? null : (
               <div className="pf-span">
                 <PulseModesSection />
