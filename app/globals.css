@@ -1384,6 +1384,16 @@ a.link { display: block; text-decoration: none; }
 .vc-list p { margin: 0 0 6px; color: var(--text); font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .vc-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .vc-row small { color: var(--text-3); font-size: 12px; }
+/* Where I work (PROFILE §2 v1.9): picked cities as chips, a type-ahead from ONE MOVE's list. */
+.wiw-chips { list-style: none; margin: 6px 0 2px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.wiw-chips li { display: inline-flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border: 1px solid rgba(245, 197, 66, 0.45); border-radius: 999px; color: var(--text); font-size: 14px; }
+.wiw-chips button { font: inherit; font-size: 16px; line-height: 1; width: 24px; height: 24px; border: 0; border-radius: 50%; background: none; color: var(--text-2); cursor: pointer; }
+.wiw-chips button:hover, .wiw-chips button:focus-visible { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.wiw-pick { margin-top: 6px; }
+.wiw-opts { list-style: none; margin: 0; padding: 4px; display: grid; gap: 2px; border: 1px solid var(--line); border-radius: 12px; background: rgba(7, 11, 24, 0.9); }
+.wiw-opts button { display: block; width: 100%; font: inherit; font-size: 14px; text-align: left; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); cursor: pointer; }
+.wiw-opts li[aria-selected="true"] button, .wiw-opts button:hover { background: rgba(245, 197, 66, 0.14); }
+.wiw-count { margin-right: auto; }
 @media (max-width: 899px) {
   .pf { padding: 18px 14px 90px; }
   .pf-cards { grid-template-columns: 1fr; }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { LeadMailSection, OwnAISection, PulseModesSection } from "./ConnectSections.tsx";
 import RezenSection from "./RezenSection.tsx";
 import VoiceSection from "./VoiceSection.tsx";
+import WhereIWorkSection from "./WhereIWorkSection.tsx";
 import { autostartBody, homeReportUrl, monthUrl, readMonthCard } from "@/lib/homeReport.ts";
 import { BadgesSection, GoogleSections, MembershipBadge, NotificationsSection, TeamAdsSection } from "./ProfileCards.tsx";
 import { brokerageAsk, CONNECTIONS, demoProfile, FIELDS, TIME_ZONES, UPLOAD_MAX, aboutChanges, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, winsChange, WINS_MAX, type Profile } from "@/lib/profile.ts";
@@ -289,6 +290,11 @@ export default function MyProfile({
           </div>
         </form>
         {note && <p className={`pf-note${note.ok ? "" : " bad"}`} role="status">{note.text}</p>}
+
+      {/* PROFILE.md §2 v1.9: profile facts saved on their own card, in the two-column grid (one column on a phone). */}
+      <div className="pf-cards">
+        <WhereIWorkSection demo={demo} />
+      </div>
 
       {/* The same sections as Classic's My Profile (vip50-web-crm#253): Connections (reZEN first), Badges, Settings, Pulse. */}
       <div className="pf-tabs" role="tablist" aria-label="My Profile sections">
