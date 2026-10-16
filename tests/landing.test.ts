@@ -53,13 +53,23 @@ test("phone menu: one list; Growth rows only with Growth; team rows only for tea
   assert.equal(HINT, "Tap any orb to see what needs you. Red means right now.");
 });
 
-test("Sign in with Google is on (MASTER provider switched on by Parry, 14 Oct) and lands on the Brain", async () => {
-  const { GOOGLE_SIGNIN } = await import("../lib/landing.ts");
+// Rewritten 16 Oct (deliberate change, ENTITLEMENT §6b one sign-in): Google and the email link used to return to
+// /dashboard always; they now keep the place asked for, and still land on the Brain when none was asked.
+test("Sign in with Google is on (MASTER provider switched on by Parry, 14 Oct); it lands on the Brain or the place asked for", async () => {
+  const { GOOGLE_SIGNIN, confirmNext } = await import("../lib/landing.ts");
   const { readFileSync } = await import("node:fs");
   assert.equal(GOOGLE_SIGNIN, true);
   const a = readFileSync("app/login/actions.ts", "utf8");
   assert.match(a, /provider: "google"/);
-  assert.match(a, /\/auth\/confirm\?next=%2Fdashboard/);
+  assert.match(a, /\/auth\/confirm\?next=\$\{encodeURIComponent\(confirmNext\(/);
+  assert.equal(confirmNext(""), "/dashboard");
+  assert.equal(confirmNext(null), "/dashboard");
+  assert.equal(confirmNext("/go/vip-open?next=%2Fapp"), "/go/vip-open?next=%2Fapp");
+  assert.equal(confirmNext("/go/marquee?next=%2Fgo"), "/go/marquee?next=%2Fgo");
+  assert.equal(confirmNext("//evil.com"), "/dashboard");
+  assert.equal(confirmNext("/go/vip-open?next=//evil.com"), "/dashboard");
+  const page = readFileSync("app/login/page.tsx", "utf8");
+  assert.equal((page.match(/name="next" value=\{next\}/g) ?? []).length, 3, "password, Google and email-link forms all carry next");
 });
 
 test("a sign-in code that lands on / , /login or /dashboard goes on to /auth/confirm (Google, 14 Oct)", async () => {

@@ -38,11 +38,13 @@ export default async function Login({ searchParams }: { searchParams: Promise<Re
         )}
         {GOOGLE_SIGNIN && !sent && (
           <form action={google}>
+            <input type="hidden" name="next" value={next} />
             <button type="submit" className="login-alt">Sign in with Google</button>
           </form>
         )}
         {linkMode || sent ? (
           <form action={emailLink} className="login-form">
+            <input type="hidden" name="next" value={next} />
             <label htmlFor="email">Email</label>
             <input id="email" name="email" type="email" autoComplete="email" required autoFocus={!sent} />
             <button type="submit">{sent ? "Send it again" : "Email me a sign-in link"}</button>
@@ -61,7 +63,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<Re
             <p className="login-links">
               <a href={RESET_URL}>Forgot your password?</a>
               <span aria-hidden="true">·</span>
-              <a href="/login?link=1">Email me a sign-in link</a>
+              <a href={`/login?link=1${next ? `&next=${encodeURIComponent(next)}` : ""}`}>Email me a sign-in link</a>
               <span aria-hidden="true">·</span>
               <a href="/#packages">New here? Pick a package</a>
             </p>

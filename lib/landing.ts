@@ -43,6 +43,12 @@ export function afterSignIn(next: string | null | undefined, last: string | null
   return lastPlace(last) ?? "/dashboard";
 }
 
+/** Where Google and the email link return after /auth/confirm: the place asked for (as afterSignIn), else the Brain
+ * (ENTITLEMENT §6b: a product hop survives every way of signing in). */
+export function confirmNext(next: string | null | undefined): string {
+  return next ? afterSignIn(next, null) : "/dashboard";
+}
+
 /** Plain /join (no package chosen) goes to the packages first; /join?package=... goes on to sign-up. */
 export const JOIN_NO_PACKAGE = "/#packages";
 
