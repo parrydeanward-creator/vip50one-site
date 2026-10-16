@@ -18,7 +18,18 @@ test("score below the 100 minimum pulses yellow and leads next week", () => {
   assert.equal(s.big, "82");
   assert.equal(s.line, "18 short of 100");
   assert.equal(s.level, "today");
-  assert.deepEqual(r.next, ["Reach 100 next week: this week ended at 82."]);
+  // Rewritten on purpose (Parry, 16 Oct, audit 3.3.7): on a Tuesday the three things are for the rest of this week.
+  assert.deepEqual(r.next, ["Reach 100 by Sunday: 18 to go from 82."]);
+  assert.equal(r.nextTitle, "Three things for the rest of this week");
+});
+
+test("Monday to Thursday: the rest of this week; Friday to Sunday: next week (audit 3.3.7)", () => {
+  const at = (today: string) => review({ today, week: { score: 82, minimum: 100 }, roster: null, commitments: null, goals: [] });
+  assert.equal(at("2026-10-12").nextTitle, "Three things for the rest of this week"); // Monday
+  assert.equal(at("2026-10-15").nextTitle, "Three things for the rest of this week"); // Thursday
+  assert.equal(at("2026-10-16").nextTitle, "Three things for next week"); // Friday
+  assert.equal(at("2026-10-18").nextTitle, "Three things for next week"); // Sunday
+  assert.deepEqual(at("2026-10-16").next, ["Reach 100 next week: this week is at 82."]);
 });
 
 test("score at the minimum is still green, and an all-good week says so", () => {
@@ -50,16 +61,44 @@ test("commitments: last week's results and the keep rate", () => {
   const c = demoCommitments(today);
   const r = review({ today, week: null, roster: null, commitments: { ...c, lastWeek: { kept: 1, partly: 1, missed: 3 }, keepRate8w: 0.5 }, goals: [] });
   const k = r.cards.find((x) => x.key === "commitments")!;
-  assert.equal(k.big, "50%");
+  // Rewritten on purpose (Parry, 16 Oct, audit 3.3.2): the orb shows the week's count and names the week, not the
+  // 8-week keep rate; the keep rate moves to the rows.
+  assert.equal(k.big, "1/5");
+  assert.equal(k.tag, "LAST WEEK");
   assert.equal(k.line, "Last week: 1 kept, 1 partly, 3 missed");
   assert.equal(k.level, "today");
+  assert.equal(k.rows[0].text, "You keep 50% of your commitments");
   assert.equal(r.next[0], "Set commitments you can keep: last week 3 of 5 were missed.");
+});
+
+test("commitments: this week's check-in wins over last week's, and says so (audit 3.3.2)", () => {
+  const c = demoCommitments(today);
+  const items = [
+    { id: "a", text: "Ten calls", kind: "yes_no" as const, target: null, count: null, result: "kept" as const, note: null },
+    { id: "b", text: "Two coffees", kind: "yes_no" as const, target: null, count: null, result: "missed" as const, note: null },
+    { id: "c", text: "Newsletter", kind: "yes_no" as const, target: null, count: null, result: null, note: null },
+  ];
+  const week = { id: "w", starts: "2026-10-19", setAt: null, checkedAt: null, items };
+  const k = review({ today, week: null, roster: null, commitments: { ...c, week, lastWeek: { kept: 3, partly: 0, missed: 0 } }, goals: [] }).cards.find((x) => x.key === "commitments")!;
+  assert.equal(k.big, "1/2");
+  assert.equal(k.tag, "THIS WEEK");
+  assert.equal(k.line, "This week: 1 kept, 0 partly, 1 missed");
+});
+
+test("VIP touches in counts, not a percentage (audit 3.3.3)", () => {
+  const t = review({ today, week: null, roster: demoRoster(), commitments: null, goals: [] }).cards.find((x) => x.key === "touches")!;
+  assert.match(t.big, /^\d+$/);
+  assert.equal(t.tag, "OF 60"); // 12 VIP-50 x 5 monthly touches
+  assert.match(t.line, /^\d+ of 60 touches this month\. Behind the month: /);
+  assert.equal(t.word, "Touches");
 });
 
 test("goals behind pace pulse and name the first behind", () => {
   const r = review({ today, week: null, roster: null, commitments: null, goals: [{ label: "Closings", line: "3 of 12", behind: true }, { label: "Referrals", line: "5 of 10", behind: false }] });
   const g = r.cards.find((x) => x.key === "goals")!;
-  assert.equal(g.big, "1 behind");
+  // Rewritten on purpose (audit 3.3.4): the number in the orb, the words under it.
+  assert.equal(g.big, "1");
+  assert.equal(g.tag, "BEHIND PACE");
   assert.equal(r.next[0], "Closings is behind pace (3 of 12).");
 });
 
@@ -105,6 +144,27 @@ test("wins (PULSE-ROADMAP #8): this week's wins sit next to the score, never pul
   });
   const c = r.cards.find((x) => x.key === "wins")!;
   assert.deepEqual([r.cards[0].key, r.cards[1].key], ["score", "wins"]);
-  assert.deepEqual([c.big, c.line, c.level], ["2", "1 closing, 1 referral", null]);
+  // Rewritten on purpose (audit 3.3.1): the line names the week.
+  assert.deepEqual([c.big, c.line, c.level], ["2", "This week: 1 closing, 1 referral", null]);
   assert.equal(review({ today: "2026-10-09", week: null, roster: null, commitments: null, goals: [] }).cards.some((x) => x.key === "wins"), false);
+});
+
+test("imported reviews never count as this week's wins; a review counts in the week it was written (audit 3.3.1)", async () => {
+  const { readWins, total } = await import("../lib/wins.ts");
+  const reviews = Array.from({ length: 35 }, (_, k) => ({ kind: "five_star", at: "2026-10-15", title: `Reviewer ${k}` }));
+  const w = readWins({
+    wins: [...reviews, { kind: "five_star", at: "2026-10-15", written_on: "2026-10-14", title: "Written this week" }, { kind: "closing", at: "2026-10-13", title: "Closed 9 Elm" }],
+    counts: { closing: 1, referral: 0, five_star: 36, week_100: 0, badge: 0, goal_reached: 0 },
+  })!;
+  assert.equal(w.wins.filter((x) => x.imported).length, 35);
+  assert.equal(w.wins.find((x) => x.title === "Written this week")!.at, "2026-10-14");
+  const r = review({ today: "2026-10-16", week: null, roster: null, commitments: null, goals: [], wins: w.wins, winsYear: total(w) });
+  const c = r.cards.find((x) => x.key === "wins")!;
+  assert.equal(c.big, "2");
+  assert.ok(c.rows.some((x) => x.text === "35 reviews brought in from other sites"));
+  // one source: the year's count is the Wins orb's count
+  assert.ok(c.rows.some((x) => x.text === "37 wins this year"));
+  // a few reviews on one day are real reviews, not an import
+  const few = readWins({ wins: [{ kind: "five_star", at: "2026-10-15", title: "A" }, { kind: "five_star", at: "2026-10-15", title: "B" }] })!;
+  assert.equal(few.wins.some((x) => x.imported), false);
 });

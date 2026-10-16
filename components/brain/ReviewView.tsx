@@ -4,21 +4,21 @@ import { useEffect, useRef, useState } from "react";
 import PulseRing, { PULSE_COLOR } from "./PulseRing.tsx";
 import PulseMark from "./PulseMark.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
+import OrbWords, { orbR, useOrbPhone } from "./OrbWords.tsx";
 import type { Card, Review, ReviewKey } from "@/lib/review.ts";
 
 // Weekly Review in ONE YOU: the week's score in the middle, its parts round it (VIP touches, who you haven't
 // reached, commitments, goals). Tap one and it comes to the middle with its detail in the side panel; the
 // Week orb brings the score back (Parry, 6 Oct, the rule for every orb). The side panel opens on Pulse's
-// three things for next week. Facts only: nothing is sent and nothing is marked done from here.
+// three things for the rest of the week (Mon-Thu) or next week (Fri-Sun). The number and its word sit inside each orb
+// (audit 3.3.4). Facts only: nothing is sent and nothing is marked done from here.
 
 const SIZE = 1000;
 const C = SIZE / 2;
 const CORE = 130;
 const RING = 310;
-const R = 64;
 const GOLD = "#f5c542";
 const GREEN = "#3fbf7f";
-const ICON: Record<ReviewKey, string> = { score: "★", wins: "♛", pulse: "∿", touches: "✆", untouched: "○", commitments: "✓", goals: "◎" };
 
 function arc(cx: number, cy: number, r: number, share: number): string {
   const a = Math.max(0.001, Math.min(0.9999, share)) * Math.PI * 2;
@@ -29,6 +29,8 @@ const ringColor = (c: { level: Card["level"]; good: boolean }) => (c.level === "
 
 export default function ReviewView({ review, week, demo, onClose }: { review: Review; week: { score: number; minimum: number } | null; demo: boolean; onClose: () => void }) {
   const cam = useSvgCamera(SIZE);
+  const phone = useOrbPhone();
+  const R = orbR(phone);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -74,7 +76,7 @@ export default function ReviewView({ review, week, demo, onClose }: { review: Re
     <div className="pm-full pop" role="dialog" aria-modal="true" aria-labelledby="rv-title">
       <div className="vr" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
         <div className="vr-stage">
-          <svg ref={cam.svgRef} className="vr-svg" viewBox={cam.viewBox} preserveAspectRatio="xMidYMid meet" {...cam.handlers} role="group" aria-label="Your week">
+          <svg ref={cam.svgRef} className="vr-svg ow-svg" viewBox={cam.viewBox} preserveAspectRatio="xMidYMid meet" {...cam.handlers} role="group" aria-label="Your week">
             <defs>
               <radialGradient id="rv-glass" cx="50%" cy="50%" r="50%">
                 <stop offset="0" stopColor="#0b1226" />
@@ -94,6 +96,7 @@ export default function ReviewView({ review, week, demo, onClose }: { review: Re
                 <circle cx={C} cy={C} r={CORE} fill="url(#rv-glass)" stroke={ringColor(sel)} strokeWidth={3} />
                 <text className="dt-score" x={C} y={C - 4} textAnchor="middle">{sel.big}</text>
                 <text className="dt-score-sub" x={C} y={C + 28} textAnchor="middle">{sel.title.toUpperCase()}</text>
+                {sel.tag ? <text className="dt-score-sub" x={C} y={C + 56} textAnchor="middle">{sel.tag}</text> : null}
               </g>
             ) : (
               <g aria-label={week ? `Weekly score ${week.score} of ${week.minimum}` : "Your week"}>
@@ -107,18 +110,15 @@ export default function ReviewView({ review, week, demo, onClose }: { review: Re
             {weekSeat && (
               <g data-tap className="pm-orb pm-plan" role="button" tabIndex={0} aria-label="Your week: back to the score" {...tap(() => open(null))}>
                 <circle className="pm-disc" cx={weekSeat.x} cy={weekSeat.y} r={R} fill="url(#rv-glass)" stroke="#ffd86a" strokeWidth={2.5} />
-                <text className="pm-mark" x={weekSeat.x} y={weekSeat.y} dy="0.36em" textAnchor="middle" fontSize={26}>{week ? week.score : "★"}</text>
-                <text className="pm-name-l" x={weekSeat.x} y={weekSeat.y + R + 24} textAnchor="middle">Week</text>
+                <OrbWords x={weekSeat.x} y={weekSeat.y} r={R} big={week ? String(week.score) : "–"} word="Week" tag="SCORE" phone={phone} />
               </g>
             )}
 
             {seats.map(({ c, x, y }) => (
-              <g key={c.key} data-tap className="pm-orb pm-plan" role="button" tabIndex={0} aria-label={`${c.title}: ${c.big}. ${c.line}`} {...tap(() => open(c.key))}>
+              <g key={c.key} data-tap className="pm-orb pm-plan" role="button" tabIndex={0} aria-label={`${c.title}: ${c.big}${c.tag ? ` ${c.tag.toLowerCase()}` : ""}. ${c.line}`} {...tap(() => open(c.key))}>
                 {c.level ? <PulseRing r={R} level={c.level} x={x} y={y} /> : null}
                 <circle className="pm-disc" cx={x} cy={y} r={R} fill="url(#rv-glass)" stroke={ringColor(c)} strokeWidth={2.5} />
-                <text className="pm-mark" x={x} y={y - 8} dy="0.36em" textAnchor="middle" fontSize={c.big.length > 5 ? 17 : 24}>{c.big}</text>
-                <text className="pm-time-l" x={x} y={y + 24} textAnchor="middle" fontSize={16} aria-hidden="true">{ICON[c.key]}</text>
-                <text className="pm-name-l" x={x} y={y + R + 24} textAnchor="middle">{c.title}</text>
+                <OrbWords x={x} y={y} r={R} big={c.big} word={c.word} tag={c.tag} phone={phone} />
               </g>
             ))}
           </svg>
@@ -160,7 +160,7 @@ export default function ReviewView({ review, week, demo, onClose }: { review: Re
               <h1 className="d-title" id="rv-title">Weekly Review</h1>
               <p className="d-sub">{week ? `${week.score} of ${week.minimum} this week` : "Your week"}</p>
               <h2>
-                <PulseMark label={false} /> Three things for next week
+                <PulseMark label={false} /> {review.nextTitle}
               </h2>
               <ol className="pm-list pm-compact rv-next">
                 {review.next.map((t, k) => (
@@ -180,6 +180,7 @@ export default function ReviewView({ review, week, demo, onClose }: { review: Re
                     <span className="pm-body">
                       <b>
                         {c.title}: {c.big}
+                        {c.tag ? ` ${c.tag.toLowerCase()}` : ""}
                       </b>
                       <small>{c.line}</small>
                     </span>

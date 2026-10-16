@@ -2435,3 +2435,37 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 }
 /* 3.1.9 Back to today / See tomorrow's plan in the Day Clock panel */
 .dc-back-today { margin: 4px 0 12px; }
+
+/* ONE YOU audit 3.3-3.5 (Parry, 16 Oct). */
+/* 3.3.4 / 3.5.4 The word inside each ring orb under its number (components/brain/OrbWords.tsx); sizes are set there,
+   larger on phones (3.3.6), so only the colours live here. */
+.ow-big { fill: #fff3cc; font-weight: 700; pointer-events: none; }
+.ow-word { fill: rgba(235, 240, 252, 0.95); font-weight: 600; pointer-events: none; }
+.ow-tag { fill: #ffd86a; font-weight: 700; letter-spacing: 0.06em; pointer-events: none; }
+@media (max-width: 719px) {
+  .ow-svg .dt-score-sub { font-size: 24px; letter-spacing: 0.06em; }
+}
+/* Map controls in one place on every screen (Parry, 16 Oct, after the Film A tour): on the desktop the back / + / - /
+   centre / ? row sits to the right of the drawing, beside the panel, as on the Brain map (.map-ctrls), on the Day Clock
+   and every clock or ring view. Every one of them puts its row straight inside .vr-stage, so one rule covers them all;
+   phones keep the row under the drawing (3.1.7 above). */
+@media (min-width: 720px) {
+  .vr-stage > .controls { left: auto; right: 12px; top: 50%; bottom: auto; transform: translateY(-50%); flex-direction: column; gap: 6px; }
+  .vr-stage > .controls button { width: 42px; height: 42px; font-size: 18px; border-radius: 12px; }
+  .vr-bar { left: 16px; max-width: calc(100% - 84px); }
+}
+/* Goals on the desktop and the phone alike (3.4.1, 3.4.4) */
+.gl-panel { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.gl-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.gl-head { margin: 0; display: flex; justify-content: space-between; gap: 12px; font-size: 15px; }
+.gl-head span { color: var(--text-2); }
+.gl-behind .gl-head b::after { content: ""; display: inline-block; width: 8px; height: 8px; margin-left: 8px; border-radius: 50%; background: #f5c542; vertical-align: middle; }
+.gl-pace { margin: 4px 0 0; color: var(--text-2); font-size: 13.5px; }
+.gl-change { padding-top: 6px; }
+.gl-edit { margin-top: 8px; display: grid; gap: 8px; }
+.gl-edit label { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; }
+.gl-acts { display: flex; gap: 8px; }
+.gl-src { margin: 6px 0 0; color: var(--text-2); font-size: 13px; }
+.gl-src .link { padding: 0; }
+.gl-sources { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); display: grid; gap: 4px; }
+.gl-sources p { margin: 0; }

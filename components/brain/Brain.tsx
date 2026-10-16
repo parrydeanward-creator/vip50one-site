@@ -63,7 +63,8 @@ import CoachView from "./CoachView.tsx";
 import { commitmentWork } from "@/lib/assist.ts";
 import { PULSE_COACH_NODE, demoHistory, historyUrl, pulseRead, readHistory, withPulseCoachNode, type History, type Read as PulseRead } from "@/lib/pulseCoach.ts";
 import { POWER_NODE, lineUp, newSession, powerKey, readSession, withPowerNode, type Call, type Session as PowerSession } from "@/lib/powerHour.ts";
-import { ASSUME_DEFAULT, INCOME_NODE, START as INCOME_START, goalFacts, incomeKey, incomeMap, readAssume, withIncomeNode, type Assume, type IncomeMap } from "@/lib/goals.ts";
+import { ASSUME_DEFAULT, INCOME_NODE, START as INCOME_START, goalFacts, incomeKey, incomeMap, readAssume, withIncomeNode, type Assume, type GoalKey, type IncomeMap } from "@/lib/goals.ts";
+import GoalsPanel from "./GoalsPanel.tsx";
 import { REVIEW_NODE, demoRoster, goalsFromGraph, review as buildReview, withReviewNode, type Review } from "@/lib/review.ts";
 import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
 import { REVIEW_CALLS_NODE, agentsUrl, demoAgents, readAgents, withReviewCallsNode, type ReviewAgent } from "@/lib/reviewCalls.ts";
@@ -81,7 +82,7 @@ import { MARKET_NODE, demoMarketPulse, marketPulseUrl, marketSendUrl, readMarket
 import { DEALS_NODE, dealUrl, dealsUrl, demoDeals, readClosingAsk, readDeals, statusBody as dealStatusBody, withDealsNode, withStatus as withDealStatus, type Deal } from "@/lib/deals.ts";
 import { LIFE_NODE, applyKeep, demoRadar, keepBody as lifeKeepBody, keepUrl as lifeKeepUrl, lifeEventsUrl, readRadar, withLifeEventsNode, type Found as LifeFound, type Radar } from "@/lib/lifeEvents.ts";
 import { ENERGY_NODE, applyCheck, demoEnergy, energyUrl, readEnergy, saveBody as energyBody, saveEnergyUrl, withEnergyNode, type Energy, type Level as EnergyLevel } from "@/lib/energy.ts";
-import { WINS_NODE, demoWins, newSince, readWins, winsUrl, withWinsNode, type Wins } from "@/lib/wins.ts";
+import { WINS_NODE, demoWins, newSince, readWins, total as winsTotal, winsUrl, withWinsNode, type Wins } from "@/lib/wins.ts";
 import { PARTNERS_NODE, demoPartners, partnersActionUrl, partnersUrl, readPartners, unseenNudges, withAllSeen, withPartnersNode, type PartnersState } from "@/lib/partners.ts";
 import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, mondayOf, type HabitToday } from "@/lib/habits.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
@@ -462,27 +463,66 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const goalKey = JSON.stringify(goalsFromGraph(graph.nodes));
   const goalNodes = useMemo(() => JSON.parse(goalKey) as ReturnType<typeof goalsFromGraph>, [goalKey]);
   const theReview = useMemo(
-    () => (weekScore || roster || commitments || goalNodes.length ? buildReview({ today: todayIn(), week: weekScore, roster, commitments, goals: goalNodes, wins: wins?.wins ?? null, pulse: pulseReport }) : null),
+    () => (weekScore || roster || commitments || goalNodes.length ? buildReview({ today: todayIn(), week: weekScore, roster, commitments, goals: goalNodes, wins: wins?.wins ?? null, winsYear: wins ? winsTotal(wins) : null, pulse: pulseReport }) : null),
     [weekScore, roster, commitments, goalNodes, wins, pulseReport],
   );
   useEffect(() => {
     reviewRef.current = theReview;
     setGraph((g) => withReviewNode(g, theReview));
   }, [theReview]);
-  // The Income Map: the goal orbs' facts and the agent's own numbers (kept in this browser).
+  // The Income Map: the goal orbs' facts and the agent's own numbers, kept in MASTER with the goals
+  // (agent_goals.income_assumptions; Parry, 16 Oct, audit 3.5.3). This browser keeps a copy, and is the only keeper
+  // until MASTER has that column ("browser"); the promise line says which.
   const [assume, setAssume] = useState<Assume>(ASSUME_DEFAULT);
+  const [assumeKept, setAssumeKept] = useState<"master" | "browser">("browser");
   const [incomeOpen, setIncomeOpen] = useState(false);
   useEffect(() => {
+    let local: Assume | null = null;
     try {
-      setAssume(readAssume(JSON.parse(localStorage.getItem(incomeKey) ?? "null")));
+      const raw = localStorage.getItem(incomeKey);
+      if (raw) local = readAssume(JSON.parse(raw));
     } catch {}
-  }, []);
+    if (local) setAssume(local);
+    if (!live) return;
+    fetch("/api/goals", { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!j || j.assumptions_kept !== true) return;
+        setAssumeKept("master");
+        if (j.income_assumptions) return setAssume(readAssume(j.income_assumptions));
+        // First time with the column: carry this browser's numbers up so the phone and other computers see them.
+        if (local) void fetch("/api/goals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ income_assumptions: local }) }).catch(() => {});
+      })
+      .catch(() => {});
+  }, [live]);
   const saveAssume = (a: Assume) => {
     setAssume(a);
     try {
       localStorage.setItem(incomeKey, JSON.stringify(a));
     } catch {}
+    if (!live) return;
+    fetch("/api/goals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ income_assumptions: a }) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setAssumeKept(j?.assumptions_saved === true ? "master" : "browser"))
+      .catch(() => setAssumeKept("browser"));
   };
+  // Change goal (Parry, 16 Oct, audit 3.4.1 and 3.5.2): saved to MASTER agent_goals, then the goal orbs are read again.
+  const saveGoal = useCallback(
+    async (key: GoalKey, value: number): Promise<string | null> => {
+      if (!live) return "Example agent: goals are not saved.";
+      const from = goalFacts(graph.nodes).find((g) => g.from)?.from ?? null;
+      try {
+        const r = await fetch("/api/goals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ goals: { [key]: value }, starts_on: from }) });
+        const j = await r.json().catch(() => null);
+        if (!r.ok) return typeof j?.error === "string" ? j.error : "That didn't save. Try again.";
+      } catch {
+        return "That didn't save. Check your connection and try again.";
+      }
+      await refreshLive();
+      return null;
+    },
+    [live, refreshLive, graph.nodes],
+  );
   const factsKey = JSON.stringify(goalFacts(graph.nodes));
   const theIncome = useMemo(() => incomeMap(JSON.parse(factsKey), assume, todayIn()), [factsKey, assume]);
   useEffect(() => {
@@ -1004,13 +1044,21 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   };
   // Revenue share and My network from reZEN (REZEN.md §3a): only the boxes the agent ticked, read hourly by ONE MOVE.
   const [rezen, setRezen] = useState<{ r: Revshare | null; n: RezenNetwork | null }>({ r: null, n: null });
+  // Whether reZEN is connected, for Goals' "Closings and GCI come from reZEN and the MLS" line (audit 3.4.1).
+  const [rezenOn, setRezenOn] = useState<boolean | null>(null);
   useEffect(() => {
     const take = (read: unknown) => setRezen({ r: readRevshare(read), n: readRezenNetwork(read) });
-    if (!live) return take(demoRezenRead());
+    if (!live) {
+      setRezenOn(true);
+      return take(demoRezenRead());
+    }
     const load = () =>
       fetch(rezenUrl, { credentials: "include", cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
-        .then((j) => take(j?.read))
+        .then((j) => {
+          setRezenOn(j ? j.connected === true : null);
+          take(j?.read);
+        })
         .catch(() => {});
     load();
     const t = setInterval(load, 1_800_000);
@@ -2991,6 +3039,20 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               </span>
             </button>
           )}
+          {/* Goals (Parry, 16 Oct, audit 3.4.1 and 3.4.4): the same Closings / Referrals / GCI list as the phone, with pace and
+              "Change goal", on the Goals orb and on each goal orb. */}
+          {(focus.id === "go-goals" || (focus.type === "goal" && focus.goal)) && !focus.locked && !tour && !ask && (
+            <GoalsPanel
+              goals={goalFacts(graph.nodes)}
+              today={todayIn()}
+              demo={!live}
+              rezenConnected={rezenOn}
+              only={focus.type === "goal" ? focus.goal!.key : undefined}
+              onSave={saveGoal}
+              onProfile={() => goTo(movePageId("/profile"))}
+              onReferrals={() => (refs ? setRefsOpen(true) : goTo(REFERRALS_NODE))}
+            />
+          )}
 
           {focus.id === COACH_NODE && !tour && (
             <button className="pi-film pm-open" onClick={() => setCoachOpen(true)}>
@@ -3218,7 +3280,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
 
           {focus.stats?.length ? <Stats stats={focus.stats} color={hex(PRODUCT_COLOR[focus.product])} ticked={(l) => ticked.has(`${focus.id}|${l}`)} /> : null}
 
-          {focus.pace && !focus.locked && (
+          {focus.pace && !focus.locked && focus.type !== "goal" && (
             <div className="pace">
               <p className="pace-head">{focus.pace.headline}</p>
               {focus.pace.detail && (
@@ -3273,7 +3335,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             </div>
           )}
 
-          {kids.length > 0 && !isMoveGroup(focus.id) && (
+          {kids.length > 0 && !isMoveGroup(focus.id) && focus.id !== "go-goals" && (
             <div className={`d-list inside ${railCount > childrenOf(ix, focus.id).length - 1 && !moveQuiet ? "" : "keep"}${focus.id === "go" ? " go-inside" : ""}`}>
               <h2>{focus.type === "core" ? "Your products" : "Inside"}</h2>
               <ul>
@@ -3457,7 +3519,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           onClose={() => setForecastOpen(false)}
         />
       ) : null}
-      {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} demo={!live} onAssume={saveAssume} onClose={() => setIncomeOpen(false)} /> : null}
+      {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} kept={assumeKept} goals={goalFacts(graph.nodes)} demo={!live} onAssume={saveAssume} onSaveGoal={saveGoal} onClose={() => setIncomeOpen(false)} /> : null}
       {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} squad={team} /> : null}
       {rcOpen && rcAgents ? <ReviewCallsView agents={rcAgents} demo={!live} onClose={() => setRcOpen(false)} onSearch={loadRcAgents} /> : null}
       {warOpen && war ? <WarRoomView room={war} demo={!live} onClose={() => setWarOpen(false)} onTeamLeads={() => { setWarOpen(false); goTo(movePageId(TEAM_LEADS_PATH)); }} /> : null}

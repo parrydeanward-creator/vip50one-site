@@ -4,7 +4,8 @@ import type { GraphEdge, GraphNode } from "./graph/types.ts";
 // runs from their own start date (Parry, 30 Sep), and MASTER keeps the goals and where the agent should be by
 // today (`pace`). This file says where the year is heading ("On pace for 22 of 25"), what the rest of the year
 // asks for each week, and works the income goal back to closings, referrals, conversations and touches a week.
-// Pure: nothing here saves, sends or sets a goal; goals are set in ONE GO.
+// Pure: nothing here saves or sends. Goals are changed on the desktop through /api/goals (Parry, 16 Oct, audit 3.4.1),
+// checked here first (goalChange).
 
 export type GoalKey = "closings_goal" | "referrals_goal" | "gci_goal";
 
@@ -86,7 +87,8 @@ function paceOf(g: GoalFacts, today: string): { headline: string; detail: string
   const rest = `${f(left)} to go in ${weeks} ${weeks === 1 ? "week" : "weeks"}: ${perWeekWords(g.key, left, y.weeksLeft)}.`;
   if (y.share < EARLY) return { headline: `Goal year just started: ${f(g.max)} to reach`, detail: rest, projected: null };
   const projected = g.key === "gci_goal" ? Math.round(value / y.share / 1000) * 1000 : Math.round(value / y.share);
-  const where = `By today you'd be at ${f(g.key === "gci_goal" ? Math.round(shouldBe) : Math.round(shouldBe * 10) / 10)}.`;
+  // Whole numbers (Parry, 16 Oct, audit 3.4.3: "By today you'd be at 3.9" reads as "about 4").
+  const where = g.key === "gci_goal" ? `By today you'd be at ${f(Math.round(shouldBe))}.` : `By today you'd be at about ${Math.round(shouldBe)}.`;
   return {
     headline: projected >= g.max ? `On pace for ${f(projected)} of ${f(g.max)}: ahead` : `On pace for ${f(projected)} of ${f(g.max)}`,
     detail: `${rest} ${where}`,
@@ -94,12 +96,82 @@ function paceOf(g: GoalFacts, today: string): { headline: string; detail: string
   };
 }
 
+/** Behind pace: past the first weeks of the goal year and short of where the agent should be by today. */
+export function behindPace(g: GoalFacts, today: string): boolean {
+  if (g.max == null || g.max <= 0) return false;
+  const value = Math.max(0, g.value ?? 0);
+  if (value >= g.max) return false;
+  const y = yearShare(g.from, g.to, today);
+  if (g.pace != null && (!y || y.share >= EARLY)) return value < g.pace;
+  if (!y || y.share < EARLY) return false;
+  return value < g.max * y.share;
+}
+
+/** "3 goals behind pace" on the Goals orb, so its yellow count has a reason (Parry, 16 Oct, audit 3.4.5). */
+export function goalsLine(goals: GoalFacts[], today: string): { line: string; behind: number } {
+  const set = goals.filter((g) => g.max != null && g.max > 0);
+  if (!set.length) return { line: "No goals set yet", behind: 0 };
+  const behind = set.filter((g) => behindPace(g, today)).length;
+  if (behind) return { line: `${behind} ${behind === 1 ? "goal" : "goals"} behind pace`, behind };
+  return { line: set.length === 1 ? "On pace" : `All ${set.length} goals on pace`, behind: 0 };
+}
+
+// ---- changing a goal (Parry, 16 Oct, audit 3.4.1) -------------------------------------------------------------
+// The agent changes a goal on the desktop; /api/goals saves it to MASTER agent_goals with the agent's own session
+// (row-level security: user_id = auth.uid()). Closings and GCI themselves come from reZEN and the MLS, never typed.
+
+export const GOAL_KEYS: GoalKey[] = ["closings_goal", "referrals_goal", "gci_goal"];
+const GOAL_MAX: Record<GoalKey, number> = { closings_goal: 1000, referrals_goal: 1000, gci_goal: 100_000_000 };
+export const GOAL_WORD: Record<GoalKey, string> = { closings_goal: "Closings", referrals_goal: "Referrals", gci_goal: "GCI" };
+
+export interface GoalChange {
+  goals: Partial<Record<GoalKey, number>>;
+  startsOn: string | null; // the goal year start, used only when the agent has no goals row yet
+  assumptions: Assume | null; // the Income Map's own numbers (agent_goals.income_assumptions)
+}
+
+/** A goal value as typed: "20", "$500,000", "500000". Closings and referrals whole numbers, GCI any amount; 0 or more. */
+export function goalValue(key: GoalKey, raw: unknown): number | { error: string } {
+  const n = typeof raw === "number" ? raw : typeof raw === "string" && raw.trim() ? Number(raw.replace(/[$,\s]/g, "")) : NaN;
+  const word = GOAL_WORD[key];
+  if (!Number.isFinite(n) || n < 0) return { error: `${word}: type a number, 0 or more.` };
+  if (key !== "gci_goal" && !Number.isInteger(n)) return { error: `${word}: a whole number.` };
+  if (n > GOAL_MAX[key]) return { error: `${word}: that is more than ONE can keep (${fmtGoal(key, GOAL_MAX[key])}).` };
+  return key === "gci_goal" ? Math.round(n * 100) / 100 : n;
+}
+
+/** The /api/goals POST body, checked; an error says which part to fix. */
+export function goalChange(j: unknown): GoalChange | { error: string } {
+  if (!j || typeof j !== "object") return { error: "Nothing to change." };
+  const r = j as Record<string, unknown>;
+  const goals: Partial<Record<GoalKey, number>> = {};
+  const g = r.goals && typeof r.goals === "object" ? (r.goals as Record<string, unknown>) : {};
+  for (const k of GOAL_KEYS) {
+    if (!(k in g)) continue;
+    const v = goalValue(k, g[k]);
+    if (typeof v !== "number") return v;
+    goals[k] = v;
+  }
+  const assumptions = r.income_assumptions && typeof r.income_assumptions === "object" ? readAssume(r.income_assumptions) : null;
+  if (!Object.keys(goals).length && !assumptions) return { error: "Nothing to change." };
+  const startsOn = isDay(r.starts_on) ? r.starts_on.slice(0, 10) : null;
+  return { goals, startsOn, assumptions };
+}
+
+/** MASTER's answer when agent_goals.income_assumptions does not exist yet (another bot adds it): the Income Map then
+ * keeps the agent's numbers in this browser, as before, and says so. */
+export function missingColumn(e: { code?: string | null; message?: string | null } | null | undefined): boolean {
+  if (!e) return false;
+  return e.code === "42703" || e.code === "PGRST204" || /income_assumptions/.test(e.message ?? "");
+}
+
 // ---- the Income Map --------------------------------------------------------------------------------
 
 export const INCOME_NODE = "go-income";
 export const incomeKey = "one.income";
 
-/** The agent's own numbers behind the map. Starting numbers until they change them (kept in the browser). */
+/** The agent's own numbers behind the map. Starting numbers until they change them. Kept in MASTER with the goals
+ * (agent_goals.income_assumptions; Parry, 16 Oct, audit 3.5.3), in the browser only until that column exists. */
 export interface Assume {
   avgGci: number | null; // null: from their closings so far, or the starting number
   referralShare: number | null; // 0..1 of closings that come from referrals; null: from their goals, or 50%
@@ -142,9 +214,11 @@ export interface IncomeMap {
   goal: number; // the income goal for the goal year
   basis: string; // where the goal comes from
   weeksLeft: number;
-  avgGci: { value: number; from: "you" | "closings" | "start" };
+  avgGci: { value: number; from: "you" | "closings" | "goals" | "start" };
   referralShare: { value: number; from: "you" | "goals" | "start" };
   closingsLeft: number;
+  /** The referrals to go come straight from the referrals goal (the share of closings is then not used). */
+  referralsFromGoal: boolean;
   perWeek: { conversations: number; touches: number };
   parts: IncomePart[];
 }
@@ -156,12 +230,18 @@ export function incomeMap(goals: GoalFacts[], a: Assume, today: string): IncomeM
   const gci = by("gci_goal"), cl = by("closings_goal"), rf = by("referrals_goal");
   const closed = Math.max(0, cl?.value ?? 0);
   const earned = Math.max(0, gci?.value ?? 0);
+  // One set of goals feeds Goals and the Income Map (Parry, 16 Oct, audit 3.5.1: the map said 50 closings to go from
+  // $500,000 at a $10,000 starting number while Goals said 20). GCI per closing: the agent's own number, else their
+  // closings so far, else the GCI goal over the closings goal, else the starting number until sold homes come in from
+  // reZEN or the MLS.
   const avg =
     a.avgGci != null
       ? { value: a.avgGci, from: "you" as const }
       : earned > 0 && closed > 0
         ? { value: Math.round(earned / closed), from: "closings" as const }
-        : { value: START.avgGci, from: "start" as const };
+        : gci?.max && cl?.max
+          ? { value: Math.round(gci.max / cl.max), from: "goals" as const }
+          : { value: START.avgGci, from: "start" as const };
   let goal: number, basis: string;
   if (gci?.max) {
     goal = gci.max;
@@ -180,17 +260,21 @@ export function incomeMap(goals: GoalFacts[], a: Assume, today: string): IncomeM
   const weeksLeft = Math.max(1, Math.round(y?.weeksLeft ?? 52));
   const sofar = gci?.max ? earned : closed * avg.value;
   const incomeLeft = Math.max(0, goal - sofar);
-  const closingsTotal = Math.ceil(goal / avg.value);
-  const closingsLeft = Math.ceil(incomeLeft / avg.value);
-  const referralsLeft = Math.ceil(closingsLeft * share.value);
+  // The closings goal, when set, is the number of closings (own deals only, Parry 12 Oct); else the income at GCI each.
+  const closingsTotal = cl?.max ? cl.max : Math.ceil(goal / avg.value);
+  const closingsLeft = cl?.max ? (incomeLeft > 0 ? Math.max(0, cl.max - closed) : 0) : Math.ceil(incomeLeft / avg.value);
+  const referralsFromGoal = !!rf?.max;
+  const referralsLeft = referralsFromGoal ? Math.max(0, rf!.max! - Math.max(0, rf!.value ?? 0)) : Math.ceil(closingsLeft * share.value);
   const convosLeft = closingsLeft * a.convosPerClosing;
   const conversations = closingsLeft ? Math.ceil(convosLeft / weeksLeft) : 0;
   const touches = Math.ceil(conversations * a.touchesPerConvo);
   // behind when the year has gone further than the income has
   const behind = !!y && y.share >= EARLY && sofar < goal * y.share;
   const lvl = behind && incomeLeft > 0 ? ("today" as const) : null;
-  const avgWord = avg.from === "you" ? "your number" : avg.from === "closings" ? "your average so far" : "a starting number: change it to yours";
+  const avgWord =
+    avg.from === "you" ? "your number" : avg.from === "closings" ? "your average so far" : avg.from === "goals" ? "your GCI goal over your closings goal" : "a starting number until your sold homes come in from reZEN or the MLS";
   const shareWord = share.from === "you" ? "your number" : share.from === "goals" ? "from your referrals and closings goals" : "a starting number: change it to yours";
+  const mismatch = cl?.max && gci?.max && Math.abs(cl.max * avg.value - gci.max) >= avg.value;
   const parts: IncomePart[] = [
     {
       key: "income",
@@ -200,7 +284,7 @@ export function incomeMap(goals: GoalFacts[], a: Assume, today: string): IncomeM
       line: incomeLeft ? `${money(sofar)} so far, ${money(incomeLeft)} to go in ${weeksLeft} weeks` : `Reached: ${money(sofar)}`,
       rows: [
         { text: basis, sub: `${money(goal)} this goal year.` },
-        { text: `${money(sofar)} so far`, sub: gci?.max ? "GCI you logged with your closings in ONE GO." : `${closed} closings at ${money(avg.value)} each.` },
+        { text: `${money(sofar)} so far`, sub: gci?.max ? "GCI from your closings this goal year." : `${closed} closings at ${money(avg.value)} each.` },
         { text: `${money(incomeLeft)} to go`, sub: `${weeksLeft} weeks left in your goal year.` },
       ],
       level: lvl,
@@ -210,10 +294,14 @@ export function incomeMap(goals: GoalFacts[], a: Assume, today: string): IncomeM
       title: "Closings",
       big: String(closingsLeft),
       unit: "TO GO",
-      line: `${closingsTotal} at ${money(avg.value)} each (${avgWord})`,
+      line: cl?.max ? `Your closings goal: ${closed} of ${cl.max}, at ${money(avg.value)} GCI each (${avgWord})` : `${closingsTotal} at ${money(avg.value)} each (${avgWord})`,
       rows: [
-        { text: `${closingsTotal} closings reach ${money(goal)}`, sub: `At ${money(avg.value)} GCI each: ${avgWord}.` },
+        cl?.max
+          ? { text: `Closings goal: ${cl.max}`, sub: "The same goal as in Goals. Change it there or below." }
+          : { text: `${closingsTotal} closings reach ${money(goal)}`, sub: `At ${money(avg.value)} GCI each: ${avgWord}.` },
         { text: `${closed} closed so far`, sub: `${closingsLeft} to go: ${perWeekWords("closings_goal", closingsLeft, weeksLeft)}.` },
+        ...(cl?.max ? [{ text: `${money(avg.value)} GCI per closing`, sub: `${avgWord[0].toUpperCase()}${avgWord.slice(1)}.` }] : []),
+        ...(mismatch ? [{ text: `${cl!.max} closings at ${money(avg.value)} make ${money(cl!.max! * avg.value)}`, sub: `Your GCI goal is ${money(gci!.max!)}: change one so they agree.` }] : []),
       ],
       level: lvl,
     },
@@ -222,10 +310,11 @@ export function incomeMap(goals: GoalFacts[], a: Assume, today: string): IncomeM
       title: "Referrals",
       big: String(referralsLeft),
       unit: "TO GO",
-      line: `${Math.round(share.value * 100)}% of closings from referrals (${shareWord})`,
+      line: referralsFromGoal ? `Your referrals goal: ${Math.max(0, rf!.value ?? 0)} of ${rf!.max}` : `${Math.round(share.value * 100)}% of closings from referrals (${shareWord})`,
       rows: [
-        { text: `${referralsLeft} of the ${closingsLeft} closings to go from referrals`, sub: `${Math.round(share.value * 100)}% of closings: ${shareWord}.` },
-        ...(rf?.max ? [{ text: `Referrals goal: ${Math.max(0, rf.value ?? 0)} of ${rf.max}`, sub: "Set in ONE GO." }] : []),
+        referralsFromGoal
+          ? { text: `Referrals goal: ${Math.max(0, rf!.value ?? 0)} of ${rf!.max}`, sub: "The same goal as in Goals, counted from your Referrals scoreboard." }
+          : { text: `${referralsLeft} of the ${closingsLeft} closings to go from referrals`, sub: `${Math.round(share.value * 100)}% of closings: ${shareWord}.` },
         { text: "Where referrals come from", sub: "Your VIP-50: the people who already love you, touched every month." },
       ],
       level: null,
@@ -255,7 +344,7 @@ export function incomeMap(goals: GoalFacts[], a: Assume, today: string): IncomeM
       level: null,
     },
   ];
-  return { goal, basis, weeksLeft, avgGci: avg, referralShare: share, closingsLeft, perWeek: { conversations, touches }, parts };
+  return { goal, basis, weeksLeft, avgGci: avg, referralShare: share, closingsLeft, referralsFromGoal, perWeek: { conversations, touches }, parts };
 }
 
 /** The Income Map orb under ONE YOU: "9 conversations this week". */
@@ -306,15 +395,16 @@ const longDay = (ymd?: string) =>
 export function addGoals(add: (n: Omit<GraphNode, "importance"> & { importance?: number }) => void, goals: GoalFacts[], today: string) {
   if (!goals.length) return;
   const set = goals.some((g) => g.max != null);
+  const gl = goalsLine(goals, today);
   add({
     id: "go-goals",
     type: "category",
     label: "Goals",
-    secondaryLabel: set ? "This goal year" : "No goals set yet",
+    secondaryLabel: gl.line,
     parentId: "go",
     product: "go",
     importance: 0.9,
-    summary: set ? `Your goal year runs from ${longDay(goals[0].from) ?? "your start date"} to ${longDay(goals[0].to) ?? "a year later"}.` : "Set closings, referrals and GCI goals in ONE GO to see your pace here.",
+    summary: set ? `Your goal year runs from ${longDay(goals[0].from) ?? "your start date"} to ${longDay(goals[0].to) ?? "a year later"}.` : "Set closings, referrals and GCI goals here to see your pace.",
   });
   goals.forEach((g, k) => {
     const f = (n: number) => fmtGoal(g.key, n);
@@ -328,7 +418,7 @@ export function addGoals(add: (n: Omit<GraphNode, "importance"> & { importance?:
       parentId: "go-goals",
       product: "go",
       importance: 1 - k * 0.05,
-      status: g.max == null ? undefined : g.pace != null && g.value != null && g.value >= g.pace ? "healthy" : "attention",
+      status: g.max == null ? undefined : behindPace(g, today) ? "attention" : "healthy",
       stats: [{ label: g.label, value: ofMax ?? "0" }],
       pace: p ? { headline: p.headline, detail: p.detail } : undefined,
       goal: g,
