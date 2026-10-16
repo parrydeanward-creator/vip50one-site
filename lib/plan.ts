@@ -32,6 +32,7 @@ export interface PlanItem {
   nodeId?: string; // the Brain's own: the orb to go to (not sent)
   urgency?: "alert" | "today" | "soon"; // the Brain's own: the pulse colour (not sent)
   special?: boolean; // the Brain's own: a special day (not sent)
+  vip?: boolean; // the Brain's own: one of the day's generated VIP touches (not sent)
 }
 
 export interface Plan {
@@ -57,22 +58,26 @@ export function fromDay(d: DayItem): PlanItem {
     nodeId: d.nodeId,
     urgency: d.urgency,
     special: d.special,
+    ...(d.vip ? { vip: true } : {}),
   };
 }
 
 const rank = (p: PlanItem) => (p.urgency === "alert" ? 0 : p.special ? 1 : p.urgency === "today" ? 2 : 3);
 
 /** Pulse suggests: what is pulsing today, red first, then special days, then yellow; the products' own
- * order kept inside each; at most 15 (the rest wait until these are done). */
+ * order kept inside each; at most 15 other tasks (the rest wait until these are done). Every one of the day's VIP
+ * touches is in the plan, always (Parry, 16 Oct: "every day the plan must carry that day's generated VIP touch tasks"):
+ * they sit in the day's Power Hour, texts and notes blocks, so they never crowd out the 15. */
 export function suggest(today: DayItem[], max = MAX_TASKS_SHOWN): PlanItem[] {
   const seen = new Set<string>();
+  let others = 0;
   return today
     .map(fromDay)
     .filter((p) => (seen.has(p.ref) ? false : (seen.add(p.ref), true)))
     .map((p, n) => ({ p, n }))
     .sort((a, b) => rank(a.p) - rank(b.p) || a.n - b.n)
     .map(({ p }) => p)
-    .slice(0, max);
+    .filter((p) => (p.vip && p.urgency !== "soon") || others++ < max);
 }
 
 /** A first plan when the agent has none: Pulse's order, everything red and special, then yellow up to
@@ -80,12 +85,16 @@ export function suggest(today: DayItem[], max = MAX_TASKS_SHOWN): PlanItem[] {
 export function firstPlan(suggestions: PlanItem[], budget = 180, start = "08:00", max = PLAN_MAX): PlanItem[] {
   const out: PlanItem[] = [];
   let used = 0;
+  let others = 0;
   for (const p of suggestions) {
-    if (out.length >= max) break;
-    const must = rank(p) < 2;
+    // the day's VIP touches always (Parry, 16 Oct); the rest up to the 15
+    const vip = !!p.vip && p.urgency !== "soon";
+    if (!vip && others >= max) continue;
+    const must = rank(p) < 2 || vip;
     if (!must && used + p.minutes > budget) continue;
     out.push(p);
     used += p.minutes;
+    if (!vip) others++;
   }
   // A fixed time (a lunch) goes where the day reaches it, not where Pulse ranked it.
   const flex = out.filter((p) => !isTime(p.at));
@@ -269,7 +278,7 @@ export function planState(x: { approvedAt: string | null; sent: { items: unknown
   return x.blocks > 0 ? "ready" : "empty";
 }
 
-/** ONE GO's "Today's plan" orb: pulses until the day is planned, then shows how much is done (an arc
+/** ONE YOU's "Plan my day" orb (one name everywhere, Parry 16 Oct; it was "Today's plan" once sent or approved): pulses until the day is planned, then shows how much is done (an arc
  * and a count that pulses up to ONE GO and ONE), green when it is all done. Tapping it opens Plan My
  * Day. No ONE GO orb (or ONE GO not in the package): the graph is unchanged. `state` is planState(), the
  * same answer the ONE YOU card reads; without it, a sent plan is approved and anything else is not planned. */
@@ -287,15 +296,15 @@ export function withPlanNode<G extends { nodes: import("./graph/types.ts").Graph
     total
       ? {
           ...base,
-          label: "Today's plan",
+          label: "Plan my day",
           secondaryLabel: left ? `${done} of ${total} done` : "All done today",
           status: left ? "attention" : "healthy",
           needCount: left || undefined,
-          stats: [{ label: "Today's plan", value: `${done} / ${total}` }],
+          stats: [{ label: "Plan my day", value: `${done} / ${total}` }],
           summary: left ? `${left} still to do on today's plan. Open it to change the order or send it to your phone again.` : "Everything on today's plan is done.",
         }
       : st === "approved"
-        ? { ...base, label: "Today's plan", secondaryLabel: "Plan approved", status: "healthy", summary: "You approved today's plan. Open it to see the day or change the order." }
+        ? { ...base, label: "Plan my day", secondaryLabel: "Plan approved", status: "healthy", summary: "You approved today's plan. Open it to see the day or change the order." }
         : st === "over"
           ? { ...base, label: "Plan my day", secondaryLabel: "Day done · see tomorrow", status: "healthy", summary: "Today's working day is over. Open it to see tomorrow's plan." }
           : st === "ready"

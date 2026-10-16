@@ -18,7 +18,8 @@ test("goalPace: on pace for N of M, from the share of the year gone", () => {
   const p = goalPace(g("closings_goal", 11, 25, 12.5), "2026-07-02")!;
   assert.equal(p.headline, "On pace for 22 of 25");
   assert.match(p.detail, /^14 to go in 26 weeks: about 0\.5 a week|^14 to go in 26 weeks: about 1 every 2 weeks/);
-  assert.match(p.detail, /By today you'd be at 12\.5\.$/);
+  // Rewritten on purpose (Parry, 16 Oct, audit 3.4.3): whole numbers, "about 13", not 12.5.
+  assert.match(p.detail, /By today you'd be at about 13\.$/);
 });
 
 test("goalPace: ahead, reached, and too early to say", () => {
@@ -98,4 +99,60 @@ test("closings goal says own deals only, with referral closings beside it (Parry
   assert.equal(referralNote({ ...g, from_referrals: 0 }), null);
   assert.equal(referralNote({ ...g, from_referrals: undefined }), null);
   assert.equal(referralNote({ ...g, key: "referrals_goal" as const }), null);
+});
+
+import { behindPace, goalChange, goalValue, goalsLine, missingColumn, addGoals } from "../lib/goals.ts";
+
+test("Income Map and Goals read one set of goals (Parry, 16 Oct, audit 3.5.1)", () => {
+  // Parry's year: 20 closings, 15 referrals, $500,000 GCI, nothing in yet
+  const goals = [g("gci_goal", 0, 500_000), g("closings_goal", 0, 20), g("referrals_goal", 0, 15)];
+  const m = incomeMap(goals, ASSUME_DEFAULT, "2026-03-12")!;
+  assert.equal(m.closingsLeft, 20); // was 50: $500,000 at the $10,000 starting number
+  assert.equal(m.parts.find((p) => p.key === "referrals")!.big, "15"); // was 38
+  assert.equal(m.referralsFromGoal, true);
+  assert.equal(m.avgGci.value, 25_000);
+  assert.equal(m.avgGci.from, "goals");
+  // with no closings goal the starting number is named as one until sold homes come in
+  const s = incomeMap([g("gci_goal", 0, 500_000)], ASSUME_DEFAULT, "2026-03-12")!;
+  assert.equal(s.avgGci.from, "start");
+  assert.match(s.parts.find((p) => p.key === "closings")!.line, /starting number until your sold homes come in from reZEN or the MLS/);
+});
+
+test("behindPace and the Goals orb's reason (audit 3.4.5)", () => {
+  assert.equal(behindPace(g("closings_goal", 0, 20), "2026-03-12"), true);
+  assert.equal(behindPace(g("closings_goal", 10, 20), "2026-03-12"), false);
+  assert.equal(behindPace(g("closings_goal", 0, 20), "2026-01-05"), false); // too early to say
+  assert.equal(behindPace(g("closings_goal", 2, 20, 3), "2026-03-12"), true); // MASTER's pace when sent
+  assert.equal(behindPace(g("closings_goal", 0, null), "2026-03-12"), false);
+  const three = [g("gci_goal", 0, 500_000), g("closings_goal", 0, 20), g("referrals_goal", 0, 15)];
+  assert.deepEqual(goalsLine(three, "2026-03-12"), { line: "3 goals behind pace", behind: 3 });
+  assert.equal(goalsLine([g("closings_goal", 10, 20)], "2026-03-12").line, "On pace");
+  assert.equal(goalsLine([g("closings_goal", 1, null)], "2026-03-12").line, "No goals set yet");
+  const nodes: { id: string; secondaryLabel?: string; status?: string }[] = [];
+  addGoals((n) => nodes.push(n), three, "2026-03-12");
+  assert.equal(nodes[0].secondaryLabel, "3 goals behind pace");
+  assert.ok(nodes.slice(1).every((n) => n.status === "attention"));
+});
+
+test("goalValue / goalChange: whole numbers 0 or more, GCI any amount; nothing else (audit 3.4.1)", () => {
+  assert.equal(goalValue("closings_goal", "20"), 20);
+  assert.equal(goalValue("gci_goal", "$500,000"), 500_000);
+  assert.equal(goalValue("referrals_goal", 0), 0);
+  assert.deepEqual(goalValue("closings_goal", "2.5"), { error: "Closings: a whole number." });
+  assert.deepEqual(goalValue("referrals_goal", "-1"), { error: "Referrals: type a number, 0 or more." });
+  assert.deepEqual(goalValue("gci_goal", "lots"), { error: "GCI: type a number, 0 or more." });
+  assert.ok("error" in (goalValue("closings_goal", 5000) as object));
+  const c = goalChange({ goals: { closings_goal: "24", other: 3 }, starts_on: "2026-01-01" });
+  assert.deepEqual(c, { goals: { closings_goal: 24 }, startsOn: "2026-01-01", assumptions: null });
+  assert.deepEqual(goalChange({ goals: {} }), { error: "Nothing to change." });
+  assert.deepEqual(goalChange({ goals: { gci_goal: -5 } }), { error: "GCI: type a number, 0 or more." });
+  const a = goalChange({ income_assumptions: { avgGci: 12000, convosPerClosing: 9999 } });
+  assert.ok(!("error" in a) && a.assumptions!.avgGci === 12000 && a.assumptions!.convosPerClosing === ASSUME_DEFAULT.convosPerClosing);
+});
+
+test("missingColumn: MASTER without agent_goals.income_assumptions yet (audit 3.5.3)", () => {
+  assert.equal(missingColumn({ code: "42703", message: "column agent_goals.income_assumptions does not exist" }), true);
+  assert.equal(missingColumn({ code: "PGRST204", message: "Could not find the 'income_assumptions' column" }), true);
+  assert.equal(missingColumn({ code: "42501", message: "permission denied" }), false);
+  assert.equal(missingColumn(null), false);
 });

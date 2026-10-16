@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import PulseRing, { PULSE_COLOR } from "./PulseRing.tsx";
 import PulseMark from "./PulseMark.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
+import OrbWords, { orbR, useOrbPhone } from "./OrbWords.tsx";
 import { nextCommitKey, type Part, type Read, type ReadKey } from "@/lib/pulseCoach.ts";
 
 // Pulse Coach in ONE YOU (VIP-SUMMARY §3q; Parry, 7 Oct). The week's read in the middle, its parts round it:
@@ -15,14 +16,16 @@ const SIZE = 1000;
 const C = SIZE / 2;
 const CORE = 130;
 const RING = 310;
-const R = 64;
 const GOLD = "#f5c542";
 const GREEN = "#3fbf7f";
-const ICON: Record<ReadKey, string> = { trend: "★", touches: "✆", days: "◷", habits: "♥", keep: "✓", focus: "◎" };
+// The word inside each orb under its number (Parry, 16 Oct, audit 3.3.4: words, not symbols).
+const WORD: Record<ReadKey, string> = { trend: "Score", touches: "Touches", days: "Week's shape", habits: "Habits", keep: "Commitments", focus: "Focus" };
 const ringColor = (p: Pick<Part, "level" | "good">) => (p.level === "today" ? PULSE_COLOR.today : p.good ? GREEN : "rgba(160,175,210,0.45)");
 
 export default function PulseCoachView({ read, who, demo, onClose, onCommit }: { read: Read; who?: string; demo: boolean; onClose: () => void; onCommit?: () => void }) {
   const cam = useSvgCamera(SIZE);
+  const phone = useOrbPhone();
+  const R = orbR(phone);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -97,7 +100,7 @@ export default function PulseCoachView({ read, who, demo, onClose, onCommit }: {
     <div className="pm-full pop" role="dialog" aria-modal="true" aria-labelledby="pc-title">
       <div className="vr" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
         <div className="vr-stage">
-          <svg ref={cam.svgRef} className="vr-svg" viewBox={cam.viewBox} preserveAspectRatio="xMidYMid meet" {...cam.handlers} role="group" aria-label="Pulse Coach">
+          <svg ref={cam.svgRef} className="vr-svg ow-svg" viewBox={cam.viewBox} preserveAspectRatio="xMidYMid meet" {...cam.handlers} role="group" aria-label="Pulse Coach">
             <defs>
               <radialGradient id="pc-glass" cx="50%" cy="50%" r="50%">
                 <stop offset="0" stopColor="#0b1226" />
@@ -130,8 +133,7 @@ export default function PulseCoachView({ read, who, demo, onClose, onCommit }: {
             {homeSeat && (
               <g data-tap className="pm-orb pm-plan" role="button" tabIndex={0} aria-label="Pulse: back to the whole read" {...tap(() => open(null))}>
                 <circle className="pm-disc" cx={homeSeat.x} cy={homeSeat.y} r={R} fill="url(#pc-glass)" stroke="#ffd86a" strokeWidth={2.5} />
-                <text className="pm-mark" x={homeSeat.x} y={homeSeat.y} dy="0.36em" textAnchor="middle" fontSize={18}>PULSE</text>
-                <text className="pm-name-l" x={homeSeat.x} y={homeSeat.y + R + 24} textAnchor="middle">The read</text>
+                <OrbWords x={homeSeat.x} y={homeSeat.y} r={R} big="PULSE" word="The read" phone={phone} />
               </g>
             )}
 
@@ -139,9 +141,7 @@ export default function PulseCoachView({ read, who, demo, onClose, onCommit }: {
               <g key={p.key} data-tap className="pm-orb pm-plan" role="button" tabIndex={0} aria-label={`${p.title}: ${p.big}. ${p.line}`} {...tap(() => open(p.key))}>
                 {p.level ? <PulseRing r={R} level={p.level} x={x} y={y} /> : null}
                 <circle className="pm-disc" cx={x} cy={y} r={R} fill="url(#pc-glass)" stroke={ringColor(p)} strokeWidth={2.5} />
-                <text className="pm-mark" x={x} y={y - 8} dy="0.36em" textAnchor="middle" fontSize={p.big.length > 4 ? 18 : 24}>{p.big}</text>
-                <text className="pm-time-l" x={x} y={y + 24} textAnchor="middle" fontSize={16} aria-hidden="true">{ICON[p.key]}</text>
-                <text className="pm-name-l" x={x} y={y + R + 24} textAnchor="middle">{p.title}</text>
+                <OrbWords x={x} y={y} r={R} big={p.big} word={WORD[p.key]} phone={phone} />
               </g>
             ))}
           </svg>

@@ -146,3 +146,14 @@ test("each in-Brain page has its own address", async () => {
   assert.equal(pageFromAddress("/dashboard/nope"), null);
   assert.equal(pageFromAddress("/dashboard/dashboard"), null);
 });
+
+test("the desktop demo uses the live Brain's names (Parry, 16 Oct: one name everywhere)", async () => {
+  const { demoGraph, oneYouView } = await import("../lib/graph/demo.ts");
+  const g = oneYouView(demoGraph("complete"));
+  const label = (id: string) => g.nodes.find((n) => n.id === id)?.label;
+  assert.equal(label("go-today"), "Today's VIP touches");
+  assert.equal(label("move-3"), "Follow-ups overdue");
+  assert.equal(label("move-4"), "New to Sort");
+  // the phone app's own tree keeps its tab name
+  assert.equal(demoGraph("complete").nodes.find((n) => n.id === "go-today")?.label, "Today");
+});

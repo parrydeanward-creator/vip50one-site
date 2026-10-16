@@ -62,7 +62,7 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
       pace: { headline: "Current pace: 22 / 26", detail: "4 high-value actions could close the gap." } },
     { id: "move", type: "product", label: "ONE MOVE", secondaryLabel: "Relationship intelligence", parentId: "one", product: "move", importance: 0.9, status: "action",
       summary: "Everyone you know, and what you promised them.",
-      stats: [{ label: "Follow-ups overdue", value: "4" }, { label: "New to sort", value: "3" }] },
+      stats: [{ label: "Follow-ups overdue", value: "4" }, { label: "New to Sort", value: "3" }] },
     { id: "marquee", type: "product", label: "MARQUEE", secondaryLabel: "Listing intelligence", parentId: "one", product: "marquee", importance: 0.85, status: "attention",
       summary: "Every listing's marketing, from the first presentation to the weekly seller report.",
       stats: [{ label: "Waiting for approval", value: "5" }, { label: "Active listings", value: "2" }] },
@@ -132,6 +132,13 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
       { id: "day-video", nodeId: "dt-video", product: "go", kind: "text", what: "Send 2 video texts to your VIP-50.", minutes: 10, vip: true, urgency: "today" },
       { id: "day-approve", nodeId: "task-approve", product: "marquee", kind: "approval", what: "Approve 5 posts for 1482 Maple Ridge Dr.", minutes: 15, urgency: "today" },
       { id: "day-note", nodeId: "p-dave", product: "move", kind: "note", what: "Write Dave Kim a handwritten note.", minutes: 5, vip: true },
+      // a full example day (Parry, 16 Oct): every VIP touch ONE GO set for today, a real Power Hour and the texts
+      { id: "day-millers", nodeId: "p-millers", product: "move", kind: "text", what: "Video text the Millers.", minutes: 5, vip: true, urgency: "today" },
+      { id: "day-parkers", nodeId: "p-parkers", product: "move", kind: "text", what: "Social media touch: the Parkers.", minutes: 5, vip: true, urgency: "today" },
+      { id: "day-nina", nodeId: "mv-c-vip100", product: "move", kind: "call", what: "Call Nina Brooks (VIP-100, 90-day call).", minutes: 10, vip: true, urgency: "today" },
+      { id: "day-kim", nodeId: "mv-n1", product: "move", kind: "call", what: "Call Kim Reyes, Saturday's open house visitor.", minutes: 10, urgency: "today" },
+      { id: "day-luis", nodeId: "mv-f4", product: "move", kind: "call", what: "Call Luis Ortega to check in.", minutes: 10, urgency: "today" },
+      { id: "day-priya", nodeId: "mv-f3", product: "move", kind: "text", what: "Text Priya Shah.", minutes: 5, urgency: "today" },
       { id: "day-marcus", nodeId: "p-marcus", product: "move", kind: "meeting", what: "Lunch with Marcus Lee.", minutes: 60, vip: true, at: "12:30" },
       { id: "day-rate", nodeId: "open-3", product: "open", kind: "rating", what: "Rate the 2 visitors from Saturday.", minutes: 5, urgency: "soon" },
       { id: "day-follow", nodeId: "task-followups", product: "move", kind: "follow_up", what: "Clear the 4 overdue follow-ups.", minutes: 20, urgency: "alert" },
@@ -142,7 +149,7 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
 }
 
 // ONE YOU on the demo dashboard (Parry, 6 Oct): the desktop orb holds the agent's own pieces (today's
-// VIP-50 work, the scoreboard, the 90-Day Challenge, goals, and Today's plan), never copies of what ONE MOVE
+// VIP-50 work, the scoreboard, the 90-Day Challenge, goals, and Plan my day), never copies of what ONE MOVE
 // already has (trackers, contacts, tasks, calendar, Hot/Warm/Cold, Rolodex) or the phone's own corners
 // (Lounge, Tools). The product films keep the full ONE GO tree: they show the phone app.
 const ONE_YOU_KEEPS = new Set(["go-today", "go-score", "go-challenge", "go-goals"]);
@@ -156,7 +163,8 @@ export function oneYouView(g: BusinessGraph): BusinessGraph {
     for (const k of kids.get(id) ?? []) drop(k);
   };
   for (const id of kids.get("go") ?? []) if (!ONE_YOU_KEEPS.has(id) && id !== "go-plan") drop(id);
-  const nodes = g.nodes.filter((n) => !gone.has(n.id));
+  // The desktop calls ONE GO's "Today" what the live Brain calls it (lib/live.ts; Parry, 16 Oct: one name everywhere).
+  const nodes = g.nodes.filter((n) => !gone.has(n.id)).map((n) => (n.id === "go-today" ? { ...n, label: "Today's VIP touches" } : n));
   const edges = g.edges.filter((e) => !gone.has(e.source) && !gone.has(e.target));
   // what today holds still points somewhere real: work from a dropped corner opens Today
   const today = g.today?.map((d) => (gone.has(d.nodeId) ? { ...d, nodeId: "go-today" } : d));

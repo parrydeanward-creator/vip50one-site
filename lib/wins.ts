@@ -32,6 +32,9 @@ export interface Win {
   detail: string | null;
   contactId: string | null;
   amount: number | null;
+  /** A five-star review brought in from another site with no written date: dated by the day it came in, so it never
+   * counts as this week's win (Parry, 16 Oct, audit 3.3.1: "a review counts in the week it was written"). */
+  imported?: boolean;
 }
 export interface Wins {
   wins: Win[];
@@ -42,6 +45,8 @@ const str = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.
 const day = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null);
 const amt = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null);
 const isKind = (v: unknown): v is WinKind => typeof v === "string" && (KINDS as string[]).includes(v);
+/** This many five-star reviews on one day with no written date is an import, not a week's reviews (15 Oct: 35 at once). */
+export const IMPORT_BATCH = 5;
 
 /** A §3t.1 answer, checked; null when it is not one. Counts are MASTER's when sent, else counted from the list. */
 export function readWins(j: unknown): Wins | null {
@@ -50,9 +55,20 @@ export function readWins(j: unknown): Wins | null {
   if (!Array.isArray(r.wins)) return null;
   const wins: Win[] = [];
   for (const x of r.wins as Record<string, unknown>[]) {
-    const at = day(x?.at), title = str(x?.title, 90);
+    // A review is dated by the day it was written when ONE MOVE sends it (`written_on`), else the day it came in.
+    const written = x?.kind === "five_star" ? day(x?.written_on) : null;
+    const at = written ?? day(x?.at), title = str(x?.title, 90);
     if (!at || !title || !isKind(x.kind)) continue;
-    wins.push({ kind: x.kind, at, title, detail: str(x.detail, 120), contactId: str(x.contact_id, 60), amount: amt(x.amount) });
+    const w: Win = { kind: x.kind, at, title, detail: str(x.detail, 120), contactId: str(x.contact_id, 60), amount: amt(x.amount) };
+    if (x.kind === "five_star" && !written) w.imported = false;
+    wins.push(w);
+  }
+  // Five-star reviews with no written date that came in together are an import (audit 3.3.1).
+  const undated = new Map<string, number>();
+  for (const w of wins) if (w.imported === false) undated.set(w.at, (undated.get(w.at) ?? 0) + 1);
+  for (const w of wins) {
+    if (w.imported === false && (undated.get(w.at) ?? 0) >= IMPORT_BATCH) w.imported = true;
+    else delete w.imported;
   }
   wins.sort((a, b) => b.at.localeCompare(a.at));
   const sent = (r.counts && typeof r.counts === "object" ? r.counts : {}) as Record<string, unknown>;
@@ -70,6 +86,14 @@ export const inGroup = (w: Wins, g: WinGroup) => w.wins.filter((x) => groupOf(x.
 /** Wins dated after the agent's last look (`seen`, a date). None before a first look counts as new. */
 export function newSince(w: Wins, seen: string | null): Win[] {
   return seen ? w.wins.filter((x) => x.at > seen) : [];
+}
+
+/** This week's wins (Monday to today) for the Weekly Review, and the imported reviews that came in this week. One list
+ * for every screen: the Wins orb counts the year from the same `Wins` (Parry, 16 Oct, audit 3.4.2). */
+export function thisWeek(list: Win[], today: string): { mine: Win[]; imported: Win[] } {
+  const mon = mondayOf(today);
+  const inWeek = list.filter((w) => w.at >= mon && w.at <= today).sort((a, b) => b.at.localeCompare(a.at));
+  return { mine: inWeek.filter((w) => !w.imported), imported: inWeek.filter((w) => w.imported) };
 }
 
 export function winsLine(w: Wins): string {

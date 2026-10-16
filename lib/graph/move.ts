@@ -14,7 +14,7 @@ export function addMove(add: Add) {
     [
       {
         id: "move-3",
-        label: "Follow-ups",
+        label: "Follow-ups overdue", // the live name (lib/live.ts), Parry 16 Oct: one name everywhere
         sub: "4 overdue",
         status: "action",
         summary: "Tasks past their day. Log the touch and the task closes itself.",
@@ -27,7 +27,7 @@ export function addMove(add: Add) {
       },
       {
         id: "move-4",
-        label: "New to sort",
+        label: "New to Sort", // ONE MOVE's menu name (lib/moveMenu.ts)
         sub: "3 from Saturday",
         status: "attention",
         summary: "Visitors from Saturday's open house, tagged open-house. They are not in your VIP-50; Pulse suggests a follow-up and you decide.",

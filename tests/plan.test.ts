@@ -148,7 +148,7 @@ test("ONE GO's plan orb: pulses until planned, then counts what is left, green w
   const some = withPlanNode(none, { items: [{ done: true }, { done: false }, { done: false }] });
   const n = some.nodes.find((x) => x.id === PLAN_NODE)!;
   assert.equal(some.nodes.filter((x) => x.id === PLAN_NODE).length, 1, "replaced, never doubled");
-  assert.deepEqual([n.label, n.secondaryLabel, n.stats?.[0].value], ["Today's plan", "1 of 3 done", "1 / 3"]);
+  assert.deepEqual([n.label, n.secondaryLabel, n.stats?.[0].value], ["Plan my day", "1 of 3 done", "1 / 3"]);
   assert.deepEqual(needsOf(some.nodes).get("one"), { count: 2, level: "today" });
   const all = withPlanNode(some, { items: [{ done: true }] });
   assert.equal(all.nodes.find((x) => x.id === PLAN_NODE)?.status, "healthy");
@@ -206,7 +206,50 @@ test("3.1.3 one plan state: the Plan my day orb and the ONE YOU card read the sa
   assert.equal(orb("ready").secondaryLabel, "Ready for Looks good");
   assert.match(orb("ready").summary!, /Pulse planned today round your calendar/);
   assert.equal(orb("empty").secondaryLabel, "Not planned yet");
-  assert.deepEqual([orb("approved").label, orb("approved").secondaryLabel, orb("approved").status], ["Today's plan", "Plan approved", "healthy"]);
+  assert.deepEqual([orb("approved").label, orb("approved").secondaryLabel, orb("approved").status], ["Plan my day", "Plan approved", "healthy"]);
   // 3.1.5: the panel has a real button now, so nothing says "Tap to plan"
   for (const st of ["ready", "empty", "approved"] as const) assert.doesNotMatch(orb(st).summary ?? "", /Tap to/);
+});
+
+test("every one of the day's VIP touches is in the plan, beyond the 15 (Parry, 16 Oct)", () => {
+  const overdue = Array.from({ length: 16 }, (_, i) => d(`r${i}`, { urgency: "alert", kind: "follow_up" }));
+  const vips = Array.from({ length: 13 }, (_, i) => d(`v${i}`, { vip: true, kind: i % 2 ? "text" : "call" }));
+  const s = suggest([...overdue, ...vips]);
+  assert.equal(s.filter((p) => p.vip).length, 13, "all 13 VIP touches");
+  assert.equal(s.filter((p) => !p.vip).length, 15, "the other tasks still stop at 15");
+  const first = firstPlan(s);
+  assert.equal(first.filter((p) => p.vip).length, 13);
+  // a VIP touch due later in the month is not today's
+  assert.equal(suggest([d("later", { vip: true, urgency: "soon" }), ...overdue]).some((p) => p.ref === "later"), false);
+});
+
+test("the day's VIP touches land in the Power Hour and the texts block; social touches sit with the texts", async () => {
+  const { buildDay } = await import("../lib/schedule.ts");
+  const { dayKind } = await import("../lib/live.ts");
+  assert.equal(dayKind({ id: "x", kind: "vip_touch", title: "Social media touch — Ryan", urgency: "today" } as never), "text");
+  assert.equal(dayKind({ id: "x", kind: "vip_touch", title: "Call Jen Alvarez", urgency: "today" } as never), "call");
+  const items = suggest([
+    d("c1", { vip: true }),
+    d("c2", { vip: true }),
+    d("t1", { vip: true, kind: "text", what: "Video text Megan" }),
+    d("s1", { vip: true, kind: "text", what: "Social media touch — Ryan" }),
+  ]);
+  const out = buildDay({ hours: { start: "08:00", end: "17:30" }, busy: [], items });
+  const ph = out.blocks.find((b) => b.kind === "power_hour")!;
+  assert.deepEqual(ph.refs.sort(), ["c1", "c2"]);
+  const tx = out.blocks.find((b) => b.kind === "texts")!;
+  assert.equal(tx.title, "Texts, video texts and social touches (2)");
+});
+
+test("the example agent's day is a full day: appointments, a Power Hour, texts and every VIP touch", async () => {
+  const { demoGraph } = await import("../lib/graph/demo.ts");
+  const { buildDay } = await import("../lib/schedule.ts");
+  const today = demoGraph("complete").today!;
+  const vip = today.filter((t) => t.vip && t.urgency !== "soon");
+  assert.ok(vip.length >= 7);
+  const out = buildDay({ hours: { start: "08:00", end: "17:30" }, busy: [{ start: "10:00", end: "11:00", title: "Listing appointment", source: "listing_appointment" }], items: suggest(today) });
+  const planned = new Set(out.blocks.flatMap((b) => b.refs));
+  for (const v of vip) assert.ok(planned.has(v.ref ?? v.id.replace(/^day:/, "")), v.what);
+  assert.ok(out.blocks.some((b) => b.kind === "power_hour" && b.refs.length >= 3));
+  assert.ok(out.blocks.some((b) => b.kind === "texts"));
 });

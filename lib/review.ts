@@ -1,4 +1,4 @@
-import { GROUP_TITLE, groupOf, type Win } from "./wins.ts";
+import { GROUP_TITLE, groupOf, thisWeek, type Win } from "./wins.ts";
 import { mondayOf } from "./habits.ts";
 import { reportLine, unseen, type PulseReport } from "./pulseReport.ts";
 import type { GraphEdge, GraphNode } from "./graph/types.ts";
@@ -33,6 +33,8 @@ export interface ReviewIn {
   goals: Goal[];
   /** Wins (§3t), when ONE MOVE answers; the review shows this week's (PULSE-ROADMAP relationship #8). */
   wins?: Win[] | null;
+  /** The year's count from the same Wins list the Wins orb shows (audit 3.4.2: one source for both). */
+  winsYear?: number | null;
   /** "Pulse did this" (LEADS §6.1), when ONE MOVE answers. */
   pulse?: PulseReport | null;
 }
@@ -41,6 +43,8 @@ export interface Card {
   key: ReviewKey;
   title: string;
   big: string; // what the orb shows
+  word: string; // the word inside the orb under the number (audit 3.3.4: words, not symbols)
+  tag?: string; // a second short word when the number needs it ("LAST WEEK", "OF 60")
   line: string; // one line under it
   level: Level; // red now / yellow today / still green (null and good) — the pulse rule
   good: boolean;
@@ -49,8 +53,19 @@ export interface Card {
 
 export interface Review {
   cards: Card[];
-  next: string[]; // three things for next week, facts only
+  next: string[]; // three things for next week (or the rest of this one), facts only
+  nextTitle: string; // "Three things for the rest of this week" Mon-Thu, "... for next week" Fri-Sun
 }
+
+/** Monday to Thursday the three things are for the rest of this week; Friday to Sunday, for next week (Parry, 16 Oct,
+ * audit 3.3.7). */
+export function lateInWeek(today: string): boolean {
+  const t = Date.parse(`${today}T12:00:00Z`);
+  if (!Number.isFinite(t)) return true;
+  const d = new Date(t).getUTCDay(); // 0 Sunday
+  return d === 0 || d >= 5;
+}
+export const nextTitle = (today: string) => (lateInWeek(today) ? "Three things for next week" : "Three things for the rest of this week");
 
 const first = (p: VipPerson) => (p.first_name?.trim() || p.name.split(/\s+/)[0] || p.name).slice(0, 30);
 const names = (ps: VipPerson[], n = 3) => {
@@ -75,6 +90,7 @@ const ONE_OF: Record<string, string> = { Closings: "Closing", Referrals: "Referr
 export function review(i: ReviewIn): Review {
   const cards: Card[] = [];
   const next: string[] = [];
+  const late = lateInWeek(i.today);
 
   // The weekly score against the minimum (daily + weekly tracker points; Parry, 30 Sep).
   if (i.week) {
@@ -84,6 +100,7 @@ export function review(i: ReviewIn): Review {
       key: "score",
       title: "Weekly score",
       big: String(score),
+      word: "Score",
       line: gap ? `${gap} short of ${minimum}` : `Above the ${minimum} minimum`,
       level: gap ? "today" : null,
       good: !gap,
@@ -100,11 +117,16 @@ export function review(i: ReviewIn): Review {
     const share = monthShare(i.today);
     const month = a.touches.filter((t) => t.kind === "month");
     const behind = month.filter((t) => t.total && t.done / t.total < share).sort((x, y) => x.done / x.total - y.done / y.total);
+    // Counts, not a percentage (Parry, 16 Oct, audit 3.3.3: "say it in counts").
+    const done = month.reduce((n, t) => n + t.done, 0);
+    const possible = month.reduce((n, t) => n + t.total, 0);
     cards.push({
       key: "touches",
       title: "VIP touches",
-      big: `${Math.round(a.coverage * 100)}%`,
-      line: behind.length ? `${behind.length} ${behind.length === 1 ? "touch is" : "touches are"} behind the month` : "Every touch is keeping pace",
+      big: String(done),
+      word: "Touches",
+      tag: `OF ${possible}`,
+      line: `${done} of ${possible} touches this month${behind.length ? `. Behind the month: ${behind.map((t) => t.label).join(", ")}` : ", every touch keeping pace"}`,
       level: behind.length ? "today" : null,
       good: !behind.length,
       rows: month.map((t) => ({
@@ -117,6 +139,7 @@ export function review(i: ReviewIn): Review {
       key: "untouched",
       title: "Not reached",
       big: String(none.length),
+      word: "Not reached",
       line: none.length ? `VIP-50 with no touch this month` : "Every VIP-50 touched this month",
       level: none.length && share > 0.5 ? "now" : none.length ? "today" : null,
       good: !none.length,
@@ -130,26 +153,34 @@ export function review(i: ReviewIn): Review {
     }
   }
 
-  // Commitments: last week's results and the 8-week keep rate (§3n).
+  // Commitments: this week's check-in when there is one, else last week's, always named (Parry, 16 Oct, audit 3.3.2:
+  // "100%" was last week's keep rate inside a review of this week). The 8-week keep rate is in the rows.
   if (i.commitments) {
     const c = i.commitments;
+    const items = c.week?.items ?? [];
+    const checked = items.filter((it) => it.result);
+    const tw = checked.length ? { kept: checked.filter((it) => it.result === "kept").length, partly: checked.filter((it) => it.result === "partly").length, missed: checked.filter((it) => it.result === "missed").length } : null;
     const lw = c.lastWeek;
-    const n = lw ? lw.kept + lw.partly + lw.missed : 0;
+    const shown = tw ?? lw;
+    const n = shown ? shown.kept + shown.partly + shown.missed : 0;
+    const when = tw ? "This week" : "Last week";
     const rate = c.keepRate8w;
     cards.push({
       key: "commitments",
       title: "Commitments",
-      big: rate == null ? (n ? `${lw!.kept}/${n}` : "–") : `${Math.round(rate * 100)}%`,
-      line: n ? `Last week: ${lw!.kept} kept, ${lw!.partly} partly, ${lw!.missed} missed` : "No week checked in yet",
-      level: lw && lw.missed > lw.kept ? "today" : null,
-      good: !!n && lw!.missed === 0,
+      big: n ? `${shown!.kept}/${n}` : "–",
+      word: "Kept",
+      tag: n ? when.toUpperCase() : undefined,
+      line: n ? `${when}: ${shown!.kept} kept, ${shown!.partly} partly, ${shown!.missed} missed` : "No week checked in yet",
+      level: shown && shown.missed > shown.kept ? "today" : null,
+      good: !!n && shown!.missed === 0,
       rows: [
         rate != null ? { text: `You keep ${Math.round(rate * 100)}% of your commitments`, sub: "Over the last 8 weeks." } : { text: "No keep rate yet", sub: "It starts after your first check-in." },
         c.streak ? { text: `${c.streak}-week streak`, sub: "Weeks in a row you checked in." } : { text: "No streak yet" },
-        ...(c.week?.items ?? []).map((it) => ({ text: it.text, sub: it.result ? `This week: ${it.result}` : "This week: not checked in" })),
+        ...items.map((it) => ({ text: it.text, sub: it.result ? `This week: ${it.result}` : "This week: not checked in" })),
       ],
     });
-    if (lw && lw.missed && next.length < 3) next.push(`Set commitments you can keep: last week ${lw.missed} of ${n} were missed.`);
+    if (shown && shown.missed && next.length < 3) next.push(`Set commitments you can keep: ${when.toLowerCase()} ${shown.missed} of ${n} were missed.`);
   }
 
   // Goals: pace for this point in the agent's own goal year.
@@ -158,7 +189,9 @@ export function review(i: ReviewIn): Review {
     cards.push({
       key: "goals",
       title: "Goals",
-      big: behind.length ? `${behind.length} behind` : "On pace",
+      big: behind.length ? String(behind.length) : "On pace",
+      word: "Goals",
+      tag: behind.length ? "BEHIND PACE" : undefined,
       line: behind.length ? behind.map((g) => g.label).join(", ") : "Every goal is on pace",
       level: behind.length ? "today" : null,
       good: !behind.length,
@@ -167,11 +200,13 @@ export function review(i: ReviewIn): Review {
     if (behind[0] && next.length < 3) next.push(`${behind[0].label} is behind pace (${behind[0].line}).`);
   }
 
-  if (i.week && i.week.score < i.week.minimum && next.length < 3) next.push(`Reach ${i.week.minimum} next week: this week ended at ${i.week.score}.`);
+  if (i.week && i.week.score < i.week.minimum && next.length < 3)
+    next.push(late ? `Reach ${i.week.minimum} next week: this week is at ${i.week.score}.` : `Reach ${i.week.minimum} by Sunday: ${i.week.minimum - i.week.score} to go from ${i.week.score}.`);
   // This week's wins (§3t): good news only, never a pulse (Parry: "good news never nags").
   if (i.wins) {
-    const mon = mondayOf(i.today);
-    const mine = i.wins.filter((w) => w.at >= mon && w.at <= i.today).sort((a, b) => b.at.localeCompare(a.at));
+    // Only this week's wins; a review counts in the week it was written, never the week it was imported (Parry, 16 Oct,
+    // audit 3.3.1: 35 imported reviews read as "Wins: 35").
+    const { mine, imported } = thisWeek(i.wins, i.today);
     const by = new Map<string, number>();
     for (const w of mine) by.set(GROUP_TITLE[groupOf(w.kind)], (by.get(GROUP_TITLE[groupOf(w.kind)]) ?? 0) + 1);
     const at = cards.findIndex((c) => c.key === "score");
@@ -179,10 +214,18 @@ export function review(i: ReviewIn): Review {
       key: "wins",
       title: "Wins",
       big: String(mine.length),
-      line: mine.length ? [...by].map(([t, n]) => `${n} ${(n === 1 ? ONE_OF[t] ?? t : t).toLowerCase()}`).join(", ") : "None logged this week yet",
+      word: "Wins",
+      tag: "THIS WEEK",
+      line: mine.length ? `This week: ${[...by].map(([t, n]) => `${n} ${(n === 1 ? ONE_OF[t] ?? t : t).toLowerCase()}`).join(", ")}` : "None this week yet",
       level: null,
       good: mine.length > 0,
-      rows: mine.length ? mine.slice(0, 8).map((w) => ({ text: w.title, sub: w.detail ?? undefined })) : [{ text: "Log a closing or a referral in ONE MOVE and it shows here." }],
+      rows: [
+        ...(mine.length ? mine.slice(0, 8).map((w) => ({ text: w.title, sub: w.detail ?? undefined })) : [{ text: "Log a closing or a referral in ONE MOVE and it shows here." }]),
+        ...(imported.length
+          ? [{ text: `${imported.length} ${imported.length === 1 ? "review" : "reviews"} brought in from other sites`, sub: "Not this week's wins: they count in the week they were written once ONE has that date. They are in your Wins." }]
+          : []),
+        ...(i.winsYear != null ? [{ text: `${i.winsYear} ${i.winsYear === 1 ? "win" : "wins"} this year`, sub: "The same list as Wins in ONE YOU." }] : []),
+      ],
     });
   }
   // "Pulse did this" (LEADS §6.1): yellow only while a hand-back is unopened; held sends are listed with their reason.
@@ -193,6 +236,7 @@ export function review(i: ReviewIn): Review {
       key: "pulse",
       title: "Pulse did this",
       big: String(p.sent),
+      word: "Pulse sent",
       line: reportLine(p),
       level: open ? "today" : null,
       good: !open,
@@ -207,8 +251,8 @@ export function review(i: ReviewIn): Review {
     if (open && next.length < 3) next.push(`Answer what Pulse handed back: ${p.handbacks.filter((h) => !h.seen).map((h) => h.contact).slice(0, 3).join(", ")}.`);
     if (p.held.some((h) => /brokerage address/i.test(h.words)) && next.length < 3) next.push("Add your brokerage address in My Profile so your marketing emails can go out.");
   }
-  if (!next.length) next.push("Keep the same rhythm next week: every number above is on track.");
-  return { cards, next: next.slice(0, 3) };
+  if (!next.length) next.push(`Keep the same rhythm ${late ? "next week" : "for the rest of the week"}: every number above is on track.`);
+  return { cards, next: next.slice(0, 3), nextTitle: nextTitle(i.today) };
 }
 
 /** ONE YOU's Weekly Review orb: pulses with the worst level among its cards. */
