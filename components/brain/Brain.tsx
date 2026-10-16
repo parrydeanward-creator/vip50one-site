@@ -2,6 +2,7 @@
 
 import { CLASSIC_DASHBOARD_URL } from "@/lib/host.ts";
 import { hostAgainHref } from "@/lib/live.ts";
+import { goHref, productLink } from "@/lib/productSignIn.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PersonPanel from "./PersonPanel.tsx";
 import VipRings from "./VipRings.tsx";
@@ -2111,7 +2112,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   }
   // No "Why?" or "Show me" (Parry, 6 Oct: "they really dont show you anything... the why button just
   // repeats what it says above").
-  if (!ask && !moveQuiet && focus.href && !focus.locked) orbActions.push({ label: `Open in ${productName(focus.product)} ↗`, href: focus.href });
+  if (!ask && !moveQuiet && focus.href && !focus.locked) orbActions.push({ label: `Open in ${productName(focus.product)} ↗`, href: productLink(focus.href) });
   else if (!ask && !moveQuiet && productHref && focus.type !== "core" && !focus.locked && !isMoveGroup(focus.id)) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
   if (!ask && focus.locked) orbActions.push({ label: "Add with Complete", href: UPGRADE_URL });
   const again = !ask && !focus.locked ? hostAgainHref(focus.id) : undefined;
@@ -3704,9 +3705,10 @@ function Ring({ value, max, color }: { value: number; max: number; color: string
 
 const PRODUCT_HREF: Partial<Record<GraphNode["product"], string>> = {
   move: "https://move.vip50one.com",
-  marquee: "https://marquee.vip-50.com",
-  open: "https://open.vip-50.com",
-  showly: "https://showly.net",
+  // ENTITLEMENT §6b: into ONE Open, Marquee and Showly through the one sign-in hop.
+  marquee: goHref("marquee"),
+  open: goHref("vip-open"),
+  showly: goHref("showly"),
 };
 
 function clip(t: string, n: number) {

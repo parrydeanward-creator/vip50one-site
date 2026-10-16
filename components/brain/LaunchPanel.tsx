@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { IN_BRAIN } from "@/lib/moveMenu.ts";
+import { productLink } from "@/lib/productSignIn.ts";
 import { PIECES, PIECE_NAME, launchBody, launchUrl, listingsUrl, pieceWords, readLaunches, type Launch, type PieceKey } from "@/lib/launch.ts";
 
 const MOVE_URL = "https://move.vip50one.com";
@@ -54,7 +55,10 @@ export default function LaunchPanel({
     }
   };
 
-  const open = (url: string) => {
+  const open = (raw: string) => {
+    // ONE Open, Marquee and Showly through the one sign-in hop (ENTITLEMENT §6b), opened from the Brain's own address.
+    const url = productLink(raw);
+    if (url.startsWith("/go/")) return window.open(url, "_blank", "noopener");
     if (url.startsWith("/")) {
       const [path, query = ""] = url.split("?");
       if (IN_BRAIN.has(path)) return onOpenPage(path, query);

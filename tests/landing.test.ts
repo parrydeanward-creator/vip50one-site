@@ -22,6 +22,13 @@ test("after sign-in: asked-for place, else last place, else the Brain", () => {
   // Edit any time (Websites, 15 Oct): a signed-out studio link comes straight back to /site/open after signing in.
   assert.equal(afterSignIn("/site/open?site=parry-ward.vip50homes.com&next=/builder", null), "/site/open?site=parry-ward.vip50homes.com&next=/builder");
   assert.equal(afterSignIn("/site/open?next=//evil.example", null), "/dashboard");
+  // One sign-in (ENTITLEMENT §6b): a signed-out product hop comes straight back to /go/<product> after signing in.
+  assert.equal(afterSignIn("/go/vip-open?next=%2Fapp%2Fsettings", null), "/go/vip-open?next=%2Fapp%2Fsettings");
+  assert.equal(afterSignIn("/go/showly", null), "/go/showly");
+  assert.equal(afterSignIn("/go/marquee?next=//evil.example", null), "/dashboard");
+  assert.equal(afterSignIn("/go/marquee?next=\\evil", null), "/dashboard");
+  assert.equal(afterSignIn("/go/elsewhere?next=%2F", null), "/dashboard");
+  assert.equal(afterSignIn("/go/vip-openx", null), "/dashboard");
   assert.equal(afterSignIn("/dashboard/weekly", "/dashboard/profile"), "/dashboard/weekly");
   assert.equal(afterSignIn("", encodeURIComponent("/dashboard/profile")), "/dashboard/profile");
   assert.equal(afterSignIn("https://evil.example", null), "/dashboard");

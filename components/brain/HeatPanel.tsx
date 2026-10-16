@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { IN_BRAIN } from "@/lib/moveMenu.ts";
+import { productLink } from "@/lib/productSignIn.ts";
 import { heatUrl, priceWords, readHeatAnswer, type HeatSuggestion } from "@/lib/heat.ts";
 
 // Looks Hot (CONNECTIONS §5.1) in the side panel of a suggestion's orb: why, the homes they liked, and two buttons.
@@ -33,7 +34,7 @@ export default function HeatPanel({ s, live, onDone, onOpenPage }: { s: HeatSugg
   const openNeed = (url: string) => {
     const u = new URL(url);
     if (u.host === "move.vip50one.com" && IN_BRAIN.has(u.pathname)) return onOpenPage(u.pathname, u.search.replace(/^\?/, ""));
-    window.open(url, "_blank", "noopener");
+    window.open(productLink(url), "_blank", "noopener");
   };
 
   return (

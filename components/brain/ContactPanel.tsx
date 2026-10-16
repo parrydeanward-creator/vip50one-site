@@ -16,6 +16,7 @@ import {
   type TouchKind,
 } from "@/lib/contact.ts";
 import { LOGGABLE } from "@/lib/audit.ts";
+import { productLink } from "@/lib/productSignIn.ts";
 import CallPrepCard from "./CallPrepCard.tsx";
 import PanelBoundary from "./PanelBoundary.tsx";
 import SendsSection from "./SendsSection.tsx";
@@ -130,7 +131,7 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
             {suggested && <p className="cc-offers-h">Pulse suggests a next step</p>}
             {offers.map((o) =>
               o.kind === "showly_tour" ? (
-                <a key={o.kind} className="btn ghost-btn" href={o.url} target="_blank" rel="noopener noreferrer">{o.label}</a>
+                <a key={o.kind} className="btn ghost-btn" href={productLink(o.url)} target="_blank" rel="noopener noreferrer">{o.label}</a>
               ) : (
                 <a key={o.kind} className="btn ghost-btn" href={homesMailto(card.email ?? null, first, o.url)}>{o.label}</a>
               ),

@@ -34,6 +34,8 @@ export function afterSignIn(next: string | null | undefined, last: string | null
   if (next === "/reactivate" || next?.startsWith("/reactivate?")) return next;
   // Back to a website's studio after signing in (/site/open?site=...; Websites, 15 Oct).
   if (next?.startsWith("/site/open?") && !next.includes("//") && !next.includes("\\")) return next;
+  // Back to the product hop after signing in (/go/<product>?next=...; ENTITLEMENT §6b, 16 Oct), same refusals.
+  if (next && /^\/go\/(vip-open|marquee|showly)(\?|$)/.test(next) && !next.includes("//") && !next.includes("\\")) return next;
   if (next) {
     const t = appTarget(next);
     if (t !== "/dashboard" || next === "/dashboard") return t;

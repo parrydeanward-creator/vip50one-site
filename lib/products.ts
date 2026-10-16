@@ -1,4 +1,5 @@
 import type { PackageId, ProductId } from "./types.ts";
+import { goHref } from "./productSignIn.ts";
 
 export interface ProductInfo {
   id: ProductId;
@@ -25,19 +26,19 @@ export const PRODUCTS: ProductInfo[] = [
     id: "marquee",
     name: "Marquee",
     tagline: "Enter a listing once. Get the whole 60-day campaign.",
-    href: "https://marquee.vip-50.com",
+    href: goHref("marquee"),
   },
   {
     id: "open",
     name: "ONE Open",
     tagline: "Run the open house from plan to follow-up.",
-    href: "https://open.vip-50.com",
+    href: goHref("vip-open"),
   },
   {
     id: "showly",
     name: "Showly",
     tagline: "Turn a buyer tour into a page they react to, house by house.",
-    href: "https://showly.net",
+    href: goHref("showly"),
   },
 ];
 

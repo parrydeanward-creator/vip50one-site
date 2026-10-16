@@ -48,7 +48,8 @@ test("Host it again: every upcoming ONE Open orb with a real event id links to /
   const g = liveGraph(MASTER, opts, { open: { reachable: true, env } });
   const oh = g.nodes.find((n) => n.label === "970 E 2050 S");
   assert.ok(oh, "the open house is an orb");
-  assert.equal(hostAgainHref(oh!.id), `https://open.vip-50.com/app/events/${id}/again`);
+  // ENTITLEMENT §6b (16 Oct): the link now goes through the one sign-in hop instead of straight to open.vip-50.com.
+  assert.equal(hostAgainHref(oh!.id), `/go/vip-open?next=${encodeURIComponent(`/app/events/${id}/again`)}`);
   assert.equal(hostAgainHref(`live:open:upcoming:2026-10-04:1 A St`), undefined, "the next_open_house fallback has no event id");
   assert.equal(hostAgainHref(`live:open:upcoming:e1`), undefined);
   assert.equal(hostAgainHref(`marquee:listing:${id}`), undefined);
