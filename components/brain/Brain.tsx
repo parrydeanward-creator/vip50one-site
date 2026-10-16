@@ -1223,7 +1223,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const commitWork = useMemo(() => commitmentWork(commitments, todayIn()), [commitments]);
   const theDay = useDay({ today: graph.today ?? [], planned, live, doneRefs, onPlan: setPlanned, extra: commitWork });
   // One plan state (Parry, 16 Oct, Plan my day audit 3.1.3): the Plan my day orb and the ONE YOU card say the same thing.
-  const thePlanState = planState({ approvedAt: theDay.approvedAt, sent: planned, blocks: theDay.plan.blocks.length });
+  const thePlanState = planState({ approvedAt: theDay.approvedAt, sent: planned, blocks: theDay.plan.blocks.length, over: !!theDay.now && toMin(theDay.now) >= toMin(theDay.hours.end) });
   useEffect(() => {
     planStateRef.current = thePlanState;
     setGraph((g) => withPlanNode(g, plannedRef.current, thePlanState));

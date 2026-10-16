@@ -342,6 +342,7 @@ test("3.1.9 tomorrow's plan: what moves to tomorrow, planned with the same rules
   assert.deepEqual(p.blocks.map((b) => b.kind).sort(), ["power_hour", "texts"], "a carried time is not kept: it is planned again");
   assert.ok(p.blocks.every((b) => toMin(b.start) >= toMin(hours.start)), "planned from the start of the day, not from now");
   assert.ok(p.blocks.every((b) => !b.done));
+  assert.ok(p.blocks.every((b) => !/\btoday\b/i.test(b.why)), "its reasons speak of tomorrow, never \"Due today.\"");
   const tight = tomorrowPlan([it("x", { kind: "other", title: "Write the CMA", minutes: 45 }), it("y", { kind: "other", title: "Update the listing", minutes: 30 })], { start: "08:00", end: "09:00" });
   assert.match(tight.later[0].why, /^Tomorrow is full/);
 });

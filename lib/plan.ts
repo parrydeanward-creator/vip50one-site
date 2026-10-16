@@ -260,10 +260,12 @@ export const PLAN_NODE = "go-plan";
 // One plan state for every screen (Parry, 16 Oct, Plan my day audit 3.1.3: the ONE YOU card said "Pulse planned today
 // round your calendar ... tap Looks good" while the orb said "Not planned yet"). Approved: the agent tapped Looks good (or
 // sent the plan to ONE GO). Ready: Pulse has planned the day and it waits for Looks good. Empty: nothing to plan.
-export type PlanState = "approved" | "ready" | "empty";
+export type PlanState = "approved" | "ready" | "over" | "empty";
 
-export function planState(x: { approvedAt: string | null; sent: { items: unknown[] } | null; blocks: number }): PlanState {
+export function planState(x: { approvedAt: string | null; sent: { items: unknown[] } | null; blocks: number; over?: boolean }): PlanState {
   if (x.approvedAt || (x.sent?.items.length ?? 0) > 0) return "approved";
+  // after the working day nothing waits for Looks good: the plan to open is tomorrow's (audit 3.1.9)
+  if (x.over) return "over";
   return x.blocks > 0 ? "ready" : "empty";
 }
 
@@ -294,7 +296,9 @@ export function withPlanNode<G extends { nodes: import("./graph/types.ts").Graph
         }
       : st === "approved"
         ? { ...base, label: "Today's plan", secondaryLabel: "Plan approved", status: "healthy", summary: "You approved today's plan. Open it to see the day or change the order." }
-        : st === "ready"
+        : st === "over"
+          ? { ...base, label: "Plan my day", secondaryLabel: "Day done · see tomorrow", status: "healthy", summary: "Today's working day is over. Open it to see tomorrow's plan." }
+          : st === "ready"
           ? { ...base, label: "Plan my day", secondaryLabel: "Ready for Looks good", status: "attention", summary: "Pulse planned today round your calendar. Open it, look it over and tap Looks good." }
           : { ...base, label: "Plan my day", secondaryLabel: "Not planned yet", status: "attention", summary: "Put today in your order and send it to ONE GO on your phone." },
   );

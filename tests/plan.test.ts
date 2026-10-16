@@ -188,6 +188,8 @@ test("3.1.3 one plan state: the Plan my day orb and the ONE YOU card read the sa
   const { planState, withPlanNode, PLAN_NODE } = await import("../lib/plan.ts");
   assert.equal(planState({ approvedAt: null, sent: null, blocks: 4 }), "ready", "Pulse planned it: waiting for Looks good");
   assert.equal(planState({ approvedAt: null, sent: null, blocks: 0 }), "empty");
+  assert.equal(planState({ approvedAt: null, sent: null, blocks: 4, over: true }), "over", "after the working day the plan to open is tomorrow's");
+  assert.equal(planState({ approvedAt: "2026-10-16T14:00:00Z", sent: null, blocks: 4, over: true }), "approved");
   assert.equal(planState({ approvedAt: "2026-10-16T14:00:00Z", sent: null, blocks: 4 }), "approved");
   assert.equal(planState({ approvedAt: null, sent: { items: [{}] }, blocks: 0 }), "approved", "sent to ONE GO is approved");
   assert.equal(planState({ approvedAt: null, sent: { items: [] }, blocks: 2 }), "ready");

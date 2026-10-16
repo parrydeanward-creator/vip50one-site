@@ -188,7 +188,9 @@ export function tomorrowPlan(items: PlanItem[], hours: DayInput["hours"], busy: 
   const seen = new Set<string>();
   const work = [...items.map((p) => ({ ...p, at: null, done: false })), ...customs].filter((p) => !seen.has(p.ref) && (seen.add(p.ref), true));
   const out = buildDay({ hours, busy, items: work });
-  return { ...out, later: out.later.map((l) => ({ ...l, why: l.why === FULL_WHY ? "Tomorrow is full: this waits a day more." : l.why.replace(/\btoday\b/, "tomorrow") })) };
+  // its reasons are about tomorrow, not today ("Due today." read wrong on tomorrow's plan)
+  const tmr = (w: string) => w.replace(/\btoday\b/g, "tomorrow").replace(/\bToday\b/g, "Tomorrow");
+  return { ...out, blocks: out.blocks.map((b) => ({ ...b, why: tmr(b.why) })), later: out.later.map((l) => ({ ...l, why: l.why === FULL_WHY ? "Tomorrow is full: this waits a day more." : tmr(l.why) })) };
 }
 /** "Next: Power Hour in 12 min", "Now: Texts (until 10:15)", or null when the day is done. */
 export function nextLine(blocks: Block[], now: string): string | null {
