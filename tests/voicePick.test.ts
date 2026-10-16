@@ -28,3 +28,20 @@ test("English only; US first when two are equal", () => {
 test("nothing to choose keeps the browser default", () => {
   assert.equal(pickVoice([]), null);
 });
+
+import { pickVoiceOf, voiceKind, fallbackLine, DEFAULT_VOICE_KIND } from "../lib/voicePick.ts";
+
+test("man or woman: default Man; the best natural voice of the chosen kind; fall back and say so", () => {
+  assert.equal(DEFAULT_VOICE_KIND, "man");
+  const voices = [v("Microsoft Aria Online (Natural) - English (United States)"), v("Microsoft Guy Online (Natural) - English (United States)"), v("Samantha"), v("Google US English")];
+  assert.match(pickVoiceOf(voices).voice!.name, /Guy Online/);
+  assert.match(pickVoiceOf(voices, "woman").voice!.name, /Aria Online/);
+  const onlyWomen = [v("Samantha (Enhanced)"), v("Google US English")];
+  const r = pickVoiceOf(onlyWomen, "man");
+  assert.equal(r.fellBack, true);
+  assert.equal(r.voice!.name, "Samantha (Enhanced)");
+  assert.equal(fallbackLine("man"), "This device has no natural man's voice, so Pulse is using a woman's.");
+  assert.equal(voiceKind(v("Evan (Enhanced)")), "man");
+  assert.equal(voiceKind(v("Google US English")), "woman");
+  assert.equal(voiceKind(v("Fred")), null);
+});

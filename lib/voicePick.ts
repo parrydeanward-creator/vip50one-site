@@ -24,13 +24,52 @@ export function voiceScore(v: VoiceLike): number {
   return s;
 }
 
-/** The best voice on this device, or null to keep the browser's default. */
-export function pickVoice<V extends VoiceLike>(voices: readonly V[]): V | null {
-  let best: V | null = null;
-  let top = 0;
+// Man or woman (Parry, 16 Oct: "can we let the user pick which voice they want man or woman?"). Default Man until the
+// agent chooses (he asked for a man's voice). Names of the natural voices each platform ships.
+export type VoiceKind = "man" | "woman";
+export const DEFAULT_VOICE_KIND: VoiceKind = "man";
+const MAN = /\b(guy|christopher|eric|andrew|brian|davis|roger|steffan|tony|jason|evan|nathan|aaron|alex|daniel|tom|oliver|arthur|male)\b/i;
+const WOMAN = /\b(aria|jenny|michelle|ana|emma|ava|samantha|allison|zoe|joelle|susan|serena|karen|moira|tessa|fiona|victoria|kate|female|libby|sonia)\b/i;
+/** "man", "woman" or null when the name does not say. Chrome's plain "Google US English" is a woman's voice. */
+export function voiceKind(v: VoiceLike): VoiceKind | null {
+  if (MAN.test(v.name)) return "man";
+  if (WOMAN.test(v.name) || /^google us english$/i.test(v.name.trim())) return "woman";
+  return null;
+}
+
+/** The best voice on this device, of the agent's kind when the device has a natural one; else the best of any kind
+ * (`fellBack` true so the page can say so). Null keeps the browser's default. */
+export function pickVoiceOf<V extends VoiceLike>(voices: readonly V[], kind: VoiceKind = DEFAULT_VOICE_KIND): { voice: V | null; fellBack: boolean } {
+  let best: V | null = null, top = 0, any: V | null = null, anyTop = 0;
   for (const v of voices) {
     const s = voiceScore(v);
-    if (s > top) [best, top] = [v, s];
+    if (s > anyTop) [any, anyTop] = [v, s];
+    if (voiceKind(v) === kind && s > top) [best, top] = [v, s];
   }
-  return best;
+  if (best) return { voice: best, fellBack: false };
+  return { voice: any, fellBack: !!any };
+}
+
+/** The best voice on this device, or null to keep the browser's default. */
+export function pickVoice<V extends VoiceLike>(voices: readonly V[], kind: VoiceKind = DEFAULT_VOICE_KIND): V | null {
+  return pickVoiceOf(voices, kind).voice;
+}
+
+/** The line under Listen when the device has no natural voice of the chosen kind. */
+export function fallbackLine(kind: VoiceKind): string {
+  return kind === "man" ? "This device has no natural man's voice, so Pulse is using a woman's." : "This device has no natural woman's voice, so Pulse is using a man's.";
+}
+
+const KIND_KEY = "one.pulseVoice";
+/** The agent's choice on this device until MASTER keeps it (GO/MOVE: user_profiles.pulse_voice). */
+export function readKind(): VoiceKind {
+  try {
+    const v = typeof window !== "undefined" ? window.localStorage.getItem(KIND_KEY) : null;
+    return v === "woman" || v === "man" ? v : DEFAULT_VOICE_KIND;
+  } catch {
+    return DEFAULT_VOICE_KIND;
+  }
+}
+export function saveKind(k: VoiceKind): void {
+  try { window.localStorage.setItem(KIND_KEY, k); } catch { /* private window */ }
 }
