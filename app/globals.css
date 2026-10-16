@@ -1983,6 +1983,8 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 .pm-modes .chip-btn.on { border-color: var(--gold-2); color: var(--gold-2); }
 .pm-confirm { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--gold-2); border-radius: 10px; }
 .pm-confirm p { margin: 0; font-size: 13px; }
+.pm-confirm { background: rgba(232, 184, 74, 0.12); border-width: 2px; }
+.pm-modes .chip-btn.pending { border-color: var(--gold-2); box-shadow: 0 0 0 2px rgba(232, 184, 74, 0.35); }
 .pf-confirm { display: grid; gap: 6px; padding: 12px; margin-bottom: 12px; border: 1px solid var(--gold-2); border-radius: 12px; background: rgba(245, 197, 66, 0.06); }
 .pf-confirm p { margin: 0; }
 .pf-confirm small { color: var(--text-3); }

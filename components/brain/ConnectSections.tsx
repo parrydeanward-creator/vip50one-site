@@ -208,7 +208,7 @@ export function PulseModesSection() {
                   type="button"
                   role="radio"
                   aria-checked={w.chosen && w.mode === mode}
-                  className={`chip-btn${w.chosen && w.mode === mode ? " on" : ""}`}
+                  className={`chip-btn${w.chosen && w.mode === mode ? " on" : ""}${confirm === w.worker && mode === "autopilot" ? " pending" : ""}`}
                   disabled={busy === w.worker || blocked}
                   onClick={() => (mode === "autopilot" && w.mode !== "autopilot" ? setConfirm(w.worker) : void set(w.worker, mode))}
                 >
@@ -222,8 +222,8 @@ export function PulseModesSection() {
           {!w.locked && w.askBlocked && w.mode !== "ask_me" ? <small className="pf-sub">{w.askBlocked}</small> : null}
           {!w.locked && w.blocked && w.mode !== "autopilot" ? <small className="pf-sub">{w.blocked}</small> : null}
           {confirm === w.worker ? (
-            <div className="pm-confirm" role="alertdialog" aria-label="Turn on Autopilot?">
-              <p>{m.confirm}</p>
+            <div className="pm-confirm" role="alertdialog" aria-label="Turn on Autopilot?" ref={(el) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" })}>
+              <p><b>One more step: Autopilot is not on yet.</b> {m.confirm}</p>
               <button type="button" className="chip-btn primary" onClick={() => void set(w.worker, "autopilot")}>Yes, turn on Autopilot</button>
               <button type="button" className="chip-btn" onClick={() => void set(w.worker, "ask_me")}>No, Ask me</button>
             </div>
