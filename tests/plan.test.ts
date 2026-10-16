@@ -148,7 +148,7 @@ test("ONE GO's plan orb: pulses until planned, then counts what is left, green w
   const some = withPlanNode(none, { items: [{ done: true }, { done: false }, { done: false }] });
   const n = some.nodes.find((x) => x.id === PLAN_NODE)!;
   assert.equal(some.nodes.filter((x) => x.id === PLAN_NODE).length, 1, "replaced, never doubled");
-  assert.deepEqual([n.label, n.secondaryLabel, n.stats?.[0].value], ["Today's plan", "1 of 3 done", "1 / 3"]);
+  assert.deepEqual([n.label, n.secondaryLabel, n.stats?.[0].value], ["Plan my day", "1 of 3 done", "1 / 3"]);
   assert.deepEqual(needsOf(some.nodes).get("one"), { count: 2, level: "today" });
   const all = withPlanNode(some, { items: [{ done: true }] });
   assert.equal(all.nodes.find((x) => x.id === PLAN_NODE)?.status, "healthy");
@@ -206,7 +206,7 @@ test("3.1.3 one plan state: the Plan my day orb and the ONE YOU card read the sa
   assert.equal(orb("ready").secondaryLabel, "Ready for Looks good");
   assert.match(orb("ready").summary!, /Pulse planned today round your calendar/);
   assert.equal(orb("empty").secondaryLabel, "Not planned yet");
-  assert.deepEqual([orb("approved").label, orb("approved").secondaryLabel, orb("approved").status], ["Today's plan", "Plan approved", "healthy"]);
+  assert.deepEqual([orb("approved").label, orb("approved").secondaryLabel, orb("approved").status], ["Plan my day", "Plan approved", "healthy"]);
   // 3.1.5: the panel has a real button now, so nothing says "Tap to plan"
   for (const st of ["ready", "empty", "approved"] as const) assert.doesNotMatch(orb(st).summary ?? "", /Tap to/);
 });

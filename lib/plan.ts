@@ -269,7 +269,7 @@ export function planState(x: { approvedAt: string | null; sent: { items: unknown
   return x.blocks > 0 ? "ready" : "empty";
 }
 
-/** ONE GO's "Today's plan" orb: pulses until the day is planned, then shows how much is done (an arc
+/** ONE YOU's "Plan my day" orb (one name everywhere, Parry 16 Oct; it was "Today's plan" once sent or approved): pulses until the day is planned, then shows how much is done (an arc
  * and a count that pulses up to ONE GO and ONE), green when it is all done. Tapping it opens Plan My
  * Day. No ONE GO orb (or ONE GO not in the package): the graph is unchanged. `state` is planState(), the
  * same answer the ONE YOU card reads; without it, a sent plan is approved and anything else is not planned. */
@@ -287,15 +287,15 @@ export function withPlanNode<G extends { nodes: import("./graph/types.ts").Graph
     total
       ? {
           ...base,
-          label: "Today's plan",
+          label: "Plan my day",
           secondaryLabel: left ? `${done} of ${total} done` : "All done today",
           status: left ? "attention" : "healthy",
           needCount: left || undefined,
-          stats: [{ label: "Today's plan", value: `${done} / ${total}` }],
+          stats: [{ label: "Plan my day", value: `${done} / ${total}` }],
           summary: left ? `${left} still to do on today's plan. Open it to change the order or send it to your phone again.` : "Everything on today's plan is done.",
         }
       : st === "approved"
-        ? { ...base, label: "Today's plan", secondaryLabel: "Plan approved", status: "healthy", summary: "You approved today's plan. Open it to see the day or change the order." }
+        ? { ...base, label: "Plan my day", secondaryLabel: "Plan approved", status: "healthy", summary: "You approved today's plan. Open it to see the day or change the order." }
         : st === "over"
           ? { ...base, label: "Plan my day", secondaryLabel: "Day done · see tomorrow", status: "healthy", summary: "Today's working day is over. Open it to see tomorrow's plan." }
           : st === "ready"
