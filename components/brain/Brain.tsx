@@ -70,6 +70,9 @@ import { REVIEW_NODE, demoRoster, goalsFromGraph, lateInWeek, review as buildRev
 import { CHALLENGE_NODE, GOALS_NODE, SCORE_NODE, goalsThree, withoutRetired } from "@/lib/oneYou.ts";
 import ScoreboardPanel from "./ScoreboardPanel.tsx";
 import ChallengePanel from "./ChallengePanel.tsx";
+import { challengeUrl, readChallenge, withChallengeNode, type LiveChallenge } from "@/lib/challenge.ts";
+import { profileUrl } from "@/lib/profile.ts";
+import { syncKind } from "@/lib/voicePick.ts";
 import GoalsView from "./GoalsView.tsx";
 import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
 import { REVIEW_CALLS_NODE, agentsUrl, demoAgents, readAgents, withReviewCallsNode, type ReviewAgent } from "@/lib/reviewCalls.ts";
@@ -222,6 +225,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const rcRef = useRef(false);
   // ONE YOU's Power Hour orb: today's calls lined up.
   const powerRef = useRef<{ calls: Call[]; session: PowerSession | null } | null>(null);
+  const challengeRef = useRef<LiveChallenge | null>(null);
   const admin = agent.admin === true;
   const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(productTour ? withTourPages(initialGraph) : live ? initialGraph : withTourPages(initialGraph, DEMO_PAGES), null), admin), teamLeadsHint));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
@@ -231,7 +235,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes(withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withAwayLabel(withReviewCallsNode(withTeamNode(withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current), teamRef.current), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current, onbRemovedRef.current), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current));
+    const next = withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes(withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withAwayLabel(withReviewCallsNode(withTeamNode(withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current), teamRef.current), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current, onbRemovedRef.current), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -727,6 +731,29 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       .catch(() => {});
   }, [live]);
   const closeWins = useCallback(() => setWinsOpen(false), []);
+  // Pulse's voice from MASTER (vip50-web-crm#277): the signed-in agent's choice goes into the local copy say() reads,
+  // so Pulse speaks in it on every page, not only after My Profile opens. The demo keeps its local copy.
+  useEffect(() => {
+    if (!live) return;
+    fetch(profileUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => void syncKind(j))
+      .catch(() => {});
+  }, [live]);
+  // The 90-Day Challenge's live numbers (vip50-web-crm#277): today's score, arenas, streak, identity, enemy and group,
+  // and "Day N of 90 · P today" on the orb. The demo keeps its example data (null here).
+  const [challenge, setChallenge] = useState<LiveChallenge | null>(null);
+  useEffect(() => {
+    if (!live) return;
+    fetch(challengeUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setChallenge(readChallenge(j)))
+      .catch(() => {});
+  }, [live]);
+  useEffect(() => {
+    challengeRef.current = challenge;
+    setGraph((g) => withChallengeNode(g, challenge));
+  }, [challenge]);
   // Energy (§3w): retired from ONE YOU by Parry, 16 Oct ("lets drop the energy orb"). Nothing asks for it or reads it
   // here any more; stored answers stay in MASTER.
   // Life-event radar (§3y): from ONE MOVE once it answers (404 until then: no orb), the example agent's in the demo.
@@ -3066,10 +3093,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               nodes={graph.nodes}
               live={live}
               tour={!!tour}
-              onOpenPage={() => {
-                const page = movePageId("/challenge");
+              data={live ? challenge : null}
+              onOpenPage={(url) => {
+                // The route's own link (on ONE MOVE): inside the Brain when that page is in its ONE MOVE menu.
+                const path = new URL(url).pathname;
+                const page = movePageId(path);
                 if (ix.byId.has(page)) return goTo(page);
-                window.open(moveMenuHref("/challenge"), "_blank", "noopener,noreferrer");
+                window.open(url, "_blank", "noopener,noreferrer");
               }}
             />
           )}

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { say, useVoice } from "./useVoice.ts";
-import { fallbackLine, pickVoiceOf, readKind, saveKind, type VoiceKind } from "@/lib/voicePick.ts";
+import { fallbackLine, pickVoiceOf, readKind, readPulseVoice, saveKind, voiceKindBody, type VoiceKind } from "@/lib/voicePick.ts";
+import { profileUrl } from "@/lib/profile.ts";
 import {
   EMPTY_VOICE,
   VOICE_FIELDS,
@@ -32,7 +33,7 @@ import {
 
 const day = (iso: string | null) => (iso && !Number.isNaN(Date.parse(iso)) ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null);
 
-export default function VoiceSection({ demo = false }: { demo?: boolean }) {
+export default function VoiceSection({ demo = false, pulseVoice }: { demo?: boolean; pulseVoice?: VoiceKind }) {
   const [s, setS] = useState<VoiceState | null>(null);
   const [form, setForm] = useState<Voice>(EMPTY_VOICE);
   const [busy, setBusy] = useState(false);
@@ -241,7 +242,7 @@ export default function VoiceSection({ demo = false }: { demo?: boolean }) {
           {msg ? <small className={`pf-sub${msg.ok ? "" : " warn"}`} role="status">{msg.text}</small> : null}
         </div>
         <div className="vc-col">
-          <PulseVoicePick />
+          <PulseVoicePick demo={demo} master={pulseVoice} />
           <label className="dc-switch">
             <input type="checkbox" checked={s.learnOn} disabled={busy} onChange={(e) => void setLearn(e.target.checked)} />
             <span>
@@ -272,14 +273,18 @@ export default function VoiceSection({ demo = false }: { demo?: boolean }) {
 }
 
 // Pulse's spoken voice: Man or Woman (Parry, 16 Oct: "can we let the user pick which voice they want man or woman?").
-// Default Man. Free: the best natural voice this device already has of that kind. Kept on this device until MASTER
-// keeps it (GO/MOVE: user_profiles.pulse_voice), then read from there.
-function PulseVoicePick() {
+// Default Man. Free: the best natural voice this device already has of that kind. MASTER keeps the choice
+// (user_profiles.pulse_voice, vip50-web-crm#277): the picker shows MASTER's value from the profile answer and saves
+// through ONE MOVE's /api/brain/profile; the local copy is written at once so say() uses it. In the demo only the
+// local copy changes and nothing is sent.
+function PulseVoicePick({ demo, master }: { demo: boolean; master?: VoiceKind }) {
   const [kind, setKind] = useState<VoiceKind>("man");
   const [fell, setFell] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
-    setKind(readKind());
-  }, []);
+    setKind(master ?? readKind());
+  }, [master]);
   useEffect(() => {
     const check = () => {
       try {
@@ -291,22 +296,43 @@ function PulseVoicePick() {
     try { window.speechSynthesis?.addEventListener?.("voiceschanged", check); } catch { /* old browser */ }
     return () => { try { window.speechSynthesis?.removeEventListener?.("voiceschanged", check); } catch { /* gone */ } };
   }, [kind]);
-  const choose = (k: VoiceKind) => {
+  const choose = async (k: VoiceKind) => {
+    if (busy || k === kind) return;
+    const was = kind;
     setKind(k);
     saveKind(k);
+    setErr(null);
+    if (demo) return;
+    setBusy(true);
+    try {
+      const r = await fetch(profileUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(voiceKindBody(k)) });
+      if (!r.ok) throw new Error();
+      const back = readPulseVoice(await r.json().catch(() => null));
+      if (back && back !== k) {
+        setKind(back);
+        saveKind(back);
+      }
+    } catch {
+      setKind(was);
+      saveKind(was);
+      setErr("That didn't save. Pulse's voice is unchanged.");
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <div className="vc-voice">
       <b>Pulse&apos;s voice</b>
       <div className="pm-modes" role="radiogroup" aria-label="Pulse's voice">
         {(["man", "woman"] as const).map((k) => (
-          <button key={k} type="button" role="radio" aria-checked={kind === k} className={`chip-btn${kind === k ? " on" : ""}`} onClick={() => choose(k)}>
+          <button key={k} type="button" role="radio" aria-checked={kind === k} disabled={busy} className={`chip-btn${kind === k ? " on" : ""}`} onClick={() => void choose(k)}>
             {k === "man" ? "Man" : "Woman"}
           </button>
         ))}
         <button type="button" className="chip-btn" onClick={() => say("Good morning. Here is what needs you today.")}>Hear it</button>
       </div>
-      <small className="pf-sub">{fell ? fallbackLine(kind) : "Free: the most natural voice this device already has."}</small>
+      <small className="pf-sub">{fell ? fallbackLine(kind) : demo ? "Free: the most natural voice this device already has. Example agent: kept on this device only." : "Free: the most natural voice this device already has. Kept with your profile, so every device uses it."}</small>
+      {err ? <small className="pf-sub warn" role="status">{err}</small> : null}
     </div>
   );
 }

@@ -61,7 +61,9 @@ export function fallbackLine(kind: VoiceKind): string {
 }
 
 const KIND_KEY = "one.pulseVoice";
-/** The agent's choice on this device until MASTER keeps it (GO/MOVE: user_profiles.pulse_voice). */
+/** The fast local copy of the agent's choice. MASTER keeps the choice (user_profiles.pulse_voice, vip50-web-crm#277);
+ * the Brain writes MASTER's value here whenever it loads the profile (syncKind), so say() reads it on every page. In
+ * the demo this is the only store. */
 export function readKind(): VoiceKind {
   try {
     const v = typeof window !== "undefined" ? window.localStorage.getItem(KIND_KEY) : null;
@@ -73,3 +75,22 @@ export function readKind(): VoiceKind {
 export function saveKind(k: VoiceKind): void {
   try { window.localStorage.setItem(KIND_KEY, k); } catch { /* private window */ }
 }
+
+/** The agent's choice in ONE MOVE's /api/brain/profile answer: "man" or "woman"; null (never chosen) is Man; undefined
+ * when the answer does not carry pulse_voice at all (an older route), so the local copy is left as it is. */
+export function readPulseVoice(raw: unknown): VoiceKind | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || !("pulse_voice" in raw)) return undefined;
+  const v = (raw as { pulse_voice: unknown }).pulse_voice;
+  if (v === "man" || v === "woman") return v;
+  return v == null ? DEFAULT_VOICE_KIND : undefined;
+}
+
+/** Write MASTER's choice into the local copy; returns it (undefined when the answer did not say). */
+export function syncKind(raw: unknown): VoiceKind | undefined {
+  const k = readPulseVoice(raw);
+  if (k) saveKind(k);
+  return k;
+}
+
+/** The POST body for ONE MOVE's /api/brain/profile. */
+export const voiceKindBody = (k: VoiceKind) => ({ pulse_voice: k });
