@@ -96,6 +96,7 @@ import { PLAN_NODE, planKey, planState, planUrl, readPlan, timed, withPlanNode, 
 import { hwcUrl, readHwc, todayIn, type HwcClass } from "@/lib/hwc.ts";
 import { demoSignals, readSignals, signalsUrl, withSignalsNode, type WebSignal } from "@/lib/webSignals.ts";
 import { readSiteAlerts, withAdsAlertNode, type SiteAlert } from "@/lib/siteAlerts.ts";
+import { GROWTH_JOIN_BUTTON, GROWTH_NODE, growthChildren, growthDemoNote, isGrowthChild, withGrowthNodes, type GrowthAction, type GrowthState } from "@/lib/growthOrb.ts";
 import { ASK_PERSON, askOrbIds, withAskPeople } from "@/lib/askOrbs.ts";
 import { demoNewLeads, readNewLeads, todayUrl, withNewLeadsNode, type NewLeads } from "@/lib/newLeads.ts";
 import { postDay, type TeamPost } from "@/lib/teamPosts.ts";
@@ -201,6 +202,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const forecastRef = useRef<Forecast | null>(null);
   const webRef = useRef<WebSignal[] | null>(null);
   const adsRef = useRef<SiteAlert[] | null>(null);
+  const growthRef = useRef<GrowthState | null>(null);
   const askPeopleRef = useRef<AskAnswer["people"] | null>(null);
   const newLeadsRef = useRef<NewLeads | null>(null);
   const heatRef = useRef<HeatSuggestion[] | null>(null);
@@ -235,7 +237,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withAskPeople(withAdsAlertNode(withRezenNodes(withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current, onbRemovedRef.current), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current);
+    const next = withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes(withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withForecastNode(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withTimeOffNode(withEnergyNode(withReviewCallsNode(withTeamNode(withWinsNode(withPartnersNode(withHabitsNode(withReferralsNode(withPulseCoachNode(withPowerNode(withIncomeNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), incomeRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), pcRef.current), refsRef.current, todayIn()), habitsRef.current), partnersRef.current, todayIn()), winsRef.current?.w ?? null, winsRef.current?.fresh ?? 0), teamRef.current), rcRef.current), energyRef.current, denverHour()), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), forecastRef.current), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current, onbRemovedRef.current), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -867,6 +869,21 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     likelyRef.current = likely;
     setGraph((g) => withMoveLikelyNode(g, likely));
   }, [likely]);
+  // The ONE Growth orb (GROWTH.md §3, §5; Parry, 16 Oct): locked with the offer without Growth; with it, its seven pieces,
+  // and Ad requests for each team site the agent owns or admins. The tour shows the example agent's site and team site.
+  const growthState = useMemo<GrowthState>(
+    () => ({
+      growth: agent.growth === true || pkg === "growth",
+      siteHost: productTour ? "sarah-bennett.vip50homes.com" : live ? (siteRead ? siteHost : undefined) : null,
+      teamHosts: productTour ? ["summit-home.vip50homes.com"] : teamSites.map((t) => t.host),
+      likely: !!likely,
+    }),
+    [agent.growth, pkg, productTour, live, siteRead, siteHost, teamSites, likely],
+  );
+  useEffect(() => {
+    growthRef.current = growthState;
+    setGraph((g) => withGrowthNodes(g, growthState));
+  }, [growthState]);
   const likelyNotUseful = useCallback(
     async (p: LikelyPerson): Promise<boolean> => {
       if (live) {
@@ -2091,6 +2108,28 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     if (id !== state.focusId) goTo(id);
   };
 
+  // The Growth orb's pieces: one button each, to a real place. The example agent (demo, tour) gets a plain note for
+  // anything that would reach a real site or ONE MOVE, never a call to them.
+  const growthPiece = isGrowthChild(state.focusId) ? growthChildren(growthState).find((c) => c.id === state.focusId) ?? null : null;
+  const runGrowth = (a: GrowthAction) => {
+    const demoNote = live ? null : growthDemoNote(a);
+    if (demoNote) return setSiteNote(demoNote);
+    if (a.kind === "site") return void editSite(a.host, a.next);
+    if (a.kind === "likely") return likely ? setLikelyOpen(true) : undefined;
+    if (a.kind === "join") return void window.open(a.href, "_blank", "noopener");
+    if (a.kind === "movePage") {
+      const page = movePageId(a.path);
+      return ix.byId.has(page) ? goTo(page) : void window.open(moveMenuHref(a.path), "_blank", "noopener");
+    }
+    // My Profile on that tab: the page reads the tab from the address when it opens.
+    const page = movePageId("/profile");
+    if (!ix.byId.has(page)) return window.location.assign(`${pageAddress("/profile")}#${a.tab}`);
+    try {
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${a.tab}`);
+    } catch {}
+    goTo(page);
+  };
+
   // ---- view ---------------------------------------------------------------
   const path = pathTo(ix, focus.id);
   // My Profile belongs to all of ONE, not ONE MOVE (walker 14 Oct, Parry approved): "ONE / My Profile".
@@ -2114,7 +2153,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // repeats what it says above").
   if (!ask && !moveQuiet && focus.href && !focus.locked) orbActions.push({ label: `Open in ${productName(focus.product)} ↗`, href: productLink(focus.href) });
   else if (!ask && !moveQuiet && productHref && focus.type !== "core" && !focus.locked && !isMoveGroup(focus.id)) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
-  if (!ask && focus.locked) orbActions.push({ label: "Add with Complete", href: UPGRADE_URL });
+  if (!ask && focus.locked) orbActions.push(focus.id === GROWTH_NODE ? { label: GROWTH_JOIN_BUTTON.label, href: GROWTH_JOIN_BUTTON.action.kind === "join" ? GROWTH_JOIN_BUTTON.action.href : UPGRADE_URL } : { label: "Add with Complete", href: UPGRADE_URL });
   const again = !ask && !focus.locked ? hostAgainHref(focus.id) : undefined;
   if (again) orbActions.push({ label: "Host it again ↗", href: again });
 
@@ -2950,6 +2989,24 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               </span>
             </button>
           )}
+          {focus.id === GROWTH_NODE && focus.locked && !tour && GROWTH_JOIN_BUTTON.action.kind === "join" && (
+            <a className="pi-film pm-open" href={GROWTH_JOIN_BUTTON.action.href} target="_blank" rel="noreferrer">
+              <span className="pi-play" aria-hidden="true">↗</span>
+              <span>
+                <b>{GROWTH_JOIN_BUTTON.label}</b>
+                <span>{GROWTH_JOIN_BUTTON.note}</span>
+              </span>
+            </a>
+          )}
+          {growthPiece && !tour && (growthPiece.button ? (
+            <button className="pi-film pm-open" onClick={() => runGrowth(growthPiece.button!.action)}>
+              <span className="pi-play" aria-hidden="true">↗</span>
+              <span>
+                <b>{growthPiece.button.label}</b>
+                <span>{growthPiece.button.note}</span>
+              </span>
+            </button>
+          ) : null)}
           {focus.id === LIKELY_NODE && likely && !tour && (
             <button className="pi-film pm-open" onClick={() => setLikelyOpen(true)}>
               <span className="pi-play" aria-hidden="true">⌂</span>
@@ -3282,7 +3339,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             </div>
           )}
 
-          {focus.locked && (
+          {focus.locked && focus.id !== GROWTH_NODE && (
             <a className="btn" href={UPGRADE_URL}>
               Add with Complete
             </a>
@@ -3644,7 +3701,7 @@ function roleRank(r: string) {
 }
 
 function productName(p: GraphNode["product"]) {
-  return { one: "ONE", go: "ONE GO", move: "ONE MOVE", marquee: "Marquee", showly: "Showly", open: "ONE Open" }[p];
+  return { one: "ONE", go: "ONE GO", move: "ONE MOVE", marquee: "Marquee", showly: "Showly", open: "ONE Open", growth: "ONE Growth" }[p];
 }
 
 function nodeLabel(n: GraphNode, role: string, hasChildren: boolean, need?: Need) {

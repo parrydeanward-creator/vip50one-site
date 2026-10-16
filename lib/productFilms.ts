@@ -8,7 +8,7 @@ import type { WatchStep } from "./watch.ts";
 // draws), a closer look where it matters, then "Part of ONE". Captions use
 // each app's own words. Example agent; invented people.
 
-export type FilmProduct = Exclude<ProductKey, "one">;
+export type FilmProduct = Exclude<ProductKey, "one" | "growth">;
 
 interface Beat {
   area: string; // area node id (level 2 under the product)

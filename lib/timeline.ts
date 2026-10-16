@@ -64,6 +64,7 @@ export function productOrbs(rows: DatedNote[], ix: GraphIndex): string[] {
 export function whereLabel(product: DatedNote["product"]): string {
   if (product === "go") return "ONE YOU";
   if (product === "move") return "ONE MOVE";
+  if (product === "growth") return "ONE Growth";
   return product === "one" ? "ONE" : productName(product);
 }
 

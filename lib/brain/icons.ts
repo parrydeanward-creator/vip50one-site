@@ -21,7 +21,7 @@ export function iconForText(text: string): IconKind {
 }
 
 export function iconFor(n: GraphNode): IconKind {
-  if (n.type === "product") return n.product as IconKind;
+  if (n.type === "product") return n.product === "growth" ? "bolt" : (n.product as IconKind);
   if (n.type === "appointment" || n.type === "event") return "calendar";
   if (n.type === "property") return "house";
   if (n.type === "goal") return "star";
