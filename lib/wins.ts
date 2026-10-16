@@ -55,8 +55,9 @@ export function readWins(j: unknown): Wins | null {
   if (!Array.isArray(r.wins)) return null;
   const wins: Win[] = [];
   for (const x of r.wins as Record<string, unknown>[]) {
-    // A review is dated by the day it was written when ONE MOVE sends it (`written_on`), else the day it came in.
-    const written = x?.kind === "five_star" ? day(x?.written_on) : null;
+    // A review is dated by the day it was written when ONE MOVE sends it (`reviewed_on`, GO/MOVE 16 Oct; `written_on`
+    // the earlier name), else the day it came in.
+    const written = x?.kind === "five_star" ? day(x?.reviewed_on ?? x?.written_on) : null;
     const at = written ?? day(x?.at), title = str(x?.title, 90);
     if (!at || !title || !isKind(x.kind)) continue;
     const w: Win = { kind: x.kind, at, title, detail: str(x.detail, 120), contactId: str(x.contact_id, 60), amount: amt(x.amount) };
