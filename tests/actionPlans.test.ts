@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { liveGraph, type SummaryEnvelope } from "../lib/live.ts";
 import { movePageId } from "../lib/moveMenu.ts";
 import { demoGraph } from "../lib/graph/demo.ts";
-import { readOutreach, withOutreachNodes } from "../lib/outreach.ts";
+import { OUTREACH_PARTS, readOutreach, withOutreachNodes } from "../lib/outreach.ts";
+import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
 import {
   TEXTS_LINE,
   emailsLine,
@@ -137,4 +138,21 @@ test("enroll: the plan comes back; ONE MOVE's words on a refusal", async () => {
   const changed = { ...plans[0], readyToSend: 9 };
   assert.equal(withPlan(plans, changed)[0].readyToSend, 9);
   assert.equal(withPlan(plans, changed).length, 2);
+});
+
+test("plan orbs replace the part's quiet placeholder orbs; a lit one stays (screen check 17 Oct)", () => {
+  const partId = OUTREACH_PARTS.find((p) => p.key === "action_plans")!.ids[0];
+  const g = {
+    nodes: [
+      { id: "move", type: "product", label: "ONE MOVE", product: "move", importance: 1 },
+      { id: partId, type: "feature", label: "Action Plans", parentId: "move", product: "move", importance: 0.8 },
+      { id: "old-plan", type: "feature", label: "Just Closed", parentId: partId, product: "move", importance: 0.5, status: "healthy" },
+      { id: "lit", type: "feature", label: "Send step 2", parentId: partId, product: "move", importance: 0.5, status: "attention" },
+    ] as GraphNode[],
+    edges: [] as GraphEdge[],
+  };
+  const out = withPlanNodes(g, []);
+  assert.ok(!out.nodes.some((n) => n.id === "old-plan"));
+  assert.ok(out.nodes.some((n) => n.id === "lit"));
+  assert.ok(out.nodes.some((n) => n.label.startsWith("Example plan")));
 });

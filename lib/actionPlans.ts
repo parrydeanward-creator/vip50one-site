@@ -131,6 +131,12 @@ export function withPlanNodes<g extends G>(g: g, plans: ActionPlan[] | null): g 
   const ids = OUTREACH_PARTS.find((p) => p.key === "action_plans")!.ids;
   const part = nodes.find((n) => ids.includes(n.id));
   if (!plans || !part || part.locked) return { ...g, nodes, edges };
+  // The plan orbs replace the part's old placeholder plan orbs (the example agent's had no steps or people; screen
+  // check 17 Oct showed both side by side). Anything inside the part that needs the agent stays.
+  const quiet = new Set(nodes.filter((n) => n.parentId === part.id && n.status !== "attention" && n.status !== "action").map((n) => n.id));
+  for (const n of nodes) if (n.parentId && quiet.has(n.parentId)) quiet.add(n.id);
+  for (let i = nodes.length - 1; i >= 0; i--) if (quiet.has(nodes[i].id)) nodes.splice(i, 1);
+  for (let i = edges.length - 1; i >= 0; i--) if (quiet.has(edges[i].target)) edges.splice(i, 1);
   const shown = plans.length ? plans.slice(0, MAX_PLANS) : [examplePlan()];
   shown.forEach((p, i) => {
     const id = planNodeId(p.id);
