@@ -31,6 +31,14 @@ export type LiveChallenge =
       results: { daysScored: number; average: number } | null;
       /** The sealed letter, when ONE MOVE sends it once the 90 days are over (`letter`); null until then. */
       letter: string | null;
+      /** ONE MOVE's true day count, never held at 90 (`days_since_start`, vip50-web-crm#287); null on an older answer. */
+      daysSinceStart: number | null;
+      /** Day 90 or later and not completed yet (`letter_waiting`): the letter opens and "Complete my 90 days" shows. */
+      letterWaiting: boolean;
+      /** When the agent completed their 90 days (`completed_at`), YYYY-MM-DD; null until then. */
+      completedAt: string | null;
+      /** Their certificate on ONE MOVE (`certificate_url`, once completed); null otherwise. */
+      certificateUrl: string | null;
       url: string;
     };
 
@@ -54,6 +62,20 @@ function readResults(v: unknown): { daysScored: number; average: number } | null
   if (typeof r.days_scored !== "number" || !Number.isFinite(r.days_scored)) return null;
   const average = typeof r.average === "number" && Number.isFinite(r.average) ? Math.min(100, Math.max(0, Math.round(r.average))) : 0;
   return { daysScored: Math.min(365, Math.max(0, Math.round(r.days_scored))), average };
+}
+
+/** POST here to complete the 90 days (GO/MOVE is adding it; a 404 sends the agent to the challenge page instead). */
+export const challengeCompleteUrl = `${MOVE_URL}/api/brain/challenge/complete`;
+
+/** A link on ONE MOVE only (https, move.vip50one.com), else null. */
+export function moveLink(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  try {
+    const u = new URL(v);
+    return u.protocol === "https:" && u.origin === MOVE_URL ? u.href : null;
+  } catch {
+    return null;
+  }
 }
 
 /** The challenge page: the route's own https link on ONE MOVE, else ONE MOVE's challenge page. */
@@ -115,10 +137,14 @@ export function readChallenge(raw: unknown, today: string = mountainToday()): Li
   const status = str(r.status, 30) ?? "active";
   const startDate = date(r.start_date);
   const day = num(r.day, 0, of);
-  // ONE MOVE holds the day at 90 after the end (vip50-web-crm lib/challenge.ts dayNumber), so the end is read from the
-  // start date: past the last day, or marked completed, it is finished, never a frozen "Day 90 of 90".
+  // ONE MOVE holds `day` at 90 after the end (vip50-web-crm lib/challenge.ts dayNumber); `days_since_start` is the true
+  // count (vip50-web-crm#287), so past the last day it is finished, never a frozen "Day 90 of 90". An older answer
+  // without it is read from the start date.
   const end = startDate ? lastDay(startDate, of) : null;
-  const done = /^(completed?|finished)$/i.test(status) || (day >= of && !!end && today > end);
+  const daysSinceStart = typeof r.days_since_start === "number" && Number.isFinite(r.days_since_start) ? Math.max(0, Math.round(r.days_since_start)) : null;
+  const completedAt = date(r.completed_at);
+  const past = daysSinceStart != null ? daysSinceStart > of : day >= of && !!end && today > end;
+  const done = /^(completed?|finished)$/i.test(status) || !!completedAt || past;
   return {
     enrolled: true,
     status,
@@ -133,6 +159,10 @@ export function readChallenge(raw: unknown, today: string = mountainToday()): Li
     finished: done ? { date: end, label: end ? fmt(end, { weekday: "short", day: "numeric", month: "short" }) : null, short: end ? fmt(end, { day: "numeric", month: "short" }) : null } : null,
     results: readResults(r.results),
     letter: str(r.letter ?? r.letter_to_self, 5000),
+    daysSinceStart,
+    letterWaiting: r.letter_waiting === true && !completedAt && !/^completed?$/i.test(status),
+    completedAt,
+    certificateUrl: moveLink(r.certificate_url),
     url,
   };
 }
@@ -141,12 +171,18 @@ export function readChallenge(raw: unknown, today: string = mountainToday()): Li
  *  enrolled or not started. */
 export function challengeLine(c: LiveChallenge | null): string | null {
   if (!c || !c.enrolled) return null;
-  if (c.finished) return `Finished${c.finished.short ? ` ${c.finished.short}` : ""} · start again`;
+  if (c.finished) return `Finished${c.finished.short ? ` ${c.finished.short}` : ""} · ${c.letterWaiting ? "your letter is open" : "start again"}`;
   if (c.day < 1) return null;
   return `Day ${c.day} of ${c.of} · ${c.today.points} today`;
 }
 
 const days = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
+
+/** "23 days scored · 47 a day on average" (Parry's average is on the days that had points). */
+export function resultsLine(r: { daysScored: number; average: number } | null): string | null {
+  if (!r) return null;
+  return r.daysScored ? `${days(r.daysScored)} scored · ${r.average} a day on average` : "No days scored yet";
+}
 
 /** The live numbers on the go-challenge orb; the graph unchanged when there are none (demo, or no answer yet). */
 export function withChallengeNode<G extends { nodes: GraphNode[] }>(g: G, c: LiveChallenge | null): G {
@@ -186,4 +222,13 @@ export function withChallengeNode<G extends { nodes: GraphNode[] }>(g: G, c: Liv
 export function groupLine(gr: ChallengeGroup): string {
   const who = gr.members ? `${gr.members} ${gr.members === 1 ? "member" : "members"}` : "No members yet";
   return `${gr.emoji ? `${gr.emoji} ` : ""}${gr.name}: ${who}, ${gr.scoredToday} scored today`;
+}
+
+/** ONE MOVE's answer to "Complete my 90 days": done; not there yet (404/405: complete it on the challenge page); or
+ *  it did not take it (the error words when it sends them). */
+export function readComplete(status: number, body: unknown): { kind: "done" } | { kind: "elsewhere" } | { kind: "error"; words: string } {
+  const b = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
+  if (status >= 200 && status < 300 && b.ok !== false) return { kind: "done" };
+  if (status === 404 || status === 405) return { kind: "elsewhere" };
+  return { kind: "error", words: str(b.error, 200) ?? "ONE MOVE did not take that. Nothing was changed; try again." };
 }

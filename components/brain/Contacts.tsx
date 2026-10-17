@@ -12,6 +12,9 @@ import PulseRing, { PULSE_COLOR, levelOf, type PulseLevel } from "./PulseRing.ts
 import PermissionsSection from "./PermissionsSection.tsx";
 import HomeReportSection from "./HomeReportSection.tsx";
 import CallPrepCard from "./CallPrepCard.tsx";
+import PersonMenu from "./PersonMenu.tsx";
+import { useHeldDelete } from "./useHeldDelete.tsx";
+import { firstOf } from "@/lib/deleteContact.ts";
 
 // VIP-SUMMARY §3k (Parry, 4 Oct, option C): Contacts in ONE Brain. A map of
 // groups round "My Contacts" (tiers warm, where they came from cool), a gold
@@ -85,6 +88,7 @@ export default function Contacts({
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const cam = useSvgCamera(SIZE);
+  const held = useHeldDelete({ demo: false });
   const drawerRef = useRef<HTMLElement | null>(null);
 
   // ---- loading -----------------------------------------------------------------------------
@@ -98,15 +102,18 @@ export default function Contacts({
     setErr(null);
   }, [onUnavailable]);
 
-  useEffect(() => {
-    loadGroups();
-    // Pulse's due list: the 30 who need the agent most, across every group, shown A-Z (Parry, 12 Oct); the pulse
-    // marks still show who is most urgent.
+  // Pulse's due list: the 30 who need the agent most, across every group, shown A-Z (Parry, 12 Oct); the pulse
+  // marks still show who is most urgent.
+  const loadDue = useCallback(() => {
     getJson(listUrl({ sort: "pulse", limit: 30 })).then((r) => {
       const p = r?.status === 200 ? readPage(r.body) : null;
       if (p) setDue(byName(p.items.filter((i) => i.pulse)));
     });
-  }, [loadGroups]);
+  }, []);
+  useEffect(() => {
+    loadGroups();
+    loadDue();
+  }, [loadGroups, loadDue]);
 
   const loadGroup = useCallback(async (key: string, cursor: string | null = null) => {
     const r = await getJson(listUrl({ group: key, sort: "name", cursor, limit: PAGE }));
@@ -218,6 +225,33 @@ export default function Contacts({
     loadGroups();
     onChanged();
     openPerson(id);
+  };
+
+  // Delete (walker 2026-10-17-0042): off the screen at once, held 6 seconds with Undo, then ONE MOVE's route; if it
+  // does not take it, the lists reload from ONE MOVE (where the person still is) and the toast says so.
+  const deletePerson = () => {
+    if (!person) return;
+    const id = person.id;
+    const first = firstOf(person.firstName ?? person.name);
+    const gone = (l: PersonItem[]) => l.filter((p) => p.id !== id);
+    setPeople(gone);
+    setDue(gone);
+    setFound((f) => (f ? gone(f) : f));
+    setMore((m) => ({ ...m, total: Math.max(0, m.total - 1) }));
+    setGroups((g) => (g ? { ...g, total: Math.max(0, g.total - 1) } : g));
+    setPerson(null);
+    setFocusSec(null);
+    setFocusFld(null);
+    setEdit(null);
+    setTimeline(null);
+    cam.reset();
+    const inGroup = group;
+    const reload = () => {
+      loadGroups();
+      loadDue();
+      if (inGroup) loadGroup(inGroup);
+    };
+    held.start({ ids: [id], first, restore: reload, onDone: () => (reload(), onChanged()) });
   };
 
   const loadTimeline = async (cursor: string | null = null) => {
@@ -343,6 +377,7 @@ export default function Contacts({
 
   return (
     <div className="vr" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
+      {held.toast}
       {prepFor && <CallPrepCard contactId={prepFor} phone={person?.id === prepFor ? person.phone : null} onClose={() => setPrepFor(null)} onDial={() => setPrepFor(null)} />}
       <div className="vr-stage">
         <svg ref={cam.svgRef} className="vr-svg" viewBox={cam.viewBox} preserveAspectRatio="xMidYMid meet" {...cam.handlers} role="group" aria-label={person ? person.name : group ? gLabel(group) : "My Contacts"}>
@@ -714,7 +749,10 @@ export default function Contacts({
               {personTag(person) && <span className="chip" style={{ color: TEAL, borderColor: TEAL }}>{personTag(person)}</span>}
               {person.stage && <span className="chip">{person.stage}</span>}
             </div>
-            <h1 className="d-title">{person.name}</h1>
+            <div className="pmenu-row">
+              <h1 className="d-title">{person.name}</h1>
+              <PersonMenu first={firstOf(person.firstName ?? person.name)} onDelete={deletePerson} />
+            </div>
             {person.pulse && (
               <p className="pc-pulse-line">
                 <b>Pulse</b> {person.pulse.line}

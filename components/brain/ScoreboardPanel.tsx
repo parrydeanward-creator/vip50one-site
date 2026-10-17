@@ -6,7 +6,7 @@ import { badgesUrl, readBadges, type Badges } from "@/lib/badges.ts";
 import { partnerLine, type PartnersState } from "@/lib/partners.ts";
 import { GROUP_TITLE, groupOf, weekWinsFrom, winHome, type WeekWinsLive, type WinHome, type Wins } from "@/lib/wins.ts";
 import { COMING, leaderRows } from "@/lib/oneYou.ts";
-import { missionDot, missionLine, streakXpLines, weeklyScoreLines, type ScoreboardLive, type ScoreWeek } from "@/lib/scoreboard.ts";
+import { missionDot, missionLine, scoreWeeks, streakXpLines, weeklyScoreLines, type ScoreboardLive, type ScoreWeek } from "@/lib/scoreboard.ts";
 import type { Team } from "@/lib/team.ts";
 
 // The Scoreboard in ONE YOU (Parry, 16 Oct: "yes on combining into Scoreboard"; walker 2026-10-16-1905 to -1938). One
@@ -57,7 +57,8 @@ export default function ScoreboardPanel({
   weekWins?: WeekWinsLive | null;
   /** ONE MOVE's Mission Control, streak and XP (`/api/brain/scoreboard`, vip50-web-crm#281); the demo graph's otherwise. */
   scoreboard?: ScoreboardLive | null;
-  /** The 100-standard weekly scores, the same weeks as the Weekly Review (ONE MOVE /api/brain/history). */
+  /** The 100-standard weekly scores from ONE MOVE /api/brain/history (the Weekly Review's weeks): used only when the
+   *  scoreboard route sends no `history` of its own (lib/scoreboard.ts scoreWeeks). */
   weekScores?: ScoreWeek[] | null;
   onPartner: (a: Act) => Promise<string | null>;
   onOpenPartners: () => void;
@@ -86,7 +87,8 @@ export default function ScoreboardPanel({
   const rows = team ? leaderRows(team) : [];
   const week = weekWinsFrom(weekWins, wins?.wins, today)?.mine ?? null;
   const sx = scoreboard ? streakXpLines(scoreboard) : null;
-  const ws = weeklyScoreLines(weekScores, today);
+  // One source: the scoreboard route's weeks (weekly_scores); the history route's only when it sends none.
+  const ws = weeklyScoreLines(scoreWeeks(scoreboard, weekScores), today);
   const DOT = { healthy: "#3fbf7f", attention: "#f5c542", idle: "rgba(160,175,210,0.45)" };
   const earned = badges ? badges.weekly.filter((b) => b.earned) : null;
 

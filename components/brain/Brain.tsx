@@ -6,6 +6,9 @@ import { hostAgainHref } from "@/lib/live.ts";
 import { goHref, productLink } from "@/lib/productSignIn.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PersonPanel from "./PersonPanel.tsx";
+import PersonMenu from "./PersonMenu.tsx";
+import { useHeldDelete } from "./useHeldDelete.tsx";
+import { dropPeople, firstOf, putBack } from "@/lib/deleteContact.ts";
 import VipRings from "./VipRings.tsx";
 import DailyTracker from "./DailyTracker.tsx";
 import WeeklyTracker from "./WeeklyTracker.tsx";
@@ -2356,10 +2359,31 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     }
   };
 
+  // Delete a person from their orb's card (walker 2026-10-17-0042): off the map at once, "Deleted Rosa. Undo" for 6
+  // seconds, then ONE MOVE's route; Undo or a refusal puts them back. The example agent's saves nothing.
+  const heldDel = useHeldDelete({ demo: !live });
+  const deleteOrb = (n: GraphNode) => {
+    const cid = n.contactId;
+    const match = (x: GraphNode) => (cid ? x.contactId === cid : x.id === n.id);
+    const { removed } = dropPeople(graph, match);
+    goTo(n.parentId ?? graph.rootId);
+    setGraph((g) => dropPeople(g, match).graph);
+    heldDel.start({
+      ids: [cid ?? n.id],
+      first: firstOf(cleanName(n.label)),
+      restore: () => {
+        setGraph((g) => putBack(g, removed));
+        refreshLive();
+      },
+      onDone: refreshLive,
+    });
+  };
+
   const orderedForTab = [...vs.nodes].sort((a, b) => roleRank(a.role) - roleRank(b.role) || a.order - b.order);
 
   return (
     <div className={`brain ${tour ? "touring" : ""}`}>
+      {heldDel.toast}
       <header className="bar">
         <button className="brand brand-logo" onClick={goHome} aria-label="VIP-50 ONE, home">
           <img src="/brand/vip50-one.webp" alt="VIP-50 ONE" width={70} height={48} />
@@ -2975,6 +2999,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             />
           )}
 
+          {/* "..." > Delete contact on a person's card (live: one of the agent's contacts; demo: on screen only) */}
+          {focus.type === "person" && focus.product === "move" && !focus.locked && !ask && !tour && (live ? !!focus.contactId : true) ? (
+            <div className="pmenu-row">
+              <PersonMenu key={focus.id} first={firstOf(cleanName(focus.label))} onDelete={() => deleteOrb(focus)} />
+            </div>
+          ) : null}
+
           {focus.id === REVSHARE_NODE && rezen.r && !ask ? <RevsharePanel r={rezen.r} /> : null}
           {focus.id === NETWORK_NODE && rezen.n && !ask ? <NetworkPanel n={rezen.n} /> : null}
 
@@ -3256,6 +3287,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               live={live}
               tour={!!tour}
               data={live ? challenge : null}
+              onCompleted={() =>
+                void fetch(challengeUrl, { credentials: "include", cache: "no-store" })
+                  .then((r) => (r.ok ? r.json() : null))
+                  .then((j) => {
+                    const c = readChallenge(j);
+                    if (c) setChallenge(c);
+                  })
+                  .catch(() => {})
+              }
               onOpenPage={(url) => {
                 // The route's own link (on ONE MOVE): inside the Brain when that page is in its ONE MOVE menu.
                 const path = new URL(url).pathname;

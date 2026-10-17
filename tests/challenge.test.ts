@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { challengeLine, challengeUrl, groupLine, readChallenge, safeUrl, withChallengeNode } from "../lib/challenge.ts";
+import { challengeCompleteUrl, challengeLine, challengeUrl, groupLine, moveLink, readChallenge, readComplete, resultsLine, safeUrl, withChallengeNode } from "../lib/challenge.ts";
 import { liveGraph, type SummaryEnvelope } from "../lib/live.ts";
 import { CHALLENGE, CHALLENGE_NODE } from "../lib/oneYou.ts";
 
@@ -152,4 +152,51 @@ test("withChallengeNode: a finished challenge shows Finished on the orb, with re
   const res = withChallengeNode(g, readChallenge({ ...PARRY, results: { days_scored: 81, average: 72 } }, "2026-10-17")).nodes.find((n) => n.id === CHALLENGE_NODE)!;
   assert.deepEqual(res.stats, [{ label: "Finished", value: "7 Oct" }, { label: "Days scored", value: "81 / 90" }, { label: "Average", value: "72 / 100" }]);
   assert.ok(!/Day 90 of 90/.test(fin.secondaryLabel ?? ""));
+});
+
+// vip50-web-crm#287: the true day count, the letter on Day 90, completed_at, results and the certificate.
+test("readChallenge: days_since_start decides the finish; letter_waiting, completed_at and certificate_url read", () => {
+  // Day 100 by the true count: finished, the letter waiting until the agent completes it.
+  const w = readChallenge({ ...PARRY, days_since_start: 100, letter_waiting: true, completed_at: null, results: { days_scored: 23, average: 47.4 }, letter: "Dear me." }, "2000-01-01")!;
+  assert.ok(w.enrolled);
+  if (!w.enrolled) return;
+  assert.ok(w.finished); // from days_since_start, whatever the clock says
+  assert.equal(w.daysSinceStart, 100);
+  assert.equal(w.letterWaiting, true);
+  assert.equal(w.completedAt, null);
+  assert.equal(w.certificateUrl, null);
+  assert.equal(w.letter, "Dear me.");
+  assert.equal(resultsLine(w.results), "23 days scored · 47 a day on average");
+  assert.equal(challengeLine(w), "Finished 7 Oct · your letter is open");
+  // Day 90 itself: not finished yet, but the letter is open and completing is offered.
+  const d90 = readChallenge({ ...PARRY, days_since_start: 90, letter_waiting: true }, "2026-12-31")!;
+  assert.ok(d90.enrolled && d90.finished === null && d90.letterWaiting);
+  // Day 23 by the true count is never finished, even on a late clock.
+  const mid = readChallenge({ ...LIVE, days_since_start: 23 }, "2027-06-01")!;
+  assert.ok(mid.enrolled && mid.finished === null && !mid.letterWaiting);
+  // Completed: the certificate on ONE MOVE only, and no letter waiting.
+  const c = readChallenge({ ...PARRY, status: "completed", days_since_start: 101, letter_waiting: false, completed_at: "2026-10-09T15:00:00Z", certificate_url: "https://move.vip50one.com/certificate/abc" }, "2026-10-18")!;
+  assert.ok(c.enrolled);
+  if (!c.enrolled) return;
+  assert.equal(c.completedAt, "2026-10-09");
+  assert.equal(c.certificateUrl, "https://move.vip50one.com/certificate/abc");
+  assert.equal(c.letterWaiting, false);
+  assert.equal(challengeLine(c), "Finished 7 Oct · start again");
+  const bad = readChallenge({ ...PARRY, completed_at: "2026-10-09", certificate_url: "https://evil.example.com/c", letter_waiting: true }, "2026-10-18")!;
+  assert.ok(bad.enrolled && bad.certificateUrl === null && bad.letterWaiting === false); // completed_at wins
+  assert.equal(moveLink("http://move.vip50one.com/x"), null);
+});
+
+test("resultsLine and readComplete", () => {
+  assert.equal(resultsLine(null), null);
+  assert.equal(resultsLine({ daysScored: 1, average: 60 }), "1 day scored · 60 a day on average");
+  assert.equal(resultsLine({ daysScored: 0, average: 0 }), "No days scored yet");
+  assert.equal(challengeCompleteUrl, "https://move.vip50one.com/api/brain/challenge/complete");
+  assert.deepEqual(readComplete(200, { ok: true }), { kind: "done" });
+  assert.deepEqual(readComplete(204, null), { kind: "done" });
+  assert.deepEqual(readComplete(404, { error: "Not found." }), { kind: "elsewhere" });
+  assert.deepEqual(readComplete(405, null), { kind: "elsewhere" });
+  assert.deepEqual(readComplete(400, { ok: false, error: "Not day 90 yet." }), { kind: "error", words: "Not day 90 yet." });
+  assert.equal(readComplete(500, null).kind, "error");
+  assert.equal(readComplete(200, { ok: false }).kind, "error");
 });
