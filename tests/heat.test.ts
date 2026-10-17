@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { HEAT_NODE, demoHeat, heatIdOf, heatNodeId, readHeat, readHeatAnswer, withHeatNodes } from "../lib/heat.ts";
+import { HEAT_NODE, demoHeat, readHeat, readHeatAnswer } from "../lib/heat.ts";
+import { fromHeat, looksIdOf, looksNodeId, withLooksHot } from "../lib/looksHot.ts";
 import { demoGraph } from "../lib/graph/demo.ts";
 
 test("Looks Hot: read, drop bad rows, https photos only", () => {
@@ -14,15 +15,18 @@ test("Looks Hot: read, drop bad rows, https photos only", () => {
   assert.equal(readHeat({}), null);
 });
 
-test("Looks Hot: one yellow orb under ONE MOVE with a person per suggestion; gone when empty", () => {
-  const g = withHeatNodes(demoGraph("complete"), demoHeat());
+// Rewritten 17 Oct (walker, Parry "yes"): Looks Hot is always on ONE MOVE (lib/looksHot.ts), a still green ring when no
+// one is there, instead of disappearing when empty.
+test("Looks Hot: one yellow orb on ONE MOVE with a person per suggestion; green, not gone, when empty", () => {
+  const g = withLooksHot(demoGraph("complete"), fromHeat(demoHeat()));
   const orb = g.nodes.find((n) => n.id === HEAT_NODE)!;
   assert.equal(orb.parentId, "move");
   assert.equal(orb.status, "attention");
-  const kid = g.nodes.find((n) => n.id === heatNodeId("h1"))!;
+  const kid = g.nodes.find((n) => n.id === looksNodeId("c-amy"))!;
   assert.equal(kid.parentId, HEAT_NODE);
-  assert.equal(heatIdOf(kid.id), "h1");
-  assert.equal(withHeatNodes(g, []).nodes.some((n) => n.id === HEAT_NODE), false);
+  assert.equal(looksIdOf(kid.id), "c-amy");
+  const empty = withLooksHot(g, []).nodes.find((n) => n.id === HEAT_NODE)!;
+  assert.equal(empty.status, "healthy");
 });
 
 test("Looks Hot: answers; the Buyer Need link only after Move to Hot, https only", () => {
