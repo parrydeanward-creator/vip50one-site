@@ -78,6 +78,11 @@ export default function LooksHotPanel({
       <div className="heat">
         <h2 className="wr-h">Looks Hot · {KIND_WORDS[person.kind]}</h2>
         <p className="heat-why">{person.reason}</p>
+        {person.also.length > 0 && (
+          <ul className="lh-also" aria-label="Also">
+            {person.also.map((x) => <li key={x}>{x}</li>)}
+          </ul>
+        )}
         {person.homes.length > 0 && (
           <ul className="heat-homes">
             {person.homes.map((h) => (
@@ -110,7 +115,7 @@ export default function LooksHotPanel({
               <button className="ta-name" onClick={() => onOpen(p)}>
                 <b>{p.name}</b> <small>{KIND_WORDS[p.kind]}</small>
               </button>
-              <p className="d-sum rx-small">{p.reason}</p>
+              <p className="d-sum rx-small">{p.reason}{p.also.length ? ` · also: ${p.also.join("; ")}` : ""}</p>
               {buttons(p)}
             </li>
           ))}

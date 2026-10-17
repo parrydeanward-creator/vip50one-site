@@ -32,13 +32,24 @@ export function readNewLeads(j: unknown): NewLeads | null {
   return { today: str(r.today, 10), count: people.length, untouched: people.filter((p) => !p.touched).length, people };
 }
 
-/** The orb under ONE MOVE with the people round it; gone on a day with no new leads. */
+export const NO_LEADS_LINE = "No new leads yet today. People who come in on their own (your website, portals, ads, open houses) land here; red until you reach each one.";
+
+/**
+ * The orb with the people round it: one of the four parts of Opportunities (lib/opportunities.ts places it there).
+ * Always there while ONE MOVE is in the package (Parry, 17 Oct: the four parts of Opportunities): a still green ring
+ * on a day with no new leads, just its name before ONE MOVE answers.
+ */
 export function withNewLeadsNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, l: NewLeads | null): G {
   const mine = (id: string) => id === LEADS_NODE || id.startsWith(`${LEADS_NODE}:`);
   const nodes = g.nodes.filter((n) => !mine(n.id));
   const edges = g.edges.filter((e) => !mine(e.target));
   const move = g.nodes.find((n) => n.id === "move");
-  if (!move || move.locked || !l || !l.count) return { ...g, nodes, edges };
+  if (!move || move.locked) return { ...g, nodes, edges };
+  if (!l || !l.count) {
+    nodes.push({ id: LEADS_NODE, type: "feature", label: "New leads today", secondaryLabel: l ? "None yet today" : undefined, parentId: "move", product: "move", importance: 0.8, status: l ? "healthy" : undefined, summary: NO_LEADS_LINE });
+    edges.push({ id: `move>${LEADS_NODE}`, source: "move", target: LEADS_NODE, relationshipType: "belongs_to", strength: 1 });
+    return { ...g, nodes, edges };
+  }
   nodes.push({
     id: LEADS_NODE,
     type: "feature",

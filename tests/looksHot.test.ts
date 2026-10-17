@@ -75,3 +75,24 @@ test("buttons: ONE MOVE's act route first; then Move to Hot through the heat rou
   const ok = (async () => new Response("{}", { status: 200 })) as typeof fetch;
   assert.deepEqual(await actLooks(dave, "call", ok), { ok: true, line: "A task to call Dave is on your list.", needUrl: null });
 });
+
+test("ONE MOVE's live route shape: {count, people:[...heat_id, also]}; Not yet sends the reason and shows ONE MOVE's date", async () => {
+  const l = readLooksHot({ count: 1, people: [
+    { contact_id: "11111111-1111-4111-8111-111111111111", first_name: "Amy", reason_plain: "Said Yes to 2 homes on Thursday's tour", kind: "interest", at: "2026-10-14T18:00:00Z", heat_id: "h9", also: ["Came back to your site 3 times this week", "", 7] },
+  ] })!;
+  assert.equal(l[0].heatId, "h9");
+  assert.deepEqual(l[0].also, ["Came back to your site 3 times this week"]);
+  const sent: unknown[] = [];
+  const route = (async (_u: string, i?: RequestInit) => {
+    sent.push(JSON.parse(String(i?.body)));
+    return new Response(JSON.stringify({ ok: true, hidden_until: "2026-10-31T18:00:00Z" }), { status: 200 });
+  }) as typeof fetch;
+  const r = await actLooks(l[0], "not_yet", route);
+  assert.deepEqual(sent[0], { contact_id: l[0].contactId, action: "not_yet", kind: "interest" });
+  assert.equal(r.ok, true);
+  assert.equal(r.local, undefined);
+  assert.equal(r.line, "Not yet. Pulse won't raise this for Amy again until Sat 31 Oct.");
+  // MASTER's own words on a refusal
+  const refused = (async () => new Response(JSON.stringify({ ok: false, error: "Not found." }), { status: 409 })) as typeof fetch;
+  assert.deepEqual(await actLooks(l[0], "call", refused), { ok: false, line: "Not found." });
+});

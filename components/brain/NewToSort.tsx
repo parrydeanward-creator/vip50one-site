@@ -318,7 +318,7 @@ export default function NewToSort({
               ) : null}
               {!who.person.phone && !who.person.email && <li><span>No phone or email yet.</span></li>}
             </ul>
-            <p className="hw-pulse-line">
+            <p className={`hw-pulse-line${who.person.suggest ? " nts-suggest" : ""}`}>
               <PulseMark label={false} />
               <span>{pulseLine(who.person)}</span>
             </p>
@@ -340,7 +340,14 @@ export default function NewToSort({
                   <button className="ta-name" onClick={() => openPerson(p.contactId)}>
                     <b>{p.name}</b> <small>{sourceTitle(s)}</small>
                   </button>
-                  <p className="d-sum rx-small">{pulseLine(p)}</p>
+                  {p.suggest ? (
+                    <p className="hw-pulse-line nts-suggest">
+                      <PulseMark label={false} />
+                      <span>{pulseLine(p)}</span>
+                    </p>
+                  ) : (
+                    <p className="d-sum rx-small">{pulseLine(p)}</p>
+                  )}
                   {buttons(p)}
                 </li>
               ))}

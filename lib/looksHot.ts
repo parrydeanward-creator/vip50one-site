@@ -9,8 +9,9 @@ import { SIGNALS_NODE, type WebSignal } from "./webSignals.ts";
 // count when someone is. Likely sellers first, then high interest, then came back; newest first. Buttons: Move to Hot,
 // Call them (a task), Not yet (that reason stays away 14 days). Nothing is sent to anyone.
 //
-// Where it comes from: ONE MOVE's `GET /api/brain/looks-hot` (asked of GO/MOVE 17 Oct); until it answers, today's two
-// routes merged here: the heat suggestions (`/api/brain/heat`) and the website signals (`/api/brain/signals`).
+// Where it comes from: ONE MOVE's `GET /api/brain/looks-hot` (live 17 Oct: one row per person, nobody already Hot,
+// Not yet kept by ONE MOVE). Only when that route is not there (404, or no answer; lib/routeFirst.ts) are today's two
+// routes merged here instead: the heat suggestions (`/api/brain/heat`) and the website signals (`/api/brain/signals`).
 
 const MOVE_URL = "https://move.vip50one.com";
 export const looksHotUrl = `${MOVE_URL}/api/brain/looks-hot`;
@@ -39,6 +40,8 @@ export interface LooksPerson {
   /** The heat suggestion behind the row, when there is one (its route can move them to Hot). */
   heatId: string | null;
   homes: HeatHome[];
+  /** The person's other reasons, in ONE MOVE's plain words ("Came back to your site 3 times this week"). */
+  also: string[];
 }
 
 const str = (v: unknown, max = 200) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
@@ -56,18 +59,19 @@ export function readLooksHot(j: unknown): LooksPerson[] | null {
     const id = str(x?.contact_id, 60), name = str(x?.first_name, 60) ?? str(x?.name, 80), reason = str(x?.reason_plain, 240);
     if (!id || !name || !reason || !isKind(x.kind) || seen.has(id)) continue;
     seen.add(id);
-    out.push({ id, contactId: id, name, reason, kind: x.kind, at: str(x.at, 40), heatId: null, homes: [] });
+    const also = (Array.isArray(x.also) ? x.also : []).map((a) => str(a, 240)).filter((a): a is string => !!a && a !== reason).slice(0, 4);
+    out.push({ id, contactId: id, name, reason, kind: x.kind, at: str(x.at, 40), heatId: str(x.heat_id, 60), homes: [], also });
   }
   return sortLooks(out);
 }
 
 /** Today's heat suggestions as rows: tour Yes answers and saved homes are high interest; return visits came back. */
 export const fromHeat = (s: HeatSuggestion[]): LooksPerson[] =>
-  s.map((h) => ({ id: h.contactId ?? `heat-${h.id}`, contactId: h.contactId, name: h.name, reason: h.why ?? h.title, kind: h.reason === "returned" ? "returned" : "interest", at: h.at, heatId: h.id, homes: h.homes }));
+  s.map((h) => ({ id: h.contactId ?? `heat-${h.id}`, contactId: h.contactId, name: h.name, reason: h.why ?? h.title, kind: h.reason === "returned" ? "returned" : "interest", at: h.at, heatId: h.id, homes: h.homes, also: [] }));
 
 /** The website signals as rows. */
 export const fromSignals = (s: WebSignal[]): LooksPerson[] =>
-  s.map((w) => ({ id: w.contactId, contactId: w.contactId, name: w.name, reason: w.words, kind: w.likelySeller ? "seller" : w.highInterest ? "interest" : "returned", at: w.at, heatId: null, homes: [] }));
+  s.map((w) => ({ id: w.contactId, contactId: w.contactId, name: w.name, reason: w.words, kind: w.likelySeller ? "seller" : w.highInterest ? "interest" : "returned", at: w.at, heatId: null, homes: [], also: [] }));
 
 /** Both lists as one, a person once: their strongest reason leads, and a heat suggestion behind them is kept. */
 export function mergeLooks(...lists: LooksPerson[][]): LooksPerson[] {
@@ -79,7 +83,9 @@ export function mergeLooks(...lists: LooksPerson[][]): LooksPerson[] {
       continue;
     }
     const lead = RANK[p.kind] < RANK[had.kind] || (RANK[p.kind] === RANK[had.kind] && (p.at ?? "") > (had.at ?? "")) ? p : had;
-    by.set(p.id, { ...lead, heatId: had.heatId ?? p.heatId, homes: had.homes.length ? had.homes : p.homes });
+    const other = lead === p ? had : p;
+    const also = [...new Set([...lead.also, other.reason, ...other.also])].filter((a) => a !== lead.reason);
+    by.set(p.id, { ...lead, heatId: had.heatId ?? p.heatId, homes: had.homes.length ? had.homes : p.homes, also });
   }
   return sortLooks([...by.values()]);
 }
@@ -151,11 +157,16 @@ export function withLooksHot<G extends { nodes: GraphNode[]; edges: GraphEdge[] 
 
 export type LooksAction = "move_hot" | "call" | "not_yet";
 export interface ActResult { ok: boolean; line: string; local?: boolean; /** ONE MOVE's Buyer Need draft after Move to Hot, https only. */ needUrl?: string | null }
-const needOf = async (r: Response) => {
-  const j = (await r.json().catch(() => null)) as { need_url?: unknown } | null;
+const needIn = (j: { need_url?: unknown } | null) => {
   const u = str(j?.need_url, 500);
   return u && u.startsWith("https://") ? u : null;
 };
+const needOf = async (r: Response) => needIn((await r.json().catch(() => null)) as { need_url?: unknown } | null);
+/** "Not yet" until ONE MOVE's date: "until Sat 31 Oct". */
+export function untilWords(iso: string | null): string | null {
+  if (!iso || Number.isNaN(Date.parse(iso))) return null;
+  return new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "America/Denver" }).format(new Date(iso));
+}
 export const COMING_CALL = "Call them makes a task once ONE MOVE's update lands. Nothing was changed.";
 
 /**
@@ -170,8 +181,12 @@ export async function actLooks(p: LooksPerson, action: LooksAction, f: typeof fe
   let missing = !p.contactId;
   if (p.contactId) {
     try {
-      const r = await post(looksHotActUrl, { contact_id: p.contactId, action });
-      if (r.ok) return { ok: true, line: done, needUrl: action === "move_hot" ? await needOf(r) : null };
+      const r = await post(looksHotActUrl, action === "not_yet" ? { contact_id: p.contactId, action, kind: p.kind } : { contact_id: p.contactId, action });
+      if (r.ok) {
+        const j = (await r.json().catch(() => null)) as { need_url?: unknown; hidden_until?: unknown } | null;
+        const until = action === "not_yet" ? untilWords(str(j?.hidden_until, 40)) : null;
+        return { ok: true, line: until ? `Not yet. Pulse won't raise this for ${first} again until ${until}.` : done, needUrl: action === "move_hot" ? needIn(j) : null };
+      }
       if (r.status === 404 || r.status === 405) missing = true;
       else {
         const j = (await r.json().catch(() => null)) as { error?: unknown } | null;
@@ -200,6 +215,6 @@ export async function actLooks(p: LooksPerson, action: LooksAction, f: typeof fe
 /** The example agent: one person from the website, one from a tour. */
 export const demoLooksHot = (): LooksPerson[] =>
   sortLooks([
-    { id: "r6", contactId: "r6", name: "Dave Ortiz", reason: "Asked what his home is worth on your website (Oct 12)", kind: "seller", at: "2026-10-12T19:00:00Z", heatId: null, homes: [] },
-    { id: "c-amy", contactId: "c-amy", name: "Amy Chen", reason: "Said Yes to 2 homes on Thursday's tour", kind: "interest", at: "2026-10-14T18:00:00Z", heatId: "h1", homes: [] },
+    { id: "r6", contactId: "r6", name: "Dave Ortiz", reason: "Asked what his home is worth on your website (Oct 12)", kind: "seller", at: "2026-10-12T19:00:00Z", heatId: null, homes: [], also: ["Came back to your site 3 times this week"] },
+    { id: "c-amy", contactId: "c-amy", name: "Amy Chen", reason: "Said Yes to 2 homes on Thursday's tour", kind: "interest", at: "2026-10-14T18:00:00Z", heatId: "h1", homes: [], also: [] },
   ]);

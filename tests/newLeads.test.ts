@@ -16,7 +16,9 @@ test("new leads: checked, untouched first", () => {
   assert.equal(l.untouched, 1);
 });
 
-test("the orb is red while anyone is unreached, green when all are, gone with none", () => {
+// Rewritten 17 Oct: New leads today is one of Opportunities' four parts and always there (Parry, 17 Oct), so a day
+// with no new leads shows a still green ring and "None yet today" instead of no orb.
+test("the orb is red while anyone is unreached, green when all are, green and plain with none", () => {
   const g: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "move", type: "product", label: "ONE MOVE", parentId: "one", product: "move", importance: 1 }], edges: [] };
   const red = withNewLeadsNode(g, demoNewLeads());
   const orb = red.nodes.find((n) => n.id === LEADS_NODE)!;
@@ -26,5 +28,9 @@ test("the orb is red while anyone is unreached, green when all are, gone with no
   const all = demoNewLeads();
   const green = withNewLeadsNode(g, { ...all, untouched: 0, people: all.people.map((p) => ({ ...p, touched: true })) });
   assert.equal(green.nodes.find((n) => n.id === LEADS_NODE)!.status, "healthy");
-  assert.equal(withNewLeadsNode(g, { today: null, count: 0, untouched: 0, people: [] }).nodes.some((n) => n.id === LEADS_NODE), false);
+  const none = withNewLeadsNode(g, { today: null, count: 0, untouched: 0, people: [] }).nodes.find((n) => n.id === LEADS_NODE)!;
+  assert.equal(none.status, "healthy");
+  assert.equal(none.secondaryLabel, "None yet today");
+  assert.equal(none.needCount, undefined);
+  assert.equal(withNewLeadsNode(g, null).nodes.find((n) => n.id === LEADS_NODE)!.status, undefined);
 });

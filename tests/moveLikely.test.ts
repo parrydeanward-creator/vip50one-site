@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { LIKELY_NODE, levelLine, demoMoveLikely, levelWord, notedLine, readMoveLikely, withMoveLikelyNode, withoutPerson } from "../lib/moveLikely.ts";
+import { EXAMPLE_PAST_CLIENT, LIKELY_NODE, MLS_MISSING, WAITING_FEED, emptyMoveLikely, likelyReason, pastClientLine, readPastClients, levelLine, demoMoveLikely, levelWord, notedLine, readMoveLikely, withMoveLikelyNode, withoutPerson } from "../lib/moveLikely.ts";
 
 const g = { nodes: [{ id: "move", type: "product", label: "ONE MOVE", parentId: null, product: "move", importance: 1 }], edges: [] } as never;
 const node = (m: ReturnType<typeof demoMoveLikely> | null) => (withMoveLikelyNode(g, m) as { nodes: { id: string; status?: string; secondaryLabel?: string }[] }).nodes.find((n) => n.id === LIKELY_NODE);
@@ -30,7 +30,10 @@ test("the orb: a gold opportunity when someone is High, never a pulse; not ready
   assert.equal(n.status, "opportunity");
   assert.equal(n.secondaryLabel, "2 high · 1 medium · past clients");
   assert.equal(node({ ...demoMoveLikely(), ready: false })!.status, undefined);
-  assert.equal(node(null), undefined);
+  // Rewritten 17 Oct: Likely to move is one of Opportunities' four parts and always there (Parry, 17 Oct), so no answer
+  // from ONE MOVE no longer means no orb; it shows its one honest reason instead.
+  assert.equal(node(null)!.secondaryLabel, "Waiting for the UtahRealEstate.com feed");
+  assert.equal(node(null)!.status, undefined);
   const after = withoutPerson(withoutPerson(demoMoveLikely(), "r6"), "r9");
   assert.equal(node(after)!.status, undefined);
 });
@@ -44,4 +47,34 @@ test("as built: the whole label line, ONE MOVE's words for notes, not_linked", (
   assert.equal(m.notLinked, true);
   assert.deepEqual(m.people.map(levelLine), ["High · Suggested", "Medium · Suggested", "No MLS history yet"]);
   assert.equal(notedLine(m.people[0]), "you noted: new baby");
+});
+
+test("one honest reason, never both: the missing MLS member id, else the UtahRealEstate.com feed", () => {
+  assert.equal(likelyReason(true, null), MLS_MISSING);
+  assert.equal(likelyReason(false, null), WAITING_FEED);
+  assert.equal(likelyReason(null, null), WAITING_FEED);
+  // ONE Property says the MLS link is not set and the profile is not read yet: the member id is the reason
+  assert.equal(likelyReason(null, { ...emptyMoveLikely(), notLinked: true }), MLS_MISSING);
+  // the member id is set: the feed, even if ONE Property has not linked it yet
+  assert.equal(likelyReason(false, { ...emptyMoveLikely(), notLinked: true }), WAITING_FEED);
+  const missing = (withMoveLikelyNode(g, null, { mlsMissing: true }) as { nodes: { id: string; secondaryLabel?: string; summary?: string }[] }).nodes.find((n) => n.id === LIKELY_NODE)!;
+  assert.equal(missing.secondaryLabel, "Add your MLS member id");
+  assert.ok(!/UtahRealEstate/.test(missing.summary!));
+  const waiting = (withMoveLikelyNode(g, null, { mlsMissing: false }) as { nodes: { id: string; summary?: string }[] }).nodes.find((n) => n.id === LIKELY_NODE)!;
+  assert.ok(/UtahRealEstate\.com feed/.test(waiting.summary!) && !/member id/.test(waiting.summary!));
+});
+
+test("past clients 5+ years from ONE MOVE's coming route; until then one clearly labelled example", () => {
+  assert.equal(readPastClients({}), null);
+  const l = readPastClients({ people: [
+    { contact_id: "a", first_name: "Ann", years: 6.7, closed_on: "2020-02-01" },
+    { contact_id: "b", first_name: "Bo", years: 11, closed_on: "2015-05-01" },
+    { contact_id: "c", first_name: "Cy", years: 3 },
+    { contact_id: "a", first_name: "Dup", years: 9 },
+  ] })!;
+  assert.deepEqual(l.map((p) => [p.firstName, p.years]), [["Bo", 11], ["Ann", 6]]);
+  assert.equal(pastClientLine(EXAMPLE_PAST_CLIENT), "Example: bought 7 years ago");
+  assert.equal(pastClientLine(l[0]), "Bought 11 years ago");
+  const n = (withMoveLikelyNode(g, null, { pastClients: l }) as { nodes: { id: string; secondaryLabel?: string }[] }).nodes.find((x) => x.id === LIKELY_NODE)!;
+  assert.equal(n.secondaryLabel, "2 past clients 5+ years");
 });

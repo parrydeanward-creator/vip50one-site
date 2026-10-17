@@ -9,10 +9,11 @@ import { movePageId, moveMenuHref } from "./moveMenu.ts";
 // Just a contact, or Not for me (archived, never deleted). ONE suggests, the agent accepts; nothing is sent; nobody
 // goes into the VIP-50 here (VIP Management's swap does that).
 //
-// Where it comes from: ONE MOVE's `GET /api/brain/new-to-sort` (asked of GO/MOVE 17 Oct); until it answers, the new
-// leads ONE MOVE already sends (`/api/brain/today`) that came from one of the four sources. Sorting goes to
-// `POST /api/brain/new-to-sort/sort`; until that is live, Hot/Warm/Cold go through the Hot/Warm/Cold add route and the
-// rest say they are coming from ONE MOVE.
+// Where it comes from: ONE MOVE's `GET /api/brain/new-to-sort` (live 17 Oct). Only when that route is not there (404,
+// or no answer at all; lib/routeFirst.ts) does the Brain fall back to the new leads ONE MOVE already sends
+// (`/api/brain/today`) that came from one of the four sources. Sorting goes to `POST /api/brain/new-to-sort/sort`
+// (MASTER's own words shown on a refusal); only if that is missing do Hot/Warm/Cold go through the Hot/Warm/Cold add
+// route and the rest say they are coming from ONE MOVE.
 
 const MOVE_URL = "https://move.vip50one.com";
 export const newToSortUrl = `${MOVE_URL}/api/brain/new-to-sort`;
@@ -177,7 +178,7 @@ export function readNewToSort(j: unknown): NewToSort | null {
 /** A new lead's source words, as one of the four sources; null for anything else (portals, ads). */
 export function kindOfSource(source: string | null): SourceKind | null {
   const s = (source ?? "").toLowerCase();
-  if (/open[\s-]?house/.test(s)) return "open_house";
+  if (/open[\s_-]?house/.test(s)) return "open_house";
   if (/tour|showly|showing/.test(s)) return "tour";
   if (/marquee|listing|seller/.test(s)) return "listing";
   if (/website|site|valuation|home value/.test(s)) return "website";

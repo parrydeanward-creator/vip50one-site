@@ -9,6 +9,8 @@ import type { GraphEdge, GraphNode } from "./graph/types.ts";
 export const LIKELY_NODE = "move-likely";
 export const moveLikelyUrl = `${MOVE_URL}/api/brain/move-likely`;
 export const notUsefulUrl = `${MOVE_URL}/api/brain/move-likely/not-useful`;
+/** ONE MOVE's coming list of real past clients who closed 5 or more years ago (404 until it ships: the example shows). */
+export const pastClientsUrl = `${MOVE_URL}/api/brain/likely-to-move`;
 
 export type Level = "high" | "medium" | "low";
 export interface Person { contactId: string; name: string; level: Level | null; label: string; reasons: string[]; youNoted: { event: string; words: string | null; at: string }[] }
@@ -72,28 +74,73 @@ export const touchLine = (p: Person) => `Check in with ${p.name.split(" ")[0]}: 
 /** People after "Not useful" (hidden 90 days by ONE MOVE), before it answers again. */
 export const withoutPerson = (m: MoveLikely, contactId: string): MoveLikely => ({ ...m, people: m.people.filter((p) => p.contactId !== contactId) });
 
-/** The orb under ONE MOVE: a gold opportunity dot when someone is High; never a pulse. */
-export function withMoveLikelyNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, m: MoveLikely | null): G {
+// Until the feed: one honest reason, never two (Parry, 17 Oct, via the ecosystem bot). With no MLS member id in My
+// Profile, that is the reason, with a button to My Profile; once it is set, the reason is the UtahRealEstate.com feed.
+export type Reason = { kind: "mls_missing" | "waiting_feed"; short: string; line: string };
+export const MLS_MISSING: Reason = { kind: "mls_missing", short: "Add your MLS member id", line: "Your MLS member id is missing. Add it in My Profile and ONE can look at your past clients' homes." };
+export const WAITING_FEED: Reason = { kind: "waiting_feed", short: "Waiting for the UtahRealEstate.com feed", line: "Waiting for the UtahRealEstate.com feed. Once it is live, ONE looks at your past clients' homes each week and shows who may be getting ready to move." };
+/** The one reason: the missing member id while it is missing (or ONE Property says the MLS link is not set), else the feed. */
+export const likelyReason = (mlsMissing: boolean | null, m: MoveLikely | null): Reason => (mlsMissing === true || (mlsMissing == null && m?.notLinked) ? MLS_MISSING : WAITING_FEED);
+/** The list has real people to show (ONE Property answered for this agent). */
+export const likelyReady = (m: MoveLikely | null): m is MoveLikely => !!m && m.ready;
+
+/** Past clients who closed 5 or more years ago (ONE MOVE's coming route), until the feed rates their homes. */
+export interface PastClient { contactId: string; firstName: string; years: number; closedOn: string | null; example?: boolean }
+export function readPastClients(raw: unknown): PastClient[] | null {
+  const list = raw && typeof raw === "object" ? (raw as { people?: unknown }).people : null;
+  if (!Array.isArray(list)) return null;
+  const seen = new Set<string>();
+  const out: PastClient[] = [];
+  for (const x of list as Record<string, unknown>[]) {
+    const contactId = str(x?.contact_id, 80), firstName = str(x?.first_name, 60);
+    const years = typeof x?.years === "number" && Number.isFinite(x.years) ? Math.floor(x.years) : null;
+    if (!contactId || !firstName || years == null || years < 5 || seen.has(contactId)) continue;
+    seen.add(contactId);
+    out.push({ contactId, firstName, years, closedOn: str(x.closed_on, 10) });
+  }
+  return out.sort((a, b) => b.years - a.years || a.firstName.localeCompare(b.firstName));
+}
+/** The one clearly labelled example shown until there are real people. */
+export const EXAMPLE_PAST_CLIENT: PastClient = { contactId: "example", firstName: "Example", years: 7, closedOn: null, example: true };
+export const pastClientLine = (p: PastClient) => (p.example ? `Example: bought ${p.years} years ago` : `Bought ${p.years} years ago`);
+
+/**
+ * The orb, one of the four parts of Opportunities (lib/opportunities.ts places it there). Always there while ONE MOVE is
+ * in the package. With ONE Property's answer: a gold opportunity dot when someone is High; never a pulse. Before it:
+ * the one honest reason (or the past clients ONE MOVE found, when its route sends them).
+ */
+export function withMoveLikelyNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, m: MoveLikely | null, o: { mlsMissing?: boolean | null; pastClients?: PastClient[] | null } = {}): G {
   const move = g.nodes.find((n) => n.id === "move");
   const nodes = g.nodes.filter((n) => n.id !== LIKELY_NODE);
   const edges = g.edges.filter((e) => e.target !== LIKELY_NODE);
-  if (!move || move.locked || !m) return { ...g, nodes, edges };
-  const high = m.people.filter((p) => p.level === "high").length;
-  const medium = m.people.filter((p) => p.level === "medium").length;
+  if (!move || move.locked) return { ...g, nodes, edges };
+  const ready = likelyReady(m);
+  const high = ready ? m.people.filter((p) => p.level === "high").length : 0;
+  const medium = ready ? m.people.filter((p) => p.level === "medium").length : 0;
+  const reason = likelyReason(o.mlsMissing ?? null, m);
+  const past = o.pastClients ?? [];
   nodes.push({
     id: LIKELY_NODE,
     type: "feature",
     label: "Likely to move",
-    secondaryLabel: !m.ready ? "Starts when the MLS feed is live" : high || medium ? [high ? `${high} high` : null, medium ? `${medium} medium` : null].filter(Boolean).join(" · ") + " · past clients" : "No past clients flagged",
+    secondaryLabel: ready
+      ? high || medium ? [high ? `${high} high` : null, medium ? `${medium} medium` : null].filter(Boolean).join(" · ") + " · past clients" : "No past clients flagged"
+      : past.length ? `${past.length} past ${past.length === 1 ? "client" : "clients"} 5+ years` : reason.short,
     parentId: "move",
     product: "move",
-    importance: m.ready && high ? 0.85 : 0.5,
-    status: m.ready && high ? "opportunity" : undefined,
-    summary: "Past clients whose homes suggest a move may be coming, from the home's facts only. A nudge to check in; only you see it.",
+    importance: ready && high ? 0.85 : 0.5,
+    status: ready && high ? "opportunity" : undefined,
+    stats: ready && high + medium ? [{ label: "Likely to move", value: String(high + medium) }] : !ready && past.length ? [{ label: "Past clients 5+ years", value: String(past.length) }] : undefined,
+    summary: ready
+      ? "Past clients whose homes suggest a move may be coming, from the home's facts only. A nudge to check in; only you see it."
+      : `${reason.line} Only you see it; nothing is sent.`,
   });
   edges.push({ id: `move>${LIKELY_NODE}`, source: "move", target: LIKELY_NODE, relationshipType: "belongs_to", strength: 1 });
   return { ...g, nodes, edges };
 }
+
+/** Before ONE MOVE answers (or when it cannot): nothing rated yet, so the view shows the one honest reason. */
+export const emptyMoveLikely = (): MoveLikely => ({ ready: false, notLinked: false, updatedAt: null, people: [], lowCount: 0, missingHome: [] });
 
 /** The example agent's past clients. */
 export function demoMoveLikely(): MoveLikely {
