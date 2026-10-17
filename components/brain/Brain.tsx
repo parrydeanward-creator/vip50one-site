@@ -76,7 +76,7 @@ import { CHALLENGE_NODE, GOALS_NODE, SCORE_NODE, goalsThree, withoutRetired } fr
 import ScoreboardPanel from "./ScoreboardPanel.tsx";
 import ChallengePanel from "./ChallengePanel.tsx";
 import { challengeUrl, readChallenge, withChallengeNode, type LiveChallenge } from "@/lib/challenge.ts";
-import { profileUrl } from "@/lib/profile.ts";
+import { profileUrl, readProfile } from "@/lib/profile.ts";
 import { syncKind } from "@/lib/voicePick.ts";
 import GoalsView from "./GoalsView.tsx";
 import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
@@ -90,7 +90,9 @@ import AskAiView from "./AskAiView.tsx";
 import ListenNote from "./ListenNote.tsx";
 import { readTeamSites, type TeamSite, readAgentTeamSites, siteOpenHref, type AgentTeamSite } from "@/lib/siteEdit.ts";
 import { ASK_AI_NODE, monthOf, readResults, resultKey, withAskAiNode, type Answer as AiAnswer, type Engine as AiEngine, type Results as AiResults } from "@/lib/aiCheck.ts";
-import { LIKELY_NODE, demoMoveLikely, moveLikelyUrl, notUsefulUrl, readMoveLikely, withMoveLikelyNode, withoutPerson, type MoveLikely, type Person as LikelyPerson } from "@/lib/moveLikely.ts";
+import { LIKELY_NODE, demoMoveLikely, emptyMoveLikely, moveLikelyUrl, notUsefulUrl, pastClientsUrl, readMoveLikely, readPastClients, withMoveLikelyNode, withoutPerson, type MoveLikely, type PastClient, type Person as LikelyPerson } from "@/lib/moveLikely.ts";
+import { OPP_LABEL, OPP_NODE, PEOPLE_MENU_PARTS, withOpportunities } from "@/lib/opportunities.ts";
+import { readRoute } from "@/lib/routeFirst.ts";
 import { MARKET_NODE, demoMarketPulse, marketPulseUrl, marketSendUrl, readMarketPulse, sendBody as marketSendBody, withMarketPulseNode, withSent as withMarketSent, type MarketPulse, type Vip as MarketVip } from "@/lib/marketPulse.ts";
 import { DEALS_NODE, dealUrl, dealsUrl, demoDeals, readClosingAsk, readDeals, statusBody as dealStatusBody, withDealsNode, withStatus as withDealStatus, type Deal } from "@/lib/deals.ts";
 import { LIFE_NODE, applyKeep, demoRadar, keepBody as lifeKeepBody, keepUrl as lifeKeepUrl, lifeEventsUrl, readRadar, withLifeEventsNode, type Found as LifeFound, type Radar } from "@/lib/lifeEvents.ts";
@@ -232,6 +234,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const dealsRef = useRef<Deal[] | null>(null);
   const marketRef = useRef<MarketPulse | null>(null);
   const likelyRef = useRef<MoveLikely | null>(null);
+  // Likely to move's one honest reason and ONE MOVE's past clients 5+ years (lib/moveLikely.ts), for the rebuild.
+  const likelyOptsRef = useRef<{ mlsMissing: boolean | null; pastClients: PastClient[] | null }>({ mlsMissing: null, pastClients: null });
   const aiRef = useRef<AiResults | null>(null);
   const timeOffRef = useRef<TimeOffState | null>(null);
   const teamRef = useRef<Team | null>(null);
@@ -257,7 +261,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn()), ntsRef.current), looksRef.current);
+    // Opportunities last (lib/opportunities.ts; Parry, 17 Oct): its four parts move inside it, whatever built them.
+    const next = withOpportunities(withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current, likelyOptsRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn()), ntsRef.current), looksRef.current));
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -814,15 +819,37 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       .catch(() => {});
   }, [live]);
   const closeWins = useCallback(() => setWinsOpen(false), []);
+  // Likely to move (§3ab), one of Opportunities' four parts: ONE MOVE's answer, the agent's MLS member id (from My
+  // Profile, re-read when the view opens) and ONE MOVE's past clients 5+ years once that route ships.
+  const [likely, setLikely] = useState<MoveLikely | null>(null);
+  const [likelyOpen, setLikelyOpen] = useState(false);
+  const [mlsMissing, setMlsMissing] = useState<boolean | null>(null);
+  const [pastClients, setPastClients] = useState<PastClient[] | null>(null);
   // Pulse's voice from MASTER (vip50-web-crm#277): the signed-in agent's choice goes into the local copy say() reads,
   // so Pulse speaks in it on every page, not only after My Profile opens. The demo keeps its local copy.
   useEffect(() => {
     if (!live) return;
     fetch(profileUrl, { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => void syncKind(j))
+      .then((j) => {
+        void syncKind(j);
+        // Likely to move's reason: no MLS member id in My Profile says so (lib/moveLikely.ts likelyReason)
+        const p = j ? readProfile(j) : null;
+        if (p) setMlsMissing(!p.ure_member_id.trim());
+      })
       .catch(() => {});
   }, [live]);
+  // Opening Likely to move reads the member id again, so one just added in My Profile changes the reason at once.
+  useEffect(() => {
+    if (!live || !likelyOpen) return;
+    fetch(profileUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const p = j ? readProfile(j) : null;
+        if (p) setMlsMissing(!p.ure_member_id.trim());
+      })
+      .catch(() => {});
+  }, [live, likelyOpen]);
   // The 90-Day Challenge's live numbers (vip50-web-crm#277): today's score, arenas, streak, identity, enemy and group,
   // and "Day N of 90 · P today" on the orb. The demo keeps its example data (null here).
   const [challenge, setChallenge] = useState<LiveChallenge | null>(null);
@@ -941,19 +968,22 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       localStorage.setItem("ask-ai:area", a);
     } catch {}
   };
-  const [likely, setLikely] = useState<MoveLikely | null>(null);
-  const [likelyOpen, setLikelyOpen] = useState(false);
   useEffect(() => {
     if (!live) return setLikely(demoMoveLikely());
     fetch(moveLikelyUrl, { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setLikely(j ? readMoveLikely(j) : null))
       .catch(() => {});
+    // ONE MOVE's real past clients 5+ years, once its route ships (404 until then: the one example shows)
+    void readRoute(pastClientsUrl, readPastClients).then((a) => {
+      if (a.kind === "data") setPastClients(a.data);
+    });
   }, [live]);
   useEffect(() => {
     likelyRef.current = likely;
-    setGraph((g) => withMoveLikelyNode(g, likely));
-  }, [likely]);
+    likelyOptsRef.current = { mlsMissing, pastClients };
+    setGraph((g) => withOpportunities(withMoveLikelyNode(g, likely, { mlsMissing, pastClients })));
+  }, [likely, mlsMissing, pastClients]);
   // The ONE Growth orb (GROWTH.md §3, §5; Parry, 16 Oct): locked with the offer without Growth; with it, its seven pieces,
   // and Ad requests for each team site the agent owns or admins. The tour shows the example agent's site and team site.
   const growthState = useMemo<GrowthState>(
@@ -1073,7 +1103,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   }, [live]);
   useEffect(() => {
     newLeadsRef.current = newLeads;
-    setGraph((g) => withNewLeadsNode(g, newLeads));
+    setGraph((g) => withOpportunities(withNewLeadsNode(g, newLeads)));
   }, [newLeads]);
   // Looks Hot (CONNECTIONS §5.1, vip50-web-crm#244): one decide item per contact whose actions say they are ready.
   const [heat, setHeat] = useState<HeatSuggestion[] | null>(null);
@@ -1088,19 +1118,20 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     const t = setInterval(load, 300_000);
     return () => clearInterval(t);
   }, [live]);
-  // Looks Hot, one orb (lib/looksHot.ts; walker 17 Oct, Parry "yes"): ONE MOVE's looks-hot route when it answers;
-  // until then the heat suggestions and the website signals above, merged. Always on ONE MOVE.
+  // Looks Hot, one orb (lib/looksHot.ts; walker 17 Oct, Parry "yes"), a part of Opportunities: ONE MOVE's looks-hot
+  // route (live 17 Oct); only when that route is not there (404 or no answer) the heat suggestions and the website
+  // signals above, merged. A refusal (signed out, a 500) keeps what the orb had.
   const [looksRoute, setLooksRoute] = useState<LooksPerson[] | null>(null);
+  const [looksMissing, setLooksMissing] = useState(false);
   useEffect(() => {
     if (!live) return;
     const load = () =>
-      fetch(looksHotUrl, { credentials: "include", cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((j) => {
-          const l = j ? readLooksHot(j) : null;
-          if (l) setLooksRoute(l);
-        })
-        .catch(() => {});
+      readRoute(looksHotUrl, readLooksHot).then((a) => {
+        if (a.kind === "data") {
+          setLooksRoute(a.data);
+          setLooksMissing(false);
+        } else if (a.kind === "missing") setLooksMissing(true);
+      });
     load();
     const t = setInterval(load, 300_000);
     return () => clearInterval(t);
@@ -1113,12 +1144,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   }, []);
   const [looksGone, setLooksGone] = useState<ReadonlySet<string>>(() => new Set());
   const looks = useMemo(() => {
-    const all = !live ? demoLooksHot() : looksRoute ?? (heat || webHot ? mergeLooks(fromHeat(heat ?? []), fromSignals(webHot ?? [])) : null);
+    const all = !live ? demoLooksHot() : looksRoute ?? (looksMissing && (heat || webHot) ? mergeLooks(fromHeat(heat ?? []), fromSignals(webHot ?? [])) : null);
     return shownLooks(all, notYet, looksGone);
-  }, [live, looksRoute, heat, webHot, notYet, looksGone]);
+  }, [live, looksRoute, looksMissing, heat, webHot, notYet, looksGone]);
   useEffect(() => {
     looksRef.current = looks;
-    setGraph((g) => withLooksHot(g, looks));
+    setGraph((g) => withOpportunities(withLooksHot(g, looks)));
   }, [looks]);
   const looksDone = useCallback((p: LooksPerson, action: "move_hot" | "call" | "not_yet") => {
     if (action === "not_yet")
@@ -1133,17 +1164,18 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   }, []);
   // New to Sort (lib/newToSort.ts; walker 17 Oct, Parry "yes"): ONE MOVE's route when it answers; until then the new
   // leads ONE MOVE already sends from the four sources. Re-read every 2 minutes; a sorted face leaves at once.
+  // Only when ONE MOVE's route is not there (404 or no answer) does the new-leads fallback show; a refusal keeps what it had.
   const [ntsRoute, setNtsRoute] = useState<NtsData | null>(null);
+  const [ntsMissing, setNtsMissing] = useState(false);
   const [ntsGone, setNtsGone] = useState<ReadonlySet<string>>(() => new Set());
   const loadNts = useCallback(() => {
     if (!live) return;
-    fetch(newToSortUrl, { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        const d = j ? readNewToSort(j) : null;
-        if (d) setNtsRoute(d);
-      })
-      .catch(() => {});
+    void readRoute(newToSortUrl, readNewToSort).then((a) => {
+      if (a.kind === "data") {
+        setNtsRoute(a.data);
+        setNtsMissing(false);
+      } else if (a.kind === "missing") setNtsMissing(true);
+    });
   }, [live]);
   useEffect(() => {
     loadNts();
@@ -1152,12 +1184,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     return () => clearInterval(t);
   }, [live, loadNts]);
   const nts = useMemo(() => {
-    const d = !live ? demoNewToSort() : ntsRoute ?? fromNewLeads(newLeads);
+    const d = !live ? demoNewToSort() : ntsRoute ?? (ntsMissing ? fromNewLeads(newLeads) : null);
     return d ? [...ntsGone].reduce(withoutSorted, d) : null;
-  }, [live, ntsRoute, newLeads, ntsGone]);
+  }, [live, ntsRoute, ntsMissing, newLeads, ntsGone]);
   useEffect(() => {
     ntsRef.current = nts;
-    setGraph((g) => withNewToSort(g, nts));
+    setGraph((g) => withOpportunities(withNewToSort(g, nts)));
   }, [nts]);
   // Onboarding board (TEAM-ONBOARDING §2.3, vip50-web-crm#250): team lead and admins only; anyone else gets a 403 and no orb.
   const [onb, setOnb] = useState<OnbMember[] | null>(null);
@@ -2649,6 +2681,25 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               <p className="rail-sub">Main menu</p>
               <ul>
                 {MOVE_TOP.map(moveLink)}
+                {/* Opportunities (Parry, 17 Oct): the orb on the ring that holds New leads today, New to Sort, Looks Hot
+                    and Likely to move; its row opens the orb (it comes to the middle with the four round it). */}
+                {ix.byId.has(OPP_NODE) ? (() => {
+                  const on = ix.byId.get(OPP_NODE)!;
+                  return (
+                    <li key="opportunities">
+                      <button className="rail-btn rail-link" onClick={() => goTo(OPP_NODE)}>
+                        <span className="rail-icon" style={{ color: hex(PRODUCT_COLOR.move) }}>
+                          <Icon kind={iconForText(OPP_LABEL)} size={16} />
+                        </span>
+                        <span className="rail-text">
+                          <span>{OPP_LABEL}</span>
+                          {on.secondaryLabel && <small>{on.secondaryLabel}</small>}
+                        </span>
+                        {on.status && on.status !== "healthy" && <i className="rail-dot" style={{ background: hex(STATUS[on.status].color) }} aria-label={STATUS[on.status].label} />}
+                      </button>
+                    </li>
+                  );
+                })() : null}
                 {moveGroupsFor(admin).map((g) => {
                   const gn = ix.byId.get(moveGroupId(g.key));
                   const open = openGroups.includes(g.key);
@@ -2678,6 +2729,21 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                             </li>
                           ) : null}
                           {g.pages.map(moveLink)}
+                          {/* Opportunities' other three parts (Parry, 17 Oct: the People menu keeps a link to each) */}
+                          {g.key === "people"
+                            ? PEOPLE_MENU_PARTS.filter((pt) => ix.byId.has(pt.id)).map((pt) => (
+                                <li key={pt.id}>
+                                  <button className="rail-btn rail-link" onClick={() => openOrb(pt.id)}>
+                                    <span className="rail-icon" style={{ color: hex(PRODUCT_COLOR.move) }}>
+                                      <Icon kind={iconForText(pt.label)} size={16} />
+                                    </span>
+                                    <span className="rail-text">
+                                      <span>{pt.label}</span>
+                                    </span>
+                                  </button>
+                                </li>
+                              ))
+                            : null}
                         </ul>
                       )}
                     </li>
@@ -3256,7 +3322,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               </span>
             </button>
           ) : null)}
-          {focus.id === LIKELY_NODE && likely && !tour && (
+          {focus.id === LIKELY_NODE && !tour && (
             <button className="pi-film pm-open" onClick={() => setLikelyOpen(true)}>
               <span className="pi-play" aria-hidden="true">⌂</span>
               <span>
@@ -3942,7 +4008,24 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       {warOpen && war ? <WarRoomView room={war} demo={!live} onClose={() => setWarOpen(false)} onTeamLeads={() => { setWarOpen(false); goTo(movePageId(TEAM_LEADS_PATH)); }} /> : null}
       {teamOpen && team ? <TeamView team={team} demo={!live && !productTour} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} canAdd={teamSites.length > 0 || productTour} /> : null}
       {aiOpen && askAi ? <AskAiView name={live ? agent.label.split(",")[0] : "Sarah Bennett"} area={askArea} results={askAi} demo={!live} onArea={saveArea} onMark={markAi} onClose={() => setAiOpen(false)} /> : null}
-      {likelyOpen && likely ? <MoveLikelyView data={likely} demo={!live} onNotUseful={likelyNotUseful} onClose={() => setLikelyOpen(false)} /> : null}
+      {likelyOpen ? (
+        <MoveLikelyView
+          data={likely ?? emptyMoveLikely()}
+          demo={!live}
+          mlsMissing={mlsMissing}
+          pastClients={pastClients}
+          onNotUseful={likelyNotUseful}
+          onProfile={() => {
+            setLikelyOpen(false);
+            goTo(movePageId("/profile"));
+          }}
+          onCall={(id) => {
+            setLikelyOpen(false);
+            openPerson(id);
+          }}
+          onClose={() => setLikelyOpen(false)}
+        />
+      ) : null}
       {marketOpen && market ? <MarketPulseView data={market} demo={!live} onSend={sendMarket} onClose={() => setMarketOpen(false)} /> : null}
       {dealsOpen && deals ? <DealsView deals={deals} today={todayIn()} demo={!live} onStatus={setDealStatus} onClose={() => setDealsOpen(false)} /> : null}
       {lifeOpen && life ? <LifeEventsView data={life} demo={!live} onKeep={keepLife} onClose={() => setLifeOpen(false)} /> : null}

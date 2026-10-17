@@ -40,9 +40,11 @@ test("the groups are orbs around ONE MOVE; each group holds its pages as orbs", 
   // Follow-ups added 17 Oct: a permanent orb directly on ONE MOVE (Parry, 16 Oct: "yes on follow ups")
   // Rewritten 17 Oct: New to Sort is a permanent orb directly on ONE MOVE too (walker, Parry 16 Oct: "yes"), not an orb
   // inside People; the menu keeps it under People.
-  assert.deepEqual(around, ["People", "Trackers", "Events", "Outreach", "Learn", "The Lounge", "My Profile", "Follow-ups", "New to Sort"]);
+  // Rewritten 17 Oct again: New to Sort moves inside Opportunities (Parry, 17 Oct: "yes on regrouping them. and calling
+  // it Opportunities"), the one orb on ONE MOVE for New leads today, New to Sort, Looks Hot and Likely to move.
+  assert.deepEqual(around, ["People", "Trackers", "Events", "Outreach", "Learn", "The Lounge", "My Profile", "Follow-ups", "Opportunities"]);
   for (const grp of MOVE_GROUPS) {
-    for (const pg of grp.pages) assert.ok(g.nodes.some((n) => n.label === pg.label && n.parentId === (pg.label === "New to Sort" ? "move" : moveGroupId(grp.key))), `${pg.label} under ${grp.label}`);
+    for (const pg of grp.pages) assert.ok(g.nodes.some((n) => n.label === pg.label && n.parentId === (pg.label === "New to Sort" ? "move-opportunities" : moveGroupId(grp.key))), `${pg.label} under ${grp.label}`);
   }
   const mixer = g.nodes.find((n) => n.label === "Mixer")!;
   assert.equal(mixer.href, "https://move.vip50one.com/mixer");

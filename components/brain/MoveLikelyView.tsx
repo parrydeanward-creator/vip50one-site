@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSvgCamera } from "./useSvgCamera.ts";
-import { levelLine, levelWord, notedLine, touchLine, type Level, type MoveLikely, type Person } from "@/lib/moveLikely.ts";
+import { EXAMPLE_PAST_CLIENT, levelLine, levelWord, likelyReason, notedLine, pastClientLine, touchLine, type Level, type MoveLikely, type PastClient, type Person } from "@/lib/moveLikely.ts";
 
 // Likely to move (VIP-SUMMARY §3ab). Past clients round a centre that counts the High ones. Tap one: it comes to the
 // middle (Parry, 6 Oct, the rule for every orb) with the level, ONE Property's reasons (property facts only, labelled
@@ -16,7 +16,27 @@ const RING = 300;
 const HUE: Record<Level | "none", string> = { high: "#f5c542", medium: "#7fb6ff", low: "#8089a2", none: "#8089a2" };
 const SHORT: Record<Level | "none", string> = { high: "HIGH", medium: "MEDIUM", low: "LOW", none: "NO HISTORY" };
 
-export default function MoveLikelyView({ data, demo, onNotUseful, onClose }: { data: MoveLikely; demo: boolean; onNotUseful: (p: Person) => Promise<boolean>; onClose: () => void }) {
+export default function MoveLikelyView({
+  data,
+  demo,
+  mlsMissing = null,
+  pastClients = null,
+  onNotUseful,
+  onProfile,
+  onCall,
+  onClose,
+}: {
+  data: MoveLikely;
+  demo: boolean;
+  /** No MLS member id in My Profile (null: not known). */
+  mlsMissing?: boolean | null;
+  /** ONE MOVE's past clients 5+ years, once its route answers. */
+  pastClients?: PastClient[] | null;
+  onNotUseful: (p: Person) => Promise<boolean>;
+  onProfile?: () => void;
+  onCall?: (contactId: string) => void;
+  onClose: () => void;
+}) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
@@ -129,10 +149,36 @@ export default function MoveLikelyView({ data, demo, onNotUseful, onClose }: { d
             <span className="chip" style={{ color: "#3fbf7f", borderColor: "#3fbf7f" }}>ONE MOVE</span>
           </div>
           <h1 className="d-title" id="ml-title">{picked ? picked.name : "Likely to move"}</h1>
-          {data.notLinked ? (
-            <p className="d-sum">Confirm your MLS member id in My Profile, and ONE can look at your past clients&apos; homes.</p>
-          ) : !data.ready ? (
-            <p className="d-sum">This starts when the MLS feed is live. Then, once a week, ONE looks at your past clients&apos; homes (how long they have owned, whether the home was listed, how fast the area turns over) and shows who may be getting ready to move.</p>
+          {!data.ready ? (
+            (() => {
+              // one honest reason, never two (lib/moveLikely.ts likelyReason)
+              const reason = likelyReason(mlsMissing, data);
+              const rows = pastClients?.length ? pastClients.slice(0, 15) : [EXAMPLE_PAST_CLIENT];
+              return (
+                <section className="ml-reason">
+                  <p className="d-sum">{reason.line}</p>
+                  {reason.kind === "mls_missing" && onProfile && (
+                    <button type="button" className="chip-btn primary" onClick={onProfile}>Open My Profile</button>
+                  )}
+                  <h2 className="pm-h">{pastClients?.length ? "Past clients 5+ years" : "What will show here"}</h2>
+                  {rows.map((pc) => (
+                    <div key={pc.contactId} className="ml-example">
+                      <b>{pc.example ? "Example past client" : pc.firstName}</b>
+                      <small>{pastClientLine(pc)}</small>
+                      <div className="decide-btns">
+                        <button
+                          type="button"
+                          className="chip-btn"
+                          onClick={() => (pc.example || !onCall ? setNote("This is an example, not a real client. Your own past clients show here; Call them opens their card with their number.") : onCall(pc.contactId))}
+                        >
+                          Call them
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </section>
+              );
+            })()
           ) : picked ? (
             <section className="cm-form">
               <p className="d-sub">{levelLine(picked)}</p>

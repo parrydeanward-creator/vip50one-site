@@ -95,3 +95,17 @@ test("sorting: ONE MOVE's route first; Hot/Warm/Cold fall back to the Hot/Warm/C
   assert.deepEqual(await sortPerson(p, "not_for_me", down), { ok: false, line: COMING });
   assert.equal((await sortPerson(p, "not_for_me", ok)).line, "Kim is archived. Nothing was deleted.");
 });
+
+test("source words: open_house, open-house and open house are all an open house", async () => {
+  const { kindOfSource } = await import("../lib/newToSort.ts");
+  for (const s of ["open_house", "Open-House", "open house", "OpenHouse"]) assert.equal(kindOfSource(s), "open_house", s);
+  assert.equal(kindOfSource("Zillow"), null);
+});
+
+test("ONE MOVE's live route shape {count, sources}; a 409 shows MASTER's own words", async () => {
+  const d = readNewToSort({ count: 1, sources: [{ key: "k", kind: "tour", label: "Tours", date: null, people: [{ contact_id: "c1", first_name: "Lia", name: "Lia Moss", where_plain: "On Thursday's tour", said: null, rating: null, phone: null, email: null, at: "2026-10-16T10:00:00Z", suggest: { class: "hot", line: "Pulse suggests Hot: said Yes to 2 homes." } }] }] })!;
+  assert.equal(countOf(d), 1);
+  assert.deepEqual(d.sources[0].people[0].suggest, { cls: "hot", line: "Pulse suggests Hot: said Yes to 2 homes." });
+  const conflict = (async () => new Response(JSON.stringify({ ok: false, error: "Lia is already in your VIP-50." }), { status: 409 })) as typeof fetch;
+  assert.deepEqual(await sortPerson(d.sources[0].people[0], "hot", conflict), { ok: false, line: "Lia is already in your VIP-50." });
+});

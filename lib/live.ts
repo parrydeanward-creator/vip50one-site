@@ -1,6 +1,7 @@
 import { stripMarkers } from "./personTask.ts";
 import { FOLLOW_NODE, MAX_SHOWN, followNode } from "./followUps.ts";
 import { NTS_NODE, NTS_PATH, SUMMARY as NTS_SUMMARY } from "./newToSort.ts";
+import { withOpportunities } from "./opportunities.ts";
 import { celebrateIds, withSpecialDays } from "./specialDays.ts";
 import { addGoals, type GoalKey } from "./goals.ts";
 import { includes } from "./products.ts";
@@ -700,7 +701,8 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
 
   for (const n of nodes) if (n.contactId && glow.has(n.contactId)) n.celebrate = true;
   const week = weekly?.value != null ? { score: weekly.value, minimum: 100 } : undefined;
-  return { nodes, edges, rootId: "one", changes: [], dated, today, celebrate: [...glow], week };
+  // Opportunities (lib/opportunities.ts; Parry, 17 Oct): New to Sort moves inside it; the Brain adds the other three parts.
+  return { ...withOpportunities({ nodes, edges }), rootId: "one", changes: [], dated, today, celebrate: [...glow], week };
 }
 
 // "Birthday: Lena Brooks" -> the person "Lena Brooks", "Birthday · Tomorrow",
