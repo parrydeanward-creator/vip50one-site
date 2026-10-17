@@ -39,6 +39,8 @@ test("ranks share a place on a tie; line, minimum and most improved", () => {
   assert.equal(mostImproved(t)?.id, "b");
   assert.equal(teamLine(t), "You are #1 of 3 this week");
   assert.equal(teamUrl("office"), "https://move.vip50one.com/api/brain/team?scope=office");
+  // the Team orb's Leaderboard reads the lead's own team by default (vip50-web-crm#285)
+  assert.equal(teamUrl(), "https://move.vip50one.com/api/brain/team?scope=team");
 });
 
 test("withTeamNode: a quiet orb under ONE YOU; none when locked, empty or not loaded", () => {

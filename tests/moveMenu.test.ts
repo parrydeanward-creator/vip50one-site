@@ -37,7 +37,8 @@ const opts = { pkg: "relationship" as const, firstName: "P", reachable: true, to
 test("the groups are orbs around ONE MOVE; each group holds its pages as orbs", () => {
   const g = liveGraph(MASTER, opts, {});
   const around = g.nodes.filter((n) => n.parentId === "move").map((n) => n.label);
-  assert.deepEqual(around, ["People", "Trackers", "Events", "Outreach", "Learn", "The Lounge", "My Profile"]);
+  // Follow-ups added 17 Oct: a permanent orb directly on ONE MOVE (Parry, 16 Oct: "yes on follow ups")
+  assert.deepEqual(around, ["People", "Trackers", "Events", "Outreach", "Learn", "The Lounge", "My Profile", "Follow-ups"]);
   for (const grp of MOVE_GROUPS) {
     for (const pg of grp.pages) assert.ok(g.nodes.some((n) => n.label === pg.label && n.parentId === moveGroupId(grp.key)), `${pg.label} under ${grp.label}`);
   }
@@ -45,13 +46,17 @@ test("the groups are orbs around ONE MOVE; each group holds its pages as orbs", 
   assert.equal(mixer.href, "https://move.vip50one.com/mixer");
 });
 
-test("what needs the agent sits in its group and lights it up", () => {
+// Rewritten 17 Oct: follow-ups moved out of People to their own orb directly on ONE MOVE (Parry, 16 Oct), so the
+// overdue follow-up lights the Follow-ups orb red and People stays quiet when nothing else in it is due.
+test("what needs the agent sits in its orb and lights it up", () => {
   const g = liveGraph(MASTER, opts, {});
   const fu = g.nodes.find((n) => n.id === "move-followups")!;
-  assert.equal(fu.parentId, moveGroupId("people"));
+  assert.equal(fu.parentId, "move");
+  assert.equal(fu.status, "action");
+  assert.equal(fu.secondaryLabel, "1 overdue");
+  assert.ok(g.nodes.some((n) => n.parentId === "move-followups" && n.label === "Call Brian Irby"));
   const people = g.nodes.find((n) => n.id === moveGroupId("people"))!;
-  assert.equal(people.status, "action");
-  assert.equal(people.secondaryLabel, "1 needs you");
+  assert.notEqual(people.status, "action");
   const learn = g.nodes.find((n) => n.id === moveGroupId("learn"))!;
   assert.equal(learn.status, undefined);
 });

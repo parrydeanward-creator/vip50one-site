@@ -14,15 +14,18 @@ export function addMove(add: Add) {
     [
       {
         id: "move-3",
-        label: "Follow-ups overdue", // the live name (lib/live.ts), Parry 16 Oct: one name everywhere
-        sub: "4 overdue",
+        // the live orb (lib/followUps.ts): directly on ONE MOVE, Overdue / Today / Next 7 days (Parry, 16 Oct)
+        label: "Follow-ups",
+        sub: "2 overdue, 2 today",
         status: "action",
-        summary: "Tasks past their day. Log the touch and the task closes itself.",
+        summary: "Every promise you made in ONE MOVE: what is overdue, what is due today and what is coming in the next 7 days. Log the touch and the task closes itself.",
         kids: [
-          { id: "mv-f1", label: "Call back Rosa Diaz", sub: "3 days overdue", type: "task", status: "action" },
-          { id: "mv-f2", label: "Send CMA to the Hendersons", sub: "2 days overdue", type: "task", status: "action" },
-          { id: "mv-f3", label: "Text Priya Shah", sub: "Yesterday", type: "task", status: "attention" },
-          { id: "mv-f4", label: "Check in with Luis Ortega", sub: "Yesterday", type: "task", status: "attention" },
+          { id: "mv-f1", label: "Call back Rosa Diaz", sub: "3 days late", type: "task", status: "action" },
+          { id: "mv-f2", label: "Send CMA to the Hendersons", sub: "2 days late", type: "task", status: "action" },
+          { id: "mv-f3", label: "Text Priya Shah", sub: "Due today", type: "task", status: "attention" },
+          { id: "mv-f4", label: "Check in with Luis Ortega", sub: "Due today", type: "task", status: "attention" },
+          { id: "mv-f5", label: "Send the market update to Dana Kim", sub: "Tomorrow", type: "task" },
+          { id: "mv-f6", label: "Coffee with Marcus Webb", sub: "Friday", type: "task" },
         ],
       },
       {

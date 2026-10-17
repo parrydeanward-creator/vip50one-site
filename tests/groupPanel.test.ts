@@ -15,12 +15,16 @@ const env: SummaryEnvelope = { v: 1, product: "go", found: true, items: [bday, f
 const g = liveGraph(env, { pkg: "relationship", firstName: "P", reachable: true, today: "2026-10-04" }, {});
 const ix = indexGraph(g);
 
-test("People: overdue first, then what is coming up; the month's numbers ride on the group", () => {
+// Rewritten 17 Oct: follow-ups left People for their own orb directly on ONE MOVE (Parry, 16 Oct: "yes on follow
+// ups"), so People now leads with what is coming up and the overdue follow-up leads the Follow-ups orb instead.
+test("People: what is coming up; the month's numbers ride on the group; follow-ups have their own orb", () => {
   const items = liveItemsUnder(ix, "move-g-people");
-  assert.equal(items[0].label, "Call Sarah Bennett");
+  assert.ok(!items.some((n) => n.label === "Call Sarah Bennett"));
   assert.ok(items.some((n) => n.label.includes("Jen")));
   assert.deepEqual(ix.byId.get("move-g-people")!.stats, [{ label: "VIP-50 fully touched this month", value: "3 / 16" }]);
-  assert.equal(tipFor(items), "Start with Sarah Bennett: This task was due Oct 02 and is not done.");
+  const fu = liveItemsUnder(ix, "move-followups");
+  assert.equal(fu[0].label, "Call Sarah Bennett");
+  assert.equal(tipFor(fu), "Start with Sarah Bennett: This task was due Oct 02 and is not done.");
 });
 
 test("Trackers: daily and weekly scores on the group", () => {

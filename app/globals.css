@@ -2560,3 +2560,15 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .pf-card .to-form { display: grid; gap: 8px; }
 .pf-card .to-form label { display: grid; gap: 4px; font-size: 13px; color: var(--text-2); }
 .pf-card .to-form input { min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); font: inherit; color-scheme: dark; }
+
+/* Follow-ups orb's side panel (components/brain/FollowUpsPanel.tsx) */
+.fu-panel { display: grid; gap: 12px; margin-top: 8px; }
+.fu-group h3 { margin: 0 0 6px; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-2); }
+.fu-group h3 small { margin-left: 6px; font-weight: 600; color: var(--text-3); }
+.fu-row { flex: 1; min-width: 0; display: flex; background: none; border: 0; padding: 0; color: inherit; text-align: left; cursor: pointer; font: inherit; }
+.fu-row:hover b, .fu-row:focus-visible b { color: var(--gold-2); }
+.fu-done { color: var(--text-3); font-size: 12px; }
+.fu-none, .fu-more { margin: 0; color: var(--text-3); font-size: 13px; }
+.fu-empty { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); }
+.fu-how { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--text-2); font-size: 13px; }
+.fu-msg { margin: 0; color: var(--gold-2); font-size: 13px; }

@@ -6,8 +6,9 @@ import type { GraphEdge, GraphNode } from "./graph/types.ts";
 
 const MOVE_URL = "https://move.vip50one.com";
 export const TEAM_NODE = "go-team";
-export type Scope = "all" | "office";
-export const teamUrl = (scope: Scope = "all") => `${MOVE_URL}/api/brain/team?scope=${scope}`;
+/** "team": the caller's own active team members (§3ae; vip50-web-crm#285), what the Team orb's Leaderboard shows. */
+export type Scope = "team" | "office" | "all";
+export const teamUrl = (scope: Scope = "team") => `${MOVE_URL}/api/brain/team?scope=${scope}`;
 export const MAX_AGENTS = 50;
 /** Seconds each agent stays in the middle on the office TV. */
 export const TV_SECONDS = 12;
