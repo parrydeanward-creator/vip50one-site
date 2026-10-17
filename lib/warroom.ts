@@ -234,8 +234,8 @@ export function warLine(t: WarTotals): string {
  * The war room orb under ONE YOU, for a team's owner and admins only. Red when a team lead has waited past the window,
  * yellow while one is waiting or sits in the pool, a still green ring when every lead is reached (follow the pulse).
  */
-export function withWarRoomNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, w: WarRoom | null, now: number): G {
-  const go = g.nodes.find((n) => n.id === "go");
+export function withWarRoomNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, w: WarRoom | null, now: number, parent = "go"): G {
+  const go = g.nodes.find((n) => n.id === parent);
   const nodes = g.nodes.filter((n) => n.id !== WAR_NODE);
   const edges = g.edges.filter((e) => e.target !== WAR_NODE);
   if (!go || go.locked || !w || !isManager(w.team.role)) return { ...g, nodes, edges };
@@ -246,14 +246,14 @@ export function withWarRoomNode<G extends { nodes: GraphNode[]; edges: GraphEdge
     type: "feature",
     label: "War room",
     secondaryLabel: warLine(t),
-    parentId: "go",
+    parentId: parent,
     product: "go",
     importance: t.late ? 1 : need ? 0.97 : 0.85,
     status: t.late ? "action" : need ? "attention" : "healthy",
     needCount: need || undefined,
     summary: `${w.team.name}: the team leads that came in, who has them, who reached them and how fast. Reassign in ONE MOVE's Team leads. Nothing is sent to a lead from here.`,
   });
-  edges.push({ id: `go>${WAR_NODE}`, source: "go", target: WAR_NODE, relationshipType: "belongs_to", strength: 1 });
+  edges.push({ id: `${parent}>${WAR_NODE}`, source: parent, target: WAR_NODE, relationshipType: "belongs_to", strength: 1 });
   return { ...g, nodes, edges };
 }
 

@@ -16,7 +16,8 @@ const SIGNALS = { title: "What everything means", src: SIGNALS_FILM.src, poster:
 
 type Film = { title: string; src: string; poster: string; captions: string; stepHref?: string; note: string; tallSrc?: string; tallPoster?: string };
 
-export default function SignalsFilm({ onClose, onMeet, film = SIGNALS }: { onClose: () => void; onMeet?: () => void; film?: Film }) {
+/** `onEnded` runs when the film plays to the end (Getting started step 11 records it; GETTING-STARTED §5). */
+export default function SignalsFilm({ onClose, onMeet, onEnded, film = SIGNALS }: { onClose: () => void; onMeet?: () => void; onEnded?: () => void; film?: Film }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   // What everything means opens on the written key; its film waits, paused and silent, until pressed (walker audit 02).
   const keyFirst = film === SIGNALS;
@@ -61,7 +62,7 @@ export default function SignalsFilm({ onClose, onMeet, film = SIGNALS }: { onClo
           </ul>
         )}
         {showFilm ? (
-          <video className={`sf-video${tall ? " tall" : ""}`} src={tall ? film.tallSrc : film.src} poster={tall ? film.tallPoster : film.poster} controls autoPlay={!keyFirst} playsInline preload="metadata">
+          <video className={`sf-video${tall ? " tall" : ""}`} src={tall ? film.tallSrc : film.src} poster={tall ? film.tallPoster : film.poster} controls autoPlay={!keyFirst} playsInline preload="metadata" onEnded={onEnded}>
             <track kind="captions" src={film.captions} srcLang="en" label="English" />
           </video>
         ) : (

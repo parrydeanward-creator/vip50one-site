@@ -103,8 +103,8 @@ export function teamLine(t: Team): string {
 }
 
 /** The Team orb under ONE YOU: quiet (green) always; a leaderboard never nags. */
-export function withTeamNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, t: Team | null): G {
-  const go = g.nodes.find((n) => n.id === "go");
+export function withTeamNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, t: Team | null, parent = "go"): G {
+  const go = g.nodes.find((n) => n.id === parent);
   const nodes = g.nodes.filter((n) => n.id !== TEAM_NODE);
   const edges = g.edges.filter((e) => e.target !== TEAM_NODE);
   if (!go || go.locked || !t || !t.agents.length) return { ...g, nodes, edges };
@@ -113,13 +113,13 @@ export function withTeamNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] 
     type: "feature",
     label: "Team",
     secondaryLabel: teamLine(t),
-    parentId: "go",
+    parentId: parent,
     product: "go",
     importance: 0.98,
     status: "healthy",
     summary: "The week's leaderboard, full screen for the office TV. Names, photos and weekly scores only.",
   });
-  edges.push({ id: `go>${TEAM_NODE}`, source: "go", target: TEAM_NODE, relationshipType: "belongs_to", strength: 1 });
+  edges.push({ id: `${parent}>${TEAM_NODE}`, source: parent, target: TEAM_NODE, relationshipType: "belongs_to", strength: 1 });
   return { ...g, nodes, edges };
 }
 

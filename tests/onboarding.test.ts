@@ -40,8 +40,32 @@ test("no board, no orb", () => {
   assert.equal(withOnboardingNodes(base(false), null).nodes.length, 1);
 });
 
+// Rewritten 16 Oct (deliberate change, GETTING-STARTED §4): the board reads the Getting started list (11 counted
+// steps), not its own six, so the example member's line counts of 11 and names the list's next step.
 test("the line says the day, where they are and what is next", () => {
-  assert.equal(onbLine(demoOnboarding()[1]), "Day 2 · 3 of 6 done · next: First VIPs");
+  assert.equal(onbLine(demoOnboarding()[1]), "Day 2 · 3 of 11 done · next: Connect your calendar");
+});
+
+test("each member's own Getting started list replaces the old six; yellow by day 3, red by day 7 with nothing done", async () => {
+  const { withStart, startUrgency } = await import("../lib/onboarding.ts");
+  const { demoStart } = await import("../lib/gettingStarted.ts");
+  const m = readOnboarding({ members: [{ user_id: "u1", name: "Sam", day: 5, done: 2, of: 6, status: "2 of 6 done", next: "Calendar", urgency: null, steps: [{ key: "profile", label: "Profile and photo", done: true }] }] })![0];
+  assert.equal(withStart(m, null), m, "unchanged until the list answers");
+  const s = demoStart();
+  const w = withStart(m, s);
+  assert.equal(w.of, 11);
+  assert.equal(w.done, 4);
+  assert.equal(w.steps.length, 11, "the optional 90-Day Challenge is not on the lead's board");
+  assert.equal(w.next, "Choose your first VIPs");
+  assert.equal(w.status, "4 of 11 done");
+  assert.equal(w.urgency, null);
+  const none = { ...s, done: 0, steps: s.steps.map((x) => ({ ...x, done: false })) };
+  assert.equal(withStart({ ...m, day: 2 }, none).urgency, null);
+  assert.equal(withStart({ ...m, day: 3 }, none).urgency, "today");
+  assert.equal(withStart({ ...m, day: 7 }, none).urgency, "now");
+  assert.equal(startUrgency(9, 1), null, "one step done: no longer red");
+  const demo = demoOnboarding();
+  assert.deepEqual(demo.map((x) => [x.day, x.done, x.of, x.urgency]), [[8, 0, 11, "now"], [2, 3, 11, null]]);
 });
 
 test("the board lists who was removed in the last 30 days", async () => {

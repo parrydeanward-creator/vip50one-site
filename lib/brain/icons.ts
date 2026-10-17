@@ -21,6 +21,7 @@ export function iconForText(text: string): IconKind {
 }
 
 export function iconFor(n: GraphNode): IconKind {
+  if (n.id === "one-team") return "people"; // the team lead's Team orb (lib/teamHub.ts), beside ONE YOU
   if (n.type === "product") return n.product === "growth" ? "bolt" : (n.product as IconKind);
   if (n.type === "appointment" || n.type === "event") return "calendar";
   if (n.type === "property") return "house";

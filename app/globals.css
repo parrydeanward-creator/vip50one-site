@@ -2279,27 +2279,46 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .rz-front { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .rz-front li { display: grid; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
 .rz-front small { color: var(--text-2); }
-/* Team welcome (TEAM-ONBOARDING §3) */
-.tw-back { position: fixed; inset: 0; z-index: 60; background: rgba(3, 6, 18, 0.72); display: grid; place-items: center; padding: 16px; }
-.tw { width: min(680px, 100%); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 20px; background: var(--panel, #0c1328); backdrop-filter: blur(8px); overflow: hidden; }
-.tw-scroll { overflow: auto; display: grid; gap: 12px; padding: 24px 24px 12px; min-height: 0; }
-.tw-foot { flex: none; display: flex; gap: 8px; justify-content: flex-end; padding: 12px 24px 16px; border-top: 1px solid var(--line); background: var(--panel, #0c1328); }
-@media (max-width: 480px) { .tw-scroll { padding: 18px 16px 10px; } .tw h1 { font-size: 26px; } .tw-foot { padding: 10px 16px 14px; } }
-.tw h1 { margin: 0; font-family: var(--font-display), "Bebas Neue", sans-serif; font-weight: 400; font-size: 34px; letter-spacing: 0.03em; color: var(--gold-2); }
-.tw-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.tw-steps li { border: 1px solid var(--line); border-radius: 14px; }
-.tw-steps li.open { border-color: rgba(245, 197, 66, 0.6); }
-.tw-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: none; border: 0; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.tw-n { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: rgba(255, 255, 255, 0.08); color: var(--text-2); }
-.tw-steps li.done .tw-n { background: #2e9e5b; color: #fff; }
-.tw-label { flex: 1; font-weight: 600; }
-.tw-head small { color: var(--text-3); }
-.tw-body { display: grid; gap: 10px; padding: 0 14px 14px; }
-.tw-body p { margin: 0; }
-.tw-moves { display: flex; flex-wrap: wrap; gap: 8px; }
-.tw-moves a.chip-btn { text-decoration: none; }
-.tw-skip { justify-self: start; background: none; border: 0; color: var(--text-2); text-decoration: underline; font: inherit; font-size: 13px; cursor: pointer; padding: 0; }
-.tw-scroll > .chip-btn, .tw-body > .chip-btn { justify-self: start; }
+/* Getting started (GETTING-STARTED.md): the orb's side panel */
+.gs-panel { display: grid; gap: 10px; margin-top: 8px; }
+.gs-intro, .gs-badge { margin: 0; color: var(--text-2); }
+.gs-badge { padding: 10px 12px; border: 1px solid var(--gold-2); border-radius: 12px; background: rgba(245, 197, 66, 0.08); color: var(--text); }
+.gs-badge b { color: var(--gold-2); }
+.gs-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.gs-steps > li { display: flex; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.gs-steps > li.done { border-color: rgba(126, 226, 168, 0.35); }
+.gs-steps > li.next { border-color: rgba(245, 197, 66, 0.75); background: rgba(245, 197, 66, 0.07); }
+.gs-tick { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: rgba(255, 255, 255, 0.08); color: var(--text-2); }
+.gs-steps > li.done .gs-tick { background: #2e9e5b; color: #fff; }
+.gs-steps > li.next .gs-tick { background: var(--gold-2); color: #1a1405; }
+.gs-body { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.gs-body b { font-weight: 600; font-size: 14px; }
+.gs-body p { margin: 0; color: var(--text-2); font-size: 13px; }
+.gs-line { color: var(--text) !important; }
+.gs-next { margin-left: 8px; font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold-2); }
+.gs-subs { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; font-size: 13px; color: var(--text-2); }
+.gs-subs li.done { color: var(--text); }
+.gs-subs li.done span[aria-hidden] { color: #7ee2a8; }
+.gs-subs small { margin-left: 6px; color: var(--text-3); }
+.gs-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+.gs-foot small { color: var(--text-3); font-size: 12px; }
+.gs-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+/* The team lead's Team orb (lib/teamHub.ts): its parts' side panels */
+.th-rank { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.th-rank li { display: flex; align-items: baseline; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.th-rank li.me { border-color: rgba(245, 197, 66, 0.6); }
+.th-rank li span { flex: none; width: 28px; color: var(--gold-2); font-weight: 700; }
+.th-rank li b { flex: 1; }
+.th-rank li small { color: var(--text-2); }
+.th-figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 0; }
+.th-figs div { padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.th-figs div.now { border-color: rgba(255, 90, 106, 0.7); }
+.th-figs div.today { border-color: rgba(245, 197, 66, 0.7); }
+.th-figs dt { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-2); }
+.th-figs dd { margin: 2px 0 0; font-size: 18px; font-weight: 700; }
+.th-people { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.th-people li { display: grid; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.th-people small { color: var(--text-2); }
 .tm-add .cn-copy input { flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--text); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
 .pmenu-plan { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: var(--gold-2); }
 /* Team members: Remove and Put back (TEAM-ONBOARDING §5) */
