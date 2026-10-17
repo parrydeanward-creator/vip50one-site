@@ -122,3 +122,8 @@ export function growthDemoNote(a: GrowthAction): string | null {
   if (a.kind === "movePage") return `Example agent: signed in, this opens ${a.path === "/landing-pages" ? "Landing Pages" : "that page"} in ONE MOVE.`;
   return null; // My Profile, Likely to move and the checkout link work on example data already
 }
+
+/** The line under a locked orb: Growth is never part of Complete (GROWTH.md §2), so it says how to add it. */
+export function lockedLine(n: { id?: string; product?: string | null }): string {
+  return n.id === GROWTH_NODE || n.product === "growth" ? "Add ONE Growth" : "Included in Complete";
+}

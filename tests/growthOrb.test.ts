@@ -94,3 +94,9 @@ test("the site opener carries the new studio pages; the demo never reaches a rea
   assert.ok(growthDemoNote({ kind: "movePage", path: "/landing-pages" })?.includes("Landing Pages"));
   assert.equal(growthDemoNote({ kind: "profile", tab: "pulse" }), null);
 });
+
+test("a locked ONE Growth orb says how to add it, never 'Included in Complete'", async () => {
+  const { lockedLine } = await import("../lib/growthOrb.ts");
+  assert.equal(lockedLine({ id: "growth", product: "growth" }), "Add ONE Growth");
+  assert.equal(lockedLine({ id: "showly", product: "showly" }), "Included in Complete");
+});

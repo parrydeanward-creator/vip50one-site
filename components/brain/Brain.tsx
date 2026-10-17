@@ -1,4 +1,5 @@
 "use client";
+import { lockedLine } from "@/lib/growthOrb.ts";
 
 import { CLASSIC_DASHBOARD_URL } from "@/lib/host.ts";
 import { hostAgainHref } from "@/lib/live.ts";
@@ -2559,7 +2560,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                       </span>
                       <span className="rail-text">
                         <span>{k.label}</span>
-                        {k.locked ? <small>Included in Complete</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
+                        {k.locked ? <small>{lockedLine(k)}</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
                       </span>
                       <RowMark n={k} need={needs.get(k.id)} />
                     </button>
@@ -2893,7 +2894,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                       <i style={{ background: hex(PRODUCT_COLOR[k.product]) }} />
                       <span>
                         <b>{k.label}</b>
-                        {k.locked ? <small>Included in Complete</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
+                        {k.locked ? <small>{lockedLine(k)}</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
                       </span>
                       <RowMark n={k} need={needs.get(k.id)} />
                     </button>
@@ -3508,7 +3509,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                       <i style={{ background: hex(PRODUCT_COLOR[k.product]) }} />
                       <span>
                         <b>{k.label}</b>
-                        {k.locked ? <small>Included in Complete</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
+                        {k.locked ? <small>{lockedLine(k)}</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
                       </span>
                       <RowMark n={k} need={needs.get(k.id)} />
                     </button>
