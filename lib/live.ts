@@ -6,7 +6,7 @@ import { celebrateIds, withSpecialDays } from "./specialDays.ts";
 import { addGoals, type GoalKey } from "./goals.ts";
 import { includes } from "./products.ts";
 import { goHref, goUrl } from "./productSignIn.ts";
-import { MOVE_BOTTOM, MOVE_GROUPS, moveGroupId, moveMenuHref, movePageId } from "./moveMenu.ts";
+import { MENU_ORB, MOVE_BOTTOM, MOVE_GROUPS, moveGroupId, moveMenuHref, movePageId } from "./moveMenu.ts";
 import type { DayItem, DayKind } from "./day.ts";
 import type { BusinessGraph, DatedNote, GraphEdge, GraphNode, NodeStatus, ProductKey } from "./graph/types.ts";
 import type { DashboardData, Item, ItemKind, PackageId, ProductSummary } from "./types.ts";
@@ -506,6 +506,7 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
     g.pages.forEach((pg, j) => {
       if (pg.path === "/contacts/audit") return; // the live Touch Audit below
       if (pg.path === NTS_PATH) return; // New to Sort sits directly on ONE MOVE (below)
+      if (MENU_ORB[pg.path]) return; // Opportunities, Life Events, Deals: the row opens the native orb (lib/moveMenu.ts)
       // Hot/Warm/Cold is a daily tracker step (Parry, 5 Oct): it pulses until today's box for
       // each class is ticked.
       const hwc = pg.path === "/hot-warm-cold" && found ? hwcToday(env!.today_boxes) : null;

@@ -32,7 +32,9 @@ export const MOVE_GROUPS: MoveGroup[] = [
       { label: "Touch Audit", path: "/contacts/audit" },
       // ONE GO's Drop-By Map on ONE MOVE (Parry 16 Oct: everything in ONE GO on ONE MOVE; vip50-web-crm#276)
       { label: "Drop-By Map", path: "/drop-by" },
-      { label: "New to Sort", path: "/contacts/visitors" },
+      // ONE MOVE's Opportunities page (was New to Sort, same badge; vip50-web-crm#293): in the Brain the row opens the
+      // Opportunities orb, which holds New to Sort. /contacts/visitors still opens New to Sort (MOVE_HIDDEN below).
+      { label: "Opportunities", path: "/opportunities" },
       { label: "Hot/Warm/Cold", path: "/hot-warm-cold" },
       { label: "Business Rolodex", path: "/rolodex" },
       // VIP-SUMMARY §3af and §3ah (13 Oct; Parry: every feature in the Brain as well as Classic)
@@ -40,6 +42,10 @@ export const MOVE_GROUPS: MoveGroup[] = [
       { label: "Buyer Needs", path: "/buyer-needs" },
       // LAUNCH.md §5 (14 Oct, vip50-web-crm#228): the agent's Marquee listings, each with Launch and its checklist
       { label: "Your listings", path: "/listings" },
+      // vip50-web-crm#294 (17 Oct): the Life Events page; in the Brain the row opens the Life events orb
+      { label: "Life Events", path: "/life-events" },
+      // ONE MOVE's Deals page (17 Oct); in the Brain the row opens the Deals orb
+      { label: "Deals", path: "/deals" },
     ],
   },
   {
@@ -70,6 +76,8 @@ export const MOVE_GROUPS: MoveGroup[] = [
     label: "Outreach",
     blurb: "Newsletter, pages, plans and reports",
     pages: [
+      // ONE MOVE's Outreach overview (17 Oct), first in the group
+      { label: "Overview", path: "/outreach" },
       { label: "Newsletter", path: "/newsletter" },
       { label: "Landing Pages", path: "/landing-pages" },
       { label: "Action Plans", path: "/action-plans" },
@@ -121,6 +129,19 @@ export const MOVE_BOTTOM: MovePage[] = [
 /** Every page, in menu order. */
 export const MOVE_MENU: MovePage[] = [...MOVE_TOP, ...MOVE_GROUPS.flatMap((g) => g.pages), ...MOVE_BOTTOM];
 
+/**
+ * Menu rows whose Brain side is a native orb, not the ONE MOVE page in a frame: the row opens the orb (it comes to the
+ * middle, the orbs rule), and no separate page orb is drawn for them. The ids are lib/opportunities.ts OPP_NODE,
+ * lib/lifeEvents.ts LIFE_NODE and lib/deals.ts DEALS_NODE (tests/moveMenu.test.ts checks they match).
+ */
+export const MENU_ORB: Readonly<Record<string, string>> = { "/opportunities": "move-opportunities", "/life-events": "move-life-events", "/deals": "move-deals" };
+
+/** The graph id a menu row goes to: its native orb when it has one, else its page orb. */
+export const menuNodeId = (path: string) => MENU_ORB[path] ?? movePageId(path);
+
+/** Pages no longer in the menu that still open inside the Brain: New to Sort (now inside Opportunities). */
+export const MOVE_HIDDEN: MovePage[] = [{ label: "New to Sort", path: "/contacts/visitors" }];
+
 export const moveMenuHref = (path: string) => `${MOVE_URL}${path}`;
 
 /** The same page inside the Brain: ?embed=1 lets ONE MOVE take the Brain look before it paints. */
@@ -129,7 +150,8 @@ export const moveEmbedHref = (path: string) => `${MOVE_URL}${path}${path.include
 function MOVE_MENU_PATHS(): string[] {
   // Dashboard is ONE MOVE's Classic home, not a page inside the Brain.
   // Coach pages (admins) open in place too.
-  return [...MOVE_MENU, ...MOVE_COACH.pages].map((m) => m.path).filter((p) => p !== "/dashboard");
+  // Rows that open a native orb (MENU_ORB) have no page frame; New to Sort keeps its page (MOVE_HIDDEN).
+  return [...MOVE_MENU, ...MOVE_HIDDEN, ...MOVE_COACH.pages].map((m) => m.path).filter((p) => p !== "/dashboard" && !MENU_ORB[p]);
 }
 
 /** Graph ids: a group orb and a page orb. Touch Audit keeps its live id. */
@@ -151,7 +173,7 @@ export const TEAM_LEADS_PAGE: MovePage = { label: "Team Leads", path: "/team-lea
 
 export const IN_BRAIN: ReadonlySet<string> = new Set([...MOVE_MENU_PATHS(), TEAM_LEADS_PAGE.path]);
 
-const PATH_BY_ID = new Map([...MOVE_MENU, ...MOVE_COACH.pages, TEAM_LEADS_PAGE].map((m) => [movePageId(m.path), m]));
+const PATH_BY_ID = new Map([...MOVE_MENU, ...MOVE_HIDDEN, ...MOVE_COACH.pages, TEAM_LEADS_PAGE].map((m) => [movePageId(m.path), m]));
 
 /** The Team Leads orb under People, for a team member only (the war room's answer says whether they are on one). */
 export function withTeamLeadsPage<G extends { nodes: import("./graph/types.ts").GraphNode[]; edges: import("./graph/types.ts").GraphEdge[] }>(g: G, onTeam: boolean): G {

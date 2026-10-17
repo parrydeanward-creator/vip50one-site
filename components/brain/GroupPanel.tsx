@@ -3,7 +3,7 @@
 import type { GraphIndex } from "@/lib/graph/model.ts";
 import type { GraphNode } from "@/lib/graph/types.ts";
 import { STATUS, hex } from "@/lib/brain/theme.ts";
-import { moveGroupsFor, movePageId } from "@/lib/moveMenu.ts";
+import { menuNodeId, moveGroupsFor } from "@/lib/moveMenu.ts";
 import { daysLeftInMonth, liveItemsUnder, meter, tipFor } from "@/lib/groupPanel.ts";
 
 // The right panel for a ONE MOVE group (Parry, 4 Oct): "what should I do here
@@ -114,7 +114,7 @@ export default function GroupPanel({ node, ix, today, goTo }: { node: GraphNode;
           <h2>Open</h2>
           <div className="gp-tiles">
             {group.pages.map((pg) => (
-              <button key={pg.path} onClick={() => goTo(movePageId(pg.path))}>
+              <button key={pg.path} onClick={() => goTo(menuNodeId(pg.path))}>
                 {pg.label}
               </button>
             ))}

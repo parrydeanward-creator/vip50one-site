@@ -79,8 +79,14 @@ export const withoutPerson = (m: MoveLikely, contactId: string): MoveLikely => (
 export type Reason = { kind: "mls_missing" | "waiting_feed"; short: string; line: string };
 export const MLS_MISSING: Reason = { kind: "mls_missing", short: "Add your MLS member id", line: "Your MLS member id is missing. Add it in My Profile and ONE can look at your past clients' homes." };
 export const WAITING_FEED: Reason = { kind: "waiting_feed", short: "Waiting for the UtahRealEstate.com feed", line: "Waiting for the UtahRealEstate.com feed. Once it is live, ONE looks at your past clients' homes each week and shows who may be getting ready to move." };
-/** The one reason: the missing member id while it is missing (or ONE Property says the MLS link is not set), else the feed. */
-export const likelyReason = (mlsMissing: boolean | null, m: MoveLikely | null): Reason => (mlsMissing === true || (mlsMissing == null && m?.notLinked) ? MLS_MISSING : WAITING_FEED);
+/** ONE MOVE's own word for the reason (vip50-web-crm#293 `reason`). */
+export type RouteReason = "no_mls_id" | "waiting_feed";
+/**
+ * The one reason. ONE MOVE's likely-to-move route says which when it answers (`reason`); before that, the missing
+ * member id while My Profile shows it missing (or ONE Property says the MLS link is not set), else the feed.
+ */
+export const likelyReason = (mlsMissing: boolean | null, m: MoveLikely | null, route: RouteReason | null = null): Reason =>
+  route === "no_mls_id" ? MLS_MISSING : route === "waiting_feed" ? WAITING_FEED : mlsMissing === true || (mlsMissing == null && m?.notLinked) ? MLS_MISSING : WAITING_FEED;
 /** The list has real people to show (ONE Property answered for this agent). */
 export const likelyReady = (m: MoveLikely | null): m is MoveLikely => !!m && m.ready;
 
@@ -100,6 +106,19 @@ export function readPastClients(raw: unknown): PastClient[] | null {
   }
   return out.sort((a, b) => b.years - a.years || a.firstName.localeCompare(b.firstName));
 }
+/** ONE MOVE's whole answer: the one reason and its past clients (max 15, oldest purchase first). */
+export interface PastClientsAnswer { reason: RouteReason | null; people: PastClient[] }
+export function readPastClientsAnswer(raw: unknown): PastClientsAnswer | null {
+  const people = readPastClients(raw);
+  if (!people) return null;
+  const r = (raw as { reason?: unknown }).reason;
+  return { reason: r === "no_mls_id" || r === "waiting_feed" ? r : null, people: people.slice(0, 15) };
+}
+/** "Call them": ONE MOVE adds "Call <name>" to today's tasks, once a day per person (vip50-web-crm#293). */
+export const callUrl = `${MOVE_URL}/api/brain/likely-to-move/call`;
+export const callBody = (contactId: string) => ({ contact_id: contactId });
+export const CALL_ADDED = "Added to today's tasks";
+
 /** The one clearly labelled example shown until there are real people. */
 export const EXAMPLE_PAST_CLIENT: PastClient = { contactId: "example", firstName: "Example", years: 7, closedOn: null, example: true };
 export const pastClientLine = (p: PastClient) => (p.example ? `Example: bought ${p.years} years ago` : `Bought ${p.years} years ago`);
@@ -109,7 +128,7 @@ export const pastClientLine = (p: PastClient) => (p.example ? `Example: bought $
  * in the package. With ONE Property's answer: a gold opportunity dot when someone is High; never a pulse. Before it:
  * the one honest reason (or the past clients ONE MOVE found, when its route sends them).
  */
-export function withMoveLikelyNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, m: MoveLikely | null, o: { mlsMissing?: boolean | null; pastClients?: PastClient[] | null } = {}): G {
+export function withMoveLikelyNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, m: MoveLikely | null, o: { mlsMissing?: boolean | null; pastClients?: PastClient[] | null; routeReason?: RouteReason | null } = {}): G {
   const move = g.nodes.find((n) => n.id === "move");
   const nodes = g.nodes.filter((n) => n.id !== LIKELY_NODE);
   const edges = g.edges.filter((e) => e.target !== LIKELY_NODE);
@@ -117,7 +136,7 @@ export function withMoveLikelyNode<G extends { nodes: GraphNode[]; edges: GraphE
   const ready = likelyReady(m);
   const high = ready ? m.people.filter((p) => p.level === "high").length : 0;
   const medium = ready ? m.people.filter((p) => p.level === "medium").length : 0;
-  const reason = likelyReason(o.mlsMissing ?? null, m);
+  const reason = likelyReason(o.mlsMissing ?? null, m, o.routeReason ?? null);
   const past = o.pastClients ?? [];
   nodes.push({
     id: LIKELY_NODE,
