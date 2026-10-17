@@ -2743,3 +2743,21 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .tw-empty h2 { margin-top: 0; }
 .tw-example { margin: 0; font-size: 12px; color: var(--gold-2); }
 .tw-link { background: none; border: 0; padding: 0; color: var(--gold-2); text-decoration: underline; cursor: pointer; font: inherit; }
+
+/* Action Plans drawn natively, Learn's parts, the lead's name saved in place (walker 0245, 17 Oct) */
+.ap-steps { list-style: none; margin: 8px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--line); display: grid; gap: 10px; }
+.ap-step { position: relative; display: grid; gap: 2px; font-size: 13px; color: var(--text); }
+.ap-step::before { content: ""; position: absolute; left: -20px; top: 5px; width: 9px; height: 9px; border-radius: 50%; background: #2fb7a3; }
+.ap-step.ap-text::before { background: #ff8fb1; }
+.ap-step.ap-call::before { background: #f5c542; }
+.ap-step.ap-task::before { background: #7cc7ff; }
+.ap-step small { color: var(--text-3); font-size: 12px; }
+.ap-off { display: inline-block; margin: 0 0 6px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--text-3); font-size: 12px; }
+.ap-suggest { display: grid; gap: 6px; margin-top: 10px; }
+.ln-body { display: block; color: var(--text-3); font-size: 12px; }
+.ln-news li span { display: grid; gap: 2px; }
+.lc-name-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.lc-name input:not(:disabled) { color: var(--text); }
+.lc-named { margin: 14px 0 0; font-size: 14px; color: var(--text-2); }
+.lc-named b { color: var(--text); font-size: 16px; margin-right: 6px; }
+.vr-bar.nts-plan { bottom: 84px; }

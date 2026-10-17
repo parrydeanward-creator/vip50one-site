@@ -91,6 +91,8 @@ export const MOVE_GROUPS: MoveGroup[] = [
     label: "Learn",
     blurb: "Videos, docs and what's new",
     pages: [
+      // Learn home (17 Oct, walker 0245): ONE MOVE's /learn, first in the group; on the map the Learn orb is that home
+      { label: "Learn home", path: "/learn" },
       { label: "Video Library", path: "/content" },
       { label: "VIP Docs", path: "/vip-docs" },
       { label: "The Vault", path: "/vault" },

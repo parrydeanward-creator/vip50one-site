@@ -110,3 +110,10 @@ test("ONE MOVE's live route shape {count, sources}; a 409 shows MASTER's own wor
   const conflict = (async () => new Response(JSON.stringify({ ok: false, error: "Lia is already in your VIP-50." }), { status: 409 })) as typeof fetch;
   assert.deepEqual(await sortPerson(d.sources[0].people[0], "hot", conflict), { ok: false, line: "Lia is already in your VIP-50." });
 });
+
+// walker 0245 (17 Oct): sorting VIP-100 may come back with a plan to suggest.
+test("sorting VIP-100 with suggest_plan: the plan is offered", async () => {
+  const p = demoNewToSort().sources[0].people[0];
+  const ok = (async () => new Response(JSON.stringify({ ok: true, suggest_plan: { plan_id: "p1", name: "VIP-100 welcome" } }), { status: 200 })) as unknown as typeof fetch;
+  assert.deepEqual(await sortPerson(p, "vip100", ok), { ok: true, line: "Kim is VIP-100 now.", suggestPlan: { planId: "p1", name: "VIP-100 welcome" } });
+});

@@ -1,6 +1,7 @@
 import type { GraphEdge, GraphNode } from "./graph/types.ts";
 import type { NewLeads } from "./newLeads.ts";
 import { movePageId, moveMenuHref } from "./moveMenu.ts";
+import { readSuggestPlan, type SuggestPlan } from "./actionPlans.ts";
 
 // New to Sort, drawn natively (walker inbox/ecosystem/2026-10-17-0127-from-walker-new-to-sort.md; Parry, 16 Oct 19:25
 // MT: "yes"). An orb directly on ONE MOVE, never hidden: a still green ring and a plain line when no one is waiting,
@@ -249,7 +250,12 @@ export function sortedLine(firstName: string, to: SortTo): string {
 }
 export const COMING = "Coming from ONE MOVE: this button works once ONE MOVE's update lands. Nothing was changed.";
 
-export interface SortResult { ok: boolean; line: string }
+export interface SortResult {
+  ok: boolean;
+  line: string;
+  /** Sorted VIP-100: the plan ONE MOVE suggests starting (walker 0245), only when it sends one. */
+  suggestPlan?: SuggestPlan;
+}
 
 /**
  * Sort one person. ONE MOVE's sort route first; if it is not there yet (404, or no answer at all), Hot/Warm/Cold go
@@ -261,7 +267,11 @@ export async function sortPerson(p: NtsPerson, to: SortTo, f: typeof fetch = fet
   let missing = false;
   try {
     const r = await post(newToSortSortUrl, { contact_id: p.contactId, to });
-    if (r.ok) return { ok: true, line: sortedLine(p.firstName, to) };
+    if (r.ok) {
+      const j = (await r.json().catch(() => null)) as { suggest_plan?: unknown } | null;
+      const sp = readSuggestPlan(j?.suggest_plan);
+      return { ok: true, line: sortedLine(p.firstName, to), ...(sp ? { suggestPlan: sp } : {}) };
+    }
     if (r.status === 404 || r.status === 405) missing = true;
     else {
       const j = (await r.json().catch(() => null)) as { error?: unknown } | null;
