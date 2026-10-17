@@ -25,6 +25,15 @@ import LifeEventsSection from "./LifeEventsSection.tsx";
 import PermissionsSection from "./PermissionsSection.tsx";
 import HomeReportSection from "./HomeReportSection.tsx";
 import TalkSection from "./TalkSection.tsx";
+import LeadCard from "./LeadCard.tsx";
+import { leadCardMode, type LeadOutcome, type NewLead, type RetryWhen } from "@/lib/newLeads.ts";
+
+/** A new lead on this card (ecosystem 17 Oct): the lead card replaces the VIP boxes until they are reached and sorted. */
+export interface LeadProps {
+  lead?: NewLead | null;
+  agentFirst?: string | null;
+  onLeadOutcome?: (contactId: string, outcome: LeadOutcome, when: RetryWhen | null) => void;
+}
 
 // A box the agent ticks by hand asks first, like Call and Text (Parry, 5 Oct:
 // "the checkbox is not checking when clicked"). Newsletter and mixer invite
@@ -37,7 +46,7 @@ const askFor = (kind: TouchKind): Ask => ({ kind, question: LOG_QUESTION[kind], 
 // whether to log it (as ONE MOVE's action bar does, so a misdial never
 // counts). Logging runs ONE MOVE's own logTouchEverywhere.
 // The contact card, inside a boundary: if one value is ever wrong, this card says so and the page stays up.
-export default function ContactPanel(props: { contactId: string; taskId?: string; onLogged: () => void }) {
+export default function ContactPanel(props: { contactId: string; taskId?: string; onLogged: () => void } & LeadProps) {
   return (
     <PanelBoundary key={props.contactId} label="This contact">
       <ContactCard {...props} />
@@ -45,7 +54,7 @@ export default function ContactPanel(props: { contactId: string; taskId?: string
   );
 }
 
-function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskId?: string; onLogged: () => void }) {
+function ContactCard({ contactId, taskId, onLogged, lead, agentFirst, onLeadOutcome }: { contactId: string; taskId?: string; onLogged: () => void } & LeadProps) {
   const [card, setCard] = useState<ContactCard | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [ask, setAsk] = useState<Ask | null>(null);
@@ -53,6 +62,11 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
   const [done, setDone] = useState<string | null>(null);
   const [prep, setPrep] = useState(false); // Call Prep before the call (PULSE-ROADMAP #1)
   const [preset, setPreset] = useState<DraftPreset | null>(null); // a life event's touch, for Pulse Drafts (§3y)
+  const [tried, setTried] = useState(false); // a lead: Call / Text / Email tapped, so "Did you reach them?" asks
+  const [leadSorted, setLeadSorted] = useState(false);
+  const leadMode = leadCardMode(lead, leadSorted);
+  // a lead not reached yet answers "Did you reach them?" instead of "Log this call?" (Reached logs the call)
+  const tap = (kind: TouchKind) => (leadMode === "reach" ? setTried(true) : setAsk(askFor(kind)));
 
   const load = useCallback(async () => {
     try {
@@ -124,7 +138,7 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
       {(() => {
         // CONNECTIONS §5.2: a next step for an open house buyer. Each opens where the agent acts; nothing is sent from ONE.
         const offers = readOffers(card.offers);
-        if (!offers.length) return null;
+        if (!offers.length || leadMode !== "none") return null; // a lead's offers sit under Sort them
         const suggested = offers.some((o) => o.suggested);
         return (
           <div className={`cc-offers${suggested ? " is-suggested" : ""}`}>
@@ -153,12 +167,12 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
           <span className="cc-btn off" aria-disabled="true">Call</span>
         )}
         {tel ? (
-          <a className="cc-btn" href={`sms:${tel}`} onClick={() => setAsk(askFor("text"))}>Text</a>
+          <a className="cc-btn" href={`sms:${tel}`} onClick={() => tap("text")}>Text</a>
         ) : (
           <span className="cc-btn off" aria-disabled="true">Text</span>
         )}
         {mail ? (
-          <a className="cc-btn" href={`mailto:${mail}`} onClick={() => setAsk(askFor("email"))}>Email</a>
+          <a className="cc-btn" href={`mailto:${mail}`} onClick={() => tap("email")}>Email</a>
         ) : (
           <span className="cc-btn off" aria-disabled="true">Email</span>
         )}
@@ -171,7 +185,7 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
           onClose={() => setPrep(false)}
           onDial={() => {
             setPrep(false);
-            setAsk(askFor("call"));
+            tap("call");
           }}
         />
       )}
@@ -189,6 +203,41 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
       {done && <p className="cc-done" role="status">{done}</p>}
       {err && card && <p className="cc-err">{err}</p>}
 
+      {lead && leadMode !== "none" ? (
+        <LeadCard
+          lead={lead}
+          phone={card.phone ?? null}
+          email={card.email ?? null}
+          tel={tel}
+          sourceLabel={card.source_label}
+          agentFirst={agentFirst}
+          live
+          tried={tried}
+          onOutcome={(o, when) => {
+            setTried(false);
+            onLeadOutcome?.(contactId, o, when);
+            if (o === "reached") void load();
+          }}
+          onSorted={() => {
+            setLeadSorted(true);
+            setTimeout(onLogged, 1500);
+          }}
+          after={(() => {
+            const offers = readOffers(card.offers);
+            return offers.length ? (
+              <div className="cc-offers">
+                {offers.map((o) =>
+                  o.kind === "showly_tour" ? (
+                    <a key={o.kind} className="btn ghost-btn" href={productLink(o.url)} target="_blank" rel="noopener noreferrer">{o.label}</a>
+                  ) : (
+                    <a key={o.kind} className="btn ghost-btn" href={homesMailto(card.email ?? null, first, o.url)}>{o.label}</a>
+                  ),
+                )}
+              </div>
+            ) : null;
+          })()}
+        />
+      ) : (
       <div className="cc-boxes">
         <h2>This month</h2>
         <ul>
@@ -203,6 +252,7 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
           ))}
         </ul>
       </div>
+      )}
 
       {card.open_tasks && card.open_tasks.length > 0 && (
         <div className="cc-tasks">
@@ -219,7 +269,7 @@ function ContactCard({ contactId, taskId, onLogged }: { contactId: string; taskI
       )}
       <LifeEventsSection contactId={contactId} name={card.name} onDraft={setPreset} />
       <TalkSection contactId={contactId} first={first} onSaved={onLogged} />
-      <DraftsSection contactId={contactId} phone={tel} email={mail} onSent={(k) => setAsk(askFor(k))} preset={preset} />
+      <DraftsSection contactId={contactId} phone={tel} email={mail} onSent={(k) => tap(k)} preset={preset} />
       <PermissionsSection contactId={contactId} />
       <HomeReportSection contactId={contactId} first={first} />
       <SendsSection contactId={contactId} />

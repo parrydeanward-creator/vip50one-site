@@ -2,7 +2,7 @@
 
 import { namesPerson } from "@/lib/personTask.ts";
 import { useEffect, useState } from "react";
-import ContactPanel from "./ContactPanel.tsx";
+import ContactPanel, { type LeadProps } from "./ContactPanel.tsx";
 import { readSignals, signalKind, signalsUrl } from "@/lib/webSignals.ts";
 import { contactsSearchUrl, nameFromTitle, taskDoneUrl, taskLinkUrl, TIER_LABEL, type ContactHit } from "@/lib/contact.ts";
 
@@ -16,7 +16,10 @@ export default function PersonPanel({
   onChanged,
   openContacts,
   onOpenPage,
-}: {
+  lead,
+  agentFirst,
+  onLeadOutcome,
+}: LeadProps & {
   contactId?: string;
   taskId?: string;
   title: string;
@@ -89,7 +92,7 @@ export default function PersonPanel({
   if (linked)
     return (
       <>
-        <ContactPanel key={linked} contactId={linked} taskId={taskId} onLogged={onChanged} />
+        <ContactPanel key={linked} contactId={linked} taskId={taskId} onLogged={onChanged} lead={lead} agentFirst={agentFirst} onLeadOutcome={onLeadOutcome} />
         <WebHotLine contactId={linked} />
         {onOpenPage ? (
           <div className="decide-btns pp-more">
