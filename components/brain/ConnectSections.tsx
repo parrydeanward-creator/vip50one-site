@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { MODES, pulseModesUrl, readPulseModes, setBody, type Mode, type PulseModes } from "@/lib/pulseModes.ts";
+import { SIGN_IN_LINE, isSignInRefusal } from "@/lib/moveAuth.ts";
 import { connectorLogUrl, connectorUrl, leadMailUrl, readConnector, readLeadMail, readLog, revokeUrl, when, type ConnectorState, type LeadMail, type LogLine } from "@/lib/connector.ts";
 
 // My Profile, two of the agent's own connections: the lead email address for Zillow, Realtor.com and Homes.com
@@ -162,13 +163,24 @@ export function PulseModesSection() {
   const [busy, setBusy] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  // ONE MOVE did not take the sign-in (401/403): say so instead of hiding the card.
+  const [refused, setRefused] = useState(false);
   useEffect(() => {
     fetch(pulseModesUrl, { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        setRefused(isSignInRefusal(r.status));
+        return r.ok ? r.json() : null;
+      })
       .then((j) => setM(readPulseModes(j)))
       .catch(() => {});
   }, []);
-  if (!m || !m.workers.length) return null;
+  if (!m || !m.workers.length)
+    return refused ? (
+      <section className="pf-card" aria-label="Pulse">
+        <h2>Pulse</h2>
+        <p className="pf-note bad" role="status">{SIGN_IN_LINE}</p>
+      </section>
+    ) : null;
   const set = async (worker: string, mode: Mode) => {
     setBusy(worker);
     setNote(null);
@@ -178,6 +190,7 @@ export function PulseModesSection() {
       const j = await r.json().catch(() => null);
       const next = r.ok && (j as { ok?: boolean } | null)?.ok !== false ? readPulseModes(j) : null;
       if (next) setM(next);
+      else if (isSignInRefusal(r.status)) setNote(SIGN_IN_LINE);
       else setNote((j as { error?: string } | null)?.error || "That didn't save. Nothing was changed.");
     } catch {
       setNote("That didn't save. Nothing was changed.");

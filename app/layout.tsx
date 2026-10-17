@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Inter_Tight } from "next/font/google";
 import "./globals.css";
+import MoveBearer from "@/components/MoveBearer.tsx";
 
 const display = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-display" });
 const body = Inter_Tight({ subsets: ["latin"], variable: "--font-body" });
@@ -24,7 +25,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://move.vip50one.com" crossOrigin="use-credentials" />
         <link rel="dns-prefetch" href="https://move.vip50one.com" />
       </head>
-      <body>{children}</body>
+      <body>
+        <MoveBearer />
+        {children}
+      </body>
     </html>
   );
 }

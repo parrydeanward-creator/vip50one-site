@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { say, useVoice } from "./useVoice.ts";
 import { fallbackLine, pickVoiceOf, readKind, readPulseVoice, saveKind, voiceKindBody, type VoiceKind } from "@/lib/voicePick.ts";
 import { profileUrl } from "@/lib/profile.ts";
+import { SIGN_IN_LINE, isSignInRefusal } from "@/lib/moveAuth.ts";
 import {
   EMPTY_VOICE,
   VOICE_FIELDS,
@@ -38,6 +39,8 @@ export default function VoiceSection({ demo = false, pulseVoice }: { demo?: bool
   const [form, setForm] = useState<Voice>(EMPTY_VOICE);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // ONE MOVE did not take the sign-in (401/403): say so instead of hiding the card or showing empty fields.
+  const [refused, setRefused] = useState(false);
   // The interview
   const [talking, setTalking] = useState(false);
   const [step, setStep] = useState(0);
@@ -59,9 +62,9 @@ export default function VoiceSection({ demo = false, pulseVoice }: { demo?: bool
       setForm(d.voice);
       return;
     }
-    const j = await fetch(voiceUrl, { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null);
+    const r = await fetch(voiceUrl, { credentials: "include", cache: "no-store" }).catch(() => null);
+    setRefused(!!r && isSignInRefusal(r.status));
+    const j = r?.ok ? await r.json().catch(() => null) : null;
     const next = readVoiceState(j);
     setS(next);
     if (next) setForm(next.voice);
@@ -70,7 +73,13 @@ export default function VoiceSection({ demo = false, pulseVoice }: { demo?: bool
     void load();
   }, [load]);
 
-  if (!s) return null;
+  if (!s)
+    return refused ? (
+      <section className="pf-card pf-span vc" aria-label="Pulse knows me">
+        <h2>Pulse knows me</h2>
+        <small className="pf-sub warn" role="status">{SIGN_IN_LINE}</small>
+      </section>
+    ) : null;
   const dirty = voiceChanged(s.voice, form);
   const setField = (f: VoiceField, v: string) => {
     setForm({ ...form, [f]: v });
@@ -82,6 +91,7 @@ export default function VoiceSection({ demo = false, pulseVoice }: { demo?: bool
     if (demo) return { ok: true };
     const r = await fetch(url, { method, credentials: "include", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined }).catch(() => null);
     const j = r ? ((await r.json().catch(() => null)) as Record<string, unknown> | null) : null;
+    if (r && isSignInRefusal(r.status)) throw new Error(SIGN_IN_LINE);
     if (!r || !r.ok) throw new Error(typeof j?.error === "string" ? j.error : "That didn't save. Nothing was changed.");
     return j ?? { ok: true };
   };
@@ -159,6 +169,7 @@ export default function VoiceSection({ demo = false, pulseVoice }: { demo?: bool
       else {
         const r = await fetch(interviewUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => null);
         const j = r ? await r.json().catch(() => null) : null;
+        if (r && isSignInRefusal(r.status)) throw new Error(SIGN_IN_LINE);
         if (!r || !r.ok) throw new Error((j as { error?: string } | null)?.error || "Pulse couldn't write it just now. Try again.");
         next = fillFrom(form, j);
       }
@@ -306,16 +317,17 @@ function PulseVoicePick({ demo, master }: { demo: boolean; master?: VoiceKind })
     setBusy(true);
     try {
       const r = await fetch(profileUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(voiceKindBody(k)) });
+      if (isSignInRefusal(r.status)) throw new Error(SIGN_IN_LINE);
       if (!r.ok) throw new Error();
       const back = readPulseVoice(await r.json().catch(() => null));
       if (back && back !== k) {
         setKind(back);
         saveKind(back);
       }
-    } catch {
+    } catch (e) {
       setKind(was);
       saveKind(was);
-      setErr("That didn't save. Pulse's voice is unchanged.");
+      setErr(e instanceof Error && e.message === SIGN_IN_LINE ? SIGN_IN_LINE : "That didn't save. Pulse's voice is unchanged.");
     } finally {
       setBusy(false);
     }
