@@ -56,6 +56,10 @@ import ReferralsView from "./ReferralsView.tsx";
 import WinsView from "./WinsView.tsx";
 import LifeUpcomingView from "./LifeUpcomingView.tsx";
 import OutreachPanel, { AttractionSection } from "./OutreachPanel.tsx";
+import { PlanPanel, PlanPersonLine, PlansPartNote } from "./PlansPanel.tsx";
+import { LearnPartPanel, LearnSearch } from "./LearnPanel.tsx";
+import { actionPlansUrl, examplePlan, isPlanNode, planOf, readPlans, withPlan, withPlanNodes, type ActionPlan } from "@/lib/actionPlans.ts";
+import { LEARN_PANEL_FIRST, demoLearn, learnPartOf, learnUrl, readLearn, withLearnNodes, type Learn } from "@/lib/learn.ts";
 import MoveLikelyView from "./MoveLikelyView.tsx";
 import DealsView, { type SetStatus as DealSetStatus } from "./DealsView.tsx";
 import TeamView from "./TeamView.tsx";
@@ -241,6 +245,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const dealsRef = useRef<Deal[] | null>(null);
   const outreachRef = useRef<Outreach | null>(null);
   const eventsRef = useRef<EventsNow | null>(null);
+  // Action Plans drawn natively and Learn's parts (lib/actionPlans.ts, lib/learn.ts; walker 0245)
+  const plansRef = useRef<ActionPlan[] | null>(null);
+  const learnRef = useRef<Learn | null>(null);
   const likelyRef = useRef<MoveLikely | null>(null);
   // Likely to move's one honest reason and ONE MOVE's past clients 5+ years (lib/moveLikely.ts), for the rebuild.
   const likelyOptsRef = useRef<{ mlsMissing: boolean | null; pastClients: PastClient[] | null; routeReason: RouteReason | null }>({ mlsMissing: null, pastClients: null, routeReason: null });
@@ -273,7 +280,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
     // Opportunities last (lib/opportunities.ts; Parry, 17 Oct): its four parts move inside it, whatever built them.
-    const next = withOpportunities(withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withEventsNodes(withOutreachNodes(withDealsNode(withLifeUpcomingNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), outreachRef.current), eventsRef.current), likelyRef.current, likelyOptsRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn()), ntsRef.current), looksRef.current));
+    const next = withOpportunities(withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withLearnNodes(withPlanNodes(withEventsNodes(withOutreachNodes(withDealsNode(withLifeUpcomingNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), outreachRef.current), eventsRef.current), plansRef.current), learnRef.current), likelyRef.current, likelyOptsRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn()), ntsRef.current), looksRef.current));
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -1066,11 +1073,27 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   useEffect(() => {
     loadOutreach();
   }, [loadOutreach]);
+  // Action Plans drawn natively and Learn's parts (lib/actionPlans.ts, lib/learn.ts; walker 0245, Parry: "yes"). An
+  // empty plan list draws the labelled example plan; the example agent sees it too.
+  const [plans, setPlans] = useState<ActionPlan[] | null>(null);
+  const [learn, setLearn] = useState<Learn | null>(null);
+  useEffect(() => {
+    if (!live) {
+      setPlans([]);
+      setLearn(demoLearn(todayIn()));
+      return;
+    }
+    const get = (url: string) => fetch(url, { credentials: "include", cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    void get(actionPlansUrl).then((j) => j && setPlans(readPlans(j)));
+    void get(learnUrl).then((j) => j && setLearn(readLearn(j)));
+  }, [live]);
   useEffect(() => {
     outreachRef.current = outreach;
     eventsRef.current = eventsNow;
-    setGraph((g) => withEventsNodes(withOutreachNodes(g, outreach), eventsNow));
-  }, [outreach, eventsNow]);
+    plansRef.current = plans;
+    learnRef.current = learn;
+    setGraph((g) => withLearnNodes(withPlanNodes(withEventsNodes(withOutreachNodes(g, outreach), eventsNow), plans), learn));
+  }, [outreach, eventsNow, plans, learn]);
   // Deals under contract (§3z): from ONE MOVE once it answers (404 until then: no orb), the example agent's in the demo.
   const [deals, setDeals] = useState<Deal[] | null>(null);
   const [dealsOpen, setDealsOpen] = useState<false | "list" | "add">(false);
@@ -2571,7 +2594,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // A ONE MOVE page that opens inside the Brain (lib/moveMenu.ts IN_BRAIN).
   // the example agent's New to Sort orb (lib/graph/move.ts) opens the same native view as the live one
   const rawPage = !ask && !tour ? inBrainPage(state.focusId) ?? (state.focusId === DEMO_NTS_NODE ? { label: "New to Sort", path: NTS_PATH } : null) : null;
-  const pagePanel = rawPage && (!PANEL_FIRST.has(rawPage.path) || fullPage === rawPage.path) ? rawPage : null;
+  const pagePanel = rawPage && (!(PANEL_FIRST.has(rawPage.path) || LEARN_PANEL_FIRST.has(rawPage.path)) || fullPage === rawPage.path) ? rawPage : null;
   // A page opened for one person (the person panel's Refer / Post a need): its query rides on the frame's address.
   // Each opening starts behind the veil again, even for the same page.
   const panelPath = pagePanel?.path ?? null;
@@ -3417,6 +3440,37 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                 setContactOpen({ id, k: Date.now() });
                 goTo(page);
               }}
+            />
+          ) : null}
+
+          {/* Action Plans drawn natively (lib/actionPlans.ts): the part's note, a plan's panel, a face's step */}
+          {partOf(focus.id)?.key === "action_plans" && focus.product === "move" && !focus.locked && !ask && !tour ? <PlansPartNote plans={plans} /> : null}
+          {planOf(focus.id) && !ask && !tour && (() => {
+            const at = planOf(focus.id)!;
+            const plan = at.planId === "example" ? examplePlan() : plans?.find((p) => p.id === at.planId);
+            if (!plan) return null;
+            if (!isPlanNode(focus.id)) return at.contactId ? <PlanPersonLine key={focus.id} plan={plan} contactId={at.contactId} /> : null;
+            return (
+              <PlanPanel
+                key={focus.id}
+                plan={plan}
+                live={live}
+                onEnrolled={(p) => setPlans((l) => withPlan(l ?? [], p))}
+                onOpenPlans={() => (live ? openMovePage("/action-plans") : setSiteNote("Example agent: signed in, this opens Action Plans in ONE MOVE."))}
+              />
+            );
+          })()}
+
+          {/* Learn shows what is inside (lib/learn.ts): the search box on the Learn orb, a panel on each part */}
+          {focus.id === moveGroupId("learn") && !ask && !tour ? <LearnSearch live={live} learn={learn} onOpenPage={openMovePage} /> : null}
+          {learnPartOf(focus.id) && !ask && !tour ? (
+            <LearnPartPanel
+              key={focus.id}
+              part={learnPartOf(focus.id)!}
+              learn={learn}
+              live={live}
+              onOpenPage={(path) => (live ? openMovePage(path) : setSiteNote("Example agent: signed in, this opens it in ONE MOVE."))}
+              onFilm={(f) => (f === "a" ? setGuide(true) : setGoTour(true))}
             />
           ) : null}
 

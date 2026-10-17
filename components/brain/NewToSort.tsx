@@ -5,6 +5,8 @@ import { initialsOf, ringRows } from "@/lib/vips.ts";
 import { focusFace, focusRings } from "@/lib/orbs.ts";
 import { phoneLine } from "@/lib/hwc.ts";
 import { dialable } from "@/lib/contact.ts";
+import type { SuggestPlan } from "@/lib/actionPlans.ts";
+import { PlanSuggest } from "./PlansPanel.tsx";
 import { EMPTY_LINE, KIND_COLOR, KIND_LABEL, SORT_BUTTONS, countOf, pulseLine, sortPerson, sortedLine, sourceTitle, waitingOldestFirst, whereLine, type NewToSort as Nts, type NtsPerson, type NtsSource, type SortTo } from "@/lib/newToSort.ts";
 import PulseMark from "./PulseMark.tsx";
 import PulseRing from "./PulseRing.tsx";
@@ -41,6 +43,8 @@ export default function NewToSort({
   const [pick, setPick] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  // Sorted VIP-100 and ONE MOVE suggests a plan: "Start <plan>?" (walker 0245)
+  const [suggest, setSuggest] = useState<{ plan: SuggestPlan; contactId: string; firstName: string } | null>(null);
   const cam = useSvgCamera(SIZE);
   const sources = useMemo(() => data?.sources ?? [], [data]);
   const total = countOf(data);
@@ -88,6 +92,7 @@ export default function NewToSort({
   const sort = async (p: NtsPerson, to: SortTo) => {
     if (busy) return;
     setNote(null);
+    setSuggest(null);
     if (!live) {
       setNote(`${sortedLine(p.firstName, to)} (example)`);
       if (pick === p.contactId) {
@@ -100,6 +105,7 @@ export default function NewToSort({
     try {
       const r = await sortPerson(p, to);
       setNote(r.line);
+      if (r.ok && r.suggestPlan) setSuggest({ plan: r.suggestPlan, contactId: p.contactId, firstName: p.firstName });
       if (r.ok) {
         if (pick === p.contactId) {
           setPick(null);
@@ -277,6 +283,11 @@ export default function NewToSort({
           <div className="vr-bar pop" role="status">
             <span>{note}</span>
             <button className="chip-btn" onClick={() => setNote(null)}>OK</button>
+          </div>
+        )}
+        {suggest && (
+          <div className="vr-bar pop nts-plan">
+            <PlanSuggest key={suggest.contactId} suggest={suggest.plan} contactId={suggest.contactId} firstName={suggest.firstName} live={live} />
           </div>
         )}
         <div className="controls" role="toolbar" aria-label="Map controls">

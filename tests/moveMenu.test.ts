@@ -20,8 +20,9 @@ import { liveGraph, type SummaryEnvelope, type SummaryItem } from "../lib/live.t
 // Rewritten 17 Oct: 32 pages. New to Sort becomes Opportunities at /opportunities (vip50-web-crm#293; Parry, 17 Oct:
 // "calling it Opportunities"); Life Events (vip50-web-crm#294) and Deals join People; Overview (/outreach) is the first
 // row of Outreach. Same hard rule (every feature in Classic and the Brain).
-test("ONE MOVE menu: all 32 Classic pages, in Parry's groups, no admin items", () => {
-  assert.equal(MOVE_MENU.length, 32);
+// Rewritten 17 Oct (walker 0245): 33 pages. Learn home (/learn) is the first row of Learn, under the same hard rule.
+test("ONE MOVE menu: all 33 Classic pages, in Parry's groups, no admin items", () => {
+  assert.equal(MOVE_MENU.length, 33);
   assert.deepEqual(MOVE_TOP.map((m) => m.label), ["Dashboard"]);
   assert.deepEqual(MOVE_GROUPS.map((g) => g.label), ["People", "Trackers", "Events", "Outreach", "Learn"]);
   assert.deepEqual(MOVE_BOTTOM.map((m) => m.label), ["The Lounge", "My Profile"]);
@@ -29,6 +30,7 @@ test("ONE MOVE menu: all 32 Classic pages, in Parry's groups, no admin items", (
   assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "Drop-By Map", "Opportunities", "Hot/Warm/Cold", "Business Rolodex", "Referral Network", "Buyer Needs", "Your listings", "Life Events", "Deals"]);
   assert.deepEqual(MOVE_GROUPS[0].pages.filter((m) => ["Opportunities", "Life Events", "Deals"].includes(m.label)).map((m) => m.path), ["/opportunities", "/life-events", "/deals"]);
   assert.deepEqual(MOVE_GROUPS[3].pages.map((m) => [m.label, m.path]), [["Overview", "/outreach"], ["Newsletter", "/newsletter"], ["Landing Pages", "/landing-pages"], ["Action Plans", "/action-plans"], ["Market Reports", "/home-reports"]]);
+  assert.deepEqual(MOVE_GROUPS[4].pages.map((m) => [m.label, m.path]), [["Learn home", "/learn"], ["Video Library", "/content"], ["VIP Docs", "/vip-docs"], ["The Vault", "/vault"], ["What's New", "/whats-new"]]);
   assert.deepEqual(MOVE_GROUPS[1].pages.map((m) => [m.label, m.path]), [["Daily Tracker", "/daily"], ["Weekly Tracker", "/weekly"], ["90-Day Challenge", "/challenge"], ["Scoreboard", "/achievements"], ["Analytics", "/analytics"]]);
   assert.ok(MOVE_MENU.every((m) => m.path.startsWith("/") && !m.path.startsWith("/admin") && m.path !== "/users"));
   assert.equal(new Set(MOVE_MENU.map((m) => m.path)).size, MOVE_MENU.length);
@@ -106,7 +108,9 @@ test("every ONE MOVE menu page opens inside the Brain; other orbs do not", async
   // Reports 16 Oct (HOME-REPORT §5.4); Drop-By Map 16 Oct (vip50-web-crm#276); Scoreboard 16 Oct (vip50-web-crm#278)
   // Rewritten 17 Oct: 37. Overview (/outreach) joins; New to Sort keeps its page though it left the menu; Opportunities,
   // Life Events and Deals open native orbs, not page frames.
-  assert.equal(IN_BRAIN.size, 37);
+  // Rewritten 17 Oct (walker 0245): 38. Learn home (/learn) joins and opens inside the Brain.
+  assert.equal(IN_BRAIN.size, 38);
+  assert.equal(inBrainPage(movePageId("/learn"))?.label, "Learn home");
   assert.equal(inBrainPage(movePageId("/achievements"))?.label, "Scoreboard");
   assert.equal(inBrainPage(movePageId("/drop-by"))?.label, "Drop-By Map");
   assert.equal(inBrainPage(movePageId("/home-reports"))?.label, "Market Reports"); // renamed 17 Oct (HOME-REPORT v0.4)

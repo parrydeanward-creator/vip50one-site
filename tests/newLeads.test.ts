@@ -122,3 +122,26 @@ test("the demo has one example lead with a clock and a try", () => {
   const g: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "move", type: "product", label: "ONE MOVE", parentId: "one", product: "move", importance: 1 }], edges: [] };
   assert.match(withNewLeadsNode(g, d, NOW).nodes.find((n) => n.id === `${LEADS_NODE}:n1`)!.secondaryLabel!, /^Came in 7:05 pm · 20 minutes ago/);
 });
+
+// walker 0245 (17 Oct): Reached may come back with a plan to suggest; the lead's name is saved in place.
+test("Reached with suggest_plan: the plan is offered; New VIP Onboarding never is", async () => {
+  const ok = (body: unknown) => (async () => new Response(JSON.stringify(body), { status: 200 })) as unknown as typeof fetch;
+  assert.deepEqual(await postOutcome("a", "reached", ok({ ok: true, outcome: "reached", suggest_plan: { plan_id: "p1", name: "New buyer" } })), { ok: true, when: null, error: null, suggestPlan: { planId: "p1", name: "New buyer" } });
+  assert.deepEqual(await postOutcome("a", "reached", ok({ ok: true, outcome: "reached", suggest_plan: { plan_id: "p2", name: "New VIP Onboarding" } })), { ok: true, when: null, error: null });
+  assert.deepEqual(await postOutcome("a", "reached", ok({ ok: true, outcome: "reached", suggest_plan: null })), { ok: true, when: null, error: null });
+});
+
+test("the lead's name: trimmed, 60 at most, one of them typed; the route's words on a refusal", async () => {
+  const { nameBody, saveName, personUrl } = await import("../lib/newLeads.ts");
+  assert.deepEqual(nameBody("  Ann ", " Lee "), { ok: true, fields: { first_name: "Ann", last_name: "Lee" }, name: "Ann Lee" });
+  assert.deepEqual(nameBody("Ann", ""), { ok: true, fields: { first_name: "Ann", last_name: "" }, name: "Ann" });
+  assert.equal(nameBody(" ", "").ok, false);
+  assert.equal(nameBody("x".repeat(61), "").ok, false);
+  assert.equal(personUrl("a b"), "https://move.vip50one.com/api/brain/people/a%20b");
+  let body: unknown = null;
+  const ok = (j: unknown, status = 200) => (async (_u: unknown, init?: RequestInit) => ((body = JSON.parse(String(init?.body))), new Response(JSON.stringify(j), { status }))) as unknown as typeof fetch;
+  assert.deepEqual(await saveName("c1", " Ann", "Lee ", ok({ ok: true })), { ok: true, name: "Ann Lee", error: null });
+  assert.deepEqual(body, { fields: { first_name: "Ann", last_name: "Lee" } });
+  assert.equal((await saveName("c1", "Ann", "", ok({ ok: false, error: "Contact not found." }, 404))).error, "Contact not found.");
+  assert.equal((await saveName("c1", "", "", ok({ ok: true }))).error, "Type a first or last name.");
+});

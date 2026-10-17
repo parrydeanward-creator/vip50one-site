@@ -1,5 +1,6 @@
 import type { GraphEdge, GraphNode } from "./graph/types.ts";
 import { cameInWords, clockTime, denverDay } from "./leadClock.ts";
+import { readSuggestPlan, type SuggestPlan } from "./actionPlans.ts";
 
 // New leads today (LOFTY-PARITY P9, vip50-web-crm#227): contacts that arrived on their own today (website, portal, ad,
 // open house, the Lofty sync), and whether the agent has touched each yet. From ONE MOVE's GET /api/brain/today.
@@ -187,16 +188,23 @@ export function withOutcome(l: NewLeads, contactId: string, outcome: LeadOutcome
   return { ...l, people, untouched: people.filter((p) => !p.touched).length };
 }
 
-export interface OutcomeResult { ok: boolean; when: RetryWhen | null; error: string | null }
+export interface OutcomeResult {
+  ok: boolean;
+  when: RetryWhen | null;
+  error: string | null;
+  /** Reached: the plan ONE MOVE suggests starting (walker 0245), only when it sends one; never New VIP Onboarding. */
+  suggestPlan?: SuggestPlan;
+}
 
 /** POST the outcome. Nothing is sent to the lead; ONE MOVE logs the call (Reached) or the try and a follow-up task. */
 export async function postOutcome(contactId: string, outcome: LeadOutcome, f: typeof fetch = fetch): Promise<OutcomeResult> {
   try {
     const r = await f(leadsOutcomeUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contact_id: contactId, outcome }) });
-    const j = (await r.json().catch(() => null)) as { ok?: unknown; error?: unknown; follow_up?: { when?: unknown } } | null;
+    const j = (await r.json().catch(() => null)) as { ok?: unknown; error?: unknown; follow_up?: { when?: unknown }; suggest_plan?: unknown } | null;
     if (!r.ok || !j || j.ok !== true) return { ok: false, when: null, error: str(j?.error, 200) ?? "ONE MOVE didn't take that. Nothing was changed." };
     const w = j.follow_up?.when;
-    return { ok: true, when: w === "later_today" || w === "tomorrow_morning" ? w : null, error: null };
+    const sp = readSuggestPlan(j.suggest_plan);
+    return { ok: true, when: w === "later_today" || w === "tomorrow_morning" ? w : null, error: null, ...(sp ? { suggestPlan: sp } : {}) };
   } catch {
     return { ok: false, when: null, error: "ONE MOVE didn't answer. Nothing was changed." };
   }
@@ -249,3 +257,32 @@ export const demoNewLeads = (now: number = Date.now()): NewLeads => {
     },
   })!;
 };
+
+// ---- the lead's name, saved in place (walker 0245; ONE MOVE's POST /api/brain/people/<id> {fields}) -------------------
+
+export const personUrl = (contactId: string) => `${MOVE_URL}/api/brain/people/${encodeURIComponent(contactId)}`;
+export const NAME_MAX = 60;
+
+/** The body to send, or what to say instead: both trimmed, 60 at most each, at least one of them typed. */
+export function nameBody(first: string, last: string): { ok: true; fields: { first_name: string; last_name: string }; name: string } | { ok: false; error: string } {
+  const f = first.trim(), l = last.trim();
+  if (!f && !l) return { ok: false, error: "Type a first or last name." };
+  if (f.length > NAME_MAX || l.length > NAME_MAX) return { ok: false, error: `Keep each name to ${NAME_MAX} letters.` };
+  return { ok: true, fields: { first_name: f, last_name: l }, name: [f, l].filter(Boolean).join(" ") };
+}
+
+export interface NameResult { ok: boolean; name: string | null; error: string | null }
+
+/** Save the name on ONE MOVE's contact. The route's own words on a refusal. */
+export async function saveName(contactId: string, first: string, last: string, f: typeof fetch = fetch): Promise<NameResult> {
+  const b = nameBody(first, last);
+  if (!b.ok) return { ok: false, name: null, error: b.error };
+  try {
+    const r = await f(personUrl(contactId), { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields: b.fields }) });
+    const j = (await r.json().catch(() => null)) as { ok?: unknown; error?: unknown } | null;
+    if (!r.ok || (j && j.ok === false)) return { ok: false, name: null, error: str(j?.error, 200) ?? "ONE MOVE didn't take that. The name was not saved." };
+    return { ok: true, name: b.name, error: null };
+  } catch {
+    return { ok: false, name: null, error: "ONE MOVE didn't answer. The name was not saved." };
+  }
+}
