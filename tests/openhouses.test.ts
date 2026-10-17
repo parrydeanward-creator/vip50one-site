@@ -36,13 +36,15 @@ test("Mountain time across daylight saving", () => {
   assert.equal(openHouseWhen("2026-12-05T18:00:00Z"), "Sat 5 Dec, 11:00 AM");
 });
 
-test("ONE OPEN shows an Upcoming open houses group with the house as a property", () => {
+// Rewritten 17 Oct (VIP-SUMMARY §3ai): upcoming open houses now sit inside ONE Open's "Open houses" tool orb, not a
+// group of their own.
+test("ONE OPEN's Open houses tool holds the upcoming house as a property", () => {
   const starts = new Date(Date.now() + 2 * 86400000).toISOString();
   const open = env({ value: 2, address: "450 E 100 S #20", starts_at: starts, link: "https://open.vip-50.com/app/events/abc" });
   const master: SummaryEnvelope = { v: 1, product: "go", found: true, stats: [], items: [] };
   const g = liveGraph(master, { pkg: "complete", firstName: "A", reachable: true, today: "2026-10-03" }, { open: { reachable: true, env: open } });
-  const group = g.nodes.find((n) => n.parentId === "open" && n.label === "Upcoming open houses");
-  assert.ok(group, "group under ONE OPEN");
+  const group = g.nodes.find((n) => n.parentId === "open" && n.label === "Open houses");
+  assert.ok(group, "Open houses tool under ONE OPEN");
   const house = g.nodes.find((n) => n.parentId === group!.id);
   assert.equal(house?.type, "property");
   assert.equal(house?.label, "450 E 100 S #20");

@@ -3,7 +3,23 @@ import assert from "node:assert/strict";
 import { demoGraph } from "../lib/graph/demo.ts";
 import { childrenOf, indexGraph } from "../lib/graph/model.ts";
 
-const ix = indexGraph(demoGraph("complete"));
+// Rewritten 17 Oct (VIP-SUMMARY §3ai): the dashboard's demo now opens Marquee, ONE Open and Showly to their tools; the
+// one-tree-per-app models (each app's own steps) live on as the films' graph, `demoGraph(pkg, { deep: true })`, and the
+// in-depth tests below read that one. A new test checks the tools on the dashboard's demo.
+const ix = indexGraph(demoGraph("complete", { deep: true }));
+const dash = indexGraph(demoGraph("complete"));
+
+test("the dashboard demo opens Marquee, ONE Open and Showly to their tools, each labelled Example", () => {
+  const labels = (p: string) => childrenOf(dash, p).map((n) => n.label);
+  assert.deepEqual(labels("marquee"), ["Listings", "Calendar", "Posts waiting", "Seller reports", "Presentations", "Room cards"]);
+  assert.deepEqual(labels("open"), ["Open houses", "Visitors", "Questions", "Reports", "Scorecard", "Safety"]);
+  assert.deepEqual(labels("showly"), ["Tours", "Buyer answers", "Recaps", "Lender"]);
+  for (const p of ["marquee", "open", "showly"])
+    for (const t of childrenOf(dash, p)) {
+      assert.ok(t.summary && t.href?.startsWith("/go/"), `${t.id}: panel and the one sign-in hop`);
+      if (t.id !== "marquee-tool-listings") assert.match(t.secondaryLabel ?? "", /^Example/, t.id);
+    }
+});
 
 test("each of the four products is modelled in depth, not one level", () => {
   for (const p of ["move", "marquee", "open", "showly"]) {
@@ -25,7 +41,7 @@ test("Marquee's listing path has the app's nine steps, and posting is not automa
 });
 
 test("Showly speaks the app's words: Yes / Maybe / No, never love", () => {
-  for (const n of ix.graph.nodes.filter((n) => n.product === "showly" || /showly/i.test(n.summary ?? ""))) {
+  for (const n of [...ix.graph.nodes, ...dash.graph.nodes].filter((n) => n.product === "showly" || /showly/i.test(n.summary ?? ""))) {
     for (const t of [n.label, n.secondaryLabel ?? "", n.summary ?? ""]) assert.doesNotMatch(t, /\blove[sd]?\b/i, n.id);
   }
 });
