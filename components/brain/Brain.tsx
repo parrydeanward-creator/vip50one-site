@@ -213,6 +213,9 @@ function withTourPages(g: BusinessGraph, pages = TOUR_PAGES): BusinessGraph {
   return { ...g, nodes, edges };
 }
 
+/** ?open=<name> -> the orb it opens (Brain-only orbs; ONE MOVE pages open by their own address). */
+const OPEN_ORBS: Record<string, string> = { "getting-started": START_NODE };
+
 export default function Brain({ graph: initialGraph, pkg = "complete", agent: agentIn = DEMO_AGENT, live = false, startPage = null, productTour = false }: { graph: BusinessGraph; pkg?: string; agent?: BrainAgent; live?: boolean; startPage?: string | null; productTour?: boolean }) {
   const agent = productTour ? TOUR_AGENT : agentIn;
   // Arriving on Team Leads means the agent is on a team: its orb is there before the team answer comes back.
@@ -2203,13 +2206,17 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   useEffect(() => {
     const u = new URL(window.location.href);
     const fromPath = pageFromAddress(u.pathname);
-    const wantsProfile = u.searchParams.get("open") === "profile";
-    if (!fromPath && !wantsProfile) return;
-    if (wantsProfile) {
+    const openParam = u.searchParams.get("open");
+    const wantsProfile = openParam === "profile";
+    // ?open=<name> for an orb with no ONE MOVE page of its own (Parry, 17 Oct: a Getting started link must land in the
+    // Brain, not Classic): https://www.vip50one.com/dashboard?open=getting-started
+    const orb = openParam ? OPEN_ORBS[openParam] : undefined;
+    if (!fromPath && !wantsProfile && !orb) return;
+    if (openParam) {
       u.searchParams.delete("open");
       window.history.replaceState(null, "", u.toString());
     }
-    const want = movePageId(fromPath ?? "/profile");
+    const want = orb ?? movePageId(fromPath ?? "/profile");
     // A page whose orb arrives a moment later (Team Leads waits for the team answer) opens when it appears
     // (Parry, 13 Oct: /dashboard/team-leads landed on the main dashboard).
     if (ix.byId.has(want)) goTo(want);
