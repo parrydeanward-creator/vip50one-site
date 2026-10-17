@@ -249,7 +249,7 @@ export function withAgentFaces<G extends { nodes: GraphNode[]; edges: GraphEdge[
       importance: 0.9 - i * 0.005,
       status: standingStatus(p.standing),
       image: p.photo ?? undefined,
-      summary: `${p.first}'s week${tp.example ? " (an example)" : ""}: score, VIP touches, commitments, team leads and how fast they reach them.`,
+      summary: `${tp.example ? "Example: " : ""}${plainName(p.first)}'s week: score, VIP touches, commitments, team leads and how fast they reach them.`,
     });
     edges.push({ id: `${parent}>${id}`, source: parent, target: id, relationshipType: p.standing === "on_track" ? "belongs_to" : "requires_action", strength: 1 });
   });
