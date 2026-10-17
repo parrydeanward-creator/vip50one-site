@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { GraphNode } from "@/lib/graph/types.ts";
 import { CHALLENGE, COMING, challengeDay } from "@/lib/oneYou.ts";
-import { challengeCompleteUrl, groupLine, readComplete, resultsLine, type LiveChallenge } from "@/lib/challenge.ts";
+import { challengeCompleteUrl, completedLine, groupLine, readComplete, resultsLine, type LiveChallenge } from "@/lib/challenge.ts";
 
 // The 90-Day Challenge in ONE YOU (Parry, 16 Oct 13:43 MT: "it needs to go much deeper into the 90 day challenge no one
 // is going to know what it is for or does based on what is there...fix this"). What it is, the Day 1 setup, the five
@@ -38,28 +38,43 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
   const waiting = !!on?.letterWaiting;
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  // Completed here just now: ONE MOVE's date and certificate, shown at once while the GET catches up.
+  const [doneNow, setDoneNow] = useState<{ completedAt: string | null; certificateUrl: string | null } | null>(null);
   const complete = async () => {
     if (busy) return;
     setBusy(true);
     setMsg(null);
     let res: ReturnType<typeof readComplete>;
     try {
-      const r = await fetch(challengeCompleteUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const r = await fetch(challengeCompleteUrl, { method: "POST", credentials: "include" });
       res = readComplete(r.status, await r.json().catch(() => null));
     } catch {
       res = { kind: "error", words: "ONE MOVE could not be reached. Nothing was changed; try again." };
     }
     setBusy(false);
     if (res.kind === "done") {
-      setMsg("Done: your 90 days are complete. Your certificate is ready.");
+      setDoneNow({ completedAt: res.completedAt, certificateUrl: res.certificateUrl });
+      setMsg(res.certificateUrl ? "Done: your 90 days are complete. Your certificate is ready." : "Done: your 90 days are complete.");
       onCompleted?.();
-    } else if (res.kind === "elsewhere") {
+    } else if (res.kind === "not_yet" || res.kind === "not_enrolled") setMsg(res.words);
+    else if (res.kind === "elsewhere") {
       setMsg("Complete it on the challenge page in ONE MOVE.");
       onOpenPage(url);
     } else setMsg(res.words);
   };
+  const completedAt = doneNow?.completedAt ?? on?.completedAt ?? null;
+  const certificateUrl = doneNow?.certificateUrl ?? on?.certificateUrl ?? null;
+  const certLink = certificateUrl && !tour ? (
+    <a className="pi-film pm-open" href={certificateUrl} target="_blank" rel="noopener noreferrer" aria-label="Open your certificate (opens in a new tab)">
+      <span className="pi-play" aria-hidden="true">★</span>
+      <span>
+        <b>Open your certificate</b>
+        <span>{completedAt ? `${completedLine(completedAt)}. ` : ""}Print it or share it. Opens in a new tab.</span>
+      </span>
+    </a>
+  ) : null;
   const dayNinety =
-    on && waiting && !tour ? (
+    on && waiting && !tour && !doneNow ? (
       <>
         <h2>Day 90: your sealed letter</h2>
         {on.letter ? <p className="d-sum ch-letter">{on.letter}</p> : <p className="d-sum">Your letter opens on the challenge page in ONE MOVE.</p>}
@@ -73,7 +88,13 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
         {msg ? <p className="pm-note" role="status">{msg}</p> : null}
       </>
     ) : msg ? (
-      <p className="pm-note" role="status">{msg}</p>
+      <>
+        <p className="pm-note" role="status">
+          {msg}
+          {doneNow?.completedAt ? ` ${completedLine(doneNow.completedAt)}.` : ""}
+        </p>
+        {doneNow ? certLink : null}
+      </>
     ) : null;
 
   return (
@@ -90,7 +111,7 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
               <span className="pm-time">Done</span>
               <span className="pm-body">
                 <b>{fin.label ? `Finished on ${fin.label}` : "Finished"}</b>
-                <small>{`All ${on.of} days are behind you.`}</small>
+                <small>{completedAt ? `${completedLine(completedAt)}. All ${on.of} days are behind you.` : `All ${on.of} days are behind you.`}</small>
               </span>
             </li>
             <li>
@@ -104,22 +125,14 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
               <span className="pm-time">Certificate</span>
               <span className="pm-body">
                 <b>Your certificate</b>
-                <small>{on.certificateUrl ? "Ready to print or share." : waiting ? "Yours once you complete your 90 days, below." : "Open it from the challenge page in ONE MOVE, to print or share."}</small>
+                <small>{certificateUrl ? "Ready to print or share." : waiting && !doneNow ? "Yours once you complete your 90 days, below." : "Open it from the challenge page in ONE MOVE, to print or share."}</small>
               </span>
             </li>
           </ul>
           {dayNinety}
-          {!tour && !waiting ? (
+          {!tour && (!waiting || doneNow) ? (
             <>
-              {on.certificateUrl ? (
-                <button className="pi-film pm-open" onClick={() => onOpenPage(on.certificateUrl!)}>
-                  <span className="pi-play" aria-hidden="true">★</span>
-                  <span>
-                    <b>Open your certificate</b>
-                    <span>Your 90 days, complete. Print it or share it.</span>
-                  </span>
-                </button>
-              ) : null}
+              {doneNow ? null : certLink}
               <button className="pi-film pm-open" onClick={() => (on.letter ? setLetterOpen((o) => !o) : onOpenPage(url))} aria-expanded={on.letter ? letterOpen : undefined}>
                 <span className="pi-play" aria-hidden="true">✉</span>
                 <span>

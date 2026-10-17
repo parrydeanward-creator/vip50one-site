@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { challengeCompleteUrl, challengeLine, challengeUrl, groupLine, moveLink, readChallenge, readComplete, resultsLine, safeUrl, withChallengeNode } from "../lib/challenge.ts";
+import { challengeCompleteUrl, challengeLine, challengeUrl, completedLine, groupLine, moveLink, readChallenge, readComplete, resultsLine, safeUrl, withChallengeNode } from "../lib/challenge.ts";
 import { liveGraph, type SummaryEnvelope } from "../lib/live.ts";
 import { CHALLENGE, CHALLENGE_NODE } from "../lib/oneYou.ts";
 
@@ -192,10 +192,17 @@ test("resultsLine and readComplete", () => {
   assert.equal(resultsLine({ daysScored: 1, average: 60 }), "1 day scored · 60 a day on average");
   assert.equal(resultsLine({ daysScored: 0, average: 0 }), "No days scored yet");
   assert.equal(challengeCompleteUrl, "https://move.vip50one.com/api/brain/challenge/complete");
-  assert.deepEqual(readComplete(200, { ok: true }), { kind: "done" });
-  assert.deepEqual(readComplete(204, null), { kind: "done" });
-  assert.deepEqual(readComplete(404, { error: "Not found." }), { kind: "elsewhere" });
+  // Rewritten 17 Oct: the route is live, so a success carries the date and certificate, 404 now means "not enrolled"
+  // (was "not there yet, go to the challenge page") and 409 means the 90 days are not up yet.
+  assert.deepEqual(readComplete(200, { ok: true }), { kind: "done", completedAt: null, certificateUrl: null });
+  assert.deepEqual(readComplete(204, null), { kind: "done", completedAt: null, certificateUrl: null });
+  assert.deepEqual(readComplete(200, { ok: true, completed_at: "2026-10-17T15:00:00Z", certificate_url: "https://move.vip50one.com/certificate/abc" }), { kind: "done", completedAt: "2026-10-17", certificateUrl: "https://move.vip50one.com/certificate/abc" });
+  assert.equal((readComplete(200, { ok: true, certificate_url: "https://evil.example.com/c" }) as { certificateUrl: string | null }).certificateUrl, null);
+  assert.deepEqual(readComplete(409, { ok: false, error: "Your 90 days are not up yet." }), { kind: "not_yet", words: "Your 90 days are not up yet." });
+  assert.deepEqual(readComplete(409, null), { kind: "not_yet", words: "Your 90 days are not up yet." });
+  assert.equal(readComplete(404, { error: "Not found." }).kind, "not_enrolled");
   assert.deepEqual(readComplete(405, null), { kind: "elsewhere" });
+  assert.equal(completedLine("2026-10-17"), "Completed on Sat, 17 Oct 2026");
   assert.deepEqual(readComplete(400, { ok: false, error: "Not day 90 yet." }), { kind: "error", words: "Not day 90 yet." });
   assert.equal(readComplete(500, null).kind, "error");
   assert.equal(readComplete(200, { ok: false }).kind, "error");

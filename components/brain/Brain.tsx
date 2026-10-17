@@ -99,7 +99,7 @@ import { demoWins, readWeekWins, readWins, total as winsTotal, weekWinsUrl, wins
 import { demoPartners, partnersActionUrl, partnersUrl, readPartners, unseenNudges, withAllSeen, type PartnersState } from "@/lib/partners.ts";
 import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, mondayOf, type HabitToday } from "@/lib/habits.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
-import { REFERRALS_NODE, applyThank, askUrl, demoReferrals, thankUrl, readReferrals, referralsUrl, withReferralsNode, type Referrals, demoNetwork, networkUrl, readNetwork, type NetworkCounts } from "@/lib/referrals.ts";
+import { REFERRALS_NODE, applyThank, applyThanked, askUrl, demoReferrals, thankUrl, thankedUrl, readThanked, thankCount, withReferralCount, yearLine, type ThankKind, readReferrals, referralsUrl, withReferralsNode, type Referrals, demoNetwork, networkUrl, readNetwork, type NetworkCounts } from "@/lib/referrals.ts";
 import { COACH_NODE, coachedUrl, demoCoached, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
 import { WEEK_NODE, commitWay, commitmentsUrl, demoCommitments, queueBody, queueDraft, queueUrl, readCommitments, readQueueAnswer, readQueued, withWeekNode, type Commitments } from "@/lib/commitments.ts";
 import { nextCommitKey } from "@/lib/pulseCoach.ts";
@@ -592,7 +592,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     },
     [live, refreshLive, graph.nodes, loadGoalsPlan],
   );
-  const factsKey = JSON.stringify(goalFacts(graph.nodes));
+  // Referral Scoreboard data (declared here: the goals below count its referrals).
+  const [refs, setRefs] = useState<Referrals | null>(null);
+  // The referrals goal counts the same number as the Referrals orb (`this_year`), so the two never disagree.
+  const factsKey = JSON.stringify(withReferralCount(goalFacts(graph.nodes), refs));
   const theIncome = useMemo(() => incomeMap(JSON.parse(factsKey), assume, todayIn()), [factsKey, assume]);
   // Pulse Coach (§3q): eight weeks of the agent's own numbers from ONE MOVE; the example agent's until it answers.
   const [history, setHistory] = useState<History | null>(null);
@@ -633,7 +636,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     [commitments, live],
   );
   // Referral Scoreboard (§3r): who sent business and who is likely next, from ONE MOVE; the example agent's until it answers.
-  const [refs, setRefs] = useState<Referrals | null>(null);
   const [refsOpen, setRefsOpen] = useState(false);
   // §3af: referrals with other ONE agents, counts only, on the Scoreboard.
   const [network, setNetwork] = useState<NetworkCounts | null>(null);
@@ -655,18 +657,31 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     refsRef.current = refs;
     setGraph((g) => withReferralsNode(g, refs, todayIn()));
   }, [refs]);
-  const askReferral = useCallback(async (contactId: string): Promise<string> => {
+  const askReferral = useCallback(async (contactId: string): Promise<{ ok: boolean; words: string }> => {
     try {
       const r = await fetch(askUrl, { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ contact_id: contactId }) });
       const j = (await r.json().catch(() => null)) as { ok?: boolean; reason?: string } | null;
-      if (r.ok && j?.ok) return "Added to today's tasks. Ask in your own words; nothing is sent.";
-      if (j?.reason === "already_asked") return "There is already an open ask for them in your tasks.";
-      if (j?.reason === "opted_out" || j?.reason === "has_agent") return "Not for this one: they opted out or have an agent.";
-      return "Could not add the task just now. Please try again.";
+      if (r.ok && j?.ok) return { ok: true, words: "Added to today's tasks. Ask in your own words; nothing is sent." };
+      if (j?.reason === "already_asked") return { ok: true, words: "There is already an open ask for them in your tasks." };
+      if (j?.reason === "opted_out" || j?.reason === "has_agent") return { ok: false, words: "Not for this one: they opted out or have an agent." };
+      return { ok: false, words: "Could not add the task just now. Please try again." };
     } catch {
-      return "Could not add the task just now. Please try again.";
+      return { ok: false, words: "Could not add the task just now. Please try again." };
     }
   }, []);
+  // Log a thank-you the agent already gave (call, note, text or email): recorded in ONE MOVE only; nothing is sent.
+  const thankedReferral = useCallback(async (contactId: string, kind: ThankKind): Promise<{ ok: boolean; words: string }> => {
+    let res: { ok: boolean; words: string };
+    try {
+      const r = await fetch(thankedUrl, { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ contact_id: contactId, kind }) });
+      res = readThanked(r.status, await r.json().catch(() => null));
+    } catch {
+      res = { ok: false, words: "Could not log it just now. Nothing was saved; please try again." };
+    }
+    if (res.ok) setRefs((x) => (x ? applyThanked(x, contactId) : x));
+    return res;
+  }, []);
+
   // who has sent business, for the VIP swap coach (never suggest moving a referrer out)
   const referredMap = useMemo(() => new Map((refs?.referrers ?? []).map((x) => [x.id, x.total])), [refs]);
   const thankReferral = useCallback(async (referralId: string): Promise<string> => {
@@ -1289,8 +1304,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const theGoalsOwn = useMemo(() => goalsThree(JSON.parse(factsKey), theIncome, theForecast, todayIn()), [factsKey, theIncome, theForecast]);
   // For a signed-in agent ONE MOVE's answer (vip50-web-crm#279) when it came for today; the Brain's own otherwise.
   const shownGoals = useMemo(
-    () => goalsShown(live ? goalsPlan : null, { three: theGoalsOwn, goals: JSON.parse(factsKey), income: theIncome, forecast: theForecast }, todayIn()),
-    [live, goalsPlan, theGoalsOwn, factsKey, theIncome, theForecast],
+    () => {
+      const g = goalsShown(live ? goalsPlan : null, { three: theGoalsOwn, goals: JSON.parse(factsKey), income: theIncome, forecast: theForecast }, todayIn());
+      return { ...g, goals: withReferralCount(g.goals, refs) };
+    },
+    [live, goalsPlan, theGoalsOwn, factsKey, theIncome, theForecast, refs],
   );
   const theGoals = shownGoals.three;
   const setDealStatus: DealSetStatus = useCallback(
@@ -2002,6 +2020,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // "Go to" a person opens that person in Contacts (Parry, 6 Oct: "the go to that contact doesnt work
   // to take you to that contact"); anything else moves the map there.
   const [contactOpen, setContactOpen] = useState<{ id: string; k: number } | null>(null);
+  // A name in the Referrals lists opens that person's record in ONE MOVE's Contacts, inside the Brain.
+  const openReferralPerson = (id: string) => {
+    const page = movePageId("/contacts");
+    if (!ix.byId.has(page)) return;
+    setRefsOpen(false);
+    setContactOpen({ id, k: Date.now() });
+    goTo(page);
+  };
   const [pageQuery, setPageQuery] = useState<{ path: string; query: string } | null>(null);
   // A person from Pulse's lookups (not always on the map): their contact card in the Brain, never Classic.
   const openPerson = (contactId: string) => {
@@ -3280,7 +3306,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               <span className="pi-play" aria-hidden="true">★</span>
               <span>
                 <b>Open the Referral Scoreboard</b>
-                <span>Who sent you business, who is likely next, and how many of your VIPs refer.</span>
+                <span>
+                  {refs.thankOwed || refs.readyToAsk
+                    ? `${thankCount(refs, todayIn())} thank-you${thankCount(refs, todayIn()) === 1 ? "" : "s"} owed · ${refs.readyToAsk?.length ?? 0} ready to ask. Log a thank-you or add an ask task; ONE sends nothing.`
+                    : "Who sent you business, who is likely next, and how many of your VIPs refer."}
+                </span>
               </span>
             </button>
           )}
@@ -3290,7 +3320,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             <>
               <ul className="pm-list pm-compact gl-three" aria-label="Goals, in three parts">
                 {[
-                  { k: "1", t: "Closed so far", l: theGoals.closed.line },
+                  { k: "1", t: "Closed so far", l: theGoals.closed.line, refs: true },
                   { k: "2", t: "Likely next 3 months", l: theGoals.likely?.line ?? "Coming once you have deals under contract or Hot people in ONE MOVE" },
                   { k: "3", t: "What to do each week", l: theGoals.weekly?.line ?? "Set a GCI or closings goal to see your weekly numbers" },
                 ].map((r) => (
@@ -3299,6 +3329,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                     <span className="pm-body">
                       <b>{r.t}</b>
                       <small>{r.l}</small>
+                      {"refs" in r && refs && !tour ? (
+                        <button className="link gl-refs" onClick={() => setRefsOpen(true)} aria-label={`Open Referrals: ${yearLine(refs)}`}>
+                          {`Referrals: ${yearLine(refs)} →`}
+                        </button>
+                      ) : null}
                     </span>
                   </li>
                 ))}
@@ -3374,7 +3409,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           )}
           {focus.type === "goal" && focus.goal && !focus.locked && !tour && !ask && (
             <GoalsPanel
-              goals={goalFacts(graph.nodes)}
+              goals={withReferralCount(goalFacts(graph.nodes), refs)}
               today={todayIn()}
               demo={!live}
               rezenConnected={rezenOn}
@@ -3877,6 +3912,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             goTo(movePageId("/profile"));
           }}
           onReferrals={() => (refs ? setRefsOpen(true) : goTo(REFERRALS_NODE))}
+          referralsLine={refs ? yearLine(refs) : null}
           onPerson={(id) => {
             const page = movePageId("/contacts");
             if (!ix.byId.has(page)) return;
@@ -3900,7 +3936,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           onClose={() => setForecastOpen(false)}
         />
       ) : null}
-      {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} kept={assumeKept} goals={goalFacts(graph.nodes)} demo={!live} onAssume={saveAssume} onSaveGoal={saveGoal} onClose={() => setIncomeOpen(false)} /> : null}
+      {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} kept={assumeKept} goals={withReferralCount(goalFacts(graph.nodes), refs)} demo={!live} onAssume={saveAssume} onSaveGoal={saveGoal} onClose={() => setIncomeOpen(false)} /> : null}
       {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} squad={team} /> : null}
       {rcOpen && rcAgents ? <ReviewCallsView agents={rcAgents} demo={!live} onClose={() => setRcOpen(false)} onSearch={loadRcAgents} /> : null}
       {warOpen && war ? <WarRoomView room={war} demo={!live} onClose={() => setWarOpen(false)} onTeamLeads={() => { setWarOpen(false); goTo(movePageId(TEAM_LEADS_PATH)); }} /> : null}
@@ -3928,7 +3964,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       ) : null}
       {partnersOpen && partners ? <PartnersView state={partners} me={weekScore} today={todayIn()} demo={!live} onClose={() => setPartnersOpen(false)} onAct={partnerAct} /> : null}
       {habitsOpen && theHabits.length ? <HabitsView habits={theHabits} demo={!live} onClose={() => setHabitsOpen(false)} onTick={tickHabit} /> : null}
-      {refsOpen && refs ? <ReferralsView network={network} onNetwork={() => { setRefsOpen(false); goTo(movePageId("/referral-network")); }} data={refs} today={todayIn()} demo={!live} onClose={() => setRefsOpen(false)} onAsk={askReferral} onThank={thankReferral} /> : null}
+      {refsOpen && refs ? <ReferralsView network={network} onNetwork={() => { setRefsOpen(false); goTo(movePageId("/referral-network")); }} data={refs} today={todayIn()} demo={!live} onClose={() => setRefsOpen(false)} onAsk={askReferral} onThank={thankReferral} onThanked={thankedReferral} onPerson={openReferralPerson} /> : null}
       {agentRead ? <PulseCoachView read={agentRead.read} who={agentRead.who} demo={!live} onClose={() => setAgentRead(null)} /> : null}
       {cmOpen && commitments && (
         <CommitmentsView initial={commitments} live={live} hour={denverHour()} onClose={() => setCmOpen(false)} onChanged={setCommitments} />
