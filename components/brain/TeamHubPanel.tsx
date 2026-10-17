@@ -6,13 +6,14 @@ import { leaderRows } from "@/lib/oneYou.ts";
 import { ONB_NODE, onbLine, onbNodeId, type OnbMember } from "@/lib/onboarding.ts";
 import { ONB_RULE, TEAM_HUB, partLines } from "@/lib/teamHub.ts";
 import { TEAM_NODE, type Team } from "@/lib/team.ts";
+import { STANDING_COLOUR, STANDING_WORDS, agentNodeId, peopleLine, plainName, type TeamPeople } from "@/lib/teamPeople.ts";
 import { SLOW_MINUTES, WAR_NODE, agentLines, minutesWords, totals, type WarRoom } from "@/lib/warroom.ts";
 
 const DOT: Record<string, string> = { now: "#ff5a6a", today: "#f5c542" };
 
 // The Team orb's side panels (lib/teamHub.ts): the Team orb lists its three parts; each part shows what it holds
 // (never a near-empty panel). Each row opens its orb exactly as a tap on the orb does.
-export default function TeamHubPanel({ id, team, war, onb, removed, now, needs, openOrb }: {
+export default function TeamHubPanel({ id, team, war, onb, removed, now, needs, openOrb, people = null }: {
   id: string;
   team: Team | null;
   war: WarRoom | null;
@@ -21,6 +22,8 @@ export default function TeamHubPanel({ id, team, war, onb, removed, now, needs, 
   now: number;
   needs: Map<string, Need>;
   openOrb: (id: string) => void;
+  /** The team's agents (lib/teamPeople.ts); null when ONE MOVE refused (not a lead) or has not answered. */
+  people?: TeamPeople | null;
 }) {
   const lines = partLines({ lead: true, team, war, onb, removed, now });
   const mark = (nid: string) => {
@@ -51,6 +54,28 @@ export default function TeamHubPanel({ id, team, war, onb, removed, now, needs, 
             </li>
           ))}
         </ul>
+        {people?.people.length ? (
+          <>
+            <h2>{people.example ? "Your agents (example)" : "Your agents"}</h2>
+            <p className="pf-sub">{peopleLine(people.people)}. Red is stalled, yellow is behind, green is on track.</p>
+            <ul aria-label="Your agents">
+              {people.people.map((p) => (
+                <li key={p.id}>
+                  <button onClick={() => openOrb(agentNodeId(p.id))} aria-label={`Open ${plainName(p.first)}'s week`}>
+                    <span className="ta-face" style={{ borderColor: STANDING_COLOUR[p.standing] }} aria-hidden="true">
+                      {p.photo ? <img src={p.photo} alt="" /> : initials(p.first)}
+                    </span>
+                    <span>
+                      <b>{p.first}</b>
+                      <small>{p.weekScore} this week · {STANDING_WORDS[p.standing]}</small>
+                    </span>
+                    {p.isNew ? <em className="ta-new">New</em> : null}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
         <p className="pf-sub">Only you and the team's admins see this. Your agents see their own place on the Scoreboard.</p>
       </div>
     );
@@ -148,3 +173,5 @@ export default function TeamHubPanel({ id, team, war, onb, removed, now, needs, 
 
 /** Whether the focused orb is the Team orb or one of its parts (the panel chip then says Team, not ONE YOU). */
 export const isHubPart = (n: GraphNode) => n.id === TEAM_HUB || n.parentId === TEAM_HUB || n.id.startsWith(`${ONB_NODE}:`);
+
+const initials = (name: string) => name.replace(/\(example\)/, "").trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
