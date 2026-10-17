@@ -1,4 +1,4 @@
-import type { Deal } from "./deals.ts";
+import { shortName, type Deal } from "./deals.ts";
 import type { HwcClass } from "./hwc.ts";
 import { money } from "./goals.ts";
 
@@ -80,8 +80,8 @@ export function forecast(deals: Deal[] | null, classes: HwcClass[] | null, avgGc
     const idx = on ? Math.max(0, months.findIndex((m) => m.month === monthOf(on))) : 0;
     const at = on && monthOf(on) > months[MONTHS - 1].month ? MONTHS - 1 : idx;
     months[at].contract += avgGci * CHANCE.contract;
-    months[at].settling.push(d.contact.name.split(" ")[0]);
-    months[at].who.push({ name: d.contact.name.split(" ")[0], contactId: d.contact.id || null, why: "contract" });
+    months[at].settling.push(shortName(d));
+    months[at].who.push({ name: shortName(d), contactId: d.contact?.id || null, why: "contract" });
   }
   for (const cls of ["hot", "warm"] as const) {
     const [a, b] = SPAN[cls];

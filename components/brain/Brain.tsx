@@ -1042,14 +1042,17 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   );
   // Deals under contract (§3z): from ONE MOVE once it answers (404 until then: no orb), the example agent's in the demo.
   const [deals, setDeals] = useState<Deal[] | null>(null);
-  const [dealsOpen, setDealsOpen] = useState(false);
-  useEffect(() => {
+  const [dealsOpen, setDealsOpen] = useState<false | "list" | "add">(false);
+  const loadDeals = useCallback(() => {
     if (!live) return setDeals(demoDeals(todayIn()));
     fetch(dealsUrl(), { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setDeals(j ? readDeals(j) : null))
       .catch(() => {});
   }, [live]);
+  useEffect(() => loadDeals(), [loadDeals]);
+  // A deal the agent just saved on the Deals panel: shown at once; read again from ONE MOVE when it gave no deal back.
+  const dealAdded = useCallback((d: Deal | null) => (d ? setDeals((list) => [d, ...(list ?? []).filter((x) => x.id !== d.id)]) : loadDeals()), [loadDeals]);
   useEffect(() => {
     dealsRef.current = deals;
     setGraph((g) => withDealsNode(g, deals, todayIn()));
@@ -2305,7 +2308,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     if (id === REFERRALS_NODE) return setRefsOpen(true);
     if (id === HABITS_NODE) return openHabits();
     if (id === LIFE_NODE) return setLifeOpen(true);
-    if (id === DEALS_NODE) return setDealsOpen(true);
+    if (id === DEALS_NODE) return setDealsOpen("list");
     if (id === MARKET_NODE) return setMarketOpen(true);
     if (id === LIKELY_NODE) return setLikelyOpen(true);
     if (id === ASK_AI_NODE) return setAiOpen(true);
@@ -3368,13 +3371,22 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             </button>
           )}
           {focus.id === DEALS_NODE && deals && !tour && (
-            <button className="pi-film pm-open" onClick={() => setDealsOpen(true)}>
-              <span className="pi-play" aria-hidden="true">◆</span>
-              <span>
-                <b>Open deals</b>
-                <span>Every REPC deadline with days left; red on the day, yellow the day before.</span>
-              </span>
-            </button>
+            <>
+              <button className="pi-film pm-open" onClick={() => setDealsOpen("list")}>
+                <span className="pi-play" aria-hidden="true">◆</span>
+                <span>
+                  <b>Open deals</b>
+                  <span>Every REPC deadline with days left; red on the day, yellow the day before.</span>
+                </span>
+              </button>
+              <button className="pi-film pm-open" onClick={() => setDealsOpen("add")}>
+                <span className="pi-play" aria-hidden="true">+</span>
+                <span>
+                  <b>Add a deal</b>
+                  <span>Type the REPC dates, or upload the signed REPC and Pulse fills them for you to check.</span>
+                </span>
+              </button>
+            </>
           )}
           {focus.id === LIFE_NODE && life && !tour && (
             <button className="pi-film pm-open" onClick={() => setLifeOpen(true)}>
@@ -4054,7 +4066,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
         />
       ) : null}
       {marketOpen && market ? <MarketPulseView data={market} demo={!live} onSend={sendMarket} onClose={() => setMarketOpen(false)} /> : null}
-      {dealsOpen && deals ? <DealsView deals={deals} today={todayIn()} demo={!live} onStatus={setDealStatus} onClose={() => setDealsOpen(false)} /> : null}
+      {dealsOpen && deals ? <DealsView deals={deals} today={todayIn()} demo={!live} onStatus={setDealStatus} onClose={() => setDealsOpen(false)} onAdded={dealAdded} startAdding={dealsOpen === "add"} /> : null}
       {lifeOpen && life ? <LifeEventsView data={life} demo={!live} onKeep={keepLife} onClose={() => setLifeOpen(false)} /> : null}
       {winsOpen && wins ? (
         <WinsView
