@@ -2,7 +2,7 @@ import type { GraphEdge, GraphNode } from "./graph/types.ts";
 import { cameInWords, clockTime, denverDay } from "./leadClock.ts";
 import { readSuggestPlan, type SuggestPlan } from "./actionPlans.ts";
 
-// New leads today (LOFTY-PARITY P9, vip50-web-crm#227): contacts that arrived on their own today (website, portal, ad,
+// New leads (LOFTY-PARITY P9, vip50-web-crm#227; named "New leads today" until the walker's 17 Oct check): contacts that arrived on their own today (website, portal, ad,
 // open house, the Lofty sync), and whether the agent has touched each yet. From ONE MOVE's GET /api/brain/today.
 // Red while any is untouched, a still green ring once every one is (follow the pulse). Deal deadlines from the same
 // answer are already on the Deals orb (§3z), so only the leads are drawn here.
@@ -33,8 +33,18 @@ export interface NewLead {
   /** Set in this session after Left a message / No answer, from the outcome route. */
   retryWhen?: RetryWhen | null;
 }
-/** `count` is today's leads; `untouched` everyone listed not reached yet. */
-export interface NewLeads { today: string | null; count: number; untouched: number; people: NewLead[] }
+/** `count` is today's leads; `untouched` everyone listed not reached yet; `waiting` those not reached from earlier days. */
+export interface NewLeads { today: string | null; count: number; untouched: number; waiting: number; people: NewLead[] }
+
+/** The orb's and panel's name (walker, 17 Oct: "New leads today" held eleven, most from 9-13 Oct). */
+export const LEADS_LABEL = "New leads";
+
+/** "1 today · 10 waiting"; "2 today · 1 not reached yet" when only today's wait; "2 today, all reached". */
+export function leadsLine(l: Pick<NewLeads, "count" | "untouched" | "waiting">): string {
+  if (!l.untouched) return `${l.count} today, all reached`;
+  if (l.waiting) return `${l.count} today · ${l.waiting} waiting`;
+  return `${l.count} today · ${l.untouched} not reached yet`;
+}
 
 const str = (v: unknown, max = 80) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
 const isOutcome = (v: unknown): v is LeadOutcome => v === "reached" || v === "left_message" || v === "no_answer";
@@ -74,8 +84,13 @@ export function readNewLeads(j: unknown): NewLeads | null {
       followUpOn: str(x.follow_up_on, 10),
     });
   }
-  people.sort((a, b) => Number(a.touched) - Number(b.touched) || (b.at ?? "").localeCompare(a.at ?? ""));
-  return { today, count: num(nl.count) ?? people.filter((p) => p.today).length, untouched: people.filter((p) => !p.touched).length, people };
+  // Not reached first: today's newest first, then the ones waiting from earlier days oldest first (walker, 17 Oct:
+  // eleven were held, most from 9-13 Oct, the oldest buried); reached ones last, newest first.
+  const band = (p: NewLead) => (p.touched ? 2 : p.today ? 0 : 1);
+  people.sort((a, b) => band(a) - band(b) || (band(a) === 1 ? (a.at ?? "").localeCompare(b.at ?? "") : (b.at ?? "").localeCompare(a.at ?? "")));
+  const untouched = people.filter((p) => !p.touched).length;
+  const waiting = people.filter((p) => !p.touched && !p.today).length;
+  return { today, count: num(nl.count) ?? people.filter((p) => p.today).length, untouched, waiting, people };
 }
 
 const dayIn = (iso: string) => {
@@ -97,15 +112,15 @@ export function withNewLeadsNode<G extends { nodes: GraphNode[]; edges: GraphEdg
   const move = g.nodes.find((n) => n.id === "move");
   if (!move || move.locked) return { ...g, nodes, edges };
   if (!l || !l.people.length) {
-    nodes.push({ id: LEADS_NODE, type: "feature", label: "New leads today", secondaryLabel: l ? "None yet today" : undefined, parentId: "move", product: "move", importance: 0.8, status: l ? "healthy" : undefined, summary: NO_LEADS_LINE });
+    nodes.push({ id: LEADS_NODE, type: "feature", label: LEADS_LABEL, secondaryLabel: l ? "None yet today" : undefined, parentId: "move", product: "move", importance: 0.8, status: l ? "healthy" : undefined, summary: NO_LEADS_LINE });
     edges.push({ id: `move>${LEADS_NODE}`, source: "move", target: LEADS_NODE, relationshipType: "belongs_to", strength: 1 });
     return { ...g, nodes, edges };
   }
   nodes.push({
     id: LEADS_NODE,
     type: "feature",
-    label: "New leads today",
-    secondaryLabel: l.untouched ? `${l.untouched} not reached yet · ${l.count} today` : `${l.count} today, all reached`,
+    label: LEADS_LABEL,
+    secondaryLabel: leadsLine(l),
     parentId: "move",
     product: "move",
     importance: l.untouched ? 1 : 0.8,
@@ -185,7 +200,7 @@ export function withOutcome(l: NewLeads, contactId: string, outcome: LeadOutcome
     if (outcome === "reached") return { ...p, touched: true, retryWhen: null };
     return { ...p, attempts: p.attempts + 1, lastAttempt: { outcome, at: nowIso }, retryWhen: when ?? p.retryWhen ?? null };
   });
-  return { ...l, people, untouched: people.filter((p) => !p.touched).length };
+  return { ...l, people, untouched: people.filter((p) => !p.touched).length, waiting: people.filter((p) => !p.touched && !p.today).length };
 }
 
 export interface OutcomeResult {

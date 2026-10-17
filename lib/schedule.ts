@@ -269,6 +269,8 @@ export interface DayFromMove {
   busy: Busy[];
   blocks: (Block & { movedFrom: string | null })[];
   approvedAt: string | null;
+  /** ONE MOVE's week template has no hours for this date (`day_off`, hours null; walker 17 Oct). */
+  dayOff: boolean;
 }
 
 const sameTitle = (t: string | null) => (t ?? "").toLowerCase().replace(/\s+/g, " ").trim();
@@ -327,7 +329,7 @@ export function readDay(j: unknown): DayFromMove | null {
   }
   blocks.sort((a, b) => toMin(a.start) - toMin(b.start));
   // where the day is read, so the list, the clock and the count all agree (audit 3.1.1)
-  return { date: r.date, hours, busy: dedupeBusy(busy), blocks, approvedAt: typeof r.approved_at === "string" ? r.approved_at : null };
+  return { date: r.date, hours, busy: dedupeBusy(busy), blocks, approvedAt: typeof r.approved_at === "string" ? r.approved_at : null, dayOff: r.day_off === true || (r.day_off === undefined && r.hours === null) };
 }
 
 /** The §3o.3 PUT body: only what MASTER keeps. */

@@ -5,7 +5,7 @@ import { LOOKS_NODE } from "./looksHot.ts";
 import { LIKELY_NODE } from "./moveLikely.ts";
 
 // Opportunities (Parry, 17 Oct: "yes on regrouping them. and calling it Opportunities"). One orb on the ONE MOVE ring
-// holding four parts, in this order: New leads today, New to Sort, Looks Hot (with Hot on your website inside it) and
+// holding four parts, in this order: New leads (named "New leads today" until 17 Oct), New to Sort, Looks Hot (with Hot on your website inside it) and
 // Likely to move. The four leave the ring as separate orbs; Follow-ups stays its own orb.
 //
 // Its colour is its most urgent part: an unreached new lead makes it red, someone to sort or someone who looks hot makes
@@ -17,11 +17,11 @@ export const OPP_NODE = "move-opportunities";
 export const isOpportunitiesOrb = (id: string) => id === OPP_NODE;
 export const OPP_LABEL = "Opportunities";
 export const ALL_CLEAR_LINE = "All clear. New leads, people to sort from your open houses, tours, website and listings, people who look hot and past clients likely to move land here.";
-export const SUMMARY = "Everything new that could become business: today's new leads, new people to sort, people who look hot and past clients likely to move. The most urgent part sets the colour.";
+export const SUMMARY = "Everything new that could become business: new leads not reached yet, new people to sort, people who look hot and past clients likely to move. The most urgent part sets the colour.";
 
 /** The four parts, in Parry's order. New to Sort has the example agent's id too (lib/graph/move.ts). */
 export const PART_IDS: readonly (readonly string[])[] = [[LEADS_NODE], [NTS_NODE, DEMO_NTS_NODE], [LOOKS_NODE], [LIKELY_NODE]];
-export const PART_LABELS = ["New leads today", "New to Sort", "Looks Hot", "Likely to move"] as const;
+export const PART_LABELS = ["New leads", "New to Sort", "Looks Hot", "Likely to move"] as const;
 const isPart = (id: string) => PART_IDS.some((ids) => ids.includes(id));
 
 const RANK: Partial<Record<NodeStatus, number>> = { action: 0, attention: 1 };
@@ -89,7 +89,7 @@ export function withOpportunities<G extends { nodes: GraphNode[]; edges: GraphEd
  * (lib/moveMenu.ts); these three are orbs only, so their rows open the orb.
  */
 export const PEOPLE_MENU_PARTS: { label: (typeof PART_LABELS)[number]; id: string }[] = [
-  { label: "New leads today", id: LEADS_NODE },
+  { label: "New leads", id: LEADS_NODE },
   { label: "Looks Hot", id: LOOKS_NODE },
   { label: "Likely to move", id: LIKELY_NODE },
 ];

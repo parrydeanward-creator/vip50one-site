@@ -47,3 +47,33 @@ export function tipFor(items: GraphNode[]): string | null {
   const why = first.recommendations?.[0]?.why?.[0] ?? first.secondaryLabel ?? "";
   return `Start with ${first.label.replace(/^(Call|Text|Video text|Email)\s+/i, "")}${why ? `: ${why.replace(/\.$/, "")}` : ""}.`;
 }
+
+// ---- Outreach and Events: each part's line, never a bare link (walker, 17 Oct 07:40 MT) ----------------------------
+// On Parry's live account the Outreach and Events panels said "Nothing here needs you right now" above plain links:
+// this panel looked only at live summary items ("live:" ids) and the menu's pages, never at the part orbs that carry
+// each tool's line and pulse (lib/outreach.ts withParts). Now the part orbs lead the panel.
+
+export interface PartRow {
+  id: string;
+  label: string;
+  /** The part's line ("Not sent yet", "3 set up · 2 ready for the 1st"), or a plain stand-in until ONE MOVE answers. */
+  line: string;
+  status?: NodeStatus;
+  lit: boolean;
+}
+
+/** The part orbs of an Outreach or Events group, in their ring order; [] for any other group. */
+export function partRows(ix: GraphIndex, groupId: string, parts: readonly { ids: string[]; label: string }[]): PartRow[] {
+  return parts.flatMap((p) => {
+    const n = p.ids.map((id) => ix.byId.get(id)).find((x): x is GraphNode => !!x && x.parentId === groupId);
+    if (!n) return [];
+    const lit = n.status === "action" || n.status === "attention";
+    return [{ id: n.id, label: n.label || p.label, line: n.secondaryLabel || "Open to see the numbers", status: n.status, lit }];
+  });
+}
+
+/** The "Open" tiles for a group: a page already listed as a part is not repeated, and Outreach's "Overview" row is
+ * Outreach itself, never a tile of its own. */
+export function openTiles<P extends { path: string }>(pages: readonly P[], partPaths: ReadonlySet<string>): P[] {
+  return pages.filter((pg) => pg.path !== "/outreach" && !partPaths.has(pg.path));
+}

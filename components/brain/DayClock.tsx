@@ -5,6 +5,7 @@ import { useSvgCamera } from "./useSvgCamera.ts";
 import { chimeOn, setChime, unlockChime } from "@/lib/chime.ts";
 import { blockHue, busyArcLabel, busyHue, clock12, dayUrl, hm, HUE, nextLine, readBlock, shortWords as short, toMin, toTime, type Block, type Busy, type Hue } from "@/lib/schedule.ts";
 import { dayIsDone, type TomorrowItem } from "@/lib/dayView.ts";
+import { dayStart } from "@/lib/workDay.ts";
 import { faceAngle, faceArcs, faceTimeAt } from "@/lib/overview.ts";
 import TellPulse from "./TellPulse.tsx";
 import PulseMark from "./PulseMark.tsx";
@@ -100,8 +101,10 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
 
   // Once the day is done, Plan my day opens on tomorrow's plan (Parry, 16 Oct, Plan my day audit 3.1.9: "I like your
   // idea"), built from the one "moves to tomorrow" list with the same rules, read-only, with Back to today.
-  const over = dayIsDone(day.now, day.hours, day.plan.blocks.filter((b) => !b.done && b.kind !== "custom").length, tomorrow.length);
-  const [view, setView] = useState<"today" | "tomorrow">(() => (over ? "tomorrow" : "today"));
+  const over = dayIsDone(day.now, day.hours, day.plan.blocks.filter((b) => !b.done && b.kind !== "custom").length, tomorrow.length, day.dayOff);
+  // A day off opens on the next working day's plan (walker, 17 Oct): "No working hours today (Saturday)".
+  const off = dayStart({ date: day.date, now: day.now, hours: day.hours, dayOff: day.dayOff, week: day.week });
+  const [view, setView] = useState<"today" | "tomorrow">(() => (over || off.kind === "off" ? "tomorrow" : "today"));
   const ahead = view === "tomorrow";
   const { loadTomorrow } = day;
   useEffect(() => {
@@ -356,16 +359,26 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
           <div className="d-head">
             <span className="chip" style={{ color: GOLD, borderColor: GOLD }}>ONE YOU</span>
           </div>
-          <h1 className="d-title" id="dc-title">{ahead ? "Tomorrow" : "Your day"}</h1>
+          <h1 className="d-title" id="dc-title">{ahead ? (off.kind === "off" ? off.nextName : "Tomorrow") : "Your day"}</h1>
           {ahead ? (
             <>
-              <p className="dc-moved" role="status">Today&apos;s working day is over. This is tomorrow&apos;s plan, built from what moves to tomorrow. Nothing here changes until you tap &quot;Move these to tomorrow&apos;s plan&quot; below.</p>
+              {off.kind === "off" ? (
+                <p className="dc-moved" role="status">{off.line}. This is {off.nextName}&apos;s plan, built from what moves there. Nothing here changes until you tap &quot;Move these to tomorrow&apos;s plan&quot; below.</p>
+              ) : (
+                <p className="dc-moved" role="status">Today&apos;s working day is over. This is tomorrow&apos;s plan, built from what moves to tomorrow. Nothing here changes until you tap &quot;Move these to tomorrow&apos;s plan&quot; below.</p>
+              )}
               <button className="vr-btn dc-back-today" onClick={() => switchView("today")}>← Back to today</button>
             </>
+          ) : off.kind === "off" ? (
+            <>
+              <p className="dc-moved" role="status">{off.line}.</p>
+              <button className="vr-btn dc-back-today" onClick={() => switchView("tomorrow")}>{off.button} →</button>
+            </>
           ) : (
-            over && (
-              <button className="vr-btn dc-back-today" onClick={() => switchView("tomorrow")}>See tomorrow&apos;s plan →</button>
-            )
+            <>
+              {off.kind === "before" && <p className="dc-moved" role="status">{off.line}.</p>}
+              {over && <button className="vr-btn dc-back-today" onClick={() => switchView("tomorrow")}>See tomorrow&apos;s plan →</button>}
+            </>
           )}
           <p className="d-sub">
             {hm(plan.plannedMin)} of work · {hm(free)} free

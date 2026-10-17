@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { FOLLOW_NODE, EMPTY_LINE, countOf, firstNameIn, readFollowUps, rowsFromKids, shownRows, whenWords, withFollowUps, followUpsUrl, followUpsLogUrl } from "../lib/followUps.ts";
+import { FOLLOW_NODE, EMPTY_LINE, OVERDUE_STAT, countOf, mergeFollowUps, summaryFollowOf, firstNameIn, readFollowUps, rowsFromKids, shownRows, whenWords, withFollowUps, followUpsUrl, followUpsLogUrl } from "../lib/followUps.ts";
 import { liveGraph, type SummaryEnvelope, type SummaryItem } from "../lib/live.ts";
 import { childrenOf, indexGraph } from "../lib/graph/model.ts";
 import { needsOf } from "../lib/needs.ts";
@@ -70,8 +70,11 @@ test("ONE MOVE's route answer is read defensively", () => {
   assert.equal(countOf(f), 3);
 });
 
-test("the route's rows replace the orb's, at most 15 drawn, each opening the person's record", () => {
-  const base = liveGraph(env([item(T1, "Call Brian Irby", "alert", "2026-10-10")]), opts, {});
+// Rewritten 17 Oct (walker, Parry's live account: "All clear" beside "Follow-ups overdue 13"): vip_summary's rows are no
+// longer dropped when ONE MOVE's route answers; they are merged in, one row per task. This test now asserts the route's
+// rows come first and the cap of 15; the merge has its own tests below.
+test("the route's rows lead the orb's, at most 15 drawn, each opening the person's record", () => {
+  const base = liveGraph(env([]), opts, {});
   const id = (n: number) => `${n.toString(16).padStart(8, "0")}-9b7d-4c1e-8a2f-5d6e7f8a9b0c`;
   const rows = (from: number, k: number, extra: object) => Array.from({ length: k }, (_, i) => ({ task_id: id(from + i), first_name: `P${from + i}`, what: "Call back", ...extra }));
   const f = readFollowUps({ overdue: rows(1, 6, { late_days: 2 }), today: rows(20, 6, {}), next7: rows(40, 6, { due_at: "2026-10-18" }) })!;
@@ -79,7 +82,6 @@ test("the route's rows replace the orb's, at most 15 drawn, each opening the per
   const ix = indexGraph(g);
   const kids = childrenOf(ix, FOLLOW_NODE);
   assert.equal(kids.length, 15);
-  assert.ok(!ix.byId.has(`live:go:task:${T1}`)); // vip_summary's row is gone
   assert.equal(ix.byId.get(FOLLOW_NODE)!.secondaryLabel, "6 overdue, 6 today");
   assert.equal(kids[0].taskId, id(1));
   assert.equal(kids[0].secondaryLabel, "2 days late");
@@ -115,4 +117,52 @@ test("the demo's Follow-ups orb fills all three groups", async () => {
   assert.deepEqual([f.overdue.length, f.today.length, f.next7.length], [2, 2, 2]);
   assert.equal(f.overdue[0].firstName, "Rosa");
   assert.equal(whenWords(f.overdue[0], "overdue", "2026-10-17"), "3 days late");
+});
+
+// Walker, 17 Oct 07:40 MT: ONE MOVE's panel said "Follow-ups overdue 13" (VIP-50 rotation tasks gone overdue on 16 Oct)
+// while the Follow-ups orb said "All clear": ONE MOVE's route leaves the rotation tasks out, vip_summary counts them.
+// One number in both places, on a live-shaped graph with the route's real answer shape.
+test("live: overdue VIP touch tasks from vip_summary stay on the orb when ONE MOVE's route answers without them", () => {
+  const id = (n: number) => `${n.toString(16).padStart(8, "0")}-1111-4c1e-8a2f-5d6e7f8a9b0c`;
+  const vip = Array.from({ length: 13 }, (_, i) => item(id(i + 1), `Call Contact${i + 1} Smith`, "alert", "2026-10-16"));
+  // Parry's live MASTER on 17 Oct: 15 open overdue tasks, 13 VIP-50 rotation tasks and 2 Agent Attraction
+  const attraction = [98, 99].map((n): SummaryItem => ({ id: `go:task:${id(n)}`, kind: "agent_attraction", title: "Agent attraction", urgency: "alert", due: "2026-10-15", why: ["x"], link: "https://move.vip50one.com/tasks" }));
+  const e = env([...vip, ...attraction]);
+  e.stats = [{ key: "followups_overdue", label: "Follow-ups overdue", value: 15 }];
+  const base = liveGraph(e, opts, {});
+  const move = base.nodes.find((n) => n.id === "move")!;
+  assert.equal(move.stats!.find((s) => s.label === OVERDUE_STAT)!.value, "13");
+  assert.equal(base.nodes.find((n) => n.id === FOLLOW_NODE)!.secondaryLabel, "13 overdue");
+  // ONE MOVE's route: one follow-up of its own today, none of the rotation tasks
+  const route = readFollowUps({ as_of: "2026-10-17", overdue: [], today: [{ task_id: T1, contact_id: C1, first_name: "Rosa", what: "Call back", due_at: "2026-10-17", late_days: 0 }], next7: [] })!;
+  const g = withFollowUps(base, route, "2026-10-17");
+  const fu = g.nodes.find((n) => n.id === FOLLOW_NODE)!;
+  assert.equal(fu.status, "action");
+  assert.equal(fu.secondaryLabel, "13 overdue, 1 today");
+  assert.notEqual(fu.secondaryLabel, "All clear");
+  const kids = childrenOf(indexGraph(g), FOLLOW_NODE);
+  assert.equal(kids.length, 14);
+  assert.equal(kids.filter((k) => k.status === "action").length, 13);
+  // applied again to the merged graph with the summary kept from the build: the same, no doubles
+  const again = withFollowUps(g, route, "2026-10-17", summaryFollowOf(base, "2026-10-17"));
+  assert.equal(childrenOf(indexGraph(again), FOLLOW_NODE).length, 14);
+  assert.equal(again.nodes.find((n) => n.id === FOLLOW_NODE)!.secondaryLabel, "13 overdue, 1 today");
+});
+
+test("merge: one row per task, the route's row wins, overdue oldest first", () => {
+  const r = (taskId: string, firstName: string, lateDays: number) => ({ taskId, firstName, what: "Call", dueAt: null, lateDays, orbId: `live:go:task:${taskId}` });
+  const m = mergeFollowUps({ overdue: [r(T1, "Route", 2)], today: [], next7: [] }, { overdue: [r(T1, "Summary", 2), r(T2, "Old", 9)], today: [r(T3, "T", 0)], next7: [] });
+  assert.deepEqual(m.overdue.map((x) => x.firstName), ["Old", "Route"]);
+  assert.deepEqual(m.today.map((x) => x.firstName), ["T"]);
+  assert.equal(mergeFollowUps({ overdue: [], today: [], next7: [] }, null).overdue.length, 0);
+});
+
+test("ONE MOVE's whole overdue count stands in when vip_summary sends fewer (it sends at most 40)", () => {
+  const id = (n: number) => `${n.toString(16).padStart(8, "0")}-2222-4c1e-8a2f-5d6e7f8a9b0c`;
+  const e = env(Array.from({ length: 40 }, (_, i) => item(id(i + 1), "Call back", "alert", "2026-10-01")));
+  e.stats = [{ key: "followups_overdue", label: "Follow-ups overdue", value: 57 }];
+  const g = liveGraph(e, opts, {});
+  assert.equal(g.nodes.find((n) => n.id === "move")!.stats!.find((s) => s.label === OVERDUE_STAT)!.value, "57");
+  assert.equal(g.nodes.find((n) => n.id === FOLLOW_NODE)!.secondaryLabel, "57 overdue");
+  assert.equal(summaryFollowOf(g, "2026-10-17").overdue, 57);
 });

@@ -46,6 +46,7 @@ import { useDay } from "./useDay.ts";
 import { chimeOn, dueChimes, notify, playChime, unlockChime } from "@/lib/chime.ts";
 import { clock12, nextLine, toMin, toTime } from "@/lib/schedule.ts";
 import { dayIsDone, groupHead, groupRows, nowStrip, slideSlots, withTomorrow } from "@/lib/dayView.ts";
+import { dayStart } from "@/lib/workDay.ts";
 import { soundsLikeDay } from "@/lib/overview.ts";
 import CommitmentsView from "./CommitmentsView.tsx";
 import ReviewView from "./ReviewView.tsx";
@@ -133,7 +134,7 @@ import TeamWarPanel from "./TeamWarPanel.tsx";
 import { useTeamRoom } from "./useTeamRoom.ts";
 import { agentIdOf, type TeamPeople, type War30 } from "@/lib/teamPeople.ts";
 import FollowUpsPanel from "./FollowUpsPanel.tsx";
-import { DEMO_FOLLOW_NODE, FOLLOW_NODE, followUpsUrl, isFollowUpsOrb, readFollowUps, rowsFromKids, withFollowUps, type FollowUps } from "@/lib/followUps.ts";
+import { DEMO_FOLLOW_NODE, FOLLOW_NODE, followUpsUrl, isFollowUpsOrb, mergeFollowUps, readFollowUps, rowsFromKids, summaryFollowOf, withFollowUps, type FollowUps, type SummaryFollow } from "@/lib/followUps.ts";
 import { START_NODE, demoStart, filmUrl, movePathOf, placeFor, readStart, startAgentUrl, startMenuLine, startUrl, withStartNode, type Start, type StartPlace, type StartStep } from "@/lib/gettingStarted.ts";
 import { TEAM_HUB, isTeamLead, withTeamHub, type HubInput } from "@/lib/teamHub.ts";
 import { NetworkPanel, RevsharePanel } from "./RezenOrbPanel.tsx";
@@ -256,6 +257,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const teamRef = useRef<Team | null>(null);
   // ONE MOVE's follow-ups route (lib/followUps.ts): Overdue, Today and Next 7 days, once it answers.
   const followRef = useRef<FollowUps | null>(null);
+  // What vip_summary put on the Follow-ups orb at the last build (merged with the route's rows; walker 17 Oct).
+  const followSumRef = useRef<SummaryFollow | null>(null);
   const warRef = useRef<WarRoom | null>(null);
   const rcRef = useRef(false);
   // ONE YOU's Power Hour orb: today's calls lined up.
@@ -279,8 +282,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
+    followSumRef.current = summaryFollowOf(fresh, todayIn());
     // Opportunities last (lib/opportunities.ts; Parry, 17 Oct): its four parts move inside it, whatever built them.
-    const next = withOpportunities(withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withLearnNodes(withPlanNodes(withEventsNodes(withOutreachNodes(withDealsNode(withLifeUpcomingNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), outreachRef.current), eventsRef.current), plansRef.current), learnRef.current), likelyRef.current, likelyOptsRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn()), ntsRef.current), looksRef.current));
+    const next = withOpportunities(withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withLearnNodes(withPlanNodes(withEventsNodes(withOutreachNodes(withDealsNode(withLifeUpcomingNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), outreachRef.current), eventsRef.current), plansRef.current), learnRef.current), likelyRef.current, likelyOptsRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn(), followSumRef.current), ntsRef.current), looksRef.current));
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -340,7 +344,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   }, [live, loadFollow]);
   useEffect(() => {
     followRef.current = follow;
-    if (follow) setGraph((g) => withFollowUps(g, follow, todayIn()));
+    if (follow) setGraph((g) => withFollowUps(g, follow, todayIn(), followSumRef.current ?? undefined));
   }, [follow]);
   // ONE's morning note, written by the AI when it is available (rules otherwise).
   const [note, setNote] = useState<{ note: string; source: "ai" | "rules" } | null>(null);
@@ -1146,7 +1150,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     askPeopleRef.current = ask?.people ?? null;
     setGraph((g) => withAskPeople(g, ask?.people));
   }, [ask]);
-  // New leads today (LOFTY-PARITY P9): re-read every 2 minutes; red until each lead is reached.
+  // New leads (LOFTY-PARITY P9): re-read every 2 minutes; red until each lead is reached.
   const [newLeads, setNewLeads] = useState<NewLeads | null>(null);
   useEffect(() => {
     if (!live) return setNewLeads(demoNewLeads());
@@ -1543,7 +1547,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const commitWork = useMemo(() => commitmentWork(commitments, todayIn()), [commitments]);
   const theDay = useDay({ today: graph.today ?? [], planned, live, doneRefs, onPlan: setPlanned, extra: commitWork });
   // One plan state (Parry, 16 Oct, Plan my day audit 3.1.3): the Plan my day orb and the ONE YOU card say the same thing.
-  const thePlanState = planState({ approvedAt: theDay.approvedAt, sent: planned, blocks: theDay.plan.blocks.length, over: !!theDay.now && toMin(theDay.now) >= toMin(theDay.hours.end) });
+  const thePlanState = planState({ approvedAt: theDay.approvedAt, sent: planned, blocks: theDay.plan.blocks.length, over: !!theDay.now && toMin(theDay.now) >= toMin(theDay.hours.end), off: theDay.dayOff });
   useEffect(() => {
     planStateRef.current = thePlanState;
     setGraph((g) => withPlanNode(g, plannedRef.current, thePlanState));
@@ -1914,7 +1918,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const { rows: dayRows, tomorrow } = useMemo(() => withTomorrow(slidRows, theDay.plan.later, theDay.now, theDay.hours), [slidRows, theDay.plan.later, theDay.now, theDay.hours]);
   const dayGroups = useMemo(() => groupRows(dayRows), [dayRows]);
   const next = theDay.now ? (dayRows.length ? nowStrip(dayGroups, theDay.now, theDay.hours) : nextLine(theDay.plan.blocks, theDay.now)) : null;
-  const dayOver = dayIsDone(theDay.now, theDay.hours, theDay.plan.blocks.filter((b) => !b.done && b.kind !== "custom").length, tomorrow.length);
+  const dayOver = dayIsDone(theDay.now, theDay.hours, theDay.plan.blocks.filter((b) => !b.done && b.kind !== "custom").length, tomorrow.length, theDay.dayOff);
+  // A day off or a day not begun has its own words, never "over" (walker, 17 Oct 07:40 MT, a Saturday).
+  const dayBegins = dayStart({ date: theDay.date, now: theDay.now, hours: theDay.hours, dayOff: theDay.dayOff, week: theDay.week });
   // The pill opens Your day at the current block (not an empty Day Clock).
   const openYourDay = () => {
     goTo("one");
@@ -2859,7 +2865,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               <p className="rail-sub">Main menu</p>
               <ul>
                 {MOVE_TOP.map(moveLink)}
-                {/* Opportunities (Parry, 17 Oct): the orb on the ring that holds New leads today, New to Sort, Looks Hot
+                {/* Opportunities (Parry, 17 Oct): the orb on the ring that holds New leads, New to Sort, Looks Hot
                     and Likely to move; its row opens the orb (it comes to the middle with the four round it). */}
                 {ix.byId.has(OPP_NODE) ? (() => {
                   const on = ix.byId.get(OPP_NODE)!;
@@ -3381,7 +3387,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           {isFollowUpsOrb(focus.id) && !ask ? (
             <FollowUpsPanel
               key={focus.id}
-              f={follow && focus.id === FOLLOW_NODE ? follow : rowsFromKids(kids, todayIn())}
+              f={follow && focus.id === FOLLOW_NODE ? mergeFollowUps(follow, followSumRef.current?.rows) : rowsFromKids(kids, todayIn())}
               today={todayIn()}
               live={live}
               onOpen={openOrb}
@@ -3793,8 +3799,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               <span>
                 <b>Plan my day</b>
                 <span>
-                  {dayOver
+                  {dayBegins.kind === "off"
+                    ? `${dayBegins.line}. ${dayBegins.button}.`
+                    : dayOver
                     ? "Today's working day is over. Open it to see tomorrow's plan."
+                    : dayBegins.kind === "before"
+                      ? `${dayBegins.line}. ${thePlanState === "ready" ? "Pulse planned it round your calendar. Look it over and tap Looks good." : "Open it and Pulse plans today round your calendar."}`
                     : thePlanState === "ready"
                       ? "Pulse planned today round your calendar. Look it over and tap Looks good."
                       : "Not planned yet. Open it and Pulse plans today round your calendar."}
@@ -3810,7 +3820,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               <span className="pi-play" aria-hidden="true">☰</span>
               <span>
                 <b>Plan my day</b>
-                <span>{dayOver ? "See tomorrow's plan, built from what moves to tomorrow." : "Open the Day Clock: today planned round your calendar."}</span>
+                <span>{dayBegins.kind === "off" ? `${dayBegins.line}. ${dayBegins.button}.` : dayOver ? "See tomorrow's plan, built from what moves to tomorrow." : dayBegins.kind === "before" ? `${dayBegins.line}. Open the Day Clock: today planned round your calendar.` : "Open the Day Clock: today planned round your calendar."}</span>
               </span>
             </button>
           )}

@@ -177,18 +177,64 @@ export function followNode(overdue: number, today: number, next7: number, overdu
   };
 }
 
-/** ONE MOVE's answer on the map: the orb and its rows replace whatever was there. Without ONE MOVE on the map, nothing. */
-export function withFollowUps<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, f: FollowUps | null, today: string): G {
-  if (!f) return g;
+/** The label of ONE MOVE's overdue number; the Follow-ups orb shows the same number (walker 17 Oct). */
+export const OVERDUE_STAT = "Follow-ups overdue";
+
+/** What vip_summary already put on the map (built by lib/live.ts): the Follow-ups orb's rows and ONE MOVE's overdue
+ * number. Read from a freshly built live graph, before ONE MOVE's route rows replace the orb's. */
+export interface SummaryFollow {
+  rows: FollowUps;
+  overdue: number | null;
+}
+export function summaryFollowOf(g: { nodes: GraphNode[] }, today: string): SummaryFollow {
+  const kids = g.nodes.filter((n) => n.parentId === FOLLOW_NODE);
+  const v = g.nodes.find((n) => n.id === "move")?.stats?.find((s) => s.label === OVERDUE_STAT)?.value;
+  const n = v != null && /^\d+$/.test(v) ? Number(v) : null;
+  return { rows: rowsFromKids(kids, today), overdue: n };
+}
+
+/**
+ * ONE MOVE's route rows plus vip_summary's, one row per task (route rows first, they carry more). Walker, 17 Oct:
+ * the route leaves out the VIP-50 rotation tasks (source=generator_v2) while vip_summary counts them, so the orb said
+ * "All clear" beside "Follow-ups overdue 13". Every overdue task ONE MOVE's panel counts now shows here too.
+ */
+export function mergeFollowUps(route: FollowUps, summary: FollowUps | null | undefined): FollowUps {
+  if (!summary) return route;
+  const seen = new Set<string>();
+  const key = (r: FollowRow) => r.taskId ?? r.orbId;
+  for (const g of ["overdue", "today", "next7"] as const) for (const r of route[g]) seen.add(key(r));
+  const out: FollowUps = { overdue: [...route.overdue], today: [...route.today], next7: [...route.next7] };
+  for (const g of ["overdue", "today", "next7"] as const) {
+    for (const r of summary[g]) {
+      if (seen.has(key(r))) continue;
+      seen.add(key(r));
+      out[g].push(r);
+    }
+  }
+  out.overdue.sort((a, b) => b.lateDays - a.lateDays);
+  const byDue = (a: FollowRow, b: FollowRow) => (a.dueAt ?? "").localeCompare(b.dueAt ?? "");
+  out.today.sort(byDue);
+  out.next7.sort(byDue);
+  return out;
+}
+
+/** ONE MOVE's answer on the map, merged with what vip_summary sent (mergeFollowUps): the orb and its rows replace
+ * whatever was there, and the orb's overdue number is never below ONE MOVE's. `summary` defaults to what `g` itself
+ * holds (a freshly built live graph); pass the one kept from the last build when `g` already carries merged rows.
+ * Without ONE MOVE on the map, nothing. */
+export function withFollowUps<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, route: FollowUps | null, today: string, summary?: SummaryFollow | null): G {
+  if (!route) return g;
   const move = g.nodes.find((n) => n.id === "move");
   if (!move || move.locked) return g;
+  const sum = summary === undefined ? summaryFollowOf(g, today) : summary;
+  const f = mergeFollowUps(route, sum?.rows);
   const shown = shownRows(f);
   const ids = new Set(shown.map((s) => s.row.orbId));
   const old = new Set(g.nodes.filter((n) => n.parentId === FOLLOW_NODE).map((n) => n.id));
   const gone = (id: string) => id === FOLLOW_NODE || old.has(id) || ids.has(id);
   const nodes = g.nodes.filter((n) => !gone(n.id));
   const edges = g.edges.filter((e) => !gone(e.target) && !gone(e.source));
-  nodes.push(followNode(f.overdue.length, f.today.length, f.next7.length));
+  nodes.push(followNode(f.overdue.length, f.today.length, f.next7.length, sum?.overdue ?? null));
   edges.push({ id: `move>${FOLLOW_NODE}`, source: "move", target: FOLLOW_NODE, relationshipType: "belongs_to", strength: 1 });
   shown.forEach(({ group, row }, k) => {
     nodes.push({

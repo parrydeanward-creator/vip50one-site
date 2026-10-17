@@ -4,7 +4,8 @@ import type { GraphIndex } from "@/lib/graph/model.ts";
 import type { GraphNode } from "@/lib/graph/types.ts";
 import { STATUS, hex } from "@/lib/brain/theme.ts";
 import { menuNodeId, moveGroupsFor } from "@/lib/moveMenu.ts";
-import { daysLeftInMonth, liveItemsUnder, meter, tipFor } from "@/lib/groupPanel.ts";
+import { daysLeftInMonth, liveItemsUnder, meter, openTiles, partRows, tipFor } from "@/lib/groupPanel.ts";
+import { EVENTS_PARTS, OUTREACH_PARTS } from "@/lib/outreach.ts";
 
 // The right panel for a ONE MOVE group (Parry, 4 Oct): "what should I do here
 // right now, and how am I doing", never a description of the menu.
@@ -16,10 +17,38 @@ export default function GroupPanel({ node, ix, today, goTo }: { node: GraphNode;
   const coming = items.filter((n) => n.status === "opportunity").slice(0, 5);
   const tip = tipFor(doNow.length ? doNow : items);
   const stats = node.stats ?? [];
+  // Outreach and Events (walker, 17 Oct): each part with its line and pulse, lit ones first in the tip.
+  const partList = key === "outreach" ? OUTREACH_PARTS : key === "events" ? EVENTS_PARTS : [];
+  const parts = partRows(ix, node.id, partList);
+  const litParts = parts.filter((p) => p.lit);
+  const tiles = group ? openTiles(group.pages, new Set(partList.map((p) => p.path))) : [];
 
   return (
     <div className="gp">
       {tip && <p className="gp-tip">{tip}</p>}
+      {!tip && litParts.length > 0 && (
+        <p className="gp-tip">Follow the pulse: {litParts.map((p) => `${p.label} (${p.line})`).join(", ")}.</p>
+      )}
+
+      {parts.length > 0 && (
+        <section aria-label={`${node.label}: what each is doing`}>
+          <h2>What each is doing</h2>
+          <ul className="gp-list">
+            {parts.map((p) => (
+              <li key={p.id}>
+                <button onClick={() => goTo(p.id)} aria-label={`${p.label}: ${p.line}`} data-lit={p.lit ? "1" : undefined}>
+                  <i style={{ background: hex(STATUS[p.status ?? "healthy"].color), opacity: p.status ? 1 : 0.35 }} />
+                  <span>
+                    <b>{p.label}</b>
+                    <small>{p.line}</small>
+                  </span>
+                  <em aria-hidden="true">→</em>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {doNow.length > 0 && (
         <section>
@@ -107,13 +136,13 @@ export default function GroupPanel({ node, ix, today, goTo }: { node: GraphNode;
         </section>
       )}
 
-      {!doNow.length && !coming.length && !stats.length && !node.boxes?.length && <p className="gp-small">{node.needCount ? "Follow the pulse: open the part that is lit to see what needs you." : "Nothing here needs you right now."}</p>}
+      {!doNow.length && !coming.length && !stats.length && !node.boxes?.length && !parts.length && <p className="gp-small">{node.needCount ? "Follow the pulse: open the part that is lit to see what needs you." : "Nothing here needs you right now."}</p>}
 
-      {group && (
+      {tiles.length > 0 && (
         <section>
           <h2>Open</h2>
           <div className="gp-tiles">
-            {group.pages.map((pg) => (
+            {tiles.map((pg) => (
               <button key={pg.path} onClick={() => goTo(menuNodeId(pg.path))}>
                 {pg.label}
               </button>

@@ -50,7 +50,7 @@ test("the ring: 15 orbs before, 12 after; the four parts leave it, Follow-ups st
   const labels = ring(after).map((n) => n.label);
   assert.ok(labels.includes("Opportunities"));
   assert.ok(labels.includes("Follow-ups"));
-  for (const gone of ["New leads today", "New to Sort", "Looks Hot", "Likely to move"]) assert.ok(!labels.includes(gone), gone);
+  for (const gone of ["New leads", "New leads today", "New to Sort", "Looks Hot", "Likely to move"]) assert.ok(!labels.includes(gone), gone);
   assert.ok(after.nodes.some((n) => n.id === DEALS_NODE && n.parentId === "move"));
   assert.equal(after.nodes.find((n) => n.id === FOLLOW_NODE)!.parentId, "move");
 });
@@ -58,7 +58,8 @@ test("the ring: 15 orbs before, 12 after; the four parts leave it, Follow-ups st
 test("opened, the four parts sit round it in Parry's order, each with its own people", () => {
   const g = brainRing(true);
   const kids = g.nodes.filter((n) => n.parentId === OPP_NODE).sort((a, b) => b.importance - a.importance);
-  assert.deepEqual(kids.map((n) => n.label), ["New leads today", "New to Sort", "Looks Hot", "Likely to move"]);
+  // Rewritten 17 Oct (walker, Parry's live account: "New leads today" held 11, most from 9-13 Oct): the part is "New leads".
+  assert.deepEqual(kids.map((n) => n.label), ["New leads", "New to Sort", "Looks Hot", "Likely to move"]);
   assert.ok(g.edges.some((e) => e.source === OPP_NODE && e.target === LOOKS_NODE));
   assert.ok(!g.edges.some((e) => e.source === "move" && e.target === LOOKS_NODE));
   // the people stay inside their part
@@ -90,7 +91,7 @@ test("colour is its most urgent part: an unreached lead is red, and the pulse le
 
 test("all clear: a still green ring and a line saying what lands here", () => {
   let g: G = liveGraph(MASTER, opts, {});
-  g = withNewLeadsNode(g, { today, count: 0, untouched: 0, people: [] });
+  g = withNewLeadsNode(g, { today, count: 0, untouched: 0, waiting: 0, people: [] });
   g = withNewToSort(g, { sources: [], fromMove: true });
   g = withLooksHot(g, []);
   g = withMoveLikelyNode(g, null, { mlsMissing: true });
@@ -127,7 +128,8 @@ test("the example agent: New to Sort's demo orb goes inside Opportunities too", 
 });
 
 test("the People menu keeps a link to each part", () => {
-  assert.deepEqual(PEOPLE_MENU_PARTS.map((p) => p.label), ["New leads today", "Looks Hot", "Likely to move"]);
+  // Rewritten 17 Oct (walker): "New leads today" is now "New leads", holding every lead until reached.
+  assert.deepEqual(PEOPLE_MENU_PARTS.map((p) => p.label), ["New leads", "Looks Hot", "Likely to move"]);
   const g = brainRing(true);
   for (const p of PEOPLE_MENU_PARTS) assert.ok(g.nodes.some((n) => n.id === p.id), p.label);
 });
