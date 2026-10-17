@@ -124,6 +124,10 @@ import NewToSort from "./NewToSort.tsx";
 import OnboardingPanel from "./OnboardingPanel.tsx";
 import GettingStartedPanel from "./GettingStartedPanel.tsx";
 import TeamHubPanel, { isHubPart } from "./TeamHubPanel.tsx";
+import TeamAgentPanel from "./TeamAgentPanel.tsx";
+import TeamWarPanel from "./TeamWarPanel.tsx";
+import { useTeamRoom } from "./useTeamRoom.ts";
+import { agentIdOf, type TeamPeople, type War30 } from "@/lib/teamPeople.ts";
 import FollowUpsPanel from "./FollowUpsPanel.tsx";
 import { DEMO_FOLLOW_NODE, FOLLOW_NODE, followUpsUrl, isFollowUpsOrb, readFollowUps, rowsFromKids, withFollowUps, type FollowUps } from "@/lib/followUps.ts";
 import { START_NODE, demoStart, filmUrl, movePathOf, placeFor, readStart, startAgentUrl, startMenuLine, startUrl, withStartNode, type Start, type StartPlace, type StartStep } from "@/lib/gettingStarted.ts";
@@ -255,7 +259,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const startReopenRef = useRef(false);
   // The team lead's Team orb (lib/teamHub.ts): Leaderboard, War room and Onboarding, beside ONE YOU, leads only.
   const teamSitesRef = useRef(0);
-  const hubNow = (): HubInput => ({ lead: isTeamLead(warRef.current, onbRef.current, teamSitesRef.current), team: teamRef.current, war: warRef.current, onb: onbRef.current, removed: onbRemovedRef.current, now: Date.now() });
+  // The team's agents as faces and the War room's 30 days (lib/teamPeople.ts); null when ONE MOVE refuses (not a lead).
+  const peopleRef = useRef<TeamPeople | null>(null);
+  const war30Ref = useRef<War30 | null>(null);
+  const hubNow = (): HubInput => ({ lead: isTeamLead(warRef.current, onbRef.current, teamSitesRef.current) || !!peopleRef.current?.people.length, team: teamRef.current, war: warRef.current, onb: onbRef.current, removed: onbRemovedRef.current, now: Date.now(), people: peopleRef.current, war30: war30Ref.current });
   const admin = agent.admin === true;
   const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(productTour ? withTourPages(initialGraph) : live ? initialGraph : withTourPages(initialGraph, DEMO_PAGES), null), admin), teamLeadsHint));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
@@ -804,6 +811,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     warRef.current = war;
     setGraph((g) => withTeamLeadsPage(withTeamHub(g, hubNow()), !!war || teamLeadsHint));
   }, [war]);
+  const { people: teamPeople, war30, loadWar30 } = useTeamRoom(live);
+  useEffect(() => {
+    peopleRef.current = teamPeople;
+    war30Ref.current = war30;
+    setGraph((g) => withTeamHub(g, hubNow()));
+  }, [teamPeople, war30]);
   // Wins (§3t), from ONE MOVE; the example agent's in the demo. No orb since Parry, 16 Oct: this week's are the
   // Scoreboard's "This week's wins" and the Weekly Review's Wins card (one list); the year's list opens from the Scoreboard.
   const [winsOpen, setWinsOpen] = useState(false);
@@ -3256,8 +3269,27 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           ) : null}
 
           {(focus.id === TEAM_HUB || focus.id === TEAM_NODE || focus.id === WAR_NODE || focus.id === ONB_NODE) && !ask ? (
-            <TeamHubPanel id={focus.id} team={team} war={war} onb={onbShown} removed={onbRemovedRef.current} now={Date.now()} needs={needs} openOrb={openOrb} />
+            <TeamHubPanel id={focus.id} team={team} war={war} onb={onbShown} removed={onbRemovedRef.current} now={Date.now()} needs={needs} openOrb={openOrb} people={teamPeople} />
           ) : null}
+
+          {focus.id === WAR_NODE && war30 && !ask ? (
+            <TeamWarPanel
+              war={war30}
+              agents={(teamPeople?.people ?? war30.byAgent).map((a) => ({ id: a.id, first: a.first }))}
+              now={Date.now()}
+              live={live}
+              onChanged={() => {
+                loadWar30();
+                loadWar();
+              }}
+              onTeamLeads={() => goTo(movePageId(TEAM_LEADS_PATH))}
+            />
+          ) : null}
+
+          {agentIdOf(focus.id) && !ask && (() => {
+            const p = teamPeople?.people.find((x) => x.id === agentIdOf(focus.id));
+            return p ? <TeamAgentPanel key={focus.id} p={p} example={!!teamPeople?.example} /> : null;
+          })()}
 
           {focus.id === TEAM_HUB && attraction?.teamLead && !ask ? <AttractionSection a={attraction} live={live} /> : null}
 
