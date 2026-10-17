@@ -159,3 +159,13 @@ test("the example agent gets both groups with example numbers, its own orbs move
   assert.equal(g.edges.filter((e) => e.target === "move-6").length, 1);
   assert.equal(out[3].secondaryLabel, "Leads this month: 4");
 });
+
+test("follow the pulse: a lit part lights its group, even when the part holds child orbs", () => {
+  const g = { nodes: [{ id: "move", type: "product", label: "ONE MOVE" }] as GraphNode[], edges: [] as GraphEdge[] };
+  const out = withEventsNodes(g, demoEvents("2026-10-17"));
+  const mixer = out.nodes.find((n) => n.label === "Mixer")!;
+  out.nodes.push({ id: "mixer-child", type: "feature", label: "Guest list", parentId: mixer.id, status: "healthy", product: "move", importance: 0.5 } as GraphNode);
+  const need = needsOf(out.nodes).get(moveGroupId("events"));
+  assert.equal(need?.count, 1);
+  assert.equal(need?.level, "today");
+});

@@ -107,7 +107,7 @@ export default function GroupPanel({ node, ix, today, goTo }: { node: GraphNode;
         </section>
       )}
 
-      {!doNow.length && !coming.length && !stats.length && !node.boxes?.length && <p className="gp-small">Nothing here needs you right now.</p>}
+      {!doNow.length && !coming.length && !stats.length && !node.boxes?.length && <p className="gp-small">{node.needCount ? "Follow the pulse: open the part that is lit to see what needs you." : "Nothing here needs you right now."}</p>}
 
       {group && (
         <section>

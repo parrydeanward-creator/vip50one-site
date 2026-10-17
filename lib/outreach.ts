@@ -205,8 +205,11 @@ function withParts<g extends G>(g: g, key: "outreach" | "events", label: string,
   const move = g.nodes.find((n) => n.id === "move");
   if (!move || move.locked) return g;
   const gid = moveGroupId(key);
-  const nodes = [...g.nodes];
-  let edges = [...g.edges];
+  // The Outreach orb is itself the overview: the menu's "Overview" row (/outreach, Classic's summary page) is not a
+  // fifth part on the ring (screen check 17 Oct).
+  const own = key === "outreach" ? movePageId("/outreach") : null;
+  const nodes = g.nodes.filter((n) => n.id !== own);
+  let edges = g.edges.filter((e) => e.target !== own && e.source !== own);
   if (!nodes.some((n) => n.id === gid)) {
     nodes.push({ id: gid, type: "category", label, secondaryLabel: blurb, parentId: "move", product: "move", importance: key === "outreach" ? 0.86 : 0.88, summary: `${label} in ONE MOVE: ${parts.map((p) => p.label).join(", ")}.` });
     edges.push({ id: `move>${gid}`, source: "move", target: gid, relationshipType: "belongs_to", strength: 1 });
@@ -234,6 +237,9 @@ function withParts<g extends G>(g: g, key: "outreach" | "events", label: string,
       secondaryLabel: s?.line ?? n.secondaryLabel,
       status: s ? s.status : n.status,
       needCount: s ? s.needCount : n.needCount,
+      // Follow the pulse (HARD RULE, 5 Oct): a part with child orbs is not a leaf, so its own pulse is carried up by its
+      // floor; a lit Mixer or Newsletter lights Events or Outreach above it (screen check 17 Oct: Events stayed green).
+      needFloor: s?.status === "attention" || s?.status === "action" ? { count: s.needCount ?? 1, level: s.status === "action" ? "now" : "today" } : n.needFloor,
     };
   });
   return { ...g, nodes, edges };
@@ -251,7 +257,7 @@ export function withEventsNodes<g extends G>(g: g, e: EventsNow | null): g {
 // ---- the example agent (?demo=1): no network; invented numbers say "Example" in the panel --------------------------
 
 export function demoOutreach(): Outreach {
-  return { newsletterSent: 1, reportsSetUp: 3, reportsReady: 2, plansRunning: 6, plansWaiting: 2, landingVisitors: null, landingLeads: 4 };
+  return { newsletterSent: 0, reportsSetUp: 3, reportsReady: 2, plansRunning: 6, plansWaiting: 2, landingVisitors: null, landingLeads: 4 };
 }
 const plusDays = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 export function demoEvents(today: string): EventsNow {
