@@ -23,9 +23,10 @@ export interface ScoreboardLive {
   /** Days in a row with ONE GO opened (ONE MOVE's loginStreak). */
   streak: number;
   xp: { week: number; lastWeek: number };
-  /** ONE MOVE's `weekly_totals.combined_total` rows, newest first. Not shown: that table stopped being written in
-   *  Aug 2025 (Parry's last row is the week of 11 Aug 2025), so it is not the weekly score; see weeklyScoreLines. */
-  history: { weekStart: string; total: number }[];
+  /** The weekly scores, newest first. Now `[{week_start_date, score, minimum}]` from weekly_scores (the live
+   *  100-standard score, vip50-web-crm#287). An older answer's `{week_start_date, combined_total}` rows (weekly_totals,
+   *  not written since Aug 2025) are still read but marked `legacy`, and never shown as the weekly score. */
+  history: { weekStart: string; score: number; minimum: number; legacy?: true }[];
 }
 
 const day = (v: unknown): string | null => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null);
@@ -58,8 +59,15 @@ export function readScoreboard(j: unknown): ScoreboardLive | null {
       if (!h || typeof h !== "object") continue;
       const x = h as Record<string, unknown>;
       const ws = day(x.week_start_date);
-      const t = num(x.combined_total);
-      if (ws && t != null) history.push({ weekStart: ws, total: Math.round(t) });
+      if (!ws) continue;
+      const sc = num(x.score);
+      const min = num(x.minimum);
+      const minimum = min != null && min > 0 ? Math.round(min) : 100;
+      if (sc != null) history.push({ weekStart: ws, score: Math.max(0, Math.round(sc)), minimum });
+      else {
+        const t = num(x.combined_total);
+        if (t != null) history.push({ weekStart: ws, score: Math.max(0, Math.round(t)), minimum: 100, legacy: true });
+      }
     }
     history.sort((a, b) => b.weekStart.localeCompare(a.weekStart));
   }
@@ -87,6 +95,17 @@ export function streakXpLines(s: ScoreboardLive): { streak: string; xp: string; 
 export type ScoreWeek = { start: string; score: number | null; minimum: number };
 
 const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * The weeks for the Scoreboard's weekly score row, from one source: ONE MOVE's scoreboard route (`history`, from
+ * weekly_scores) when it sends them; the history route's weeks (the same weekly_scores rows; the Weekly Review's) only
+ * when it does not (an older route, or the example agent, whose scoreboard is the demo graph's).
+ */
+export function scoreWeeks(s: ScoreboardLive | null | undefined, fallback: ScoreWeek[] | null | undefined): ScoreWeek[] | null {
+  const own = (s?.history ?? []).filter((h) => !h.legacy);
+  if (own.length) return own.map((h) => ({ start: h.weekStart, score: h.score, minimum: h.minimum }));
+  return fallback?.length ? fallback : null;
+}
 
 /** The Scoreboard's weekly score row from the same weeks as the Weekly Review: last full week big (as Pulse's read,
  *  pulseRead's `last`), this week so far and the weeks before in the note. Null when there is no scored week. */

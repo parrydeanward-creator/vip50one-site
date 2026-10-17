@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { missionDot, missionLine, readScoreboard, scoreboardUrl, streakXpLines, weeklyScoreLines } from "../lib/scoreboard.ts";
+import { missionDot, missionLine, readScoreboard, scoreWeeks, scoreboardUrl, streakXpLines, weeklyScoreLines } from "../lib/scoreboard.ts";
 import { pulseRead } from "../lib/pulseCoach.ts";
 
 // ONE MOVE's `GET /api/brain/scoreboard` (vip50-web-crm#281): the shape is app/api/brain/scoreboard/route.ts there
@@ -91,4 +91,39 @@ test("weeklyScoreLines agrees with Pulse's read: the same last week as the Weekl
   const card = read?.parts.find((p) => p.title === "Weekly score");
   assert.equal(card?.big, "92");
   assert.equal(weeklyScoreLines(PARRY_WEEKS, "2026-10-17")!.big, `${card?.big} last week`);
+});
+
+// vip50-web-crm#287: `history` is now [{week_start_date, score, minimum}] newest first, from weekly_scores.
+test("readScoreboard: the new history shape; the old weekly_totals rows read but marked legacy", () => {
+  const s = readScoreboard({
+    week_start: "2026-10-12",
+    mission: [],
+    history: [
+      { week_start_date: "2026-09-28", score: 39, minimum: 100 },
+      { week_start_date: "2026-10-12", score: 15, minimum: 100 },
+      { week_start_date: "2026-10-05", score: 92, minimum: null },
+      { week_start_date: "bad", score: 1, minimum: 100 },
+      { week_start_date: "2026-09-21", score: "x" },
+    ],
+  })!;
+  assert.deepEqual(s.history, [
+    { weekStart: "2026-10-12", score: 15, minimum: 100 },
+    { weekStart: "2026-10-05", score: 92, minimum: 100 },
+    { weekStart: "2026-09-28", score: 39, minimum: 100 },
+  ]);
+  const old = readScoreboard(answer)!;
+  assert.ok(old.history.every((h) => h.legacy));
+  assert.deepEqual(old.history[0], { weekStart: "2026-10-12", score: 44, minimum: 100, legacy: true });
+});
+
+test("scoreWeeks: one source, the scoreboard route's weeks; the history route's only when it sends none", () => {
+  const s = readScoreboard({ week_start: "2026-10-12", mission: [], history: [{ week_start_date: "2026-10-12", score: 15, minimum: 100 }, { week_start_date: "2026-10-05", score: 92, minimum: 100 }] })!;
+  const fallback = [{ start: "2026-10-05", score: 1, minimum: 100 }];
+  assert.deepEqual(scoreWeeks(s, fallback), [{ start: "2026-10-12", score: 15, minimum: 100 }, { start: "2026-10-05", score: 92, minimum: 100 }]);
+  assert.equal(weeklyScoreLines(scoreWeeks(s, fallback), "2026-10-17")!.big, "92 last week");
+  // the old stale rows never become the weekly score
+  assert.equal(scoreWeeks(readScoreboard(answer), fallback), fallback);
+  assert.equal(scoreWeeks(null, fallback), fallback);
+  assert.equal(scoreWeeks(null, []), null);
+  assert.equal(scoreWeeks(undefined, null), null);
 });
