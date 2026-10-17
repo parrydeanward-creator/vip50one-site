@@ -12,13 +12,14 @@ test("a listing reads as live, under contract or closed", () => {
   assert.equal(listingLine({ ref: "a", address: "x", status: "closed", sold_price: 612000 }, "2026-10-03"), "Closed · $612,000");
 });
 
-test("Marquee listings show as homes under Your listings, with photo and link", () => {
+test("Marquee listings show as homes under the Listings tool, with photo and link", () => {
   const marquee: SummaryEnvelope = { v: 1, product: "marquee", found: true, stats: [], items: [], listings: [
     { ref: "p1", address: "450 E 100 S #20, Salt Lake City, UT 84111", status: "live", live_on: "2026-09-28", list_price: 333333, image: "https://marquee.vip-50.com/api/listing-photo?l=p1", link: "https://marquee.vip-50.com/go?c=1" },
     { ref: "p2", address: "970 E 2050 S, Bountiful, UT 84010", status: "live", live_on: "2026-09-30", list_price: 599000, image: "javascript:x", link: "https://marquee.vip-50.com/go?c=2" },
   ] };
   const g = liveGraph(MASTER, opts, { marquee: { reachable: true, env: marquee } });
-  const homes = g.nodes.filter((n) => n.parentId === "marquee-listings");
+  // Rewritten 17 Oct (VIP-SUMMARY §3ai): the homes now sit inside Marquee's Listings tool, not a "Your listings" group.
+  const homes = g.nodes.filter((n) => n.parentId === "marquee-tool-listings");
   assert.equal(homes.length, 2);
   assert.equal(homes[0].type, "property");
   assert.equal(homes[0].label, "450 E 100 S #20");

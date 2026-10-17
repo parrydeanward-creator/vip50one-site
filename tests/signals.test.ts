@@ -44,7 +44,7 @@ test("the light starts at the product orb, else the nearest visible step toward 
   const s = DEMO_SIGNALS.find((x) => x.id === "sig-showly")!;
   const path = pathTo(ix, s.nodeId).map((n) => n.id);
   assert.equal(lightFrom(s, path, () => true), "showly");
-  assert.equal(lightFrom(s, path, (id) => id === "showly-2"), "showly-2");
+  assert.equal(lightFrom(s, path, (id) => id === "showly-tool-answers"), "showly-tool-answers"); // §3ai: the Buyer answers tool
   assert.equal(lightFrom(s, path, (id) => id === "one"), null);
 });
 

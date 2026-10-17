@@ -122,7 +122,7 @@ const AREA_R = 300;
 const KID_R = 240;
 
 export function productFilm(p: FilmProduct): ProductFilm {
-  const ix = indexGraph(demoGraph("complete"));
+  const ix = indexGraph(demoGraph("complete", { deep: true })); // the films walk each app's own steps
   const script = SCRIPTS[p];
   const areas = script.beats.map((b) => b.area);
   const nodes: GraphNode[] = [{ ...ix.byId.get(p)!, parentId: null, status: undefined }];

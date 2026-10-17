@@ -5,6 +5,7 @@ import { withOpportunities } from "./opportunities.ts";
 import { celebrateIds, withSpecialDays } from "./specialDays.ts";
 import { addGoals, type GoalKey } from "./goals.ts";
 import { includes } from "./products.ts";
+import { productToolOrbs, toolForKind, type ToolOrb } from "./productTools.ts";
 import { goHref, goUrl } from "./productSignIn.ts";
 import { MENU_ORB, MOVE_BOTTOM, MOVE_GROUPS, moveGroupId, moveMenuHref, movePageId } from "./moveMenu.ts";
 import type { DayItem, DayKind } from "./day.ts";
@@ -152,6 +153,8 @@ export const OTHER_KEYS: readonly OtherKey[] = OTHERS;
 export interface OtherAnswer {
   env: SummaryEnvelope | null;
   reachable: boolean;
+  // ONE Open only: its vip_open_tools answer (VIP-SUMMARY §3ai.1); absent or null shows ONE Open's labelled examples.
+  tools?: unknown;
 }
 export type OtherAnswers = Partial<Record<OtherKey, OtherAnswer>>;
 
@@ -257,6 +260,12 @@ export function dueIn(items: SummaryItem[]): GraphNode["dueContacts"] {
     .filter((i) => (i.urgency === "alert" || i.urgency === "today") && typeof i.contact_id === "string" && UUID.test(i.contact_id))
     .map((i) => ({ id: i.contact_id as string, title: i.title, level: i.urgency === "alert" ? ("now" as const) : ("today" as const) }));
   return out.length ? out : undefined;
+}
+
+const RANK: Record<NodeStatus, number> = { action: 3, attention: 2, opportunity: 1, healthy: 0 };
+/** The more urgent of a status and some more (follow the pulse: red beats yellow beats the rest). */
+export function worse(a: NodeStatus | undefined, more: NodeStatus[]): NodeStatus | undefined {
+  return more.reduce<NodeStatus | undefined>((x, y) => (!x || RANK[y] > RANK[x] ? y : x), a);
 }
 
 function worst(items: SummaryItem[]): NodeStatus | undefined {
@@ -592,15 +601,72 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
       if (!a.env?.found) return add({ ...base, secondaryLabel: sub, summary: `ONE didn't find a ${name} account under your email. If you use ${name} with another email, ask us to link it.` });
     }
     const dueHere = xs.filter(isToday);
+    // VIP-SUMMARY §3ai: the product's tools as child orbs, each with its own panel (real data, else the product's
+    // labelled example). Items of a kind a tool holds sit inside that tool; the rest keep their group below.
+    const answered = !!a?.reachable && !!a.env?.found;
+    const tools = answered ? productToolOrbs(p, a!.env, o.today, a!.tools) : [];
+    const toolOf = (it: SummaryItem) => toolForKind(tools, it.kind);
+    // a tool's own rows pulse only when no vip_summary item already does for it (never counted twice)
+    const rowPulse = (t: ToolOrb) => !xs.some((it) => toolOf(it) === t);
+    const rowStatus = tools.flatMap((t) => (rowPulse(t) ? t.rows.map((r) => r.status).filter((x): x is NodeStatus => !!x) : []));
     add({
       ...base,
       secondaryLabel: sub,
-      status: worst(xs),
+      status: worse(worst(xs), rowStatus),
       summary: dueHere.length ? `${dueHere.length === 1 ? "One thing needs" : `${dueHere.length} things need`} you in ${name}, starting with: ${dueHere[0].title}.` : xs.length ? `Nothing in ${name} is due today; ${xs.length} coming up.` : `Nothing in ${name} needs you right now.`,
       stats: (a?.env?.stats ?? []).map((st) => ({ label: st.label, value: ofMax(st) ?? "None" })),
     });
+    // VIP-SUMMARY §3a: Marquee's listings as homes, even when nothing is due (inside the Listings tool, §3ai).
+    const homes = (a?.env?.listings ?? []).filter((l) => l.ref && l.address).slice(0, 20);
+    tools.forEach((t, ti) => {
+      const mine = xs.filter((it) => toolOf(it) === t);
+      const pulse = rowPulse(t);
+      const shownStreets = new Set(mine.map((it) => it.title.split(",")[0].trim()));
+      const rows = t.rows.filter((r) => !shownStreets.has(r.label));
+      const listingHomes = t.key === "listings" && p === "marquee" ? homes : [];
+      const own = pulse ? rows.map((r) => r.status).filter((x): x is NodeStatus => !!x) : [];
+      add({
+        id: t.id,
+        type: "category",
+        label: t.label,
+        secondaryLabel: t.sub,
+        parentId: p,
+        product: p,
+        importance: 1.2 - ti * 0.01,
+        status: worse(mine.length ? worst(mine) : "healthy", own),
+        summary: t.summary,
+        stats: t.stats?.length ? t.stats : undefined,
+        href: t.href,
+      });
+      mine.forEach((it, j) => itemNode(add, it, t.id, p, 1 - j * 0.03, it.kind === "open_house" ? "property" : "task"));
+      listingHomes.forEach((l, j) => add({
+        id: `marquee:listing:${l.ref}`,
+        type: "property",
+        label: l.address.split(",")[0].trim(),
+        secondaryLabel: listingLine(l, o.today),
+        parentId: t.id,
+        product: p,
+        importance: 0.95 - j * 0.03,
+        status: l.status === "closed" ? "opportunity" : "healthy",
+        summary: `${l.address}. ${listingLine(l, o.today)}.`,
+        href: safeImage(l.link ?? null),
+        image: safeImage(l.image ?? null),
+      }));
+      rows.forEach((r, j) => add({
+        id: r.id,
+        type: r.type ?? "feature",
+        label: r.label,
+        secondaryLabel: r.sub,
+        parentId: t.id,
+        product: p,
+        importance: 0.9 - j * 0.03,
+        status: pulse ? r.status : undefined,
+        summary: r.sub ? `${r.label}. ${r.sub}.` : r.label,
+        href: r.href ?? t.href,
+      }));
+    });
     const groups = new Map<string, SummaryItem[]>();
-    xs.forEach((it) => {
+    xs.filter((it) => !toolOf(it)).forEach((it) => {
       const g = KIND_GROUP[it.kind] ?? "Other";
       groups.set(g, [...(groups.get(g) ?? []), it]);
     });
@@ -609,8 +675,6 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
       add({ id: cid, type: "category", label: g, secondaryLabel: `${list.length} waiting`, parentId: p, product: p, importance: 1 - gi * 0.04, status: worst(list), summary: `${g} in ${name}.` });
       list.forEach((it, j) => itemNode(add, it, cid, p, 1 - j * 0.03, it.kind === "open_house" ? "property" : "task"));
     });
-    // VIP-SUMMARY §3a: Marquee's listings as homes, even when nothing is due.
-    const homes = (a?.env?.listings ?? []).filter((l) => l.ref && l.address).slice(0, 20);
     // The timeline (walker audit 02): Marquee posts that went out or are really scheduled, and open houses held.
     const ymd = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date(iso));
     const NET: Record<string, string> = { instagram: "Instagram", facebook: "Facebook" };
@@ -630,7 +694,8 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
       for (const l of homes)
         for (const [day, word] of [[l.live_on, "Went live"], [l.under_contract_on, "Under contract"], [l.closed_on, "Closed"]] as const)
           if (day && /^\d{4}-\d{2}-\d{2}/.test(day)) listingDated.push({ id: `marquee:listing:${l.ref}`, product: "marquee", at: `${day.slice(0, 10)}T18:00:00.000Z`, what: `${word}: ${l.address.split(",")[0].trim()}.` });
-    if (p === "marquee" && homes.length) {
+    // (no tools: the product did not answer) the listings keep their own orb
+    if (p === "marquee" && homes.length && !tools.length) {
       add({ id: "marquee-listings", type: "category", label: "Your listings", secondaryLabel: `${homes.length} ${homes.length === 1 ? "home" : "homes"}`, parentId: p, product: p, importance: 1.02, status: "healthy", summary: "Your listings in Marquee: live, under contract and recently closed." });
       homes.forEach((l, j) => add({
         id: `marquee:listing:${l.ref}`,

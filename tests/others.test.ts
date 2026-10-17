@@ -48,11 +48,15 @@ test("a connected product shows its own numbers, as sent", () => {
   assert.equal(ix.byId.get("marquee")!.status, "action"); // an alert is waiting
 });
 
-test("its items hang under named groups, each with its why and link", () => {
+// Rewritten 17 Oct (VIP-SUMMARY §3ai): approvals and seller reports now sit inside Marquee's tool orbs (Posts waiting,
+// Seller reports); kinds no tool holds (failed) keep their named group.
+test("its items hang under its tools or named groups, each with its why and link", () => {
   const g = liveGraph(MASTER, OPTS, ALL);
   const ix = indexGraph(g);
   const groups = childrenOf(ix, "marquee").map((n) => n.label);
-  assert.deepEqual(groups.sort(), ["Approvals", "Needs fixing", "Seller reports"]);
+  assert.deepEqual(groups, ["Listings", "Calendar", "Posts waiting", "Seller reports", "Presentations", "Room cards", "Needs fixing"]);
+  assert.equal(ix.byId.get("live:marquee:approval:7b88")!.parentId, "marquee-tool-posts");
+  assert.equal(ix.byId.get("live:marquee:report:7b88")!.parentId, "marquee-tool-reports");
   for (const it of MARQUEE.items!) {
     const n = ix.byId.get(`live:marquee:${it.id}`)!;
     assert.ok(n, it.id);

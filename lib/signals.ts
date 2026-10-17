@@ -80,9 +80,9 @@ export const DEMO_SIGNALS: Signal[] = [
   {
     id: "sig-showly",
     product: "showly",
-    nodeId: "showly-2",
+    nodeId: "showly-tool-answers",
     what: "The Parkers said Yes to 742 Willow Lane on today's tour.",
-    bumps: [{ nodeId: "showly", label: "New answers", by: 1 }, { nodeId: "showly-2", sub: true, by: 1 }],
+    bumps: [{ nodeId: "showly", label: "New answers", by: 1 }, { nodeId: "showly-tool-answers", sub: true, by: 1 }],
   },
   {
     id: "sig-move",
@@ -108,16 +108,16 @@ export const DEMO_SIGNALS: Signal[] = [
   {
     id: "sig-marquee",
     product: "marquee",
-    nodeId: "marquee-3",
+    nodeId: "marquee-tool-posts",
     what: "2 more posts for 1482 Maple Ridge Dr are ready for your approval.",
-    bumps: [{ nodeId: "marquee", label: "Waiting for approval", by: 2 }, { nodeId: "marquee-3", sub: true, by: 2 }],
+    bumps: [{ nodeId: "marquee", label: "Waiting for approval", by: 2 }, { nodeId: "marquee-tool-posts", sub: true, by: 2 }],
   },
   {
     id: "sig-open",
     product: "open",
-    nodeId: "open-3",
+    nodeId: "open-tool-questions",
     what: "A visitor from Saturday's open house asked for the disclosures.",
-    bumps: [{ nodeId: "open-3", sub: true, by: 1 }],
+    bumps: [{ nodeId: "open-tool-questions", sub: true, by: 1 }],
   },
 ];
 

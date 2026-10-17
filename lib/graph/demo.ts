@@ -6,6 +6,7 @@ import { addMove } from "./move.ts";
 import { addMarquee } from "./marquee.ts";
 import { addOpen } from "./open.ts";
 import { addShowly } from "./showly.ts";
+import { addTools } from "./tools.ts";
 
 // A made-up agent's business (every name and address invented), deep on ONE GO
 // and one level deep on the other four products (research/ONE-BRAIN.md §10).
@@ -20,7 +21,11 @@ const PRODUCT_FOR_PACKAGE: Record<Exclude<ProductKey, "one" | "growth">, "go" | 
   open: "open",
 };
 
-export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
+/**
+ * `deep`: the older one-tree-per-app models of Marquee, ONE Open and Showly (each app's own steps), which the product
+ * films walk through. The dashboard shows each product's tools instead (VIP-SUMMARY §3ai), with labelled examples.
+ */
+export function demoGraph(pkg: PackageId = "complete", opts: { deep?: boolean } = {}): BusinessGraph {
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
   const add = (n: N) => {
@@ -84,18 +89,25 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
   // ---- the other four, in depth (each modelled on its live app) ------------
   const on = (p: string) => !nodes.find((n) => n.id === p)?.locked;
   if (on("move")) addMove(add);
-  if (on("marquee")) addMarquee(add, link);
-  if (on("open")) addOpen(add);
-  if (on("showly")) addShowly(add);
+  const ymdToday = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date());
+  if (opts.deep) {
+    if (on("marquee")) addMarquee(add, link);
+    if (on("open")) addOpen(add);
+    if (on("showly")) addShowly(add);
+  } else {
+    if (on("marquee")) addTools(add, "marquee", ymdToday);
+    if (on("open")) addTools(add, "open", ymdToday);
+    if (on("showly")) addTools(add, "showly", ymdToday);
+  }
 
   // Since you were last here (demo): what changed overnight, newest first.
   const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000).toISOString();
   const has = (p: string) => !nodes.find((n) => n.id === p)?.locked;
   const changes = [
     { id: "p-millers", product: "showly" as const, what: "The Millers answered on 4 homes from yesterday's tour: two Yes.", at: hoursAgo(2) },
-    { id: "marquee-3", product: "marquee" as const, what: "5 posts for 1482 Maple Ridge Dr are ready for your approval.", at: hoursAgo(5) },
+    { id: opts.deep ? "marquee-3" : "marquee-tool-posts", product: "marquee" as const, what: "5 posts for 1482 Maple Ridge Dr are ready for your approval.", at: hoursAgo(5) },
     { id: "task-followups", product: "move" as const, what: "2 more follow-ups became overdue overnight.", at: hoursAgo(9) },
-    { id: "open-3", product: "open" as const, what: "2 visitors from Saturday's open house still need a rating.", at: hoursAgo(14) },
+    { id: opts.deep ? "open-3" : "open-tool-visitors", product: "open" as const, what: "2 visitors from Saturday's open house still need a rating.", at: hoursAgo(14) },
   ].filter((c) => has(c.product) && nodes.some((n) => n.id === c.id));
 
   // The timeline (demo): what happened in the last month and what is coming.
@@ -107,16 +119,16 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
     [
       ["p-dave", "move", -20, "Closed: the Nguyens, referred by Dave Kim."],
       ["p-amy", "move", -12, "Amy Chen sent you a referral."],
-      ["marquee-3", "marquee", -9, "1482 Maple Ridge Dr campaign launched."],
+      [opts.deep ? "marquee-3" : "marquee-tool-listings", "marquee", -9, "1482 Maple Ridge Dr campaign launched."],
       ["p-parkers", "move", -6, "The Parkers posted their new kitchen. You commented."],
-      ["open-3", "open", -4, "Open house at 1482 Maple Ridge Dr: 14 visitors signed in."],
+      [opts.deep ? "open-3" : "open-tool-open_houses", "open", -4, "Open house at 1482 Maple Ridge Dr: 14 visitors signed in."],
       ["p-millers", "showly", -1, "The Millers toured 4 homes and said Yes to two."],
       ["p-jen", "move", 1, "Jen Alvarez's birthday."],
       ["task-approve", "marquee", 1, "Maple Ridge posts start going out."],
       ["task-report", "marquee", 2, "Weekly seller report for Maple Ridge is due."],
-      ["open-2", "open", 4, "Open house, Sunday 1-3pm, 1482 Maple Ridge Dr."],
+      [opts.deep ? "open-2" : "open-tool-open_houses", "open", 4, "Open house, Sunday 1-3pm, 1482 Maple Ridge Dr."],
       ["p-marcus", "move", 5, "Lunch with Marcus Lee (face-to-face)."],
-      ["showly-3", "showly", 9, "The Millers' second tour."],
+      [opts.deep ? "showly-3" : "showly-tool-tours", "showly", 9, "The Millers' second tour."],
       ["go-dates", "move", 12, "Tom and Lisa Reyes' anniversary."],
       ["go-event", "go", 16, "Fall Client Mixer."],
     ] as const
@@ -140,7 +152,7 @@ export function demoGraph(pkg: PackageId = "complete"): BusinessGraph {
       { id: "day-luis", nodeId: "mv-f4", product: "move", kind: "call", what: "Call Luis Ortega to check in.", minutes: 10, urgency: "today" },
       { id: "day-priya", nodeId: "mv-f3", product: "move", kind: "text", what: "Text Priya Shah.", minutes: 5, urgency: "today" },
       { id: "day-marcus", nodeId: "p-marcus", product: "move", kind: "meeting", what: "Lunch with Marcus Lee.", minutes: 60, vip: true, at: "12:30" },
-      { id: "day-rate", nodeId: "open-3", product: "open", kind: "rating", what: "Rate the 2 visitors from Saturday.", minutes: 5, urgency: "soon" },
+      { id: "day-rate", nodeId: opts.deep ? "open-3" : "open-tool-visitors", product: "open", kind: "rating", what: "Rate the 2 visitors from Saturday.", minutes: 5, urgency: "soon" },
       { id: "day-follow", nodeId: "task-followups", product: "move", kind: "follow_up", what: "Clear the 4 overdue follow-ups.", minutes: 20, urgency: "alert" },
     ] as import("../day.ts").DayItem[]
   ).filter((d) => has(d.product) && nodes.some((n) => n.id === d.nodeId));

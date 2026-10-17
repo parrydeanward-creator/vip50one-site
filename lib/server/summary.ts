@@ -35,11 +35,21 @@ export function ecosystemSecret(): string | undefined {
   return process.env.VIP_ECOSYSTEM_SECRET?.trim() || undefined;
 }
 
-async function askSummary(base: string, apikey: string, email: string): Promise<SummaryResult> {
+/**
+ * ONE Open's tools for the Brain's tool orbs (VIP-SUMMARY §3ai.1, migration 076): `vip_open_tools`, same partner
+ * (`one-brain`), same secret and publishable key as ONE Open's vip_summary, server-side only. Null on any failure, so
+ * the tool orbs show ONE Open's labelled examples instead.
+ */
+export async function openTools(email: string): Promise<unknown | null> {
+  const r = await askSummary(OTHER_SOURCES.open.url, OTHER_SOURCES.open.key, email, "vip_open_tools");
+  return r.ok ? r.env : null;
+}
+
+async function askSummary(base: string, apikey: string, email: string, rpc = "vip_summary"): Promise<SummaryResult> {
   const secret = ecosystemSecret();
   if (!secret) return { ok: false, reason: "no-secret" };
   try {
-    const r = await fetch(`${base}/rest/v1/rpc/vip_summary`, {
+    const r = await fetch(`${base}/rest/v1/rpc/${rpc}`, {
       method: "POST",
       headers: { apikey, "Content-Type": "application/json" },
       body: JSON.stringify({ p_partner: "one-brain", p_secret: secret, p_email: email }),
