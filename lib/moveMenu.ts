@@ -74,15 +74,16 @@ export const MOVE_GROUPS: MoveGroup[] = [
   {
     key: "outreach",
     label: "Outreach",
-    blurb: "Newsletter, pages, plans and reports",
+    blurb: "Newsletter, reports, plans and pages",
     pages: [
       // ONE MOVE's Outreach overview (17 Oct), first in the group
       { label: "Overview", path: "/outreach" },
       { label: "Newsletter", path: "/newsletter" },
       { label: "Landing Pages", path: "/landing-pages" },
       { label: "Action Plans", path: "/action-plans" },
-      // HOME-REPORT.md §5.4 (16 Oct): every running Home Report this month, and the bulk start for past clients
-      { label: "Home Reports", path: "/home-reports" },
+      // HOME-REPORT.md §5.4 (16 Oct): every running report this month, and the bulk start; named "Market Reports"
+      // since v0.4 (Parry, 16 Oct: "1 yes"). The path stays ONE MOVE's /home-reports.
+      { label: "Market Reports", path: "/home-reports" },
     ],
   },
   {

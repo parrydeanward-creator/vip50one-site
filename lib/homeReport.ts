@@ -12,11 +12,26 @@ export const homeReportUrl = `${MOVE_URL}/api/brain/home-report`;
 export const contactReportsUrl = (contactId: string) => `${homeReportUrl}?contact_id=${encodeURIComponent(contactId)}`;
 export const stopReportUrl = (id: string) => `${homeReportUrl}?id=${encodeURIComponent(id)}`;
 export const bulkUrl = `${homeReportUrl}/bulk`;
+/** The bulk start's two lists (HOME-REPORT v0.4 box 3): VIP-50 and VIP-100 (ONE MOVE's default), or past clients. */
+export type BulkGroup = "vips" | "past_clients";
+export const bulkGroupUrl = (group: BulkGroup) => `${bulkUrl}?group=${group}`;
 export const monthUrl = `${homeReportUrl}/month`;
 
 /** The 5th: last month's MLS figures have settled (§4.1). ONE MOVE takes 1 to 28. */
 export const DEFAULT_DAY = 5;
 export const HOME_REPORTS_PATH = "/home-reports";
+
+// The one name agents see (HOME-REPORT v0.4, Parry 16 Oct: "1 yes"): the Home Report, Market Pulse and Classic's
+// per-contact market report are one thing, "Market Report". The report itself keeps its title "Your home's
+// neighbourhood"; routes and code keep the old names.
+export const CARD_TITLE = "Monthly Market Report";
+export const AREA_WORDS = "Their neighbourhood";
+/** No report goes out with figures until the MLS feed is live (§6). */
+export const FEED_LIVE = false;
+export const FEED_LINE = "Reports start when the UtahRealEstate.com feed is live.";
+/** HOME-REPORT v0.4 box 2: ONE MOVE gives the credit; the card only says so. */
+export const CREDIT_LINE = "Each report sent counts as this month's market report touch.";
+export const VIPS_BULK = "Set up Market Reports for all your VIPs";
 
 export type StartedBy = "agent" | "bulk" | "site_request";
 export interface ReportSend { month: string; channel: string; via: string; sentAt: string | null }
@@ -228,8 +243,8 @@ export function withValue(c: ContactReports, id: string, amount: number | null, 
 export const autostartBody = (on: boolean) => ({ autostart: on });
 export const bulkBody = (ids: Iterable<string>) => ({ contact_ids: [...new Set(ids)] });
 
-/** "Start the Home Report for 3" (§4.2). */
-export const bulkButton = (n: number) => `Start the Home Report for ${n}`;
+/** "Start 3 Market Reports" (§4.2). */
+export const bulkButton = (n: number) => `Start ${n} Market Report${n === 1 ? "" : "s"}`;
 
 /** This month in three: sent, due (its day has come, not sent yet) and coming later in the month. */
 export function monthGroups(card: MonthCard): { due: MonthRow[]; coming: MonthRow[]; sent: MonthRow[] } {

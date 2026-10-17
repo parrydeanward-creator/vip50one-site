@@ -445,7 +445,7 @@ function HomeReportSwitch() {
       const j = await r.json().catch(() => null);
       if (!r.ok || !j?.ok) throw new Error(j?.error || "That didn't save. Nothing was changed.");
       setOn(j.autostart === true);
-      setMsg(next ? "A request on your site now starts its Home Report by itself." : "Each request on your site arrives as a task you start with one tap.");
+      setMsg(next ? "A request on your site now starts its Market Report by itself." : "Each request on your site arrives as a task you start with one tap.");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "That didn't save. Nothing was changed.");
     } finally {
@@ -454,11 +454,11 @@ function HomeReportSwitch() {
   };
   if (on === null) return null;
   return (
-    <section className="pf-card" aria-label="Home Report">
-      <h2>Home Report</h2>
+    <section className="pf-card" aria-label="Market Report">
+      <h2>Market Report</h2>
       <label className="dc-switch">
         <input type="checkbox" checked={on} disabled={busy} onChange={(e) => save(e.target.checked)} />
-        Start a Home Report automatically for anyone who asks on my site
+        Start a Market Report automatically for anyone who asks on my site
       </label>
       <small className="pf-sub">Off unless you switch it on. Off, each request arrives in ONE MOVE as a task you start with one tap. Their marketing yes is checked either way.</small>
       {msg ? <small className="pf-sub" role="status">{msg}</small> : null}

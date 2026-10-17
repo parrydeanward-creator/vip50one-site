@@ -440,7 +440,6 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
   const followups = moveItems.filter((i) => !isSuggestion(i) && (i.kind === "follow_up" || i.kind === "other"));
   const dates = moveItems.filter((i) => i.kind === "birthday");
   const audit = moveItems.filter((i) => i.kind === "vip_touch");
-  const attraction = moveItems.filter((i) => i.kind === "agent_attraction");
   const bookHere = moveItems.filter((i) => i.kind === "book_open_house"); // no ONE Open in the package
   add({
     id: "move",
@@ -467,7 +466,8 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
     // Follow-ups are their own orb directly on ONE MOVE (Parry, 16 Oct), not inside People.
     people: [...suggestions, ...dates, ...audit],
     events: bookHere,
-    outreach: attraction,
+    // Agent Attraction left Outreach (walker 2026-10-17-0230 item 3): a team lead sees it on the Team orb
+    // (GET /api/brain/team/attraction); anyone else's stays in their plan only, not in the Brain.
   };
   const todayBoxes = found && Array.isArray(env!.today_boxes)
     ? env!.today_boxes
@@ -554,10 +554,6 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
     if (suggestions.length) {
       add({ id: "move-suggest", type: "category", label: "From your listings", secondaryLabel: `${suggestions.length} to decide`, parentId: people, product: "move", importance: 0.98, status: worst(suggestions), summary: "Suggestions from your listings in Marquee. Nothing happens until you accept." });
       suggestions.forEach((it, k) => itemNode(add, it, "move-suggest", "move", 1 - k * 0.03));
-    }
-    if (attraction.length) {
-      add({ id: "move-attraction", type: "category", label: "Agent attraction", secondaryLabel: `${attraction.length} waiting`, parentId: moveGroupId("outreach"), product: "move", importance: 0.9, status: worst(attraction), summary: "Your Agent Attraction reminders in ONE MOVE." });
-      attraction.forEach((it, k) => itemNode(add, it, "move-attraction", "move", 1 - k * 0.03));
     }
     if (bookHere.length) {
       add({ id: "move-book-oh", type: "category", label: "Book your next open house", secondaryLabel: `${bookHere.length} waiting`, parentId: moveGroupId("events"), product: "move", importance: 0.9, status: worst(bookHere), summary: "Your every-two-weeks reminder to book an open house." });
