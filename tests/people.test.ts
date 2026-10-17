@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { editText, editValue, gapsIn, listUrl, personTag, readGroups, readPage, readPerson, readTimeline, showDate, showValue, timelineUrl, type Field } from "../lib/people.ts";
+import { editText, editValue, gapsIn, listUrl, personTag, readGroups, readPage, readPerson, readTimeline, LEFT_EARLY_LINE, showDate, showValue, timelineUrl, type Field } from "../lib/people.ts";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 
@@ -137,4 +137,11 @@ import { byName } from "../lib/people.ts";
 
 test("byName sorts A-Z, ignoring case and accents", () => {
   assert.deepEqual(byName([{ name: "zoe" }, { name: "Émile" }, { name: "Amy" }, { name: "bob" }]).map((p) => p.name), ["Amy", "bob", "Émile", "zoe"]);
+});
+
+test("left_early: a partial lead carries the flag and Classic's words (LEADS §1.7b, 17 Oct)", () => {
+  const base = { id: "11111111-1111-1111-1111-111111111111", name: "Ann", sections: [] };
+  assert.equal(readPerson({ ...base, left_early: true })!.leftEarly, true);
+  assert.equal(readPerson(base)!.leftEarly, false);
+  assert.match(LEFT_EARLY_LINE, /^Left before giving a phone or email\./);
 });

@@ -21,6 +21,7 @@ const person = (fields: Record<string, string | string[] | null>, extra: Partial
   pulse: null,
   sections: [{ key: "all", label: "All", summary: null, fields: Object.entries(fields).map(([key, value]) => ({ key, label: key, type: Array.isArray(value) ? "list" : "text", value, editable: true })) }],
   timelineCount: 0,
+  leftEarly: false,
   ...extra,
 });
 
