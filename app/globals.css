@@ -2638,7 +2638,7 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 
 /* Deals: Add a deal and each deal's timeline (walker note; vip50-web-crm#295). Form and list side by side on a wide
    screen, stacked on a phone. */
-@media (min-width: 1300px) { .vr.dl-wide { grid-template-columns: 1fr 780px; } .vr.dl-wide .dl-split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; } }
+/* Add a deal stacks above the list: side by side squeezed the list to a sliver in the side panel (screen check 17 Oct). */
 .dl-split { display: grid; gap: 18px; }
 .dl-add { padding: 12px; border: 1px solid rgba(212, 175, 55, 0.35); border-radius: 14px; background: rgba(255, 255, 255, 0.02); }
 .dl-add .decide-btns { display: flex; flex-wrap: wrap; gap: 8px; }
