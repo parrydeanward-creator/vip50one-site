@@ -37,8 +37,10 @@ test("referral rate, ask-now and the headline", () => {
   assert.equal(Math.round(referralRate(r)! * 100), 10); // 5 of 48 VIPs this goal year
   assert.deepEqual(askNow(r).map((c) => c.why), ["past_referrer_quiet", "recent_closing"]);
   assert.equal(headline(r), "7 referrals of 12 this goal year");
-  assert.equal(headline({ ...r, count: 12 }), "12 referrals: goal of 12 reached");
-  assert.equal(headline({ ...r, goal: null, count: 1 }), "1 referral this goal year");
+  // (rewritten 17 Oct: the headline reads this_year when ONE MOVE sends it, so these set it too)
+  assert.equal(headline({ ...r, count: 12, thisYear: 12 }), "12 referrals: goal of 12 reached");
+  assert.equal(headline({ ...r, goal: null, count: 1, thisYear: 1 }), "1 referral this goal year");
+  assert.equal(headline({ ...r, goal: null, count: 1, thisYear: null }), "1 referral this goal year"); // older answer: count
   assert.equal(referralRate({ ...r, vips: { count: 0, ever: 0, thisYear: 0 } }), null);
 });
 
@@ -46,7 +48,8 @@ test("withReferralsNode: one orb under ONE YOU, yellow when someone is worth ask
   const base: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "go", type: "product", label: "ONE YOU", parentId: "one", product: "go", importance: 1 }], edges: [] };
   // every referral thanked, so the ask line shows (a thank-you owed now leads the line: see the §3r.3 test below)
   const demo = demoReferrals(today);
-  const r = { ...demo, recent: demo.recent.map((x) => ({ ...x, thanked: true })) };
+  // (rewritten 17 Oct: ONE MOVE's thank_you_owed list is now the source of "to thank", so it is emptied here too)
+  const r = { ...demo, recent: demo.recent.map((x) => ({ ...x, thanked: true })), thankOwed: [] };
   const g = withReferralsNode(withReferralsNode(base, r), r);
   const n = g.nodes.filter((x) => x.id === REFERRALS_NODE);
   assert.equal(n.length, 1);
@@ -84,4 +87,70 @@ test("the Referrals orb pulses for a thank-you owed, and says so first", () => {
   const n = withRefs(g, demoRefs("2026-10-09"), "2026-10-09").nodes.find((x: { id: string }) => x.id === RNODE) as unknown as { status: string; secondaryLabel: string };
   assert.equal(n.status, "attention");
   assert.equal(n.secondaryLabel, "1 to thank · 2 worth asking");
+});
+
+import { THANK_KINDS, applyThanked, readReadyToAsk, readThankOwed, readThanked, thankCount, thankedUrl, withReferralCount, yearCount, yearLine } from "../lib/referrals.ts";
+
+test("thank_you_owed and ready_to_ask: checked, first names, safe defaults when missing", () => {
+  const base = { referrers: [], vips: { count: 0 } };
+  const old = readRefs(base)!;
+  assert.equal(old.thisYear, null);
+  assert.equal(old.thankOwed, null);
+  assert.equal(old.readyToAsk, null);
+  const r = readRefs({
+    ...base,
+    count: 3,
+    this_year: 4,
+    thank_you_owed: [
+      { contact_id: "a", first_name: "Ann Ruiz", sent: 2, last_sent_at: "2026-09-01T10:00:00Z" },
+      { contact_id: "b", first_name: "Bo", sent: 1, last_sent_at: "2026-10-01" },
+      { contact_id: "b", first_name: "Bo", sent: 1, last_sent_at: "2026-10-01" },
+      { first_name: "No id" },
+      null,
+      { contact_id: "c", first_name: "Cy", sent: "x" },
+    ],
+    ready_to_ask: [1, 2, 3, 4, 5, 6].map((k) => ({ contact_id: `p${k}`, first_name: `P${k}`, why: k === 2 ? "" : `Why ${k}` })),
+  })!;
+  assert.equal(r.thisYear, 4);
+  assert.equal(yearCount(r), 4); // this_year wins over count
+  assert.equal(yearCount(old), 0);
+  assert.deepEqual(r.thankOwed!.map((x) => `${x.firstName}:${x.sent}:${x.lastSentAt}`), ["Bo:1:2026-10-01", "Ann:2:2026-09-01", "Cy:0:null"]);
+  assert.equal(r.readyToAsk!.length, 5);
+  assert.equal(r.readyToAsk![1].why, "Worth asking now");
+  assert.equal(readThankOwed("no"), null);
+  assert.deepEqual(readReadyToAsk([]), []);
+  assert.equal(thankCount(r, "2026-10-17"), 3);
+  assert.deepEqual(applyThanked(r, "b").thankOwed!.map((x) => x.id), ["a", "c"]);
+  assert.equal(thankCount(applyThanked(r, "b"), "2026-10-17"), 2);
+});
+
+test("the Goals referrals line counts the same as the Referrals orb", () => {
+  const r = { ...demoRefs("2026-10-17"), thisYear: 9 };
+  const goals = [
+    { key: "closings_goal", value: 3 },
+    { key: "referrals_goal", value: 2 },
+  ];
+  assert.deepEqual(withReferralCount(goals, r).map((g) => g.value), [3, 9]);
+  assert.equal(withReferralCount(goals, null), goals);
+  assert.equal(yearLine(r), "9 referrals this goal year of 12");
+  assert.equal(yearLine({ ...r, thisYear: 1, goal: null }), "1 referral this goal year");
+});
+
+test("logging a thank-you: plain words, nothing sent", () => {
+  assert.equal(thankedUrl, "https://move.vip50one.com/api/brain/referrals/thanked");
+  assert.deepEqual(THANK_KINDS.map((k) => k.kind), ["call", "note", "text", "email"]);
+  assert.deepEqual(THANK_KINDS.map((k) => k.label), ["Called", "Sent a note", "Texted", "Emailed"]);
+  assert.deepEqual(readThanked(200, { ok: true, thanked: true, touch_credited: true }), { ok: true, words: "Thank-you logged; counted as a touch." });
+  assert.deepEqual(readThanked(200, { ok: true, thanked: true, touch_credited: false }), { ok: true, words: "Thank-you logged." });
+  assert.equal(readThanked(200, { ok: false, reason: "nothing_owed" }).ok, true);
+  assert.equal(readThanked(500, null).ok, false);
+  assert.equal(readThanked(404, null).ok, false);
+  assert.equal(readThanked(200, null).ok, false);
+});
+
+test("the demo shows example people in both lists", () => {
+  const d = demoRefs("2026-10-17");
+  assert.ok(d.thankOwed!.length >= 1);
+  assert.ok(d.readyToAsk!.length >= 1);
+  assert.equal(yearCount(d), 7);
 });

@@ -64,7 +64,7 @@ function readResults(v: unknown): { daysScored: number; average: number } | null
   return { daysScored: Math.min(365, Math.max(0, Math.round(r.days_scored))), average };
 }
 
-/** POST here to complete the 90 days (GO/MOVE is adding it; a 404 sends the agent to the challenge page instead). */
+/** POST here to complete the 90 days (live on ONE MOVE; no body). */
 export const challengeCompleteUrl = `${MOVE_URL}/api/brain/challenge/complete`;
 
 /** A link on ONE MOVE only (https, move.vip50one.com), else null. */
@@ -224,11 +224,24 @@ export function groupLine(gr: ChallengeGroup): string {
   return `${gr.emoji ? `${gr.emoji} ` : ""}${gr.name}: ${who}, ${gr.scoredToday} scored today`;
 }
 
-/** ONE MOVE's answer to "Complete my 90 days": done; not there yet (404/405: complete it on the challenge page); or
- *  it did not take it (the error words when it sends them). */
-export function readComplete(status: number, body: unknown): { kind: "done" } | { kind: "elsewhere" } | { kind: "error"; words: string } {
+/** ONE MOVE's answer to "Complete my 90 days" (POST /api/brain/challenge/complete, vip50-web-crm): done, with the date
+ *  and the certificate when it sends them; 409, the 90 days are not up yet; 404, not enrolled; 405, not there yet
+ *  (complete it on the challenge page); or it did not take it (the error words when it sends them). */
+export type CompleteResult =
+  | { kind: "done"; completedAt: string | null; certificateUrl: string | null }
+  | { kind: "not_yet"; words: string }
+  | { kind: "not_enrolled"; words: string }
+  | { kind: "elsewhere" }
+  | { kind: "error"; words: string };
+export const NOT_YET = "Your 90 days are not up yet.";
+export function readComplete(status: number, body: unknown): CompleteResult {
   const b = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
-  if (status >= 200 && status < 300 && b.ok !== false) return { kind: "done" };
-  if (status === 404 || status === 405) return { kind: "elsewhere" };
+  if (status >= 200 && status < 300 && b.ok !== false) return { kind: "done", completedAt: date(b.completed_at), certificateUrl: moveLink(b.certificate_url) };
+  if (status === 409) return { kind: "not_yet", words: NOT_YET };
+  if (status === 404) return { kind: "not_enrolled", words: "You are not in the 90-Day Challenge yet. Start it on the challenge page in ONE MOVE." };
+  if (status === 405) return { kind: "elsewhere" };
   return { kind: "error", words: str(b.error, 200) ?? "ONE MOVE did not take that. Nothing was changed; try again." };
 }
+
+/** "Completed on Fri 17 Oct" from YYYY-MM-DD. */
+export const completedLine = (d: string) => `Completed on ${fmt(d, { weekday: "short", day: "numeric", month: "short", year: "numeric" })}`;

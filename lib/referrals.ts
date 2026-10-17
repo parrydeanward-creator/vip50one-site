@@ -9,6 +9,8 @@ export const REFERRALS_NODE = "go-referrals";
 export const referralsUrl = (agent?: string) => `${MOVE_URL}/api/brain/referrals${agent ? `?agent=${encodeURIComponent(agent)}` : ""}`;
 export const askUrl = `${MOVE_URL}/api/brain/referrals/ask`;
 export const thankUrl = `${MOVE_URL}/api/brain/referrals/thank`;
+/** Log a thank-you already given (GO/MOVE): {contact_id, kind}. Records it only; nothing is sent to anyone. */
+export const thankedUrl = `${MOVE_URL}/api/brain/referrals/thanked`;
 
 export type Why = "past_referrer_quiet" | "recent_closing" | "fully_touched";
 export const WHY_ORDER: Why[] = ["past_referrer_quiet", "recent_closing", "fully_touched"];
@@ -48,11 +50,29 @@ export interface Candidate {
   why: Why;
   words: string;
 }
+/** A referrer still owed a thank-you (`thank_you_owed`), newest first. */
+export interface ThankOwed {
+  id: string;
+  firstName: string;
+  sent: number;
+  lastSentAt: string | null;
+}
+/** Someone worth asking for a referral now (`ready_to_ask`), at most 5. */
+export interface ReadyAsk {
+  id: string;
+  firstName: string;
+  why: string;
+}
 export interface Referrals {
   from: string | null;
   to: string | null;
   goal: number | null;
   count: number;
+  /** Referrals this goal year (`this_year`); null on an older answer (then `count` is used). */
+  thisYear: number | null;
+  /** Null when ONE MOVE did not send the list (an older answer); [] when nobody is owed one. */
+  thankOwed: ThankOwed[] | null;
+  readyToAsk: ReadyAsk[] | null;
   referrers: Referrer[];
   recent: Recent[];
   vips: { count: number; ever: number; thisYear: number };
@@ -64,6 +84,81 @@ const numOrNull = (v: unknown) => (typeof v === "number" && Number.isFinite(v) &
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 80) : null);
 const day = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null);
 const isWhy = (v: unknown): v is Why => typeof v === "string" && (WHY_ORDER as string[]).includes(v);
+
+const first = (v: unknown) => {
+  const s = str(v);
+  return s ? s.split(/\s+/)[0]! : null;
+};
+
+/** `thank_you_owed`, checked: one row per contact, newest first. Null when the field is missing or not a list. */
+export function readThankOwed(v: unknown): ThankOwed[] | null {
+  if (!Array.isArray(v)) return null;
+  const seen = new Set<string>();
+  const out: ThankOwed[] = [];
+  for (const x of v as Record<string, unknown>[]) {
+    if (!x || typeof x !== "object") continue;
+    const id = str(x.contact_id), firstName = first(x.first_name);
+    if (!id || !firstName || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, firstName, sent: Math.round(num(x.sent)), lastSentAt: day(x.last_sent_at) });
+  }
+  return out.sort((a, b) => (b.lastSentAt ?? "").localeCompare(a.lastSentAt ?? "")).slice(0, 50);
+}
+
+/** `ready_to_ask`, checked: one row per contact, at most 5, in ONE MOVE's order. Null when missing. */
+export function readReadyToAsk(v: unknown): ReadyAsk[] | null {
+  if (!Array.isArray(v)) return null;
+  const seen = new Set<string>();
+  const out: ReadyAsk[] = [];
+  for (const x of v as Record<string, unknown>[]) {
+    if (!x || typeof x !== "object") continue;
+    const id = str(x.contact_id), firstName = first(x.first_name);
+    if (!id || !firstName || seen.has(id)) continue;
+    seen.add(id);
+    const why = typeof x.why === "string" && x.why.trim() ? x.why.trim().slice(0, 160) : "Worth asking now";
+    out.push({ id, firstName, why });
+  }
+  return out.slice(0, 5);
+}
+
+/** The goal year's referral count: `this_year` when ONE MOVE sends it, else `count`. The Goals line reads this too. */
+export const yearCount = (r: Referrals) => r.thisYear ?? r.count;
+
+/** The goals list with the referrals goal counting the same number as the Referrals orb (unchanged without one). */
+export function withReferralCount<T extends { key: string; value?: number | null }>(goals: T[], r: Referrals | null): T[] {
+  if (!r) return goals;
+  const n = yearCount(r);
+  return goals.map((g) => (g.key === "referrals_goal" && g.value !== n ? { ...g, value: n } : g));
+}
+
+/** "4 referrals this goal year" for the Goals line that opens the Referrals orb. */
+export const yearLine = (r: Referrals) => {
+  const n = yearCount(r);
+  return `${n} ${n === 1 ? "referral" : "referrals"} this goal year${r.goal ? ` of ${r.goal}` : ""}`;
+};
+
+export type ThankKind = "call" | "note" | "text" | "email";
+export const THANK_KINDS: { kind: ThankKind; label: string }[] = [
+  { kind: "call", label: "Called" },
+  { kind: "note", label: "Sent a note" },
+  { kind: "text", label: "Texted" },
+  { kind: "email", label: "Emailed" },
+];
+
+/** ONE MOVE's answer to "Log a thank-you", in plain words; `ok` true when the row should leave the list. */
+export function readThanked(status: number, body: unknown): { ok: boolean; words: string } {
+  const b = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
+  if (status >= 200 && status < 300 && b.ok === true) return { ok: true, words: b.touch_credited === true ? "Thank-you logged; counted as a touch." : "Thank-you logged." };
+  if (b.reason === "nothing_owed") return { ok: true, words: "Already thanked: nothing was owed." };
+  if (status === 404 || status === 405) return { ok: false, words: "Logging a thank-you arrives with ONE MOVE's next update. Nothing was saved." };
+  return { ok: false, words: "Could not log it just now. Nothing was saved; please try again." };
+}
+
+/** The example agent's tap, without ONE MOVE: the row leaves the list. */
+export const applyThanked = (r: Referrals, contactId: string): Referrals => ({ ...r, thankOwed: r.thankOwed ? r.thankOwed.filter((x) => x.id !== contactId) : r.thankOwed });
+
+/** Thank-yous owed: ONE MOVE's list when it sends one, else the older per-referral reading. */
+export const thankCount = (r: Referrals, today: string) => (r.thankOwed ? r.thankOwed.length : unthanked(r, today).length);
 
 /** A §3r.1 answer, checked; null when it is not one. */
 export function readReferrals(j: unknown): Referrals | null {
@@ -100,6 +195,9 @@ export function readReferrals(j: unknown): Referrals | null {
     to: day(gy.to),
     goal: numOrNull(r.goal) || null,
     count: num(r.count),
+    thisYear: numOrNull(r.this_year),
+    thankOwed: readThankOwed(r.thank_you_owed),
+    readyToAsk: readReadyToAsk(r.ready_to_ask),
     referrers: referrers.slice(0, 50),
     recent: recent.slice(0, 10),
     vips: { count: num(v.count), ever: num(v.referred_ever), thisYear: num(v.referred_this_year) },
@@ -133,7 +231,7 @@ export const applyThank = (r: Referrals, referralId: string): Referrals => ({ ..
 export const askNow = (r: Referrals) => r.candidates.filter((c) => c.why !== "fully_touched");
 
 export function headline(r: Referrals): string {
-  const n = r.count;
+  const n = yearCount(r);
   const got = `${n} ${n === 1 ? "referral" : "referrals"}`;
   if (r.goal) return n >= r.goal ? `${got}: goal of ${r.goal} reached` : `${got} of ${r.goal} this goal year`;
   return `${got} this goal year`;
@@ -146,7 +244,7 @@ export function withReferralsNode<G extends { nodes: GraphNode[]; edges: GraphEd
   const edges = g.edges.filter((e) => e.target !== REFERRALS_NODE);
   if (!go || go.locked || !r) return { ...g, nodes, edges };
   const ask = askNow(r).length;
-  const thank = unthanked(r, today).length;
+  const thank = thankCount(r, today);
   const rate = referralRate(r);
   nodes.push({
     id: REFERRALS_NODE,
@@ -175,6 +273,12 @@ export function demoReferrals(today: string): Referrals {
     to: addDays(today, 145),
     goal: 12,
     count: 7,
+    thisYear: 7,
+    thankOwed: [{ id: "r4", firstName: "David", sent: 1, lastSentAt: addDays(today, -12) }],
+    readyToAsk: [
+      { id: "r3", firstName: "Ann", why: "Sent you 3 referrals; no touch in 58 days" },
+      { id: "c7", firstName: "Chris", why: "Closed with you 41 days ago; no referral since" },
+    ],
     referrers: [
       ref("r1", "Jane Smith", 4, 2, 2, 812000, 54, 6),
       ref("r2", "Mike Torres", 2, 2, 1, 389000, 21, 3),

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import PulseRing, { PULSE_COLOR } from "./PulseRing.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
-import { WHY_TITLE, askNow, headline, referralRate, thankWords, unthanked, type Candidate, type Recent, type Referrals, type Referrer, networkLine, type NetworkCounts } from "@/lib/referrals.ts";
+import { THANK_KINDS, WHY_TITLE, askNow, headline, referralRate, thankWords, unthanked, type Candidate, type ReadyAsk, type Recent, type Referrals, type Referrer, type ThankKind, type ThankOwed, networkLine, type NetworkCounts } from "@/lib/referrals.ts";
 
 // The Referral Scoreboard in ONE YOU (VIP-SUMMARY §3r; Parry, 7 Oct). The year's referrals against the goal in the
 // middle; round it, the people who sent business (gold ring: how many) and the ones likely to send the next
@@ -42,7 +42,13 @@ function arc(cx: number, cy: number, r: number, share: number): string {
   return `M ${cx} ${cy - r} A ${r} ${r} 0 ${a > Math.PI ? 1 : 0} 1 ${x} ${y}`;
 }
 
-export default function ReferralsView({ data, today, demo, onClose, onAsk, onThank, network, onNetwork }: { data: Referrals; today: string; demo: boolean; onClose: () => void; onAsk?: (contactId: string) => Promise<string>; onThank?: (referralId: string) => Promise<string>; network?: NetworkCounts | null; onNetwork?: () => void }) {
+export type AskResult = { ok: boolean; words: string };
+
+// Shown when the agent has nobody in a list, clearly labelled "Example" (never a real person, never tappable).
+const EXAMPLE_OWED: ThankOwed = { id: "example-owed", firstName: "Jane", sent: 2, lastSentAt: null };
+const EXAMPLE_ASK: ReadyAsk = { id: "example-ask", firstName: "Mark", why: "Closed with you 40 days ago; no referral since" };
+
+export default function ReferralsView({ data, today, demo, onClose, onAsk, onThank, onThanked, onPerson, network, onNetwork }: { data: Referrals; today: string; demo: boolean; onClose: () => void; onAsk?: (contactId: string) => Promise<AskResult>; onThank?: (referralId: string) => Promise<string>; onThanked?: (contactId: string, kind: ThankKind) => Promise<AskResult>; onPerson?: (contactId: string) => void; network?: NetworkCounts | null; onNetwork?: () => void }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
@@ -50,6 +56,12 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk, onTha
   const [pick, setPick] = useState<string | null>(null);
   const [asked, setAsked] = useState<Record<string, string>>({});
   const [thanks, setThanks] = useState<Record<string, string>>({});
+  // Thank-you owed and Ready to ask (the two working lists).
+  const [logFor, setLogFor] = useState<string | null>(null);
+  const [logBusy, setLogBusy] = useState<string | null>(null);
+  const [logged, setLogged] = useState<Set<string>>(() => new Set());
+  const [thankMsg, setThankMsg] = useState<{ id: string; ok: boolean; words: string } | null>(null);
+  const [askDone, setAskDone] = useState<Record<string, AskResult | "busy">>({});
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -96,9 +108,140 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk, onTha
   const ask = async (id: string, name: string) => {
     if (demo || !onAsk) return setAsked((a) => ({ ...a, [id]: `Example agent: this would add "Ask ${name} for a referral" to today's tasks.` }));
     setAsked((a) => ({ ...a, [id]: "Adding…" }));
-    const words = await onAsk(id);
-    setAsked((a) => ({ ...a, [id]: words }));
+    const res = await onAsk(id);
+    setAsked((a) => ({ ...a, [id]: res.words }));
+    if (res.ok) setAskDone((d) => ({ ...d, [id]: res }));
   };
+  const addAsk = async (x: ReadyAsk) => {
+    if (askDone[x.id]) return;
+    if (demo || !onAsk) return setAskDone((d) => ({ ...d, [x.id]: { ok: true, words: `Example agent: this would add "Ask ${x.firstName} for a referral" to today's tasks.` } }));
+    setAskDone((d) => ({ ...d, [x.id]: "busy" }));
+    const res = await onAsk(x.id);
+    setAskDone((d) => {
+      const n = { ...d };
+      if (res.ok) n[x.id] = res;
+      else delete n[x.id];
+      return n;
+    });
+    if (!res.ok) setAsked((a) => ({ ...a, [x.id]: res.words }));
+  };
+  const logThank = async (x: ThankOwed, kind: ThankKind) => {
+    if (logBusy) return;
+    if (demo || !onThanked) {
+      setLogged((g) => new Set(g).add(x.id));
+      setLogFor(null);
+      return setThankMsg({ id: x.id, ok: true, words: `Example agent: ${x.firstName}'s thank-you would be logged and counted as a touch.` });
+    }
+    setLogBusy(x.id);
+    const res = await onThanked(x.id, kind);
+    setLogBusy(null);
+    if (res.ok) {
+      setLogged((g) => new Set(g).add(x.id));
+      setLogFor(null);
+    }
+    setThankMsg({ id: x.id, ok: res.ok, words: res.ok ? `${x.firstName}: ${res.words}` : res.words });
+  };
+  const person = (id: string) => {
+    if (onPerson && !demo) return onPerson(id);
+    // The example agent: their scoreboard orb, when they have one.
+    const seat = seats.find((s) => seatId(s) === `r:${id}`) ?? seats.find((s) => seatId(s) === `c:${id}`);
+    if (seat) open(seatId(seat));
+  };
+  const owedRows = (data.thankOwed ?? []).filter((x) => !logged.has(x.id));
+  const readyRows = data.readyToAsk ?? [];
+  const working = data.thankOwed != null || data.readyToAsk != null;
+  const exampleTag = <span className="rf-example">Example</span>;
+  const workLists = (
+    <div className="rf-cols">
+      <section className="rf-col" aria-label="Thank-you owed">
+        <h2>Thank-you owed</h2>
+        <p className="rf-hint">People who sent you business and are still owed a thanks. Log the thank-you you gave; ONE sends nothing.</p>
+        {thankMsg ? <p className={`pm-note${thankMsg.ok ? "" : " bad"}`} role="status">{thankMsg.words}</p> : null}
+        {owedRows.length ? (
+          <ul className="pm-list pm-compact rf-list" aria-label="Thank-you owed list">
+            {owedRows.map((x) => (
+              <li key={x.id}>
+                <i className="pm-dot" style={{ background: PULSE_COLOR.today }} aria-hidden="true" />
+                <span className="pm-body">
+                  <button className="link rf-name" onClick={() => person(x.id)} aria-label={`Open ${x.firstName}`}>{x.firstName}</button>
+                  <small>{`sent ${x.sent}${x.lastSentAt ? ` · last sent ${ago(x.lastSentAt, today)}` : ""}`}</small>
+                </span>
+                <span className="pm-acts">
+                  <button className="pm-tick" onClick={() => setLogFor((f) => (f === x.id ? null : x.id))} aria-expanded={logFor === x.id} aria-label={`Log a thank-you to ${x.firstName}`}>
+                    Log a thank-you
+                  </button>
+                </span>
+                {logFor === x.id ? (
+                  <span className="rf-kinds" role="group" aria-label={`How you thanked ${x.firstName}`}>
+                    {THANK_KINDS.map((k) => (
+                      <button key={k.kind} className="chip-btn" disabled={logBusy === x.id} onClick={() => void logThank(x, k.kind)} aria-label={`${x.firstName}: ${k.label}`}>
+                        {k.label}
+                      </button>
+                    ))}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <>
+            <p className="pm-empty">Nobody is waiting on a thank-you. When someone sends you business, they show here until you log one.</p>
+            <ul className="pm-list pm-compact rf-list rf-sample" aria-label="Thank-you owed example">
+              <li>
+                <i className="pm-dot" aria-hidden="true" />
+                <span className="pm-body">
+                  <b>{exampleTag} {EXAMPLE_OWED.firstName}</b>
+                  <small>{`sent ${EXAMPLE_OWED.sent} · last sent 9 days ago`}</small>
+                </span>
+              </li>
+            </ul>
+          </>
+        )}
+      </section>
+      <section className="rf-col" aria-label="Ready to ask">
+        <h2>Ready to ask</h2>
+        <p className="rf-hint">Up to five people worth asking for a referral now. The task is yours to do in your own words.</p>
+        {readyRows.length ? (
+          <ul className="pm-list pm-compact rf-list" aria-label="Ready to ask list">
+            {readyRows.map((x) => {
+              const d = askDone[x.id];
+              return (
+                <li key={x.id}>
+                  <i className="pm-dot" style={{ background: d && d !== "busy" ? GREEN : PULSE_COLOR.today }} aria-hidden="true" />
+                  <span className="pm-body">
+                    <button className="link rf-name" onClick={() => person(x.id)} aria-label={`Open ${x.firstName}`}>{x.firstName}</button>
+                    <small>{d && d !== "busy" && demo ? d.words : !d && asked[x.id] ? asked[x.id] : x.why}</small>
+                  </span>
+                  <span className="pm-acts">
+                    {d && d !== "busy" ? (
+                      <span className="rf-done" aria-label={`${x.firstName}: task added`}>Task added</span>
+                    ) : (
+                      <button className="pm-tick" disabled={d === "busy"} onClick={() => void addAsk(x)} aria-label={`Add ask task for ${x.firstName}`}>
+                        {d === "busy" ? "Adding…" : "Add ask task"}
+                      </button>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <>
+            <p className="pm-empty">Nobody stands out to ask right now. People who refer, close with you or are fully touched show here.</p>
+            <ul className="pm-list pm-compact rf-list rf-sample" aria-label="Ready to ask example">
+              <li>
+                <i className="pm-dot" aria-hidden="true" />
+                <span className="pm-body">
+                  <b>{exampleTag} {EXAMPLE_ASK.firstName}</b>
+                  <small>{EXAMPLE_ASK.why}</small>
+                </span>
+              </li>
+            </ul>
+          </>
+        )}
+      </section>
+    </div>
+  );
   // Not thanked yet (§3r.3): one tap makes the thank-you task; the agent thanks them in their own words.
   const toThank = unthanked(data, today);
   const owed = new Set(toThank.map((x) => x.by));
@@ -148,7 +291,7 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk, onTha
 
   return (
     <div className="pm-full pop" role="dialog" aria-modal="true" aria-labelledby="rf-title">
-      <div className="vr" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
+      <div className={`vr${!sel && working ? " rf-work" : ""}`} onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
         <div className="vr-stage">
           <svg ref={cam.svgRef} className="vr-svg" viewBox={cam.viewBox} preserveAspectRatio="xMidYMid meet" {...cam.handlers} role="group" aria-label="Referral Scoreboard">
             <defs>
@@ -296,13 +439,14 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk, onTha
                   {data.vips.thisYear} of your {data.vips.count} VIPs have referred this goal year ({Math.round(rate * 100)}%); {data.vips.ever} ever.
                 </p>
               ) : null}
-              {toThank.length ? (
+              {working ? workLists : null}
+              {!working && toThank.length ? (
                 <>
                   <h2>Not thanked yet</h2>
                   {thankRows(toThank)}
                 </>
               ) : null}
-              {data.candidates.length ? (
+              {!working && data.candidates.length ? (
                 <>
                   <h2>Likely next</h2>
                   <ul className="pm-list pm-compact">
@@ -346,7 +490,7 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk, onTha
               )}
             </>
           )}
-          <p className="pm-promise">{demo ? "Example agent. " : ""}From your own records only. Nothing is sent: an ask or a thank-you is a task you do in your own words.</p>
+          <p className="pm-promise">{demo ? "Example agent. " : ""}From your own records only. ONE sends nothing: an ask or a thank-you is yours to do in your own words.</p>
         </aside>
       </div>
     </div>

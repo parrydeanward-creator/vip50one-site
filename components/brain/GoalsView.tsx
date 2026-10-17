@@ -24,6 +24,7 @@ export default function GoalsView({
   onSaveGoal,
   onProfile,
   onReferrals,
+  referralsLine,
   onPerson,
   onForecast,
   onIncomeMap,
@@ -38,6 +39,8 @@ export default function GoalsView({
   onSaveGoal: (key: GoalKey, value: number) => Promise<string | null>;
   onProfile: () => void;
   onReferrals: () => void;
+  /** "4 referrals this goal year", the Referrals orb's own count; tapping it opens the orb. */
+  referralsLine?: string | null;
   onPerson: (contactId: string) => void;
   onForecast?: () => void;
   onIncomeMap?: () => void;
@@ -75,6 +78,11 @@ export default function GoalsView({
 
         <h2 className="wr-h">1. Closed so far</h2>
         <p className="fc-tip">{three.closed.line}</p>
+        {referralsLine ? (
+          <button className="link gl-refs" onClick={onReferrals} aria-label={`Open Referrals: ${referralsLine}`}>
+            {`Referrals: ${referralsLine} →`}
+          </button>
+        ) : null}
         <GoalsPanel goals={goals} today={today} demo={demo} rezenConnected={rezenConnected} onSave={onSaveGoal} onProfile={onProfile} onReferrals={onReferrals} />
 
         <h2 className="wr-h">2. Likely next 3 months</h2>
