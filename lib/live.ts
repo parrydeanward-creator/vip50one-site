@@ -1,4 +1,5 @@
 import { stripMarkers } from "./personTask.ts";
+import { FOLLOW_NODE, MAX_SHOWN, followNode } from "./followUps.ts";
 import { celebrateIds, withSpecialDays } from "./specialDays.ts";
 import { addGoals, type GoalKey } from "./goals.ts";
 import { includes } from "./products.ts";
@@ -452,7 +453,8 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
   // opening its pages; The Lounge and My Profile beside them. What needs the
   // agent sits in the group it belongs to and lights that group up.
   const groupNeeds: Record<string, SummaryItem[]> = {
-    people: [...followups, ...suggestions, ...dates, ...audit],
+    // Follow-ups are their own orb directly on ONE MOVE (Parry, 16 Oct), not inside People.
+    people: [...suggestions, ...dates, ...audit],
     events: bookHere,
     outreach: attraction,
   };
@@ -521,12 +523,18 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
   MOVE_BOTTOM.forEach((pg, j) =>
     add({ id: movePageId(pg.path), type: "feature", label: pg.label, parentId: "move", product: "move", importance: 0.7 - j * 0.02, href: moveMenuHref(pg.path) }),
   );
+  // Follow-ups (lib/followUps.ts; Parry, 16 Oct: "yes on follow ups"): always there, directly on ONE MOVE. From
+  // vip_summary until ONE MOVE's own follow-ups route answers (the Brain swaps it in then): overdue first, then today.
+  {
+    const rank = (i: SummaryItem) => (i.urgency === "alert" ? 0 : i.urgency === "today" ? 1 : 2);
+    const shown = [...followups].sort((a, b) => rank(a) - rank(b)).slice(0, MAX_SHOWN);
+    const n = (u: SummaryItem["urgency"]) => followups.filter((i) => i.urgency === u).length;
+    const fu = followNode(n("alert"), n("today"), n("soon"), overdueCount);
+    add(found ? fu : { ...fu, secondaryLabel: "Waiting on ONE MOVE", status: undefined, needFloor: undefined });
+    shown.forEach((it, k) => itemNode(add, it, FOLLOW_NODE, "move", 1 - k * 0.03));
+  }
   const people = moveGroupId("people");
   if (found) {
-    if (followups.length) {
-      add({ id: "move-followups", type: "category", label: "Follow-ups overdue", secondaryLabel: `${overdueCount ?? followups.length} overdue`, parentId: people, product: "move", importance: 1, status: "action", summary: "Tasks in ONE MOVE that are past their date and not done.", needFloor: overdueCount ? { count: overdueCount, level: "now" } : undefined });
-      followups.forEach((it, k) => itemNode(add, it, "move-followups", "move", 1 - k * 0.03));
-    }
     if (suggestions.length) {
       add({ id: "move-suggest", type: "category", label: "From your listings", secondaryLabel: `${suggestions.length} to decide`, parentId: people, product: "move", importance: 0.98, status: worst(suggestions), summary: "Suggestions from your listings in Marquee. Nothing happens until you accept." });
       suggestions.forEach((it, k) => itemNode(add, it, "move-suggest", "move", 1 - k * 0.03));

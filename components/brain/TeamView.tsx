@@ -228,8 +228,9 @@ export default function TeamView({ team, demo, scope, onScope, onClose, canAdd =
                 ) : null}
                 {onScope ? (
                   <div className="decide-btns" role="group" aria-label="Who to show">
-                    <button type="button" className={`chip-btn${scope === "all" ? " primary" : ""}`} aria-pressed={scope === "all"} onClick={() => onScope("all")}>All VIP-50 agents</button>
+                    <button type="button" className={`chip-btn${scope === "team" ? " primary" : ""}`} aria-pressed={scope === "team"} onClick={() => onScope("team")}>My team</button>
                     <button type="button" className={`chip-btn${scope === "office" ? " primary" : ""}`} aria-pressed={scope === "office"} onClick={() => onScope("office")}>My office</button>
+                    <button type="button" className={`chip-btn${scope === "all" ? " primary" : ""}`} aria-pressed={scope === "all"} onClick={() => onScope("all")}>All VIP-50 agents</button>
                   </div>
                 ) : null}
                 <ol className="pm-list pm-compact tm-list">

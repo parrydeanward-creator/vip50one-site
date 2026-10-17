@@ -115,6 +115,8 @@ import HeatPanel from "./HeatPanel.tsx";
 import OnboardingPanel from "./OnboardingPanel.tsx";
 import GettingStartedPanel from "./GettingStartedPanel.tsx";
 import TeamHubPanel, { isHubPart } from "./TeamHubPanel.tsx";
+import FollowUpsPanel from "./FollowUpsPanel.tsx";
+import { DEMO_FOLLOW_NODE, FOLLOW_NODE, followUpsUrl, isFollowUpsOrb, readFollowUps, rowsFromKids, withFollowUps, type FollowUps } from "@/lib/followUps.ts";
 import { START_NODE, demoStart, filmUrl, movePathOf, placeFor, readStart, startAgentUrl, startMenuLine, startUrl, withStartNode, type Start, type StartPlace, type StartStep } from "@/lib/gettingStarted.ts";
 import { TEAM_HUB, isTeamLead, withTeamHub, type HubInput } from "@/lib/teamHub.ts";
 import { NetworkPanel, RevsharePanel } from "./RezenOrbPanel.tsx";
@@ -226,6 +228,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const aiRef = useRef<AiResults | null>(null);
   const timeOffRef = useRef<TimeOffState | null>(null);
   const teamRef = useRef<Team | null>(null);
+  // ONE MOVE's follow-ups route (lib/followUps.ts): Overdue, Today and Next 7 days, once it answers.
+  const followRef = useRef<FollowUps | null>(null);
   const warRef = useRef<WarRoom | null>(null);
   const rcRef = useRef(false);
   // ONE YOU's Power Hour orb: today's calls lined up.
@@ -246,7 +250,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current);
+    const next = withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn());
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -286,6 +290,28 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       // offline or signed out: keep what is on screen
     }
   }, [live, swapGraph]);
+  // Follow-ups (lib/followUps.ts): ONE MOVE's own list when its route answers; otherwise the orb keeps vip_summary's.
+  const [follow, setFollow] = useState<FollowUps | null>(null);
+  const loadFollow = useCallback(() => {
+    if (!live) return;
+    fetch(followUpsUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const f = j ? readFollowUps(j) : null;
+        if (f) setFollow(f);
+      })
+      .catch(() => {});
+  }, [live]);
+  useEffect(() => {
+    loadFollow();
+    if (!live) return;
+    const t = setInterval(loadFollow, 300_000);
+    return () => clearInterval(t);
+  }, [live, loadFollow]);
+  useEffect(() => {
+    followRef.current = follow;
+    if (follow) setGraph((g) => withFollowUps(g, follow, todayIn()));
+  }, [follow]);
   // ONE's morning note, written by the AI when it is available (rules otherwise).
   const [note, setNote] = useState<{ note: string; source: "ai" | "rules" } | null>(null);
   useEffect(() => {
@@ -716,7 +742,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // Team (§3u): the week's leaderboard among members, full screen for the office TV; the example team in the demo.
   const [team, setTeam] = useState<Team | null>(null);
   const [teamOpen, setTeamOpen] = useState(false);
-  const [teamScope, setTeamScope] = useState<TeamScope>("all");
+  const [teamScope, setTeamScope] = useState<TeamScope>("team");
   useEffect(() => {
     if (!live) return setTeam(demoTeam(mondayOf(todayIn())));
     fetch(teamUrl(teamScope), { credentials: "include", cache: "no-store" })
@@ -2516,7 +2542,24 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                         {gn?.status && <i className="rail-dot" style={{ background: hex(STATUS[gn.status].color) }} aria-label={STATUS[gn.status].label} />}
                         <span className="rail-caret" aria-hidden>{open ? "▾" : "▸"}</span>
                       </button>
-                      {open && <ul className="rail-sublist">{g.pages.map(moveLink)}</ul>}
+                      {open && (
+                        <ul className="rail-sublist">
+                          {/* Follow-ups under People (Parry, 16 Oct): no ONE MOVE page of its own yet, so the row opens the orb */}
+                          {g.key === "people" && (ix.byId.has(FOLLOW_NODE) || ix.byId.has(DEMO_FOLLOW_NODE)) ? (
+                            <li key="follow-ups">
+                              <button className="rail-btn rail-link" onClick={() => goTo(ix.byId.has(FOLLOW_NODE) ? FOLLOW_NODE : DEMO_FOLLOW_NODE)}>
+                                <span className="rail-icon" style={{ color: hex(PRODUCT_COLOR.move) }}>
+                                  <Icon kind={iconForText("Follow-ups")} size={16} />
+                                </span>
+                                <span className="rail-text">
+                                  <span>Follow-ups</span>
+                                </span>
+                              </button>
+                            </li>
+                          ) : null}
+                          {g.pages.map(moveLink)}
+                        </ul>
+                      )}
                     </li>
                   );
                 })}
@@ -2935,6 +2978,20 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
 
           {focus.id === START_NODE && start && !ask ? (
             <GettingStartedPanel s={start} placeOf={startPlaceOf} onOpen={openStartPlace} onFilm={(f) => (f === "a" ? setGuide(true) : setGoTour(true))} />
+          ) : null}
+
+          {isFollowUpsOrb(focus.id) && !ask ? (
+            <FollowUpsPanel
+              key={focus.id}
+              f={follow && focus.id === FOLLOW_NODE ? follow : rowsFromKids(kids, todayIn())}
+              today={todayIn()}
+              live={live}
+              onOpen={openOrb}
+              onLogged={() => {
+                refreshLive();
+                loadFollow();
+              }}
+            />
           ) : null}
 
           {(focus.id === TEAM_HUB || focus.id === TEAM_NODE || focus.id === WAR_NODE || focus.id === ONB_NODE) && !ask ? (
@@ -3499,7 +3556,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             </div>
           )}
 
-          {kids.length > 0 && !isMoveGroup(focus.id) && focus.id !== GOALS_NODE && focus.id !== SCORE_NODE && focus.id !== CHALLENGE_NODE && focus.id !== TEAM_HUB && focus.id !== ONB_NODE && (
+          {kids.length > 0 && !isMoveGroup(focus.id) && !isFollowUpsOrb(focus.id) && focus.id !== GOALS_NODE && focus.id !== SCORE_NODE && focus.id !== CHALLENGE_NODE && focus.id !== TEAM_HUB && focus.id !== ONB_NODE && (
             <div className={`d-list inside ${railCount > childrenOf(ix, focus.id).length - 1 && !moveQuiet ? "" : "keep"}${focus.id === "go" ? " go-inside" : ""}`}>
               <h2>{focus.type === "core" ? "Your products" : "Inside"}</h2>
               <ul>
