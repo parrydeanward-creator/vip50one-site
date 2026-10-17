@@ -25,6 +25,12 @@ export type LiveChallenge =
       identity: string | null;
       enemy: string[];
       group: ChallengeGroup | null;
+      /** Set once the 90 days are over (status completed, or past the last day): the last day, and its words. */
+      finished: { date: string | null; label: string | null; short: string | null } | null;
+      /** The results, when ONE MOVE sends them (`results: {days_scored, average}`); null until then. */
+      results: { daysScored: number; average: number } | null;
+      /** The sealed letter, when ONE MOVE sends it once the 90 days are over (`letter`); null until then. */
+      letter: string | null;
       url: string;
     };
 
@@ -32,6 +38,23 @@ const KEYS = CHALLENGE.arenas.map((a) => a.key) as readonly string[];
 const num = (v: unknown, lo: number, hi: number, dflt = 0) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : dflt);
 const str = (v: unknown, max = 300) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
 const date = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null);
+
+const DAY_MS = 86_400_000;
+const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
+/** Today in Mountain time, YYYY-MM-DD. */
+export const mountainToday = (now = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+const fmt = (d: string, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", ...o }).format(new Date(`${d}T12:00:00Z`));
+
+/** The challenge's last day (start + of - 1). */
+export const lastDay = (start: string, of: number) => addDays(start, of - 1);
+
+function readResults(v: unknown): { daysScored: number; average: number } | null {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const r = v as Record<string, unknown>;
+  if (typeof r.days_scored !== "number" || !Number.isFinite(r.days_scored)) return null;
+  const average = typeof r.average === "number" && Number.isFinite(r.average) ? Math.min(100, Math.max(0, Math.round(r.average))) : 0;
+  return { daysScored: Math.min(365, Math.max(0, Math.round(r.days_scored))), average };
+}
 
 /** The challenge page: the route's own https link on ONE MOVE, else ONE MOVE's challenge page. */
 export function safeUrl(v: unknown): string {
@@ -81,7 +104,7 @@ function readGroup(v: unknown): ChallengeGroup | null {
 }
 
 /** ONE MOVE's answer, checked; null when it is not one (the panel then keeps "Coming from ONE MOVE"). */
-export function readChallenge(raw: unknown): LiveChallenge | null {
+export function readChallenge(raw: unknown, today: string = mountainToday()): LiveChallenge | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const r = raw as Record<string, unknown>;
   const url = safeUrl(r.url);
@@ -89,24 +112,37 @@ export function readChallenge(raw: unknown): LiveChallenge | null {
   if (r.enrolled !== true) return null;
   const of = num(r.of, 1, 365, 90);
   const t = r.today && typeof r.today === "object" ? (r.today as Record<string, unknown>) : {};
+  const status = str(r.status, 30) ?? "active";
+  const startDate = date(r.start_date);
+  const day = num(r.day, 0, of);
+  // ONE MOVE holds the day at 90 after the end (vip50-web-crm lib/challenge.ts dayNumber), so the end is read from the
+  // start date: past the last day, or marked completed, it is finished, never a frozen "Day 90 of 90".
+  const end = startDate ? lastDay(startDate, of) : null;
+  const done = /^(completed?|finished)$/i.test(status) || (day >= of && !!end && today > end);
   return {
     enrolled: true,
-    status: str(r.status, 30) ?? "active",
-    startDate: date(r.start_date),
-    day: num(r.day, 0, of),
+    status,
+    startDate,
+    day,
     of,
     today: { date: date(t.date), points: num(t.points, 0, 100), arenas: readArenas(t.arenas) },
     streak: num(r.streak, 0, 10_000),
     identity: str(r.identity_statement, 500),
     enemy: readEnemy(r.enemy),
     group: readGroup(r.group),
+    finished: done ? { date: end, label: end ? fmt(end, { weekday: "short", day: "numeric", month: "short" }) : null, short: end ? fmt(end, { day: "numeric", month: "short" }) : null } : null,
+    results: readResults(r.results),
+    letter: str(r.letter ?? r.letter_to_self, 5000),
     url,
   };
 }
 
-/** The orb's side line: "Day 23 of 90 · 65 today"; null when not enrolled or not started. */
+/** The orb's side line: "Day 23 of 90 · 65 today", or "Finished 7 Oct · start again" once it is over; null when not
+ *  enrolled or not started. */
 export function challengeLine(c: LiveChallenge | null): string | null {
-  if (!c || !c.enrolled || c.day < 1) return null;
+  if (!c || !c.enrolled) return null;
+  if (c.finished) return `Finished${c.finished.short ? ` ${c.finished.short}` : ""} · start again`;
+  if (c.day < 1) return null;
   return `Day ${c.day} of ${c.of} · ${c.today.points} today`;
 }
 
@@ -122,6 +158,16 @@ export function withChallengeNode<G extends { nodes: GraphNode[] }>(g: G, c: Liv
     hit = true;
     if (!c.enrolled) return { ...n, secondaryLabel: "Five arenas, 100 a day", status: undefined, stats: undefined };
     if (!line) return n;
+    if (c.finished)
+      return {
+        ...n,
+        secondaryLabel: line,
+        status: "healthy" as const,
+        stats: [
+          { label: "Finished", value: c.finished.short ?? "Yes" },
+          ...(c.results ? [{ label: "Days scored", value: `${c.results.daysScored} / ${c.of}` }, { label: "Average", value: `${c.results.average} / 100` }] : []),
+        ],
+      };
     return {
       ...n,
       secondaryLabel: line,

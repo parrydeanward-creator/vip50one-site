@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { liveGraph, type SummaryEnvelope } from "../lib/live.ts";
 import { demoGraph, oneYouView } from "../lib/graph/demo.ts";
 import { CHALLENGE, CHALLENGE_NODE, COMING, RETIRED_YOU_ORBS, SCOREBOARD_SECTIONS, SCORE_NODE, challengeDay, leaderRows, withoutRetired } from "../lib/oneYou.ts";
@@ -116,4 +117,12 @@ test("the Weekly Review's Wins card reads the Scoreboard's list: weeks at 100 an
   const w = (kind: "closing" | "week_100" | "goal_reached" | "five_star", at: string, title: string) => ({ kind, at, title, detail: null, contactId: null, amount: null });
   const r = review({ today: "2026-10-16", week: { score: 104, minimum: 100 }, roster: null, commitments: null, goals: [], wins: [w("closing", "2026-10-14", "Closed"), w("week_100", "2026-10-13", "Week"), w("goal_reached", "2026-10-13", "Goal"), w("five_star", "2026-10-15", "Ann")] });
   assert.equal(r.cards.find((c) => c.key === "wins")!.big, "2");
+});
+
+// Every ONE YOU tool in one look (Walker, 17 Oct: the left list showed 9 tools, then "+5 more in the panel").
+test("the ONE YOU rail lists every tool; the cap of 9 stays only for other orbs", () => {
+  const b = readFileSync("components/brain/Brain.tsx", "utf8");
+  assert.match(b, /: focus\.id === "go"\s*\n\s*\? childrenOf\(ix, focus\.id\) \/\/ ONE YOU: every tool in one look/);
+  assert.match(b, /!ask && !tour && childrenOf\(ix, focus\.id\)\.length > railCount \? \(/);
+  assert.match(readFileSync("app/globals.css", "utf8"), /\.rail\.rail-full \{[^}]*scrollbar-width: thin/);
 });

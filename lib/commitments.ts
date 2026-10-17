@@ -230,10 +230,23 @@ export function withWeekNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] 
     importance: 1.04,
     status: level === "now" ? "action" : level === "today" || dailyLeft ? "attention" : (items.length || d?.today.due) && on === items.length && !dailyLeft ? "healthy" : undefined,
     stats: stats.length ? stats : undefined,
-    summary: c.keepRate8w != null ? `You keep ${Math.round(c.keepRate8w * 100)}% of your commitments (last 8 weeks).${c.streak ? ` ${c.streak}-week streak.` : ""}` : "Set your commitments Monday, check in Friday, and the weekend too.",
+    summary: keepLine(c) ? `${keepLine(c)}.` : "Set your commitments Monday, check in Friday, and the weekend too.",
   });
   edges.push({ id: `go>${WEEK_NODE}`, source: "go", target: WEEK_NODE, relationshipType: "belongs_to", strength: 1 });
   return { ...g, nodes, edges };
+}
+
+/** One line for the orb, the panel and the node (Walker, 17 Oct: the orb said "100% kept, 8 weeks", the panel
+ *  "1-week streak"): "3 of 3 kept last week · 100% over 8 weeks"; either half alone when only it is known; null when
+ *  neither is. */
+export function keepLine(c: Pick<Commitments, "lastWeek" | "keepRate8w">): string | null {
+  const lw = c.lastWeek;
+  const total = lw ? lw.kept + lw.partly + lw.missed : 0;
+  const parts = [
+    lw && total ? `${lw.kept} of ${total} kept last week` : null,
+    c.keepRate8w != null ? `${Math.round(c.keepRate8w * 100)}% over 8 weeks` : null,
+  ].filter((x): x is string => !!x);
+  return parts.length ? parts.join(" · ") : null;
 }
 
 /** The demo agent's week (Tuesday, half way through), so the sales demo shows it working. */

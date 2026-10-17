@@ -110,3 +110,46 @@ test("withChallengeNode puts the live numbers on the live orb; nothing changes w
   assert.equal(off.secondaryLabel, "Five arenas, 100 a day");
   assert.equal(off.stats, undefined);
 });
+
+// After day 90 (Walker, 17 Oct: Parry started 10 Jul, the challenge ended on 7 Oct (a Wednesday; the note said Tue), and the orb still said "Day 90 of
+// 90 · 0 days to go"). ONE MOVE holds day at 90 and status "active", so the end comes from the start date.
+const PARRY = { ...LIVE, start_date: "2026-07-10", day: 90, status: "active" };
+
+test("readChallenge: past the last day it is finished, on start + 89 days, never a frozen day 90", () => {
+  const c = readChallenge(PARRY, "2026-10-17")!;
+  assert.ok(c.enrolled);
+  if (!c.enrolled) return;
+  assert.deepEqual(c.finished, { date: "2026-10-07", label: "Wed 7 Oct", short: "7 Oct" });
+  assert.equal(c.results, null); // the route sends no results yet
+  assert.equal(c.letter, null);
+  assert.equal(challengeLine(c), "Finished 7 Oct · start again");
+  // On the last day itself it is still day 90, not finished.
+  const last = readChallenge(PARRY, "2026-10-07")!;
+  assert.ok(last.enrolled && last.finished === null);
+  assert.equal(challengeLine(last), "Day 90 of 90 · 65 today");
+  // Day 23 is never finished, whatever today is.
+  const mid = readChallenge(LIVE, "2027-06-01")!;
+  assert.ok(mid.enrolled && mid.finished === null);
+});
+
+test("readChallenge: status completed is finished; results and the letter when ONE MOVE sends them", () => {
+  const c = readChallenge({ ...PARRY, status: "completed", results: { days_scored: 81, average: 72.4 }, letter: " Dear me, you did it. " }, "2026-10-08")!;
+  assert.ok(c.enrolled);
+  if (!c.enrolled) return;
+  assert.equal(c.finished?.label, "Wed 7 Oct");
+  assert.deepEqual(c.results, { daysScored: 81, average: 72 });
+  assert.equal(c.letter, "Dear me, you did it.");
+  const noStart = readChallenge({ enrolled: true, status: "completed", day: 90 }, "2026-10-08")!;
+  assert.ok(noStart.enrolled);
+  if (noStart.enrolled) assert.equal(challengeLine(noStart), "Finished · start again");
+});
+
+test("withChallengeNode: a finished challenge shows Finished on the orb, with results when there are any", () => {
+  const g = liveGraph(ENV, OPTS);
+  const fin = withChallengeNode(g, readChallenge(PARRY, "2026-10-17")).nodes.find((n) => n.id === CHALLENGE_NODE)!;
+  assert.equal(fin.secondaryLabel, "Finished 7 Oct · start again");
+  assert.deepEqual(fin.stats, [{ label: "Finished", value: "7 Oct" }]);
+  const res = withChallengeNode(g, readChallenge({ ...PARRY, results: { days_scored: 81, average: 72 } }, "2026-10-17")).nodes.find((n) => n.id === CHALLENGE_NODE)!;
+  assert.deepEqual(res.stats, [{ label: "Finished", value: "7 Oct" }, { label: "Days scored", value: "81 / 90" }, { label: "Average", value: "72 / 100" }]);
+  assert.ok(!/Day 90 of 90/.test(fin.secondaryLabel ?? ""));
+});

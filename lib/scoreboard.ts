@@ -23,7 +23,8 @@ export interface ScoreboardLive {
   /** Days in a row with ONE GO opened (ONE MOVE's loginStreak). */
   streak: number;
   xp: { week: number; lastWeek: number };
-  /** The last weekly scores, newest first. */
+  /** ONE MOVE's `weekly_totals.combined_total` rows, newest first. Not shown: that table stopped being written in
+   *  Aug 2025 (Parry's last row is the week of 11 Aug 2025), so it is not the weekly score; see weeklyScoreLines. */
   history: { weekStart: string; total: number }[];
 }
 
@@ -71,12 +72,38 @@ export const missionDot = (s: MissionStatus): "healthy" | "attention" | "idle" =
 /** "4 of 7 complete" for the panel's heading line. */
 export const missionLine = (rows: MissionRow[]): string => `${rows.filter((m) => m.status === "Complete").length} of ${rows.length} complete`;
 
-/** The Streak and XP rows' words, from a live answer. */
+/** The Streak and XP rows' words, from a live answer. XP is ONE GO's game points, named XP, never "weekly score". */
 export function streakXpLines(s: ScoreboardLive): { streak: string; xp: string; xpNote: string } {
   const n = (v: number) => v.toLocaleString("en-US");
   return {
     streak: s.streak === 1 ? "1 day" : `${n(s.streak)} days`,
-    xp: `${n(s.xp.week)} this week`,
-    xpNote: `${n(s.xp.lastWeek)} last week${s.history.length ? ` · weekly score ${s.history.map((h) => h.total).join(", ")} (newest first)` : ""}.`,
+    xp: `${n(s.xp.week)} XP this week`,
+    xpNote: `${n(s.xp.lastWeek)} XP last week. XP is ONE GO's game points; the weekly score is the one against 100.`,
   };
+}
+
+/** One week of the 100-standard weekly score (daily tracker points plus the weekly bonus boxes), as ONE MOVE's
+ *  /api/brain/history sends it: the same weeks the Weekly Review reads (lib/pulseCoach.ts). */
+export type ScoreWeek = { start: string; score: number | null; minimum: number };
+
+const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+/** The Scoreboard's weekly score row from the same weeks as the Weekly Review: last full week big (as Pulse's read,
+ *  pulseRead's `last`), this week so far and the weeks before in the note. Null when there is no scored week. */
+export function weeklyScoreLines(weeks: ScoreWeek[] | null | undefined, today: string): { big: string; note: string } | null {
+  if (!weeks?.length) return null;
+  const sorted = [...weeks].sort((a, b) => a.start.localeCompare(b.start));
+  const full = sorted.filter((w) => addDays(w.start, 7) <= today);
+  const now = sorted.find((w) => w.start <= today && addDays(w.start, 7) > today) ?? null;
+  const last = full.length ? full[full.length - 1] : null;
+  const minimum = (last ?? now)?.minimum ?? 100;
+  const before = full.slice(0, -1).filter((w) => w.score != null).reverse().slice(0, 4);
+  if (last?.score == null && now?.score == null) return null;
+  const big = last?.score != null ? `${last.score} last week` : `${now!.score} this week so far`;
+  const parts = [
+    last?.score != null ? (last.score >= minimum ? `Above the ${minimum}` : `${minimum - last.score} short of ${minimum}`) : null,
+    last?.score != null && now?.score != null ? `${now.score} this week so far` : null,
+    before.length ? `before that ${before.map((w) => w.score).join(", ")} (newest first)` : null,
+  ].filter(Boolean);
+  return { big, note: `${parts.join(" · ")}${parts.length ? ". " : ""}Daily tracker points plus the weekly bonus boxes; the standard is ${minimum}.` };
 }

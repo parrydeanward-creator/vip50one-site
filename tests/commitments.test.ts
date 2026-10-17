@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyTick, checkBody, doneUrl, tickable, ticked, demoCommitments, dueLevel, keepShare, progressWords, reached, readCommitments, setBody, starters, withWeekNode, WEEK_NODE, type Item } from "../lib/commitments.ts";
+import { applyTick, checkBody, doneUrl, tickable, ticked, demoCommitments, dueLevel, keepShare, progressWords, reached, readCommitments, setBody, starters, withWeekNode, keepLine, WEEK_NODE, type Item } from "../lib/commitments.ts";
 import { needsOf } from "../lib/needs.ts";
+import { readFileSync } from "node:fs";
 import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
 
 const item = (x: Partial<Item>): Item => ({ id: "i", text: "Two coffees", kind: "face_to_face", target: 2, count: 1, result: null, note: null, ...x });
@@ -147,4 +148,24 @@ test("the commitments queue: the route's shape, checked; this week's drafts firs
   ];
   assert.deepEqual(withChosen([], starts), starts);
   assert.deepEqual(withChosen([{ text: "Ten calls", kind: "call", target: 10 }], starts).map((d) => d.text), ["Ten calls", "Two face to face", "Clear follow-ups"]);
+});
+
+// One line for "This week" (Walker, 17 Oct: the orb said "100% kept, 8 weeks", the panel "1-week streak").
+test("keepLine: last week's count and the 8-week rate, the same words on the orb, the panel and the node", () => {
+  assert.equal(keepLine({ lastWeek: { kept: 3, partly: 0, missed: 0 }, keepRate8w: 1 }), "3 of 3 kept last week · 100% over 8 weeks");
+  assert.equal(keepLine({ lastWeek: { kept: 2, partly: 1, missed: 1 }, keepRate8w: 0.72 }), "2 of 4 kept last week · 72% over 8 weeks");
+  assert.equal(keepLine({ lastWeek: null, keepRate8w: 0.5 }), "50% over 8 weeks");
+  assert.equal(keepLine({ lastWeek: { kept: 0, partly: 0, missed: 0 }, keepRate8w: null }), null);
+  assert.equal(keepLine({ lastWeek: { kept: 1, partly: 0, missed: 1 }, keepRate8w: null }), "1 of 2 kept last week");
+  const g = withWeekNode({ nodes: [{ id: "go", type: "product", label: "ONE YOU", parentId: "one", product: "go", importance: 1 }], edges: [] } as never, { ...demoCommitments("2026-10-13"), lastWeek: { kept: 3, partly: 0, missed: 0 }, keepRate8w: 1, streak: 1 }, 10);
+  const n = (g as { nodes: { id: string; summary?: string }[] }).nodes.find((x) => x.id === WEEK_NODE)!;
+  assert.equal(n.summary, "3 of 3 kept last week · 100% over 8 weeks.");
+  assert.doesNotMatch(n.summary!, /streak/);
+});
+
+test("CommitmentsView: the weekend form never claims Pulse suggested an empty line", () => {
+  const v = readFileSync("components/brain/CommitmentsView.tsx", "utf8");
+  assert.match(v, /mode\.period === "week" && !\(c\.week\?\.items \?\? \[\]\)\.length \? <p className="pm-promise">Pulse suggested these/);
+  assert.doesNotMatch(v, /% kept, 8 weeks/);
+  assert.doesNotMatch(v, /-week streak/);
 });

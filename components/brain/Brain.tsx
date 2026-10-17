@@ -1453,7 +1453,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             ? datedIds.map((id) => ix.byId.get(id)!).filter(Boolean)
             : dayView
               ? dayIds.map((id) => ix.byId.get(id)!).filter(Boolean)
-              : childrenOf(ix, focus.id).slice(0, 9),
+              : focus.id === "go"
+                ? childrenOf(ix, focus.id) // ONE YOU: every tool in one look (Walker, 17 Oct)
+                : childrenOf(ix, focus.id).slice(0, 9),
     [ix, focus.id, ask, askIds, tour, timeline, datedIds, dayView, dayIds, moveMenu],
   );
   const railCount = railNodes.length;
@@ -2568,7 +2570,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             </nav>
           )}
           {railCount > 0 && (
-            <nav className="rail pop" key={`rail-${ask ? `ask-${ask.question}` : state.focusId}`} aria-label={ask ? "Pulse's answer" : `Inside ${focus.label}`}>
+            <nav className={`rail pop${railCount > 9 ? " rail-full" : ""}`} key={`rail-${ask ? `ask-${ask.question}` : state.focusId}`} aria-label={ask ? "Pulse's answer" : `Inside ${focus.label}`}>
               <p className="rail-head">{tour ? "Morning Pulse" : ask ? "Pulse" : focus.type === "core" ? "Your business" : focus.label}</p>
               {!ask && !tour && focus.type !== "core" && focus.secondaryLabel && <p className="rail-sub">{focus.secondaryLabel}</p>}
               <ul>
@@ -2610,7 +2612,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   </li>
                 ))}
               </ul>
-              {!ask && !tour && (vs.hiddenChildren > 0 || childrenOf(ix, focus.id).length > railCount) ? (
+              {!ask && !tour && childrenOf(ix, focus.id).length > railCount ? (
                 <p className="rail-more">+{childrenOf(ix, focus.id).length - railCount} more in the panel</p>
               ) : null}
             </nav>
@@ -3227,6 +3229,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               wins={wins}
               weekWins={weekWinsLive}
               scoreboard={live ? scoreLive : null}
+              weekScores={history?.weeks ?? null}
               onPartner={partnerAct}
               onOpenPartners={() => setPartnersOpen(true)}
               onOpenWins={() => setWinsOpen(true)}

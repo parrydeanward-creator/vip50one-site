@@ -172,6 +172,9 @@ a.link { display: block; text-decoration: none; }
 .rail-caret { flex: none; font-size: 12px; color: var(--gold); width: 12px; text-align: center; }
 .rail-menu .rail-sublist { margin: 5px 0 2px 14px; padding-left: 8px; border-left: 1px solid rgba(212, 175, 55, 0.25); }
 .rail-more { margin: 8px 0 0 6px; font-size: 12px; color: var(--text-3); }
+.rail.rail-full { max-height: calc(100% - 96px); scrollbar-width: thin; scrollbar-color: rgba(212, 175, 55, 0.35) transparent; }
+.rail.rail-full ul { gap: 6px; }
+.rail.rail-full .rail-btn { min-height: 44px; padding: 6px 12px; }
 .rail-line { stroke-width: 1; opacity: 0; transition: opacity 250ms, stroke-width 160ms; stroke-opacity: 0.35; }
 .rail-line.lit { stroke-width: 2; stroke-opacity: 0.9; }
 @media (max-width: 1100px) { .rail { display: none; } }
@@ -2549,6 +2552,7 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .sb-panel h2:first-child, .ch-panel h2:first-child { margin-top: 14px; }
 .sb-coming { font-style: italic; }
 .ch-start { margin: 10px 0 4px; }
+.ch-letter { white-space: pre-wrap; margin: 6px 0 10px; padding: 10px 12px; border-left: 2px solid var(--gold); }
 .gl-three { margin: 12px 0 14px; }
 .d-away { margin-top: 6px; }
 .d-away .link { padding: 0; text-decoration: underline; }
