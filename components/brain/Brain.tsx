@@ -105,7 +105,7 @@ import { WEEK_NODE, commitWay, commitmentsUrl, demoCommitments, queueBody, queue
 import { nextCommitKey } from "@/lib/pulseCoach.ts";
 import { PLAN_NODE, planKey, planState, planUrl, readPlan, timed, withPlanNode, type Plan, type PlanState } from "@/lib/plan.ts";
 import { hwcUrl, readHwc, todayIn, type HwcClass } from "@/lib/hwc.ts";
-import { demoSignals, readSignals, signalsUrl, withSignalsNode, type WebSignal } from "@/lib/webSignals.ts";
+import { readSignals, signalsUrl, type WebSignal } from "@/lib/webSignals.ts";
 import { readSiteAlerts, withAdsAlertNode, type SiteAlert } from "@/lib/siteAlerts.ts";
 import { GROWTH_JOIN_BUTTON, GROWTH_NODE, growthChildren, growthDemoNote, isGrowthChild, withGrowthNodes, type GrowthAction, type GrowthState } from "@/lib/growthOrb.ts";
 import { ASK_PERSON, askOrbIds, withAskPeople } from "@/lib/askOrbs.ts";
@@ -114,7 +114,8 @@ import { postDay, type TeamPost } from "@/lib/teamPosts.ts";
 import { perProduct } from "@/lib/perProduct.ts";
 import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, type Launch } from "@/lib/launch.ts";
 import LaunchPanel from "./LaunchPanel.tsx";
-import HeatPanel from "./HeatPanel.tsx";
+import LooksHotPanel from "./LooksHotPanel.tsx";
+import NewToSort from "./NewToSort.tsx";
 import OnboardingPanel from "./OnboardingPanel.tsx";
 import GettingStartedPanel from "./GettingStartedPanel.tsx";
 import TeamHubPanel, { isHubPart } from "./TeamHubPanel.tsx";
@@ -126,7 +127,9 @@ import { NetworkPanel, RevsharePanel } from "./RezenOrbPanel.tsx";
 import { NETWORK_NODE, REVSHARE_NODE, demoRezenRead, readNetwork as readRezenNetwork, readRevshare, withRezenNodes, type Network as RezenNetwork, type Revshare } from "@/lib/rezenOrbs.ts";
 import { rezenUrl } from "@/lib/rezen.ts";
 import { ONB_NODE, demoOnboarding, onbIdOf, onboardingUrl, readOnboarding, readRemoved, withStart, type OnbMember } from "@/lib/onboarding.ts";
-import { demoHeat, heatIdOf, heatUrl, readHeat, withHeatNodes, type HeatSuggestion } from "@/lib/heat.ts";
+import { heatUrl, readHeat, type HeatSuggestion } from "@/lib/heat.ts";
+import { NOT_YET_STORE, demoLooksHot, fromHeat, fromSignals, isLooksHotOrb, looksIdOf, looksNodeId, looksHotUrl, mergeLooks, readLooksHot, readNotYet, shownLooks, withLooksHot, withNotYet, type LooksPerson, type NotYet } from "@/lib/looksHot.ts";
+import { DEMO_NTS_NODE, NTS_PATH, demoNewToSort, fromNewLeads, newToSortUrl, readNewToSort, withNewToSort, withoutPerson as withoutSorted, type NewToSort as NtsData } from "@/lib/newToSort.ts";
 import ClosedCards from "./ClosedCards.tsx";
 import { LAST_COOKIE, LAST_MAX_AGE } from "@/lib/landing.ts";
 import { HINT, menuRows, type MenuRow } from "@/lib/phoneMenu.ts";
@@ -212,12 +215,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const coachRef = useRef<Coached[] | null>(null);
   // ONE YOU's Weekly Review orb (PULSE-ROADMAP "ONE YOU"): pulses when part of the week needs the agent.
   const reviewRef = useRef<Review | null>(null);
-  const webRef = useRef<WebSignal[] | null>(null);
   const adsRef = useRef<SiteAlert[] | null>(null);
   const growthRef = useRef<GrowthState | null>(null);
   const askPeopleRef = useRef<AskAnswer["people"] | null>(null);
   const newLeadsRef = useRef<NewLeads | null>(null);
-  const heatRef = useRef<HeatSuggestion[] | null>(null);
+  // New to Sort and Looks Hot (lib/newToSort.ts, lib/looksHot.ts): the two people orbs always on ONE MOVE.
+  const ntsRef = useRef<NtsData | null>(null);
+  const looksRef = useRef<LooksPerson[] | null>(null);
   const onbRef = useRef<OnbMember[] | null>(null);
   const onbRemovedRef = useRef<string[]>([]);
   const rezenRef = useRef<{ r: Revshare | null; n: RezenNetwork | null }>({ r: null, n: null });
@@ -253,7 +257,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn());
+    const next = withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn()), ntsRef.current), looksRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -1007,7 +1011,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // Hot on your website (LOFTY-PARITY P3): known visitors back on the agent's site, from ONE MOVE; re-read every 5 minutes.
   const [webHot, setWebHot] = useState<WebSignal[] | null>(null);
   useEffect(() => {
-    if (!live) return setWebHot(demoSignals());
+    if (!live) return;
     const load = () =>
       fetch(signalsUrl, { credentials: "include", cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
@@ -1017,10 +1021,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     const t = setInterval(load, 300_000);
     return () => clearInterval(t);
   }, [live]);
-  useEffect(() => {
-    webRef.current = webHot;
-    setGraph((g) => withSignalsNode(g, webHot));
-  }, [webHot]);
   // Ads that did not reach Meta, or team ads paused (ONE Websites site_alerts): red or yellow under ONE YOU.
   const [adsAlerts, setAdsAlerts] = useState<SiteAlert[] | null>(null);
   useEffect(() => {
@@ -1063,7 +1063,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // Looks Hot (CONNECTIONS §5.1, vip50-web-crm#244): one decide item per contact whose actions say they are ready.
   const [heat, setHeat] = useState<HeatSuggestion[] | null>(null);
   useEffect(() => {
-    if (!live) return setHeat(demoHeat());
+    if (!live) return;
     const load = () =>
       fetch(heatUrl, { credentials: "include", cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
@@ -1073,10 +1073,77 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     const t = setInterval(load, 300_000);
     return () => clearInterval(t);
   }, [live]);
+  // Looks Hot, one orb (lib/looksHot.ts; walker 17 Oct, Parry "yes"): ONE MOVE's looks-hot route when it answers;
+  // until then the heat suggestions and the website signals above, merged. Always on ONE MOVE.
+  const [looksRoute, setLooksRoute] = useState<LooksPerson[] | null>(null);
   useEffect(() => {
-    heatRef.current = heat;
-    setGraph((g) => withHeatNodes(g, heat));
-  }, [heat]);
+    if (!live) return;
+    const load = () =>
+      fetch(looksHotUrl, { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          const l = j ? readLooksHot(j) : null;
+          if (l) setLooksRoute(l);
+        })
+        .catch(() => {});
+    load();
+    const t = setInterval(load, 300_000);
+    return () => clearInterval(t);
+  }, [live]);
+  const [notYet, setNotYet] = useState<NotYet>({});
+  useEffect(() => {
+    try {
+      setNotYet(readNotYet(localStorage.getItem(NOT_YET_STORE)));
+    } catch {}
+  }, []);
+  const [looksGone, setLooksGone] = useState<ReadonlySet<string>>(() => new Set());
+  const looks = useMemo(() => {
+    const all = !live ? demoLooksHot() : looksRoute ?? (heat || webHot ? mergeLooks(fromHeat(heat ?? []), fromSignals(webHot ?? [])) : null);
+    return shownLooks(all, notYet, looksGone);
+  }, [live, looksRoute, heat, webHot, notYet, looksGone]);
+  useEffect(() => {
+    looksRef.current = looks;
+    setGraph((g) => withLooksHot(g, looks));
+  }, [looks]);
+  const looksDone = useCallback((p: LooksPerson, action: "move_hot" | "call" | "not_yet") => {
+    if (action === "not_yet")
+      setNotYet((n) => {
+        const next = withNotYet(n, p);
+        try {
+          localStorage.setItem(NOT_YET_STORE, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    else setLooksGone((g) => new Set(g).add(p.id));
+  }, []);
+  // New to Sort (lib/newToSort.ts; walker 17 Oct, Parry "yes"): ONE MOVE's route when it answers; until then the new
+  // leads ONE MOVE already sends from the four sources. Re-read every 2 minutes; a sorted face leaves at once.
+  const [ntsRoute, setNtsRoute] = useState<NtsData | null>(null);
+  const [ntsGone, setNtsGone] = useState<ReadonlySet<string>>(() => new Set());
+  const loadNts = useCallback(() => {
+    if (!live) return;
+    fetch(newToSortUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const d = j ? readNewToSort(j) : null;
+        if (d) setNtsRoute(d);
+      })
+      .catch(() => {});
+  }, [live]);
+  useEffect(() => {
+    loadNts();
+    if (!live) return;
+    const t = setInterval(loadNts, 120_000);
+    return () => clearInterval(t);
+  }, [live, loadNts]);
+  const nts = useMemo(() => {
+    const d = !live ? demoNewToSort() : ntsRoute ?? fromNewLeads(newLeads);
+    return d ? [...ntsGone].reduce(withoutSorted, d) : null;
+  }, [live, ntsRoute, newLeads, ntsGone]);
+  useEffect(() => {
+    ntsRef.current = nts;
+    setGraph((g) => withNewToSort(g, nts));
+  }, [nts]);
   // Onboarding board (TEAM-ONBOARDING §2.3, vip50-web-crm#250): team lead and admins only; anyone else gets a 403 and no orb.
   const [onb, setOnb] = useState<OnbMember[] | null>(null);
   useEffect(() => {
@@ -2290,7 +2357,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     );
   };
   // A ONE MOVE page that opens inside the Brain (lib/moveMenu.ts IN_BRAIN).
-  const pagePanel = !ask && !tour ? inBrainPage(state.focusId) : null;
+  // the example agent's New to Sort orb (lib/graph/move.ts) opens the same native view as the live one
+  const pagePanel = !ask && !tour ? inBrainPage(state.focusId) ?? (state.focusId === DEMO_NTS_NODE ? { label: "New to Sort", path: NTS_PATH } : null) : null;
   // A page opened for one person (the person panel's Refer / Post a need): its query rides on the frame's address.
   // Each opening starts behind the veil again, even for the same page.
   const panelPath = pagePanel?.path ?? null;
@@ -2316,7 +2384,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // Daily Tracker (§3e). The Classic page stays one click away, and is the
   // fallback until ONE MOVE's route answers.
   // Home Reports (HOME-REPORT §5.4, 16 Oct): this month's reports and the bulk start, from ONE MOVE's routes.
-  const NATIVE: Record<string, "vip" | "daily" | "weekly" | "audit" | "rolodex" | "profile" | "hwc" | "contacts" | "homereports"> = { "/contacts": "contacts", "/contacts/vip": "vip", "/daily": "daily", "/weekly": "weekly", "/contacts/audit": "audit", "/rolodex": "rolodex", "/profile": "profile", "/hot-warm-cold": "hwc", "/home-reports": "homereports" };
+  const NATIVE: Record<string, "vip" | "daily" | "weekly" | "audit" | "rolodex" | "profile" | "hwc" | "contacts" | "homereports" | "nts"> = { "/contacts/visitors": "nts", "/contacts": "contacts", "/contacts/vip": "vip", "/daily": "daily", "/weekly": "weekly", "/contacts/audit": "audit", "/rolodex": "rolodex", "/profile": "profile", "/hot-warm-cold": "hwc", "/home-reports": "homereports" };
   const [vipClassic, setVipClassic] = useState(false);
   const nativeKind = panelPath ? NATIVE[panelPath] : undefined;
   const vipNative = !!nativeKind && !vipClassic;
@@ -3036,21 +3104,20 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             return m ? <OnboardingPanel key={focus.id} m={m} /> : null;
           })()}
 
-          {heatIdOf(focus.id) && !ask && (() => {
-            const hs = heat?.find((x) => x.id === heatIdOf(focus.id));
-            return hs ? (
-              <HeatPanel
-                key={focus.id}
-                s={hs}
-                live={live}
-                onDone={() => {}}
-                onOpenPage={(path, query) => {
-                  setPageQuery({ path, query });
-                  goTo(movePageId(path));
-                }}
-              />
-            ) : null;
-          })()}
+          {(isLooksHotOrb(focus.id) || looksIdOf(focus.id)) && !ask ? (
+            <LooksHotPanel
+              key={focus.id}
+              list={looks}
+              person={looksIdOf(focus.id) ? looks?.find((x) => x.id === looksIdOf(focus.id)) ?? null : null}
+              live={live}
+              onOpen={(p) => goTo(looksNodeId(p.id))}
+              onDone={looksDone}
+              onOpenPage={(path, query) => {
+                setPageQuery({ path, query });
+                goTo(movePageId(path));
+              }}
+            />
+          ) : null}
 
           {launchRefOf(focus.id) && focus.product === "marquee" && !focus.locked && !ask && (
             <LaunchPanel
@@ -3599,7 +3666,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             </div>
           )}
 
-          {kids.length > 0 && !isMoveGroup(focus.id) && !isFollowUpsOrb(focus.id) && focus.id !== GOALS_NODE && focus.id !== SCORE_NODE && focus.id !== CHALLENGE_NODE && focus.id !== TEAM_HUB && focus.id !== ONB_NODE && (
+          {kids.length > 0 && !isMoveGroup(focus.id) && !isFollowUpsOrb(focus.id) && !isLooksHotOrb(focus.id) && focus.id !== GOALS_NODE && focus.id !== SCORE_NODE && focus.id !== CHALLENGE_NODE && focus.id !== TEAM_HUB && focus.id !== ONB_NODE && (
             <div className={`d-list inside ${railCount > childrenOf(ix, focus.id).length - 1 && !moveQuiet ? "" : "keep"}${focus.id === "go" ? " go-inside" : ""}`}>
               <h2>{focus.type === "core" ? "Your products" : "Inside"}</h2>
               <ul>
@@ -3672,6 +3739,17 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
                   celebrate={graph.celebrate}
+                />
+              ) : vipNative && nativeKind === "nts" ? (
+                <NewToSort
+                  data={nts}
+                  live={live}
+                  onSorted={(id) => {
+                    setNtsGone((g) => new Set(g).add(id));
+                    if (live) refreshLive();
+                  }}
+                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onClassic={() => setVipClassic(true)}
                 />
               ) : vipNative && nativeKind === "hwc" ? (
                 <HotWarmCold

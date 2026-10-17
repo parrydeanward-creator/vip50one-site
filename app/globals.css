@@ -2221,6 +2221,10 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 
 /* Looks Hot (CONNECTIONS 5.1) */
 .heat-why { margin: 4px 0 10px; color: var(--text); }
+/* New to Sort and Looks Hot rows: name, one line, the buttons (lib/newToSort.ts, lib/looksHot.ts) */
+.ta-list li.nts-row, .ta-list li.lh-row { display: block; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.nts-row .ta-name small, .lh-row .ta-name small { color: var(--muted, #aab3c5); margin-left: 6px; }
+.nts-btns { flex-wrap: wrap; gap: 6px; }
 .heat-homes { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
 .heat-homes li { display: flex; gap: 10px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 12px; }
 .heat-homes img, .heat-nophoto { width: 64px; height: 48px; border-radius: 8px; object-fit: cover; flex: none; display: grid; place-items: center; background: rgba(255, 255, 255, 0.05); color: var(--text-3); font-size: 22px; }

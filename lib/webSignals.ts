@@ -1,5 +1,3 @@
-import type { GraphEdge, GraphNode } from "./graph/types.ts";
-
 // "Hot on your website" (LOFTY-PARITY P3, vip50-web-crm#219): known visitors who came back to the agent's website
 // (7 days), showed high interest (14 days: one home viewed 3+ times, 2+ saves, or a showing asked) or look like a
 // seller (asked what their home is worth, 90 days). From ONE MOVE's `GET /api/brain/signals`. Read only: the orb points
@@ -8,7 +6,6 @@ import type { GraphEdge, GraphNode } from "./graph/types.ts";
 const MOVE_URL = "https://move.vip50one.com";
 export const signalsUrl = `${MOVE_URL}/api/brain/signals`;
 export const SIGNALS_NODE = "move-web-hot";
-export const MAX_SHOWN = 12;
 
 export interface WebSignal {
   contactId: string;
@@ -42,48 +39,8 @@ export function readSignals(j: unknown): WebSignal[] | null {
 
 export const signalKind = (s: WebSignal) => (s.likelySeller ? "Likely seller" : s.highInterest ? "High interest" : "Came back");
 
-/**
- * The orb under ONE MOVE with the people round it: yellow (attention today) while anyone is hot, gone when no one is.
- * Each person is their own orb with the contact link, so a tap brings them to the middle and "Go to" opens the contact.
- */
-export function withSignalsNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, list: WebSignal[] | null): G {
-  const isMine = (id: string) => id === SIGNALS_NODE || id.startsWith(`${SIGNALS_NODE}:`);
-  const nodes = g.nodes.filter((n) => !isMine(n.id));
-  const edges = g.edges.filter((e) => !isMine(e.target));
-  const move = g.nodes.find((n) => n.id === "move");
-  if (!move || move.locked || !list?.length) return { ...g, nodes, edges };
-  const sellers = list.filter((s) => s.likelySeller).length;
-  nodes.push({
-    id: SIGNALS_NODE,
-    type: "feature",
-    label: "Hot on your website",
-    secondaryLabel: `${list.length} ${list.length === 1 ? "person" : "people"}${sellers ? ` · ${sellers} likely ${sellers === 1 ? "seller" : "sellers"}` : ""}`,
-    parentId: "move",
-    product: "move",
-    importance: 0.97,
-    status: "attention",
-    needCount: list.length,
-    summary: "People you know who came back to your website, looked hard at a home, or asked what theirs is worth. A reason to call; nothing is sent.",
-  });
-  edges.push({ id: `move>${SIGNALS_NODE}`, source: "move", target: SIGNALS_NODE, relationshipType: "belongs_to", strength: 1 });
-  list.slice(0, MAX_SHOWN).forEach((s, i) => {
-    const id = `${SIGNALS_NODE}:${s.contactId}`;
-    nodes.push({
-      id,
-      type: "person",
-      label: s.name,
-      secondaryLabel: signalKind(s),
-      parentId: SIGNALS_NODE,
-      product: "move",
-      importance: 0.9 - i * 0.02,
-      status: "attention",
-      contactId: s.contactId,
-      summary: s.words,
-    });
-    edges.push({ id: `${SIGNALS_NODE}>${id}`, source: SIGNALS_NODE, target: id, relationshipType: "interested_in", strength: 1 });
-  });
-  return { ...g, nodes, edges };
-}
+// The orb itself is lib/looksHot.ts now: "Hot on your website" folded into Looks Hot (walker 17 Oct, Parry "yes").
+// SIGNALS_NODE stays so an old orb with that id is cleared from the map.
 
 /** The example agent's website signals. */
 export const demoSignals = (): WebSignal[] =>

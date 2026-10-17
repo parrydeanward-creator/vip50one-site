@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
-import { SIGNALS_NODE, demoSignals, readSignals, signalKind, withSignalsNode } from "../lib/webSignals.ts";
+import { SIGNALS_NODE, demoSignals, readSignals, signalKind } from "../lib/webSignals.ts";
+import { LOOKS_NODE, fromSignals, withLooksHot } from "../lib/looksHot.ts";
 
 test("signals: checked, one per contact, seller first", () => {
   assert.equal(readSignals(null), null);
@@ -16,15 +17,17 @@ test("signals: checked, one per contact, seller first", () => {
   assert.equal(signalKind(s[0]), "Likely seller");
 });
 
-test("the orb is yellow with the people round it; gone when no one is hot", () => {
-  const g: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "move", type: "product", label: "ONE MOVE", parentId: "one", product: "move", importance: 1 }], edges: [] };
-  const on = withSignalsNode(g, demoSignals());
-  const orb = on.nodes.find((n) => n.id === SIGNALS_NODE)!;
+// Rewritten 17 Oct (walker, Parry "yes"): "Hot on your website" is folded into the one Looks Hot orb (lib/looksHot.ts);
+// its own orb is gone and an old one is cleared from the map.
+test("website signals show in Looks Hot, yellow with the people round it; no separate orb", () => {
+  const g: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "move", type: "product", label: "ONE MOVE", parentId: "one", product: "move", importance: 1 }, { id: SIGNALS_NODE, type: "feature", label: "Hot on your website", parentId: "move", product: "move", importance: 1 }], edges: [] };
+  const on = withLooksHot(g, fromSignals(demoSignals()));
+  assert.equal(on.nodes.some((n) => n.id === SIGNALS_NODE), false);
+  const orb = on.nodes.find((n) => n.id === LOOKS_NODE)!;
   assert.equal(orb.status, "attention");
   assert.equal(orb.needCount, 3);
-  const people = on.nodes.filter((n) => n.parentId === SIGNALS_NODE);
+  const people = on.nodes.filter((n) => n.parentId === LOOKS_NODE);
   assert.equal(people.length, 3);
   assert.ok(people.every((p) => p.contactId && p.type === "person"));
-  assert.equal(withSignalsNode(on, []).nodes.some((n) => n.id.startsWith(SIGNALS_NODE)), false);
-  assert.equal(withSignalsNode({ nodes: [{ ...g.nodes[0], locked: true }], edges: [] }, demoSignals()).nodes.some((n) => n.id === SIGNALS_NODE), false);
+  assert.equal(withLooksHot({ nodes: [{ ...g.nodes[0], locked: true }], edges: [] }, fromSignals(demoSignals())).nodes.some((n) => n.id === LOOKS_NODE), false);
 });

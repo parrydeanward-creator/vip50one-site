@@ -1,5 +1,6 @@
 import { stripMarkers } from "./personTask.ts";
 import { FOLLOW_NODE, MAX_SHOWN, followNode } from "./followUps.ts";
+import { NTS_NODE, NTS_PATH, SUMMARY as NTS_SUMMARY } from "./newToSort.ts";
 import { celebrateIds, withSpecialDays } from "./specialDays.ts";
 import { addGoals, type GoalKey } from "./goals.ts";
 import { includes } from "./products.ts";
@@ -503,6 +504,7 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
     });
     g.pages.forEach((pg, j) => {
       if (pg.path === "/contacts/audit") return; // the live Touch Audit below
+      if (pg.path === NTS_PATH) return; // New to Sort sits directly on ONE MOVE (below)
       // Hot/Warm/Cold is a daily tracker step (Parry, 5 Oct): it pulses until today's box for
       // each class is ticked.
       const hwc = pg.path === "/hot-warm-cold" && found ? hwcToday(env!.today_boxes) : null;
@@ -533,6 +535,9 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
     add(found ? fu : { ...fu, secondaryLabel: "Waiting on ONE MOVE", status: undefined, needFloor: undefined });
     shown.forEach((it, k) => itemNode(add, it, FOLLOW_NODE, "move", 1 - k * 0.03));
   }
+  // New to Sort (lib/newToSort.ts; Parry, 16 Oct: "yes"): always there, directly on ONE MOVE; the Brain fills in the
+  // count from ONE MOVE's route. Its id is the menu page's, so the menu row opens the same native view.
+  add({ id: NTS_NODE, type: "category", label: "New to Sort", parentId: "move", product: "move", importance: 0.99, href: moveMenuHref(NTS_PATH), summary: NTS_SUMMARY });
   const people = moveGroupId("people");
   if (found) {
     if (suggestions.length) {
