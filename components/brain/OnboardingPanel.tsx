@@ -3,12 +3,17 @@
 import { useState } from "react";
 import type { OnbMember } from "@/lib/onboarding.ts";
 
-// One new member on the Onboarding board (TEAM-ONBOARDING §2.3): their six steps, ready for leads, and the Nudge,
-// which opens the lead's own Messages (ONE sends nothing) or is copied on a computer.
+// One new member on the Onboarding board (TEAM-ONBOARDING §2.3), a part of the team lead's Team orb: their Getting
+// started steps (GETTING-STARTED §4), day of 30, ready for leads, and the Nudge, which opens the lead's own Messages
+// (ONE sends nothing) or is copied on a computer.
 export default function OnboardingPanel({ m }: { m: OnbMember }) {
   const [copied, setCopied] = useState(false);
   return (
     <section className="ob-panel" aria-label={`${m.name}'s setup`}>
+      <p className="ob-ready">
+        <b>Day {m.day} of 30</b> · {m.status || `${m.done} of ${m.of} done`}
+        {m.next ? ` · next: ${m.next}` : ""}
+      </p>
       <ol className="ob-steps">
         {m.steps.map((s) => (
           <li key={s.key} className={s.done ? "done" : undefined}>

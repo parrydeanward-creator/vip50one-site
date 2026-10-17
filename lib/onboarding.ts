@@ -1,8 +1,11 @@
 import type { GraphEdge, GraphNode } from "./graph/types.ts";
+import { shownSteps, type Start } from "./gettingStarted.ts";
 
-// TEAM-ONBOARDING §2.3 (vip50-web-crm#250): the team lead's Onboarding board in the Brain. An "Onboarding" orb beside
-// Team under ONE YOU (the Team orb opens the full-screen leaderboard, so nothing under it could be reached), one orb per member still setting up (their first 30 days), following the pulse: red when nothing is done by
-// day 7, yellow by day 3. The Nudge is a note for the lead to send from their own phone; ONE sends nothing.
+// TEAM-ONBOARDING §2.3 (vip50-web-crm#250): the team lead's Onboarding board in the Brain, one orb per member still
+// setting up (their first 30 days), following the pulse: red when nothing is done by day 7, yellow by day 3. The Nudge
+// is a note for the lead to send from their own phone; ONE sends nothing. Since Parry, 16 Oct 17:07 MT ("move to one
+// team orb"), the Onboarding orb is one of the Team orb's three parts (lib/teamHub.ts), and each member's steps are their
+// own Getting started list (GETTING-STARTED §4: "reads these same steps, not its own six"), read with `?agent=`.
 
 export const onboardingUrl = "https://move.vip50one.com/api/brain/team/onboarding";
 export const ONB_NODE = "go-onboarding";
@@ -71,13 +74,12 @@ const statusOf = (m: OnbMember): GraphNode["status"] => (m.urgency === "now" ? "
 export const onbLine = (m: OnbMember) => [`Day ${m.day}`, m.status, m.next ? `next: ${m.next}` : null].filter(Boolean).join(" · ");
 
 /** The Onboarding orb under ONE YOU, beside Team, and one orb per member setting up. */
-export function withOnboardingNodes<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, ms: OnbMember[] | null, removed: string[] = []): G {
+export function withOnboardingNodes<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, ms: OnbMember[] | null, removed: string[] = [], parent = "go"): G {
   const mine = (id: string) => id === ONB_NODE || id.startsWith(`${ONB_NODE}:`);
   const nodes = g.nodes.filter((n) => !mine(n.id));
   const edges = g.edges.filter((e) => !mine(e.target));
-  const go = g.nodes.find((n) => n.id === "go");
+  const go = g.nodes.find((n) => n.id === parent);
   if (!go || go.locked || !ms?.length) return { ...g, nodes, edges };
-  const parent = "go";
   nodes.push({
     id: ONB_NODE,
     type: "feature",
@@ -87,24 +89,47 @@ export function withOnboardingNodes<G extends { nodes: GraphNode[]; edges: Graph
     product: "go",
     importance: 0.97,
     status: "healthy",
-    summary: `New team members in their first 30 days: their six setup steps, and a Nudge for you to send from your phone.${removed.length ? ` ${removed.join(". ")}.` : ""}`,
+    summary: `New team members in their first 30 days: their Getting started steps, and a Nudge for you to send from your phone.${removed.length ? ` ${removed.join(". ")}.` : ""}`,
   });
   edges.push({ id: `${parent}>${ONB_NODE}`, source: parent, target: ONB_NODE, relationshipType: "belongs_to", strength: 1 });
   ms.slice(0, 15).forEach((m, i) => {
     const id = onbNodeId(m.id);
-    nodes.push({ id, type: "person", label: m.name, secondaryLabel: onbLine(m), parentId: ONB_NODE, product: "go", importance: 0.9 - i * 0.02, status: statusOf(m), summary: m.readyForLeads ? "Their six setup steps, from what they have actually done. Ready for leads." : "Their six setup steps, from what they have actually done." });
+    nodes.push({ id, type: "person", label: m.name, secondaryLabel: onbLine(m), parentId: ONB_NODE, product: "go", importance: 0.9 - i * 0.02, status: statusOf(m), summary: m.readyForLeads ? "Their Getting started steps, from what they have actually done. Ready for leads." : "Their Getting started steps, from what they have actually done." });
     edges.push({ id: `${ONB_NODE}>${id}`, source: ONB_NODE, target: id, relationshipType: m.urgency ? "requires_action" : "belongs_to", strength: 1 });
   });
   return { ...g, nodes, edges };
 }
 
-export const demoOnboarding = (): OnbMember[] =>
-  readOnboarding({
-    members: [
-      { user_id: "o1", name: "Kyle Barton", day: 8, done: 0, of: 6, status: "Invited", next: "Profile and photo", urgency: "now", ready_for_leads: false, in_rotation: false, steps: [{ key: "profile", label: "Profile and photo", done: false }, { key: "consent", label: "Team ads OK", done: false }, { key: "app", label: "ONE GO on their phone", done: false }, { key: "people", label: "First VIPs", done: false }, { key: "calendar", label: "Calendar", done: false }, { key: "pulse", label: "Pulse settings", done: false }], nudge: "Hi Kyle, it's Sarah. Quick nudge on your ONE setup.", nudge_sms: null },
-      { user_id: "o2", name: "Angelina Burleigh", day: 2, done: 3, of: 6, status: "3 of 6 done", next: "First VIPs", urgency: null, ready_for_leads: true, in_rotation: false, steps: [{ key: "profile", label: "Profile and photo", done: true }, { key: "consent", label: "Team ads OK", done: true }, { key: "app", label: "ONE GO on their phone", done: true }, { key: "people", label: "First VIPs", done: false }, { key: "calendar", label: "Calendar", done: false }, { key: "pulse", label: "Pulse settings", done: false }], nudge: null, nudge_sms: null },
-    ],
-  }) ?? [];
+/** Yellow by day 3, red by day 7, when nothing on the Getting started list is done yet (walker 16 Oct, item 1). */
+export const START_YELLOW_DAY = 3;
+export const START_RED_DAY = 7;
+export function startUrgency(day: number, done: number): OnbMember["urgency"] {
+  if (done > 0) return null;
+  return day >= START_RED_DAY ? "now" : day >= START_YELLOW_DAY ? "today" : null;
+}
+
+/** The member's own Getting started list (`?agent=`) in place of the board's old six steps; unchanged until it answers. */
+export function withStart(m: OnbMember, s: Start | null): OnbMember {
+  if (!s) return m;
+  const steps = shownSteps(s).filter((x) => !x.optional).map((x) => ({ key: x.key, label: x.label, done: x.done }));
+  const next = s.steps.find((x) => x.key === s.next)?.label ?? null;
+  return { ...m, steps, done: s.done, of: s.of, status: `${s.done} of ${s.of} done`, next, urgency: startUrgency(m.day, s.done) };
+}
+
+/** The example board (demo and tour): one member on day 8 with nothing done (red), one on day 2 with 3 done. */
+export const demoOnboarding = (): OnbMember[] => {
+  const keys = ["profile", "voice", "go", "calendar", "vips", "goals", "pulse_modes", "plan", "commitments", "website", "films"];
+  const labels = ["My Profile", "Teach Pulse to sound like you", "ONE GO on your phone", "Connect your calendar", "Choose your first VIPs", "Set your goals", "Choose how Pulse helps", "Your first Plan my day", "Set this week's commitments", "Your website and your personal page", "Watch the two short tour films"];
+  const steps = (n: number) => keys.map((key, i) => ({ key, label: labels[i], done: i < n }));
+  return (
+    readOnboarding({
+      members: [
+        { user_id: "o1", name: "Kyle Barton", day: 8, done: 0, of: 11, status: "0 of 11 done", next: labels[0], urgency: startUrgency(8, 0), ready_for_leads: false, in_rotation: false, steps: steps(0), nudge: "Hi Kyle, it's Sarah. Quick nudge on your ONE setup: your Getting started list takes about ten minutes to start. Want to do the first step together this week?", nudge_sms: "sms:&body=Hi%20Kyle%2C%20it%27s%20Sarah.%20Quick%20nudge%20on%20your%20ONE%20setup." },
+        { user_id: "o2", name: "Angelina Burleigh", day: 2, done: 3, of: 11, status: "3 of 11 done", next: labels[3], urgency: startUrgency(2, 3), ready_for_leads: true, in_rotation: false, steps: steps(3), nudge: null, nudge_sms: null },
+      ],
+    }) ?? []
+  );
+};
 
 /** "Bo: removed on Oct 15" lines from the board's `removed` (last 30 days; vip50-web-crm#258). */
 export function readRemoved(j: unknown): string[] {

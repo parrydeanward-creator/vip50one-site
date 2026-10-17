@@ -1,4 +1,5 @@
 "use client";
+import { lockedLine } from "@/lib/growthOrb.ts";
 
 import { CLASSIC_DASHBOARD_URL } from "@/lib/host.ts";
 import { hostAgainHref } from "@/lib/live.ts";
@@ -77,8 +78,8 @@ import { syncKind } from "@/lib/voicePick.ts";
 import GoalsView from "./GoalsView.tsx";
 import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
 import { REVIEW_CALLS_NODE, agentsUrl, demoAgents, readAgents, withReviewCallsNode, type ReviewAgent } from "@/lib/reviewCalls.ts";
-import { TEAM_LEADS_PATH, WAR_NODE, demoWarRoom, teamDealsUrl, leadsUrl, logUrl, readWarRoom, withWarRoomNode, type WarRoom } from "@/lib/warroom.ts";
-import { TEAM_NODE, demoTeam, readTeam, teamUrl, withTeamNode, type Scope as TeamScope, type Team } from "@/lib/team.ts";
+import { TEAM_LEADS_PATH, WAR_NODE, demoWarRoom, teamDealsUrl, leadsUrl, logUrl, readWarRoom, type WarRoom } from "@/lib/warroom.ts";
+import { TEAM_NODE, demoTeam, readTeam, teamUrl, type Scope as TeamScope, type Team } from "@/lib/team.ts";
 import { awayLine, demoTimeOff, readTimeOff, timeOffUrl, withAwayLabel, type TimeOffState } from "@/lib/timeOff.ts";
 import { DAY_FILM_KEY } from "@/lib/dayFilm.ts";
 import { demoPulseReport, pulseReportUrl, readPulseReport, type PulseReport } from "@/lib/pulseReport.ts";
@@ -112,12 +113,14 @@ import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, ty
 import LaunchPanel from "./LaunchPanel.tsx";
 import HeatPanel from "./HeatPanel.tsx";
 import OnboardingPanel from "./OnboardingPanel.tsx";
-import TeamWelcome from "./TeamWelcome.tsx";
-import { LATER_KEY, leadView, progress as welcomeProgress, readWelcome, shouldOpen, welcomeUrl, type Welcome } from "@/lib/teamWelcome.ts";
+import GettingStartedPanel from "./GettingStartedPanel.tsx";
+import TeamHubPanel, { isHubPart } from "./TeamHubPanel.tsx";
+import { START_NODE, demoStart, filmUrl, movePathOf, placeFor, readStart, startAgentUrl, startMenuLine, startUrl, withStartNode, type Start, type StartPlace, type StartStep } from "@/lib/gettingStarted.ts";
+import { TEAM_HUB, isTeamLead, withTeamHub, type HubInput } from "@/lib/teamHub.ts";
 import { NetworkPanel, RevsharePanel } from "./RezenOrbPanel.tsx";
 import { NETWORK_NODE, REVSHARE_NODE, demoRezenRead, readNetwork as readRezenNetwork, readRevshare, withRezenNodes, type Network as RezenNetwork, type Revshare } from "@/lib/rezenOrbs.ts";
 import { rezenUrl } from "@/lib/rezen.ts";
-import { demoOnboarding, onbIdOf, onboardingUrl, readOnboarding, readRemoved, withOnboardingNodes, type OnbMember } from "@/lib/onboarding.ts";
+import { ONB_NODE, demoOnboarding, onbIdOf, onboardingUrl, readOnboarding, readRemoved, withStart, type OnbMember } from "@/lib/onboarding.ts";
 import { demoHeat, heatIdOf, heatUrl, readHeat, withHeatNodes, type HeatSuggestion } from "@/lib/heat.ts";
 import ClosedCards from "./ClosedCards.tsx";
 import { LAST_COOKIE, LAST_MAX_AGE } from "@/lib/landing.ts";
@@ -228,6 +231,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // ONE YOU's Power Hour orb: today's calls lined up.
   const powerRef = useRef<{ calls: Call[]; session: PowerSession | null } | null>(null);
   const challengeRef = useRef<LiveChallenge | null>(null);
+  // Getting started (GETTING-STARTED.md): the orb at the top of ONE YOU; reopened from the menu once folded.
+  const startRef = useRef<Start | null>(null);
+  const startReopenRef = useRef(false);
+  // The team lead's Team orb (lib/teamHub.ts): Leaderboard, War room and Onboarding, beside ONE YOU, leads only.
+  const teamSitesRef = useRef(0);
+  const hubNow = (): HubInput => ({ lead: isTeamLead(warRef.current, onbRef.current, teamSitesRef.current), team: teamRef.current, war: warRef.current, onb: onbRef.current, removed: onbRemovedRef.current, now: Date.now() });
   const admin = agent.admin === true;
   const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(productTour ? withTourPages(initialGraph) : live ? initialGraph : withTourPages(initialGraph, DEMO_PAGES), null), admin), teamLeadsHint));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
@@ -237,7 +246,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // (a follow-up just done). Rendering the new graph with the old focus
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
-    const next = withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes(withOnboardingNodes(withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage(withWarRoomNode(withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withAwayLabel(withReviewCallsNode(withTeamNode(withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current), teamRef.current), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current), warRef.current, Date.now()), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current), onbRef.current, onbRemovedRef.current), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current);
+    const next = withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withHeatNodes(withLaunchNodes(withNewLeadsNode(withSignalsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), webRef.current), newLeadsRef.current), launchRef.current), heatRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -717,7 +726,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   }, [live, teamScope]);
   useEffect(() => {
     teamRef.current = team;
-    setGraph((g) => withTeamNode(g, team));
+    setGraph((g) => withTeamHub(g, hubNow()));
   }, [team]);
   // War room (K22, §3ae): the team leads, who has them and how fast they were reached, for a team's owner and admins.
   // ONE MOVE answers `team: null` for anyone not on a team, and the orb shows only for owners and admins.
@@ -736,7 +745,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   }, [live, loadWar]);
   useEffect(() => {
     warRef.current = war;
-    setGraph((g) => withTeamLeadsPage(withWarRoomNode(g, war, Date.now()), !!war || teamLeadsHint));
+    setGraph((g) => withTeamLeadsPage(withTeamHub(g, hubNow()), !!war || teamLeadsHint));
   }, [war]);
   // Wins (§3t), from ONE MOVE; the example agent's in the demo. No orb since Parry, 16 Oct: this week's are the
   // Scoreboard's "This week's wins" and the Weekly Review's Wins card (one list); the year's list opens from the Scoreboard.
@@ -1055,44 +1064,59 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     const t = setInterval(load, 600_000);
     return () => clearInterval(t);
   }, [live]);
+  // Each member's own Getting started list (GETTING-STARTED §4: the board reads the same steps, not its own six), read
+  // with `?agent=` (their team lead may). Until it answers, the board's own line shows.
+  const [onbStart, setOnbStart] = useState<Record<string, Start>>({});
   useEffect(() => {
-    onbRef.current = onb;
-    setGraph((g) => withOnboardingNodes(g, onb, onbRemovedRef.current));
-  }, [onb]);
-  // A new team member's welcome (TEAM-ONBOARDING §3): shown on opening the Brain until the six steps are done or
-  // skipped; "Later" hides it for the rest of today, and the menu keeps a "Team setup" row.
-  const [welcomeRaw, setWelcome] = useState<Welcome | null>(null);
-  const [welcomeOpen, setWelcomeOpen] = useState(false);
-  const welcome = useMemo(() => (welcomeRaw && teamSites.length ? leadView(welcomeRaw) : welcomeRaw), [welcomeRaw, teamSites]);
+    if (!live || !onb?.length) return;
+    let current = true;
+    Promise.all(
+      onb.slice(0, 15).map((m) =>
+        fetch(startAgentUrl(m.id), { credentials: "include", cache: "no-store" })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((j) => [m.id, readStart(j)] as const)
+          .catch(() => [m.id, null] as const),
+      ),
+    ).then((rows) => {
+      if (!current) return;
+      const out: Record<string, Start> = {};
+      for (const [id, st] of rows) if (st) out[id] = st;
+      setOnbStart(out);
+    });
+    return () => {
+      current = false;
+    };
+  }, [live, onb]);
+  const onbShown = useMemo(() => (onb ? onb.map((m) => withStart(m, onbStart[m.id] ?? null)) : null), [onb, onbStart]);
   useEffect(() => {
-    if (!live) return;
-    fetch(welcomeUrl, { credentials: "include", cache: "no-store" })
+    onbRef.current = onbShown;
+    setGraph((g) => withTeamHub(g, hubNow()));
+  }, [onbShown]);
+  // Getting started: the signed-in agent's list from ONE MOVE; the example list (4 of 11) in the demo and tour.
+  const [start, setStart] = useState<Start | null>(null);
+  const [startReopen, setStartReopen] = useState(false);
+  const startPending = useRef(false);
+  const loadStart = useCallback(() => {
+    if (!live) return setStart(demoStart());
+    fetch(startUrl, { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => setWelcome(readWelcome(j)))
+      .then((j) => {
+        const st = readStart(j);
+        if (st) setStart(st);
+      })
       .catch(() => {});
   }, [live]);
-  // Opens once both answers are in (the team lead's own consent step counts as done: leadView).
-  const welcomeChecked = useRef(false);
   useEffect(() => {
-    if (!live || !siteRead || !welcomeRaw || welcomeChecked.current) return;
-    welcomeChecked.current = true;
-    let saved: string | null = null;
-    try {
-      saved = localStorage.getItem(LATER_KEY);
-    } catch {}
-    if (shouldOpen(welcome, saved, todayIn())) setWelcomeOpen(true);
-  }, [live, siteRead, welcomeRaw, welcome]);
+    loadStart();
+    if (!live) return;
+    const t = setInterval(loadStart, 600_000);
+    return () => clearInterval(t);
+  }, [live, loadStart]);
   // My plan and billing (walker 14 Oct, Parry approved): Stripe's own portal when Stripe bills them, else My Profile.
   const openBilling = async () => {
     const j = live ? await fetch("/api/membership", { method: "POST" }).then((r) => r.json().catch(() => null)).catch(() => null) : null;
     if (j && typeof j.url === "string") window.location.assign(j.url);
     else goTo(movePageId("/profile"));
-  };
-  const welcomeLater = () => {
-    setWelcomeOpen(false);
-    try {
-      localStorage.setItem(LATER_KEY, todayIn());
-    } catch {}
   };
   // Revenue share and My network from reZEN (REZEN.md §3a): only the boxes the agent ticked, read hourly by ONE MOVE.
   const [rezen, setRezen] = useState<{ r: Revshare | null; n: RezenNetwork | null }>({ r: null, n: null });
@@ -1863,6 +1887,20 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   useEffect(() => {
     if (focus.id !== state.focusId) goTo(focus.id);
   }, [focus.id, state.focusId, goTo]);
+  // Getting started on the map (top of ONE YOU); from the menu it comes back and to the middle in the same render.
+  useEffect(() => {
+    startRef.current = start;
+    startReopenRef.current = startReopen;
+    setGraph((g) => withStartNode(g, start, startReopen));
+    if (startPending.current && start) {
+      startPending.current = false;
+      goTo(START_NODE);
+    }
+  }, [start, startReopen, goTo]);
+  useEffect(() => {
+    teamSitesRef.current = teamSites.length;
+    setGraph((g) => withTeamHub(g, hubNow()));
+  }, [teamSites]);
   // "Go to" a person opens that person in Contacts (Parry, 6 Oct: "the go to that contact doesnt work
   // to take you to that contact"); anything else moves the map there.
   const [contactOpen, setContactOpen] = useState<{ id: string; k: number } | null>(null);
@@ -2105,8 +2143,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     if (id === MARKET_NODE) return setMarketOpen(true);
     if (id === LIKELY_NODE) return setLikelyOpen(true);
     if (id === ASK_AI_NODE) return setAiOpen(true);
-    if (id === TEAM_NODE) return setTeamOpen(true);
-    if (id === WAR_NODE) return setWarOpen(true);
+    // The Team orb's Leaderboard and War room come to the middle with their side panel (orbs hard rule); the full
+    // screens open from the panel.
     if (id === REVIEW_CALLS_NODE) return setRcOpen(true);
     if (id === graph.rootId && state.focusId === graph.rootId && !tour) return setIntro(true); // Parry, 14 Oct: "centre orb opens meet pulse"
     if (id !== state.focusId) goTo(id);
@@ -2132,6 +2170,43 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${a.tab}`);
     } catch {}
     goTo(page);
+  };
+
+  // Getting started: each step's one button goes to the Brain's own place when it has one (My Profile and its Pulse
+  // section, Goals, Plan my day, This week, the 90-Day Challenge), else to the route's link, a ONE MOVE page opening
+  // inside the Brain when the Brain has it.
+  const startPlaceOf = (step: StartStep) => placeFor(step, { goals: GOALS_NODE, plan: PLAN_NODE, week: WEEK_NODE, challenge: CHALLENGE_NODE });
+  const openStartPlace = (place: StartPlace, step: StartStep) => {
+    if (place.kind === "profile") {
+      const page = movePageId("/profile");
+      const hash = place.hash ? `#${place.hash}` : "";
+      if (!ix.byId.has(page)) return window.location.assign(`${pageAddress("/profile")}${hash}`);
+      try {
+        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${hash}`);
+      } catch {}
+      return goTo(page);
+    }
+    if (place.kind === "orb" && ix.byId.has(place.id)) return openOrb(place.id);
+    const url = place.kind === "url" ? place.url : step.url;
+    if (!url) return;
+    const path = movePathOf(url);
+    if (path && ix.byId.has(movePageId(path))) return goTo(movePageId(path));
+    window.open(url, "_blank", "noopener");
+  };
+  const reopenStart = () => {
+    startPending.current = true;
+    setStartReopen(true);
+  };
+  // Step 11: a tour film played to the end is recorded in MASTER by the Brain's server (app/api/start/film); quiet on
+  // failure, and nothing is sent for the example agent.
+  const markFilm = (film: "a" | "b") => {
+    if (!live) return;
+    fetch(filmUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ film }) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j?.ok) loadStart();
+      })
+      .catch(() => {});
   };
 
   // ---- view ---------------------------------------------------------------
@@ -2300,25 +2375,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           <span className="me" aria-label={agent.label}>{agent.initials}</span>
         )}
       </header>
-    {welcomeOpen && welcome ? (
-      <div className="tw-back" onClick={welcomeLater}>
-        <div onClick={(e) => e.stopPropagation()}>
-          <TeamWelcome
-            w={welcome}
-            onChange={(w) => setWelcome(w)}
-            onLater={welcomeLater}
-            onProfile={() => {
-              setWelcomeOpen(false);
-              goTo(movePageId("/profile"));
-            }}
-            onOpenPage={(path) => {
-              setWelcomeOpen(false);
-              goTo(movePageId(path));
-            }}
-          />
-        </div>
-      </div>
-    ) : null}
     {menuOpen && (
       <div className="pmenu-back" onClick={() => setMenuOpen(false)}>
         <div className="pmenu pop" role="dialog" aria-modal="true" aria-label="Menu" onClick={(e) => e.stopPropagation()}>
@@ -2330,7 +2386,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             <button type="button" className="pmenu-x" onClick={() => setMenuOpen(false)} aria-label="Close">×</button>
           </div>
           <ul>
-            {menuRows({ live: live || productTour, welcome: welcome && !welcome.allDone ? welcomeProgress(welcome) : null, growth: agent.growth === true, siteHost: productTour ? "sarah-bennett.vip50homes.com" : siteHost, teamHosts: productTour ? ["summit-home.vip50homes.com"] : teamSites.map((t) => t.host), agentTeamHrefs: productTour ? [] : agentSites.map((t) => siteOpenHref(t.slug)), classicUrl: CLASSIC_DASHBOARD_URL }).map((r: MenuRow) => (
+            {menuRows({ live: live || productTour, start: start && start.folded && !startReopen ? startMenuLine(start) : null, growth: agent.growth === true, siteHost: productTour ? "sarah-bennett.vip50homes.com" : siteHost, teamHosts: productTour ? ["summit-home.vip50homes.com"] : teamSites.map((t) => t.host), agentTeamHrefs: productTour ? [] : agentSites.map((t) => siteOpenHref(t.slug)), classicUrl: CLASSIC_DASHBOARD_URL }).map((r: MenuRow) => (
               <li key={r.key}>
                 {r.action.kind === "signout" ? (
                   <form method="post" action="/auth/signout">
@@ -2352,7 +2408,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                       const a = r.action;
                       setMenuOpen(false);
                       if (a.kind === "profile") goTo(movePageId("/profile"));
-                      else if (a.kind === "welcome") setWelcomeOpen(true);
+                      else if (a.kind === "start") reopenStart();
                       else if (a.kind === "help") setGuide(true);
                       else if (a.kind === "goTour") setGoTour(true);
                       else if (a.kind === "billing") void openBilling();
@@ -2504,7 +2560,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                       </span>
                       <span className="rail-text">
                         <span>{k.label}</span>
-                        {k.locked ? <small>Included in Complete</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
+                        {k.locked ? <small>{lockedLine(k)}</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
                       </span>
                       <RowMark n={k} need={needs.get(k.id)} />
                     </button>
@@ -2798,7 +2854,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           <div className="d-head">
             <span className="chip" style={{ color: hex(PRODUCT_COLOR[focus.product]), borderColor: hex(PRODUCT_COLOR[focus.product]) }}>
               {/* ONE YOU is the desktop orb and its groups; a single task or person still says where it came from */}
-              {focus.product === "go" && ["product", "feature", "category", "goal"].includes(focus.type) ? "ONE YOU" : productName(focus.product)}
+              {isHubPart(focus) ? "Team" : focus.product === "go" && ["product", "feature", "category", "goal"].includes(focus.type) ? "ONE YOU" : productName(focus.product)}
             </span>
             {focus.status && !focus.locked && (
               <span className="state" style={{ color: hex(STATUS[focus.status].color) }}>
@@ -2838,7 +2894,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                       <i style={{ background: hex(PRODUCT_COLOR[k.product]) }} />
                       <span>
                         <b>{k.label}</b>
-                        {k.locked ? <small>Included in Complete</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
+                        {k.locked ? <small>{lockedLine(k)}</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
                       </span>
                       <RowMark n={k} need={needs.get(k.id)} />
                     </button>
@@ -2877,8 +2933,16 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           {focus.id === REVSHARE_NODE && rezen.r && !ask ? <RevsharePanel r={rezen.r} /> : null}
           {focus.id === NETWORK_NODE && rezen.n && !ask ? <NetworkPanel n={rezen.n} /> : null}
 
+          {focus.id === START_NODE && start && !ask ? (
+            <GettingStartedPanel s={start} placeOf={startPlaceOf} onOpen={openStartPlace} onFilm={(f) => (f === "a" ? setGuide(true) : setGoTour(true))} />
+          ) : null}
+
+          {(focus.id === TEAM_HUB || focus.id === TEAM_NODE || focus.id === WAR_NODE || focus.id === ONB_NODE) && !ask ? (
+            <TeamHubPanel id={focus.id} team={team} war={war} onb={onbShown} removed={onbRemovedRef.current} now={Date.now()} needs={needs} openOrb={openOrb} />
+          ) : null}
+
           {onbIdOf(focus.id) && !ask && (() => {
-            const m = onb?.find((x) => x.id === onbIdOf(focus.id));
+            const m = onbShown?.find((x) => x.id === onbIdOf(focus.id));
             return m ? <OnboardingPanel key={focus.id} m={m} /> : null;
           })()}
 
@@ -3435,7 +3499,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             </div>
           )}
 
-          {kids.length > 0 && !isMoveGroup(focus.id) && focus.id !== GOALS_NODE && focus.id !== SCORE_NODE && focus.id !== CHALLENGE_NODE && (
+          {kids.length > 0 && !isMoveGroup(focus.id) && focus.id !== GOALS_NODE && focus.id !== SCORE_NODE && focus.id !== CHALLENGE_NODE && focus.id !== TEAM_HUB && focus.id !== ONB_NODE && (
             <div className={`d-list inside ${railCount > childrenOf(ix, focus.id).length - 1 && !moveQuiet ? "" : "keep"}${focus.id === "go" ? " go-inside" : ""}`}>
               <h2>{focus.type === "core" ? "Your products" : "Inside"}</h2>
               <ul>
@@ -3445,7 +3509,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                       <i style={{ background: hex(PRODUCT_COLOR[k.product]) }} />
                       <span>
                         <b>{k.label}</b>
-                        {k.locked ? <small>Included in Complete</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
+                        {k.locked ? <small>{lockedLine(k)}</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
                       </span>
                       <RowMark n={k} need={needs.get(k.id)} />
                     </button>
@@ -3619,7 +3683,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
         />
       )}
       {oneFilm && <SignalsFilm film={ONE_FILM} onClose={() => setOneFilm(false)} />}
-      {goTour && <SignalsFilm film={GO_TOUR_FILM} onClose={() => setGoTour(false)} />}
+      {goTour && <SignalsFilm film={GO_TOUR_FILM} onClose={() => setGoTour(false)} onEnded={() => markFilm("b")} />}
       {reviewOpen && theReview ? <ReviewView review={theReview} read={thePulseRead} week={weekScore} demo={!live} onClose={() => setReviewOpen(false)} onCommit={commitThing} /> : null}
       {goalsOpen ? (
         <GoalsView
@@ -3729,6 +3793,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       {guide && (
         <SignalsFilm
           onClose={() => setGuide(false)}
+          onEnded={() => markFilm("a")}
           onMeet={() => {
             setGuide(false);
             setIntro(true);

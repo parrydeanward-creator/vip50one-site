@@ -6,6 +6,7 @@ import { GOLD, GOLD_LIGHT, GREY, PRODUCT_COLOR, STATUS, WHITE } from "@/lib/brai
 import { constellation, coreBody, glowTexture, icon, orbBody, orbit } from "./draw.ts";
 import { iconFor } from "@/lib/brain/icons.ts";
 import type { Need } from "@/lib/needs.ts";
+import { lockedLine } from "@/lib/growthOrb.ts";
 
 // Follow the pulse: red is overdue or an alert, amber is due today.
 const NEED_COLOR = { now: STATUS.action.color, today: STATUS.attention.color } as const;
@@ -407,7 +408,7 @@ export class BrainScene {
 
     s.label.style.fontSize = role === "sibling" || role === "ancestor" ? 12 : inside ? Math.max(14, Math.round(r * 0.24)) : 13;
     s.label.text = n.type === "product" ? n.label : n.label;
-    s.sub.text = n.locked ? "Included in Complete" : n.secondaryLabel ?? "";
+    s.sub.text = n.locked ? lockedLine(n) : n.secondaryLabel ?? "";
     s.sub.style.wordWrap = true;
     if (inside && role !== "ancestor") {
       s.label.y = r * 0.08;
