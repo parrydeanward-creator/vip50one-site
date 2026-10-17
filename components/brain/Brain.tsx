@@ -39,7 +39,7 @@ import { clock, completedBy, duration, isEvening, planDay, recap, type DayItem, 
 import { localDay } from "@/lib/morning.ts";
 import PulseMark from "./PulseMark.tsx";
 import PulseIntro from "./PulseIntro.tsx";
-import SignalsFilm, { GO_TOUR_FILM, ONE_FILM } from "./SignalsFilm.tsx";
+import SignalsFilm, { GO_TOUR_FILM } from "./SignalsFilm.tsx";
 import PlanMyDay from "./PlanMyDay.tsx";
 import DayClock from "./DayClock.tsx";
 import { useDay } from "./useDay.ts";
@@ -84,10 +84,10 @@ import { REVIEW_CALLS_NODE, agentsUrl, demoAgents, readAgents, withReviewCallsNo
 import { TEAM_LEADS_PATH, WAR_NODE, demoWarRoom, teamDealsUrl, leadsUrl, logUrl, readWarRoom, type WarRoom } from "@/lib/warroom.ts";
 import { TEAM_NODE, demoTeam, readTeam, teamUrl, type Scope as TeamScope, type Team } from "@/lib/team.ts";
 import { awayLine, demoTimeOff, readTimeOff, timeOffUrl, withAwayLabel, type TimeOffState } from "@/lib/timeOff.ts";
-import { DAY_FILM_KEY } from "@/lib/dayFilm.ts";
 import { demoPulseReport, pulseReportUrl, readPulseReport, type PulseReport } from "@/lib/pulseReport.ts";
 import AskAiView from "./AskAiView.tsx";
-import ListenNote from "./ListenNote.tsx";
+import MorningPulse from "./MorningPulse.tsx";
+import { OFFER_KEY as MP_OFFER_KEY, buildMorningPulse, demoEvening, demoMorning, eveningUrl as mpEveningUrl, morningUrl as mpMorningUrl, orbFor as mpOrbFor, readEvening as readMpEvening, readMorning as readMpMorning, type Beat as MpBeat, type BeatTool as MpTool } from "@/lib/morningPulse.ts";
 import { readTeamSites, type TeamSite, readAgentTeamSites, siteOpenHref, type AgentTeamSite } from "@/lib/siteEdit.ts";
 import { ASK_AI_NODE, monthOf, readResults, resultKey, withAskAiNode, type Answer as AiAnswer, type Engine as AiEngine, type Results as AiResults } from "@/lib/aiCheck.ts";
 import { LIKELY_NODE, callBody as likelyCallBody, callUrl as likelyCallUrl, demoMoveLikely, emptyMoveLikely, moveLikelyUrl, notUsefulUrl, pastClientsUrl, readMoveLikely, readPastClientsAnswer, withMoveLikelyNode, withoutPerson, type MoveLikely, type PastClient, type Person as LikelyPerson, type RouteReason } from "@/lib/moveLikely.ts";
@@ -361,7 +361,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [intro, setIntro] = useState(false);
   const [guide, setGuide] = useState(false); // What everything means
   const [addonsOpen, setAddonsOpen] = useState(false); // Add-ons (CHECKOUT §2)
-  const [oneFilm, setOneFilm] = useState(false); // Watch ONE Work, voiced
+  // Morning Pulse (Parry, 16 Oct 21:14 MT): replaces Watch Pulse work, Watch ONE Work and Listen on the signed-in dashboard.
+  const [mp, setMp] = useState<{ beats: MpBeat[]; example: boolean } | null>(null);
+  const [mpOffer, setMpOffer] = useState(false); // the once-a-day offer on the morning note
   const [goTour, setGoTour] = useState(false); // the ONE GO phone tour (Film B)
   useEffect(() => {
     if (!live) return;
@@ -2359,6 +2361,95 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     if (id !== state.focusId) goTo(id);
   };
 
+  // ---- Morning Pulse (Parry, 16 Oct 21:14 MT) ------------------------------------------------------------------------
+  // About a minute over the live graph: ONE MOVE's GET /api/brain/morning (?evening=1 after 5 pm Denver) turned into beats
+  // (lib/morningPulse.ts). The example agent gets invented people, labelled "Example". If the route fails, Pulse says less
+  // from what the Brain already knows (today's plan, the top needs) and still ends on the plan.
+  const mpStarting = useRef(false);
+  const startMorningPulse = async () => {
+    if (mpStarting.current) return;
+    mpStarting.current = true;
+    setTour(null);
+    setAsk(null);
+    setMpOffer(false);
+    try {
+      localStorage.setItem(MP_OFFER_KEY, localDay(new Date()));
+    } catch {}
+    const late = evening;
+    let morning = null;
+    let eveningAnswer = null;
+    if (live) {
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), 8000);
+      try {
+        const r = await fetch(late ? mpEveningUrl : mpMorningUrl, { credentials: "include", cache: "no-store", signal: ctl.signal });
+        const j = r.ok ? await r.json() : null;
+        if (late) eveningAnswer = readMpEvening(j);
+        else morning = readMpMorning(j);
+      } catch {
+        // the Brain's own knowledge below
+      } finally {
+        clearTimeout(t);
+      }
+    } else if (late) eveningAnswer = demoEvening();
+    else morning = demoMorning();
+    const beats = buildMorningPulse({
+      firstName: agent.firstName,
+      greeting: greeting(),
+      evening: late,
+      morning,
+      eveningAnswer,
+      known: {
+        planCount: slots.length,
+        needs: topIds.map((id) => ix.byId.get(id)).filter((n): n is NonNullable<typeof n> => !!n).map((n) => ({ label: n.label, why: factsFor(ix, n.id)[0] ?? n.secondaryLabel ?? null })),
+      },
+      approved: thePlanState === "approved",
+    });
+    mpStarting.current = false;
+    setMp({ beats, example: !live });
+  };
+  // The camera follows Pulse: home for the openers and the plan, to the orb it names (which pulses) for each change.
+  // Reduced motion: no flight and no pulse, the captions only.
+  const mpBeat = (b: MpBeat, reduced: boolean) => {
+    if (reduced) return;
+    if (b.home) {
+      if (state.focusId !== graph.rootId) goTo(graph.rootId);
+      return;
+    }
+    const id = mpOrbFor(b.orb, (x) => ix.byId.has(x));
+    if (!id) return;
+    if (state.focusId !== id) goTo(id);
+    setTimeout(() => sceneRef.current?.ping([id]), 900);
+  };
+  // A beat's button: call opens the person's card, deal the Deals orb, task the task (else the person).
+  const mpTool = (t: MpTool) => {
+    if (t.kind === "deal") {
+      if (ix.byId.has(DEALS_NODE)) openOrb(DEALS_NODE);
+      return;
+    }
+    const task = t.kind === "task" ? graph.nodes.find((n) => n.contactId === t.contactId && n.taskId) : null;
+    if (task) return goTo(task.id);
+    const person = graph.nodes.find((n) => n.contactId === t.contactId && n.type === "person");
+    if (live && ix.byId.has(movePageId("/contacts"))) return openPerson(t.contactId);
+    if (person) return goTo(person.id);
+    // the example agent's people are on screen only: their lead orb
+    const leads = mpOrbFor("leads", (x) => ix.byId.has(x));
+    if (leads) goTo(leads);
+  };
+  const mpStartRef = useRef(startMorningPulse);
+  mpStartRef.current = startMorningPulse;
+  useEffect(() => {
+    if (!ready) return;
+    // Offered on the morning note once a day (this browser), until it has been played today.
+    let seen: string | null = null;
+    try {
+      seen = localStorage.getItem(MP_OFFER_KEY);
+    } catch {}
+    setMpOffer(seen !== localDay(new Date()));
+    // ?morningpulse=1 starts it (a link, or a screen check), after the morning fly-through would have begun.
+    if (new URLSearchParams(window.location.search).get("morningpulse") === "1") setTimeout(() => void mpStartRef.current(), 1200);
+  }, [ready]);
+
   // The Growth orb's pieces: one button each, to a real place. The example agent (demo, tour) gets a plain note for
   // anything that would reach a real site or ONE MOVE, never a call to them.
   const growthPiece = isGrowthChild(state.focusId) ? growthChildren(growthState).find((c) => c.id === state.focusId) ?? null : null;
@@ -2819,7 +2910,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           )}
           {railCount > 0 && (
             <nav className={`rail pop${railCount > 9 ? " rail-full" : ""}`} key={`rail-${ask ? `ask-${ask.question}` : state.focusId}`} aria-label={ask ? "Pulse's answer" : `Inside ${focus.label}`}>
-              <p className="rail-head">{tour ? "Morning Pulse" : ask ? "Pulse" : focus.type === "core" ? "Your business" : focus.label}</p>
+              <p className="rail-head">{tour ? "Today's three" : ask ? "Pulse" : focus.type === "core" ? "Your business" : focus.label}</p>
               {!ask && !tour && focus.type !== "core" && focus.secondaryLabel && <p className="rail-sub">{focus.secondaryLabel}</p>}
               <ul>
                 {railNodes.map((k) => (
@@ -2926,7 +3017,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             return (
               <div className="tour-card pop" key={`tour-${tour.step}`} role="status" aria-live="polite">
                 <p className="tour-kicker">
-                  Morning Pulse{n ? ` · ${tour.step} of ${tour.ids.length}` : ""}
+                  Today's three{n ? ` · ${tour.step} of ${tour.ids.length}` : ""}
                 </p>
                 {n ? (
                   <>
@@ -2935,7 +3026,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                     {factsFor(ix, n.id)[0] && <p className="tour-why">{factsFor(ix, n.id)[0]}</p>}
                   </>
                 ) : (
-                  <p className="tour-title">{hello} Here are your three for today.</p>
+                  <>
+                    <p className="tour-title">{hello} Here are your three for today.</p>
+                    {/* The morning's offer (once a day: this fly-through plays on the first visit of the day). */}
+                    <button type="button" className="ln-btn" onClick={() => void startMorningPulse()}>
+                      <span aria-hidden="true">▶</span> Play Morning Pulse
+                    </button>
+                  </>
                 )}
                 <button className="tour-skip" onClick={endTour}>
                   {tour.step >= tour.ids.length ? "Done" : "Skip"}
@@ -3200,7 +3297,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             <>
               <p className="d-sum">{note.note}</p>
               {note.source === "ai" && <p className="d-src">Pulse wrote this for you this morning</p>}
-              <ListenNote greeting={greeting()} firstName={agent.firstName} note={note.note} />
+              {mpOffer && (
+                <button type="button" className="ln-btn" onClick={() => void startMorningPulse()}>
+                  <span aria-hidden="true">▶</span> Play Morning Pulse
+                </button>
+              )}
             </>
           ) : (
             focus.summary && !isMoveGroup(focus.id) && <p className="d-sum">{focus.summary}</p>
@@ -3718,17 +3819,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               <button className="link" onClick={() => setDayMap((v) => !v)}>
                 {dayView ? "← Back to the map" : "▶ Show my day on the map"}
               </button>
-              <button
-                className="link"
-                onClick={() => {
-                  // Watch Pulse work on your own day (PULSE-ROADMAP #16): today's plan, handed to /watch in this tab only
-                  try {
-                    sessionStorage.setItem(DAY_FILM_KEY, JSON.stringify({ first: agent.firstName || null, items: slots.map((x) => ({ start: x.start, what: x.what, product: x.product, minutes: x.minutes, done: x.done })) }));
-                  } catch {}
-                  window.location.href = "/watch?mine=1";
-                }}
-              >
-                ▶ Watch Pulse work on my day
+              {/* One Morning Pulse (Parry, 16 Oct 21:14 MT) replaces "Watch Pulse work on my day" and Listen. */}
+              <button className="link" onClick={() => void startMorningPulse()}>
+                ▶ Play Morning Pulse
               </button>
             </div>
           )}
@@ -3826,9 +3919,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   ▶ Replay my morning
                 </button>
               )}
-              <button className="link" onClick={() => setOneFilm(true)}>
-                ▶ Watch ONE Work
-              </button>
             </div>
           )}
 
@@ -4083,7 +4173,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           }}
           onMorning={() => {
             setIntro(false);
-            startTour();
+            void startMorningPulse();
           }}
           onGuide={() => {
             setIntro(false);
@@ -4091,7 +4181,21 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           }}
         />
       )}
-      {oneFilm && <SignalsFilm film={ONE_FILM} onClose={() => setOneFilm(false)} />}
+      {mp && (
+        <MorningPulse
+          key={mp.beats.map((b) => b.id).join(",")}
+          beats={mp.beats}
+          example={mp.example}
+          onBeat={mpBeat}
+          onTool={mpTool}
+          onFinish={() => {
+            setMp(null);
+            goTo(graph.rootId);
+            setClockOpen(true);
+          }}
+          onClose={() => setMp(null)}
+        />
+      )}
       {goTour && <SignalsFilm film={GO_TOUR_FILM} onClose={() => setGoTour(false)} onEnded={() => markFilm("b")} />}
       {reviewOpen && theReview ? <ReviewView review={theReview} read={thePulseRead} week={weekScore} demo={!live} onClose={() => setReviewOpen(false)} onCommit={commitThing} /> : null}
       {goalsOpen ? (

@@ -2039,6 +2039,34 @@ button.cmd-day:disabled { opacity: 0.5; cursor: default; }
 .pm-field input { border-radius: 10px; padding: 9px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--line, rgba(255,255,255,0.14)); color: var(--text); font: inherit; }
 .ln-btn { margin: 8px 0 0; display: inline-flex; gap: 6px; align-items: center; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line, rgba(255,255,255,0.14)); background: rgba(255,255,255,0.04); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
 .ln-btn:hover, .ln-btn[aria-pressed="true"] { border-color: var(--gold, #d4a93a); }
+/* Morning Pulse (Parry, 16 Oct 21:14 MT): the caption card over the live graph, with its controls (components/brain/MorningPulse.tsx). */
+.mp-wrap { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); width: min(640px, calc(100vw - 32px)); z-index: 55; background: rgba(8, 12, 30, 0.94); border: 1px solid rgba(212, 175, 55, 0.45); border-radius: 18px; padding: 16px 18px 12px; box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55); backdrop-filter: blur(12px); color: var(--text); }
+.mp-head { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.mp-pulse { width: 22px; height: 10px; flex: none; }
+.mp-example { margin-left: auto; border: 1px solid rgba(255, 255, 255, 0.25); color: var(--text-2); border-radius: 999px; padding: 2px 8px; font-size: 10px; letter-spacing: 0.1em; }
+.mp-body { display: flex; gap: 14px; align-items: flex-start; }
+.mp-face { width: 56px; height: 56px; border-radius: 50%; flex: none; display: grid; place-items: center; font-weight: 800; font-size: 22px; color: #0b0b0b; background: linear-gradient(135deg, var(--gold-2), var(--gold)); overflow: hidden; border: 2px solid rgba(245, 197, 66, 0.7); }
+.mp-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mp-caption { margin: 0; font-size: 18px; line-height: 1.45; font-weight: 600; min-height: 52px; }
+.mp-tool { margin-top: 10px; background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #0b0b0b; border: 0; border-radius: 10px; padding: 10px 14px; min-height: 44px; font-weight: 800; font-size: 13px; cursor: pointer; }
+.mp-products { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
+.mp-products li { font-size: 11px; color: var(--text-3); border: 1px solid var(--line); border-radius: 999px; padding: 3px 8px; }
+.mp-products li.mp-on { color: var(--gold-2); border-color: rgba(245, 197, 66, 0.7); }
+.mp-bar { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.mp-bar button { min-height: 44px; min-width: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer; }
+.mp-bar button:hover { border-color: rgba(212, 175, 55, 0.6); }
+.mp-progress { flex: 1; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.mp-progress i { display: block; height: 100%; background: var(--gold-2); transition: width 300ms; }
+.mp-step { font-size: 12px; color: var(--text-3); white-space: nowrap; }
+@media (max-width: 600px) {
+  .mp-wrap { bottom: 12px; padding: 12px 14px 10px; }
+  .mp-caption { font-size: 16px; }
+  .mp-face { width: 44px; height: 44px; font-size: 18px; }
+  .mp-bar { gap: 6px; }
+  .mp-bar button { padding: 0 9px; }
+  .mp-step { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .mp-progress i { transition: none; } }
 
 /* Team war room (K22) */
 .wr-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; margin: 10px 0 14px; padding: 0; list-style: none; }
