@@ -2248,6 +2248,13 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .ml-example { border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
 .ml-example b { display: block; }
 .ml-example small { color: var(--muted, #aab3c5); }
+/* Life events, one list (components/brain/LifeUpcomingView.tsx) */
+.lu-row { border-style: solid; }
+.lu-row .le-touch { margin: 6px 0 0; font-size: 14px; }
+.lu-gentle { display: block; margin-top: 4px; font-style: italic; color: #b7a4e8 !important; }
+/* A stats row that opens an orb (ONE MOVE's birthdays line opens Life events) */
+.row.row-open { width: 100%; font: inherit; text-align: left; cursor: pointer; }
+.row.row-open:hover, .row.row-open:focus-visible { border-color: var(--gold-2); }
 .heat-homes { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
 .heat-homes li { display: flex; gap: 10px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 12px; }
 .heat-homes img, .heat-nophoto { width: 64px; height: 48px; border-radius: 8px; object-fit: cover; flex: none; display: grid; place-items: center; background: rgba(255, 255, 255, 0.05); color: var(--text-3); font-size: 22px; }

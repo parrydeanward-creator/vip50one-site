@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MOVE_BOTTOM, MOVE_GROUPS, MOVE_MENU, MOVE_TOP, moveGroupId, moveMenuHref } from "../lib/moveMenu.ts";
+import { MENU_ORB, MOVE_BOTTOM, MOVE_GROUPS, MOVE_MENU, MOVE_TOP, menuNodeId, moveGroupId, moveMenuHref } from "../lib/moveMenu.ts";
+import { OPP_NODE } from "../lib/opportunities.ts";
+import { LIFE_NODE } from "../lib/lifeEvents.ts";
+import { DEALS_NODE } from "../lib/deals.ts";
 import { liveGraph, type SummaryEnvelope, type SummaryItem } from "../lib/live.ts";
 
 // Rewritten 3 Oct: the menu was one flat list in Classic order; Parry asked for
@@ -14,16 +17,34 @@ import { liveGraph, type SummaryEnvelope, type SummaryItem } from "../lib/live.t
 // 28 since 16 Oct: Drop-By Map added (Parry: everything in ONE GO on ONE MOVE; vip50-web-crm#276).
 // Rewritten 16 Oct: 29 pages. Scoreboard (ONE MOVE's /achievements, renamed by GO/MOVE in vip50-web-crm#278) joins
 // Trackers, under the same hard rule.
-test("ONE MOVE menu: all 29 Classic pages, in Parry's groups, no admin items", () => {
-  assert.equal(MOVE_MENU.length, 29);
+// Rewritten 17 Oct: 32 pages. New to Sort becomes Opportunities at /opportunities (vip50-web-crm#293; Parry, 17 Oct:
+// "calling it Opportunities"); Life Events (vip50-web-crm#294) and Deals join People; Overview (/outreach) is the first
+// row of Outreach. Same hard rule (every feature in Classic and the Brain).
+test("ONE MOVE menu: all 32 Classic pages, in Parry's groups, no admin items", () => {
+  assert.equal(MOVE_MENU.length, 32);
   assert.deepEqual(MOVE_TOP.map((m) => m.label), ["Dashboard"]);
   assert.deepEqual(MOVE_GROUPS.map((g) => g.label), ["People", "Trackers", "Events", "Outreach", "Learn"]);
   assert.deepEqual(MOVE_BOTTOM.map((m) => m.label), ["The Lounge", "My Profile"]);
-  assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "Drop-By Map", "New to Sort", "Hot/Warm/Cold", "Business Rolodex", "Referral Network", "Buyer Needs", "Your listings"]);
-  assert.deepEqual(MOVE_GROUPS[3].pages.map((m) => m.label), ["Newsletter", "Landing Pages", "Action Plans", "Home Reports"]);
+  assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "Drop-By Map", "Opportunities", "Hot/Warm/Cold", "Business Rolodex", "Referral Network", "Buyer Needs", "Your listings", "Life Events", "Deals"]);
+  assert.deepEqual(MOVE_GROUPS[0].pages.filter((m) => ["Opportunities", "Life Events", "Deals"].includes(m.label)).map((m) => m.path), ["/opportunities", "/life-events", "/deals"]);
+  assert.deepEqual(MOVE_GROUPS[3].pages.map((m) => [m.label, m.path]), [["Overview", "/outreach"], ["Newsletter", "/newsletter"], ["Landing Pages", "/landing-pages"], ["Action Plans", "/action-plans"], ["Home Reports", "/home-reports"]]);
   assert.deepEqual(MOVE_GROUPS[1].pages.map((m) => [m.label, m.path]), [["Daily Tracker", "/daily"], ["Weekly Tracker", "/weekly"], ["90-Day Challenge", "/challenge"], ["Scoreboard", "/achievements"], ["Analytics", "/analytics"]]);
   assert.ok(MOVE_MENU.every((m) => m.path.startsWith("/") && !m.path.startsWith("/admin") && m.path !== "/users"));
   assert.equal(new Set(MOVE_MENU.map((m) => m.path)).size, MOVE_MENU.length);
+});
+
+test("Opportunities, Life Events and Deals open their native orbs; the ids match the orbs'", async () => {
+  const { IN_BRAIN, inBrainPage, movePageId } = await import("../lib/moveMenu.ts");
+  assert.deepEqual(MENU_ORB, { "/opportunities": OPP_NODE, "/life-events": LIFE_NODE, "/deals": DEALS_NODE });
+  assert.equal(menuNodeId("/opportunities"), OPP_NODE);
+  assert.equal(menuNodeId("/life-events"), LIFE_NODE);
+  assert.equal(menuNodeId("/deals"), DEALS_NODE);
+  assert.equal(menuNodeId("/outreach"), movePageId("/outreach"));
+  for (const p of Object.keys(MENU_ORB)) assert.ok(!IN_BRAIN.has(p), `${p} has no page frame`);
+  // New to Sort left the menu but still opens inside the Brain (the New to Sort orb inside Opportunities)
+  assert.ok(IN_BRAIN.has("/contacts/visitors"));
+  assert.equal(inBrainPage(movePageId("/contacts/visitors"))?.label, "New to Sort");
+  assert.equal(inBrainPage(movePageId("/outreach"))?.label, "Overview");
 });
 
 test("menu links open on move.vip50one.com", () => {
@@ -43,8 +64,11 @@ test("the groups are orbs around ONE MOVE; each group holds its pages as orbs", 
   // Rewritten 17 Oct again: New to Sort moves inside Opportunities (Parry, 17 Oct: "yes on regrouping them. and calling
   // it Opportunities"), the one orb on ONE MOVE for New leads today, New to Sort, Looks Hot and Likely to move.
   assert.deepEqual(around, ["People", "Trackers", "Events", "Outreach", "Learn", "The Lounge", "My Profile", "Follow-ups", "Opportunities"]);
+  // Rewritten 17 Oct: Opportunities, Life Events and Deals are native orbs (MENU_ORB), so they have no page orb in
+  // their group; Opportunities sits on ONE MOVE and the Brain adds the other two.
+  assert.ok(g.nodes.some((n) => n.id === OPP_NODE && n.parentId === "move"));
   for (const grp of MOVE_GROUPS) {
-    for (const pg of grp.pages) assert.ok(g.nodes.some((n) => n.label === pg.label && n.parentId === (pg.label === "New to Sort" ? "move-opportunities" : moveGroupId(grp.key))), `${pg.label} under ${grp.label}`);
+    for (const pg of grp.pages.filter((p) => !MENU_ORB[p.path])) assert.ok(g.nodes.some((n) => n.label === pg.label && n.parentId === (pg.label === "New to Sort" ? "move-opportunities" : moveGroupId(grp.key))), `${pg.label} under ${grp.label}`);
   }
   const mixer = g.nodes.find((n) => n.label === "Mixer")!;
   assert.equal(mixer.href, "https://move.vip50one.com/mixer");
@@ -79,7 +103,9 @@ test("every ONE MOVE menu page opens inside the Brain; other orbs do not", async
   // 24 agent pages (Referral Network and Buyer Needs added 13 Oct), plus the 7 Coach pages for admins (Parry, 8 Oct:
   // the admin pages belong in the Brain too), plus Team Leads for team members (13 Oct); Your listings 14 Oct; Home
   // Reports 16 Oct (HOME-REPORT §5.4); Drop-By Map 16 Oct (vip50-web-crm#276); Scoreboard 16 Oct (vip50-web-crm#278)
-  assert.equal(IN_BRAIN.size, 36);
+  // Rewritten 17 Oct: 37. Overview (/outreach) joins; New to Sort keeps its page though it left the menu; Opportunities,
+  // Life Events and Deals open native orbs, not page frames.
+  assert.equal(IN_BRAIN.size, 37);
   assert.equal(inBrainPage(movePageId("/achievements"))?.label, "Scoreboard");
   assert.equal(inBrainPage(movePageId("/drop-by"))?.label, "Drop-By Map");
   assert.equal(inBrainPage(movePageId("/home-reports"))?.label, "Home Reports");

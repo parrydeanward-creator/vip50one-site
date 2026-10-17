@@ -78,3 +78,24 @@ test("past clients 5+ years from ONE MOVE's coming route; until then one clearly
   const n = (withMoveLikelyNode(g, null, { pastClients: l }) as { nodes: { id: string; secondaryLabel?: string }[] }).nodes.find((x) => x.id === LIKELY_NODE)!;
   assert.equal(n.secondaryLabel, "2 past clients 5+ years");
 });
+
+test("ONE MOVE's likely-to-move route (vip50-web-crm#293): its reason wins, its people, the Call them body", async () => {
+  const { readPastClientsAnswer, callBody, callUrl, CALL_ADDED } = await import("../lib/moveLikely.ts");
+  assert.equal(readPastClientsAnswer({ reason: "no_mls_id" }), null);
+  const none = readPastClientsAnswer({ reason: "no_mls_id", people: [] })!;
+  assert.deepEqual(none, { reason: "no_mls_id", people: [] });
+  assert.equal(readPastClientsAnswer({ reason: "odd", people: [] })!.reason, null);
+  const many = readPastClientsAnswer({ reason: "waiting_feed", people: Array.from({ length: 20 }, (_, k) => ({ contact_id: `c${k}`, first_name: `P${k}`, years: 5 + k, closed_on: null })) })!;
+  assert.equal(many.people.length, 15);
+  assert.equal(many.people[0].years, 24); // oldest purchase first
+  // the route's word wins over the profile read; without it the profile decides as before
+  assert.equal(likelyReason(false, null, "no_mls_id"), MLS_MISSING);
+  assert.equal(likelyReason(true, null, "waiting_feed"), WAITING_FEED);
+  assert.equal(likelyReason(true, null, null), MLS_MISSING);
+  const n = (withMoveLikelyNode(g, null, { mlsMissing: false, routeReason: "no_mls_id" }) as { nodes: { id: string; secondaryLabel?: string }[] }).nodes.find((x) => x.id === LIKELY_NODE)!;
+  assert.equal(n.secondaryLabel, "Add your MLS member id");
+  assert.equal(WAITING_FEED.short, "Waiting for the UtahRealEstate.com feed");
+  assert.equal(callUrl, "https://move.vip50one.com/api/brain/likely-to-move/call");
+  assert.deepEqual(callBody("c1"), { contact_id: "c1" });
+  assert.equal(CALL_ADDED, "Added to today's tasks");
+});

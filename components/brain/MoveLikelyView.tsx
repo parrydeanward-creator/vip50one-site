@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSvgCamera } from "./useSvgCamera.ts";
-import { EXAMPLE_PAST_CLIENT, levelLine, levelWord, likelyReason, notedLine, pastClientLine, touchLine, type Level, type MoveLikely, type PastClient, type Person } from "@/lib/moveLikely.ts";
+import { CALL_ADDED, EXAMPLE_PAST_CLIENT, levelLine, levelWord, likelyReason, notedLine, pastClientLine, touchLine, type Level, type MoveLikely, type PastClient, type Person, type RouteReason } from "@/lib/moveLikely.ts";
 
 // Likely to move (VIP-SUMMARY §3ab). Past clients round a centre that counts the High ones. Tap one: it comes to the
 // middle (Parry, 6 Oct, the rule for every orb) with the level, ONE Property's reasons (property facts only, labelled
@@ -21,6 +21,7 @@ export default function MoveLikelyView({
   demo,
   mlsMissing = null,
   pastClients = null,
+  routeReason = null,
   onNotUseful,
   onProfile,
   onCall,
@@ -32,9 +33,12 @@ export default function MoveLikelyView({
   mlsMissing?: boolean | null;
   /** ONE MOVE's past clients 5+ years, once its route answers. */
   pastClients?: PastClient[] | null;
+  /** ONE MOVE's own reason from its likely-to-move route (it wins over the profile read). */
+  routeReason?: RouteReason | null;
   onNotUseful: (p: Person) => Promise<boolean>;
   onProfile?: () => void;
-  onCall?: (contactId: string) => void;
+  /** "Call them": ONE MOVE adds "Call <name>" to today's tasks (true when it did). */
+  onCall?: (contactId: string) => Promise<boolean>;
   onClose: () => void;
 }) {
   const cam = useSvgCamera(SIZE);
@@ -43,6 +47,20 @@ export default function MoveLikelyView({
   onCloseRef.current = onClose;
   const [sel, setSel] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [called, setCalled] = useState<Record<string, "busy" | "done">>({});
+  const call = async (pc: PastClient) => {
+    if (pc.example || !onCall) return setNote("This is an example, not a real client. Your own past clients show here; Call them adds the call to today's tasks.");
+    if (called[pc.contactId]) return;
+    setCalled((c) => ({ ...c, [pc.contactId]: "busy" }));
+    const ok = await onCall(pc.contactId).catch(() => false);
+    setCalled((c) => {
+      const next = { ...c };
+      if (ok) next[pc.contactId] = "done";
+      else delete next[pc.contactId];
+      return next;
+    });
+    if (!ok) setNote("That didn't save just now. Nothing was added.");
+  };
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -152,7 +170,7 @@ export default function MoveLikelyView({
           {!data.ready ? (
             (() => {
               // one honest reason, never two (lib/moveLikely.ts likelyReason)
-              const reason = likelyReason(mlsMissing, data);
+              const reason = likelyReason(mlsMissing, data, routeReason);
               const rows = pastClients?.length ? pastClients.slice(0, 15) : [EXAMPLE_PAST_CLIENT];
               return (
                 <section className="ml-reason">
@@ -162,17 +180,17 @@ export default function MoveLikelyView({
                   )}
                   <h2 className="pm-h">{pastClients?.length ? "Past clients 5+ years" : "What will show here"}</h2>
                   {rows.map((pc) => (
-                    <div key={pc.contactId} className="ml-example">
+                    <div key={pc.contactId} className="ml-example" role="group" aria-label={pc.example ? "Example past client" : `${pc.firstName}: ${pastClientLine(pc)}`}>
                       <b>{pc.example ? "Example past client" : pc.firstName}</b>
                       <small>{pastClientLine(pc)}</small>
                       <div className="decide-btns">
-                        <button
-                          type="button"
-                          className="chip-btn"
-                          onClick={() => (pc.example || !onCall ? setNote("This is an example, not a real client. Your own past clients show here; Call them opens their card with their number.") : onCall(pc.contactId))}
-                        >
-                          Call them
-                        </button>
+                        {called[pc.contactId] === "done" ? (
+                          <span className="chip" role="status">{CALL_ADDED}</span>
+                        ) : (
+                          <button type="button" className="chip-btn" disabled={called[pc.contactId] === "busy"} aria-label={pc.example ? "Call them (example)" : `Call them: ${pc.firstName}`} onClick={() => void call(pc)}>
+                            Call them
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}

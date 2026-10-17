@@ -54,7 +54,7 @@ import ForecastView from "./ForecastView.tsx";
 import PulseCoachView from "./PulseCoachView.tsx";
 import ReferralsView from "./ReferralsView.tsx";
 import WinsView from "./WinsView.tsx";
-import LifeEventsView from "./LifeEventsView.tsx";
+import LifeUpcomingView from "./LifeUpcomingView.tsx";
 import MarketPulseView from "./MarketPulseView.tsx";
 import MoveLikelyView from "./MoveLikelyView.tsx";
 import DealsView, { type SetStatus as DealSetStatus } from "./DealsView.tsx";
@@ -90,12 +90,13 @@ import AskAiView from "./AskAiView.tsx";
 import ListenNote from "./ListenNote.tsx";
 import { readTeamSites, type TeamSite, readAgentTeamSites, siteOpenHref, type AgentTeamSite } from "@/lib/siteEdit.ts";
 import { ASK_AI_NODE, monthOf, readResults, resultKey, withAskAiNode, type Answer as AiAnswer, type Engine as AiEngine, type Results as AiResults } from "@/lib/aiCheck.ts";
-import { LIKELY_NODE, demoMoveLikely, emptyMoveLikely, moveLikelyUrl, notUsefulUrl, pastClientsUrl, readMoveLikely, readPastClients, withMoveLikelyNode, withoutPerson, type MoveLikely, type PastClient, type Person as LikelyPerson } from "@/lib/moveLikely.ts";
+import { LIKELY_NODE, callBody as likelyCallBody, callUrl as likelyCallUrl, demoMoveLikely, emptyMoveLikely, moveLikelyUrl, notUsefulUrl, pastClientsUrl, readMoveLikely, readPastClientsAnswer, withMoveLikelyNode, withoutPerson, type MoveLikely, type PastClient, type Person as LikelyPerson, type RouteReason } from "@/lib/moveLikely.ts";
 import { OPP_LABEL, OPP_NODE, PEOPLE_MENU_PARTS, withOpportunities } from "@/lib/opportunities.ts";
 import { readRoute } from "@/lib/routeFirst.ts";
 import { MARKET_NODE, demoMarketPulse, marketPulseUrl, marketSendUrl, readMarketPulse, sendBody as marketSendBody, withMarketPulseNode, withSent as withMarketSent, type MarketPulse, type Vip as MarketVip } from "@/lib/marketPulse.ts";
 import { DEALS_NODE, dealUrl, dealsUrl, demoDeals, readClosingAsk, readDeals, statusBody as dealStatusBody, withDealsNode, withStatus as withDealStatus, type Deal } from "@/lib/deals.ts";
-import { LIFE_NODE, applyKeep, demoRadar, keepBody as lifeKeepBody, keepUrl as lifeKeepUrl, lifeEventsUrl, readRadar, withLifeEventsNode, type Found as LifeFound, type Radar } from "@/lib/lifeEvents.ts";
+import { LIFE_NODE } from "@/lib/lifeEvents.ts";
+import { DATES_STAT, demoUpcoming, readUpcoming, taskBody as lifeTaskBody, taskUrl as lifeTaskUrl, upcomingUrl as lifeUpcomingUrl, withLifeUpcomingNode, type Upcoming, type UpcomingList } from "@/lib/lifeUpcoming.ts";
 import { readScoreboard, scoreboardUrl, type ScoreboardLive } from "@/lib/scoreboard.ts";
 import { demoWins, readWeekWins, readWins, total as winsTotal, weekWinsUrl, winsUrl, type WeekWinsLive, type Wins } from "@/lib/wins.ts";
 import { demoPartners, partnersActionUrl, partnersUrl, readPartners, unseenNudges, withAllSeen, type PartnersState } from "@/lib/partners.ts";
@@ -142,7 +143,7 @@ import { needWords, needsOf, type Need } from "@/lib/needs.ts";
 import { SEEN_KEY } from "@/lib/pulseIntro.ts";
 import type { SceneNeed } from "./scene.ts";
 import { returnNote, withoutNotes } from "@/lib/googleReturn.ts";
-import { IN_BRAIN, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_TOP, inBrainPage, moveGroupsFor, withMoveCoach, moveEmbedHref, moveGroupId, moveMenuHref, movePageId, type MovePage, pageAddress, pageFromAddress, withTeamLeadsPage } from "@/lib/moveMenu.ts";
+import { IN_BRAIN, MENU_ORB, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_TOP, inBrainPage, moveGroupsFor, withMoveCoach, moveEmbedHref, moveGroupId, moveMenuHref, movePageId, type MovePage, pageAddress, pageFromAddress, withTeamLeadsPage } from "@/lib/moveMenu.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -231,12 +232,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const launchRef = useRef<Launch[] | null>(null);
   const refsRef = useRef<Referrals | null>(null);
   const habitsRef = useRef<HabitToday[] | null>(null);
-  const lifeRef = useRef<Radar | null>(null);
+  const lifeRef = useRef<UpcomingList | null>(null);
   const dealsRef = useRef<Deal[] | null>(null);
   const marketRef = useRef<MarketPulse | null>(null);
   const likelyRef = useRef<MoveLikely | null>(null);
   // Likely to move's one honest reason and ONE MOVE's past clients 5+ years (lib/moveLikely.ts), for the rebuild.
-  const likelyOptsRef = useRef<{ mlsMissing: boolean | null; pastClients: PastClient[] | null }>({ mlsMissing: null, pastClients: null });
+  const likelyOptsRef = useRef<{ mlsMissing: boolean | null; pastClients: PastClient[] | null; routeReason: RouteReason | null }>({ mlsMissing: null, pastClients: null, routeReason: null });
   const aiRef = useRef<AiResults | null>(null);
   const timeOffRef = useRef<TimeOffState | null>(null);
   const teamRef = useRef<Team | null>(null);
@@ -263,7 +264,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
     // Opportunities last (lib/opportunities.ts; Parry, 17 Oct): its four parts move inside it, whatever built them.
-    const next = withOpportunities(withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeEventsNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current, likelyOptsRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn()), ntsRef.current), looksRef.current));
+    const next = withOpportunities(withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeUpcomingNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current, likelyOptsRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn()), ntsRef.current), looksRef.current));
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -826,6 +827,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [likelyOpen, setLikelyOpen] = useState(false);
   const [mlsMissing, setMlsMissing] = useState<boolean | null>(null);
   const [pastClients, setPastClients] = useState<PastClient[] | null>(null);
+  // ONE MOVE's own reason on its likely-to-move route (vip50-web-crm#293): no_mls_id or waiting_feed.
+  const [likelyReasonWord, setLikelyReasonWord] = useState<RouteReason | null>(null);
   // Pulse's voice from MASTER (vip50-web-crm#277): the signed-in agent's choice goes into the local copy say() reads,
   // so Pulse speaks in it on every page, not only after My Profile opens. The demo keeps its local copy.
   useEffect(() => {
@@ -868,30 +871,27 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // Energy (§3w): retired from ONE YOU by Parry, 16 Oct ("lets drop the energy orb"). Nothing asks for it or reads it
   // here any more; stored answers stay in MASTER.
   // Life-event radar (§3y): from ONE MOVE once it answers (404 until then: no orb), the example agent's in the demo.
-  const [life, setLife] = useState<Radar | null>(null);
+  // Life events, one list (vip50-web-crm#294; Parry, 17 Oct: "yes"): birthdays, anniversaries, home anniversaries and
+  // news from the agent's notes, soonest first (lib/lifeUpcoming.ts). The example agent's three in the demo.
+  const [life, setLife] = useState<UpcomingList | null>(null);
   const [lifeOpen, setLifeOpen] = useState(false);
   useEffect(() => {
-    if (!live) return setLife(demoRadar(todayIn()));
-    fetch(lifeEventsUrl(), { credentials: "include", cache: "no-store" })
+    if (!live) return setLife(demoUpcoming(todayIn()));
+    fetch(lifeUpcomingUrl, { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => setLife(j ? readRadar(j, todayIn()) : null))
+      .then((j) => setLife(j ? readUpcoming(j) : null))
       .catch(() => {});
   }, [live]);
   useEffect(() => {
     lifeRef.current = life;
-    setGraph((g) => withLifeEventsNode(g, life));
+    setGraph((g) => withLifeUpcomingNode(g, life));
   }, [life]);
-  const keepLife = useCallback(
-    async (f: LifeFound, state: "done" | "not_this"): Promise<boolean> => {
-      if (live) {
-        const ok = await fetch(lifeKeepUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lifeKeepBody(f.contactId, f.event, state)) })
-          .then((r) => r.ok)
-          .catch(() => false);
-        if (!ok) return false;
-      }
-      setLife((r) => (r ? applyKeep(r, f.contactId, f.event, state) : r));
-      return true;
-    },
+  const lifeTask = useCallback(
+    async (p: Upcoming): Promise<boolean> =>
+      !live ||
+      (await fetch(lifeTaskUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lifeTaskBody(p)) })
+        .then(async (r) => r.ok && (await r.json().catch(() => null))?.ok !== false)
+        .catch(() => false)),
     [live],
   );
   // Edit my website (ENTITLEMENT §6a): shown only when MASTER knows the agent's site; a one-time ticket on press.
@@ -975,16 +975,30 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setLikely(j ? readMoveLikely(j) : null))
       .catch(() => {});
-    // ONE MOVE's real past clients 5+ years, once its route ships (404 until then: the one example shows)
-    void readRoute(pastClientsUrl, readPastClients).then((a) => {
-      if (a.kind === "data") setPastClients(a.data);
-    });
   }, [live]);
+  // ONE MOVE's real past clients 5+ years and its one reason (vip50-web-crm#293), read again each time the view opens
+  // so an MLS member id just added in My Profile changes the reason at once. 404: the one example shows.
+  useEffect(() => {
+    if (!live) return;
+    void readRoute(pastClientsUrl, readPastClientsAnswer).then((a) => {
+      if (a.kind !== "data") return;
+      setPastClients(a.data.people);
+      setLikelyReasonWord(a.data.reason);
+    });
+  }, [live, likelyOpen]);
+  const likelyCall = useCallback(
+    async (contactId: string): Promise<boolean> =>
+      !live ||
+      (await fetch(likelyCallUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(likelyCallBody(contactId)) })
+        .then(async (r) => r.ok && (await r.json().catch(() => null))?.ok !== false)
+        .catch(() => false)),
+    [live],
+  );
   useEffect(() => {
     likelyRef.current = likely;
-    likelyOptsRef.current = { mlsMissing, pastClients };
-    setGraph((g) => withOpportunities(withMoveLikelyNode(g, likely, { mlsMissing, pastClients })));
-  }, [likely, mlsMissing, pastClients]);
+    likelyOptsRef.current = { mlsMissing, pastClients, routeReason: likelyReasonWord };
+    setGraph((g) => withOpportunities(withMoveLikelyNode(g, likely, { mlsMissing, pastClients, routeReason: likelyReasonWord })));
+  }, [likely, mlsMissing, pastClients, likelyReasonWord]);
   // The ONE Growth orb (GROWTH.md §3, §5; Parry, 16 Oct): locked with the offer without Growth; with it, its seven pieces,
   // and Ad requests for each team site the agent owns or admins. The tour shows the example agent's site and team site.
   const growthState = useMemo<GrowthState>(
@@ -2407,6 +2421,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
 
   // ONE MOVE's menu in the rail: one link per page, groups as drop-downs.
   const moveLink = (m: MovePage) => {
+    // Opportunities, Life Events and Deals open their native orb (lib/moveMenu.ts MENU_ORB), with the orb's own dot.
+    const orb = MENU_ORB[m.path];
+    const orbNode = orb ? ix.byId.get(orb) : undefined;
     const inner = (
       <>
         <span className="rail-icon" style={{ color: hex(PRODUCT_COLOR.move) }}>
@@ -2415,11 +2432,18 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
         <span className="rail-text">
           <span>{m.label}</span>
         </span>
+        {orbNode?.status && orbNode.status !== "healthy" && <i className="rail-dot" style={{ background: hex(STATUS[orbNode.status].color) }} aria-label={STATUS[orbNode.status].label} />}
       </>
     );
     return (
       <li key={m.path}>
-        {IN_BRAIN.has(m.path) ? (
+        {orb ? (
+          orbNode ? (
+            <button className="rail-btn rail-link" onClick={() => openOrb(orb)}>{inner}</button>
+          ) : (
+            <a className="rail-btn rail-link" href={moveMenuHref(m.path)}>{inner}</a>
+          )
+        ) : IN_BRAIN.has(m.path) ? (
           <button className="rail-btn rail-link" onClick={() => goTo(movePageId(m.path))}>{inner}</button>
         ) : (
           <a className="rail-btn rail-link" href={moveMenuHref(m.path)}>{inner}</a>
@@ -3393,7 +3417,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               <span className="pi-play" aria-hidden="true">♡</span>
               <span>
                 <b>Open life events</b>
-                <span>New babies, weddings, new jobs and harder news from your notes, with the touch to make.</span>
+                <span>Birthdays, anniversaries, home anniversaries and news from your notes, soonest first, with the touch to make.</span>
               </span>
             </button>
           )}
@@ -3749,7 +3773,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             </a>
           )}
 
-          {focus.stats?.length ? <Stats stats={focus.stats} color={hex(PRODUCT_COLOR[focus.product])} ticked={(l) => ticked.has(`${focus.id}|${l}`)} /> : null}
+          {focus.stats?.length ? <Stats stats={focus.stats} color={hex(PRODUCT_COLOR[focus.product])} ticked={(l) => ticked.has(`${focus.id}|${l}`)} open={focus.id === "move" && life ? { [DATES_STAT]: () => openOrb(LIFE_NODE) } : undefined} /> : null}
 
           {focus.pace && !focus.locked && focus.type !== "goal" && (
             <div className="pace">
@@ -4053,21 +4077,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           demo={!live}
           mlsMissing={mlsMissing}
           pastClients={pastClients}
+          routeReason={likelyReasonWord}
           onNotUseful={likelyNotUseful}
           onProfile={() => {
             setLikelyOpen(false);
             goTo(movePageId("/profile"));
           }}
-          onCall={(id) => {
-            setLikelyOpen(false);
-            openPerson(id);
-          }}
+          onCall={likelyCall}
           onClose={() => setLikelyOpen(false)}
         />
       ) : null}
       {marketOpen && market ? <MarketPulseView data={market} demo={!live} onSend={sendMarket} onClose={() => setMarketOpen(false)} /> : null}
       {dealsOpen && deals ? <DealsView deals={deals} today={todayIn()} demo={!live} onStatus={setDealStatus} onClose={() => setDealsOpen(false)} onAdded={dealAdded} startAdding={dealsOpen === "add"} /> : null}
-      {lifeOpen && life ? <LifeEventsView data={life} demo={!live} onKeep={keepLife} onClose={() => setLifeOpen(false)} /> : null}
+      {lifeOpen && life ? <LifeUpcomingView data={life} demo={!live} onTask={lifeTask} onClose={() => setLifeOpen(false)} /> : null}
       {winsOpen && wins ? (
         <WinsView
           data={wins}
@@ -4175,7 +4197,7 @@ function nodeLabel(n: GraphNode, role: string, hasChildren: boolean, need?: Need
   return parts.join(", ");
 }
 
-function Stats({ stats, color, ticked = () => false }: { stats: { label: string; value: string }[]; color: string; ticked?: (label: string) => boolean }) {
+function Stats({ stats, color, ticked = () => false, open }: { stats: { label: string; value: string }[]; color: string; ticked?: (label: string) => boolean; open?: Record<string, () => void> }) {
   const [hero, ...rest] = stats;
   const m = /^\s*(\d+)\s*\/\s*(\d+)/.exec(hero.value);
   return (
@@ -4194,15 +4216,27 @@ function Stats({ stats, color, ticked = () => false }: { stats: { label: string;
           <b className={ticked(hero.label) ? "tick" : undefined}>{hero.value}</b>
         </div>
       )}
-      {rest.map((s) => (
-        <div className="row" key={s.label}>
-          <span className="row-label">
-            <Icon kind={iconForText(s.label)} size={16} color="var(--text-2)" />
-            {s.label}
-          </span>
-          <b className={ticked(s.label) ? "tick" : undefined}>{s.value}</b>
-        </div>
-      ))}
+      {rest.map((s) => {
+        const body = (
+          <>
+            <span className="row-label">
+              <Icon kind={iconForText(s.label)} size={16} color="var(--text-2)" />
+              {s.label}
+            </span>
+            <b className={ticked(s.label) ? "tick" : undefined}>{s.value}</b>
+          </>
+        );
+        // A row with an orb behind it opens that orb (ONE MOVE's birthdays line opens Life events).
+        return open?.[s.label] ? (
+          <button type="button" className="row row-open" key={s.label} onClick={open[s.label]} aria-label={`${s.label}: ${s.value}, open`}>
+            {body}
+          </button>
+        ) : (
+          <div className="row" key={s.label}>
+            {body}
+          </div>
+        );
+      })}
     </div>
   );
 }
