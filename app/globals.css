@@ -1061,6 +1061,23 @@ a.link { display: block; text-decoration: none; }
 .cc-boxes li.on i { background: var(--gold-2); border-color: var(--gold-2); }
 .cc-boxes li.asking { grid-column: 1 / -1; flex-wrap: wrap; }
 .cc-boxes li.asking .cc-box i { background: var(--gold-2); border-color: var(--gold-2); }
+/* A new lead's card in place of the VIP boxes (lib/newLeads.ts, LeadCard.tsx) */
+.lc h2 { margin: 18px 0 8px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.lc-noname { display: grid; gap: 6px; margin-top: 14px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); }
+.lc-noname b { font-size: 16px; color: var(--text); }
+.lc-noname small { color: var(--text-2); font-size: 13px; }
+.lc-name { display: grid; gap: 4px; font-size: 12px; color: var(--text-3); }
+.lc-name input { min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); color: var(--text-3); }
+.lc-clock { margin: 0 0 2px; font-weight: 700; color: var(--text); }
+.lc-where, .lc-note, .lc-last { margin: 0; font-size: 13px; color: var(--text-2); }
+.lc-note { margin-top: 6px; color: var(--text-3); font-size: 12px; }
+.lc-draft { margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); font-size: 14px; line-height: 1.45; color: var(--text); }
+.lc .chip-btn.off { opacity: 0.5; cursor: default; }
+.lc-reach { margin-top: 6px; }
+.lc-reach.is-asking { padding: 2px 12px 12px; border-radius: 12px; border: 1px solid rgba(212, 175, 55, 0.4); background: rgba(212, 175, 55, 0.06); }
+.lc .decide-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.lc-retry { margin: 10px 0 2px; font-weight: 700; color: #ff8a80; font-size: 14px; }
+.lc .cc-offers { margin-top: 12px; }
 .cc-ask-here { margin-top: 6px; width: 100%; }
 .cc-tasks ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--text); }
 .cc-tasks small { color: var(--text-3); }

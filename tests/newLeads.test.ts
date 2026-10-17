@@ -34,3 +34,91 @@ test("the orb is red while anyone is unreached, green when all are, green and pl
   assert.equal(none.needCount, undefined);
   assert.equal(withNewLeadsNode(g, null).nodes.find((n) => n.id === LEADS_NODE)!.status, undefined);
 });
+
+import { firstText, lastTryLine, leadCardMode, leadOf, postOutcome, retryLine, whereFrom, withOutcome } from "../lib/newLeads.ts";
+
+const NOW = Date.parse("2026-10-18T01:25:00Z"); // 7:25 pm Sat 17 Oct, Denver
+const live = () =>
+  readNewLeads({ today: "2026-10-17", new_leads: { count: 1, untouched: 2, people: [
+    { id: "a", name: "No name", first_name: null, name_missing: true, source: "Zillow", at: "2026-10-17T12:25:00Z", created_at: "2026-10-17T12:25:00Z", today: true, touched: false, reached: false, attempts: 0, last_attempt: null, follow_up_on: null },
+    { id: "b", name: "Bo Diaz", first_name: "Bo", name_missing: false, source: "Website", created_at: "2026-10-15T15:00:00Z", today: false, touched: false, attempts: 2, last_attempt: { outcome: "no_answer", at: "2026-10-17T20:10:00Z" }, follow_up_on: "2026-10-18" },
+  ] } })!;
+
+test("new leads: the live shape is read, today's count kept, earlier unreached carried", () => {
+  const l = live();
+  assert.equal(l.count, 1);
+  assert.equal(l.untouched, 2);
+  const a = leadOf(l, "a")!;
+  assert.equal(a.nameMissing, true);
+  assert.equal(a.name, "No name");
+  assert.equal(a.firstName, null);
+  const b = leadOf(l, "b")!;
+  assert.equal(b.today, false);
+  assert.equal(b.attempts, 2);
+  assert.deepEqual(b.lastAttempt, { outcome: "no_answer", at: "2026-10-17T20:10:00Z" });
+  assert.equal(leadOf(l, "zz"), null);
+  assert.equal(leadOf(null, "a"), null);
+});
+
+test("new leads: the orb stays while an earlier lead is unreached, and each line carries the clock", () => {
+  const g: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "move", type: "product", label: "ONE MOVE", parentId: "one", product: "move", importance: 1 }], edges: [] };
+  const only = { ...live(), count: 0, people: live().people.filter((p) => p.id === "b") };
+  const out = withNewLeadsNode(g, only, NOW);
+  assert.equal(out.nodes.find((n) => n.id === LEADS_NODE)!.status, "action");
+  const bo = out.nodes.find((n) => n.id === `${LEADS_NODE}:b`)!;
+  assert.equal(bo.secondaryLabel, "Came in Thu 9:00 am · Website · not reached yet");
+  assert.match(bo.summary!, /Try again tomorrow morning/);
+  const all = withNewLeadsNode(g, live(), NOW);
+  assert.equal(all.nodes.find((n) => n.id === `${LEADS_NODE}:a`)!.label, "No name");
+});
+
+test("lead card: reach until reached, then sort, then the VIP boxes again", () => {
+  const l = live();
+  assert.equal(leadCardMode(null), "none");
+  assert.equal(leadCardMode(leadOf(l, "a")), "reach");
+  const r = withOutcome(l, "a", "reached", null, "2026-10-18T01:26:00Z");
+  assert.equal(leadCardMode(leadOf(r, "a")), "sort");
+  assert.equal(leadCardMode(leadOf(r, "a"), true), "none");
+  assert.equal(r.untouched, 1);
+});
+
+test("outcomes: left a message and no answer count a try and say when to try again", () => {
+  const l = withOutcome(live(), "a", "left_message", "later_today", "2026-10-17T20:00:00Z");
+  const a = leadOf(l, "a")!;
+  assert.equal(a.touched, false);
+  assert.equal(a.attempts, 1);
+  assert.equal(l.untouched, 2);
+  assert.equal(retryLine(a, NOW), "Try again later today");
+  assert.equal(lastTryLine(a, NOW), "Last try: left a message, 2:00 pm · 1 try");
+  const b = leadOf(live(), "b")!;
+  assert.equal(retryLine(b, NOW), "Try again tomorrow morning");
+  assert.equal(lastTryLine(b, NOW), "Last try: no answer, 2:10 pm · 2 tries");
+  assert.equal(lastTryLine(leadOf(live(), "a")!, NOW), null);
+  assert.equal(retryLine({ ...b, touched: true }, NOW), null);
+});
+
+test("outcomes: the route's answer is read; its words show on a refusal", async () => {
+  const ok = (body: unknown, status = 200) => (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
+  assert.deepEqual(await postOutcome("a", "no_answer", ok({ ok: true, outcome: "no_answer", follow_up: { task_id: "t", due_date: "2026-10-18", when: "tomorrow_morning" } })), { ok: true, when: "tomorrow_morning", error: null });
+  assert.deepEqual(await postOutcome("a", "reached", ok({ ok: true, outcome: "reached" })), { ok: true, when: null, error: null });
+  assert.equal((await postOutcome("a", "reached", ok({ ok: false, error: "Not found." }, 404))).error, "Not found.");
+  const down = (async () => { throw new Error("x"); }) as unknown as typeof fetch;
+  assert.equal((await postOutcome("a", "reached", down)).ok, false);
+});
+
+test("lead card words: where from and Pulse's first text", () => {
+  assert.equal(whereFrom("Zillow", ["Zillow", "Asked about 12 Oak St"]), "Came in from Zillow · Asked about 12 Oak St");
+  assert.equal(whereFrom(null), "Came in on their own");
+  assert.equal(firstText("Ann", "Website Property Valuation", "Parry"), "Hi Ann, this is Parry. Thanks for asking about your home's value. I'll put the numbers together for you. When is a good time for a quick call?");
+  assert.equal(firstText(null, "Zillow"), "Hi. Thanks for reaching out on Zillow. When is a good time for a quick call?");
+  assert.match(firstText("Cy", "Open house"), /stopping by the open house/);
+});
+
+test("the demo has one example lead with a clock and a try", () => {
+  const d = demoNewLeads(NOW);
+  const ann = leadOf(d, "n1")!;
+  assert.equal(leadCardMode(ann), "reach");
+  assert.equal(retryLine(ann, NOW), "Try again later today");
+  const g: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "move", type: "product", label: "ONE MOVE", parentId: "one", product: "move", importance: 1 }], edges: [] };
+  assert.match(withNewLeadsNode(g, d, NOW).nodes.find((n) => n.id === `${LEADS_NODE}:n1`)!.secondaryLabel!, /^Came in 7:05 pm · 20 minutes ago/);
+});

@@ -70,10 +70,11 @@ test("the orb is always on ONE MOVE: yellow with the count, a green ring and the
 });
 
 test("until ONE MOVE's route answers: today's unreached leads from the four sources only", () => {
+  const more = { firstName: null, nameMissing: false, today: true, attempts: 0, lastAttempt: null, followUpOn: null };
   const d = fromNewLeads({ today: "2026-10-17", count: 3, untouched: 2, people: [
-    { id: "1", name: "Ann Lee", source: "Website Property Valuation", at: "2026-10-17T15:00:00Z", touched: false },
-    { id: "2", name: "Raj Patel", source: "Zillow", at: "2026-10-17T14:00:00Z", touched: false },
-    { id: "3", name: "Cy Do", source: "Open house", at: "2026-10-17T13:00:00Z", touched: true },
+    { ...more, id: "1", name: "Ann Lee", source: "Website Property Valuation", at: "2026-10-17T15:00:00Z", touched: false },
+    { ...more, id: "2", name: "Raj Patel", source: "Zillow", at: "2026-10-17T14:00:00Z", touched: false },
+    { ...more, id: "3", name: "Cy Do", source: "Open house", at: "2026-10-17T13:00:00Z", touched: true },
   ] })!;
   assert.equal(d.fromMove, false);
   assert.deepEqual(d.sources.map((s) => s.kind), ["website"]);

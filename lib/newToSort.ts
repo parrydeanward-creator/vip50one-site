@@ -197,7 +197,7 @@ export function fromNewLeads(l: NewLeads | null): NewToSort | null {
       kind,
       label: KIND_LABEL[kind],
       date: dayOf(p.at),
-      people: [{ contactId: p.id, firstName: p.name.split(/\s+/)[0], name: p.name, wherePlain: `Came in today from ${p.source}`, said: null, rating: null, phone: null, email: null, at: p.at, suggest: null }],
+      people: [{ contactId: p.id, firstName: p.firstName ?? (p.nameMissing ? "This lead" : p.name.split(/\s+/)[0]), name: p.name, wherePlain: `${p.today ? "Came in today" : "Came in"} from ${p.source}`, said: null, rating: null, phone: null, email: null, at: p.at, suggest: null }],
     });
   }
   // the fallback has no address to tell houses apart, so open house leads share one orb

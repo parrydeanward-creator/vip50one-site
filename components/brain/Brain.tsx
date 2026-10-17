@@ -111,7 +111,8 @@ import { readSignals, signalsUrl, type WebSignal } from "@/lib/webSignals.ts";
 import { readSiteAlerts, withAdsAlertNode, type SiteAlert } from "@/lib/siteAlerts.ts";
 import { GROWTH_JOIN_BUTTON, GROWTH_NODE, growthChildren, growthDemoNote, isGrowthChild, withGrowthNodes, type GrowthAction, type GrowthState } from "@/lib/growthOrb.ts";
 import { ASK_PERSON, askOrbIds, withAskPeople } from "@/lib/askOrbs.ts";
-import { demoNewLeads, readNewLeads, todayUrl, withNewLeadsNode, type NewLeads } from "@/lib/newLeads.ts";
+import { LEADS_NODE, demoNewLeads, leadOf, readNewLeads, todayUrl, withNewLeadsNode, withOutcome, type LeadOutcome, type NewLeads, type RetryWhen } from "@/lib/newLeads.ts";
+import LeadCard from "./LeadCard.tsx";
 import { postDay, type TeamPost } from "@/lib/teamPosts.ts";
 import { perProduct } from "@/lib/perProduct.ts";
 import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, type Launch } from "@/lib/launch.ts";
@@ -1105,6 +1106,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     newLeadsRef.current = newLeads;
     setGraph((g) => withOpportunities(withNewLeadsNode(g, newLeads)));
   }, [newLeads]);
+  // the clock on each lead's line ("Came in 6:25 am · 20 minutes ago") moves once a minute
+  useEffect(() => {
+    const t = setInterval(() => setGraph((g) => withNewLeadsNode(g, newLeadsRef.current)), 60_000);
+    return () => clearInterval(t);
+  }, []);
+  // Reached turns the lead green here at once (the orb colour follows); the other two count a try and keep it red.
+  const leadOutcome = useCallback((contactId: string, outcome: LeadOutcome, when: RetryWhen | null) => {
+    setNewLeads((l) => (l ? withOutcome(l, contactId, outcome, when, new Date().toISOString()) : l));
+  }, []);
   // Looks Hot (CONNECTIONS §5.1, vip50-web-crm#244): one decide item per contact whose actions say they are ready.
   const [heat, setHeat] = useState<HeatSuggestion[] | null>(null);
   useEffect(() => {
@@ -3144,12 +3154,29 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
 
           {isMoveGroup(focus.id) && !ask && <GroupPanel node={focus} ix={ix} today={localDay(new Date())} goTo={goTo} />}
 
-          {(focus.contactId || focus.taskId) && focus.product === "move" && !focus.locked && !ask && (
+          {/* the demo's example lead: the lead card on screen only (there is no ONE MOVE contact behind it) */}
+          {!live && focus.id.startsWith(`${LEADS_NODE}:`) && leadOf(newLeads, focus.contactId) && !ask ? (
+            <LeadCard
+              key={focus.id}
+              lead={leadOf(newLeads, focus.contactId)!}
+              phone="(801) 555-0142"
+              email={null}
+              tel="8015550142"
+              agentFirst={agent.firstName}
+              live={false}
+              onOutcome={(o, when) => leadOutcome(focus.contactId!, o, when)}
+            />
+          ) : null}
+
+          {(focus.contactId || focus.taskId) && focus.product === "move" && !focus.locked && !ask && (live || !focus.id.startsWith(`${LEADS_NODE}:`)) && (
             <PersonPanel
               key={focus.id}
               contactId={focus.contactId}
               taskId={focus.taskId}
               title={focus.label}
+              lead={focus.contactId ? leadOf(newLeads, focus.contactId) : null}
+              agentFirst={agent.firstName}
+              onLeadOutcome={leadOutcome}
               onChanged={refreshLive}
               openContacts={() => goTo(movePageId("/contacts"))}
               onOpenPage={(path, query) => {
