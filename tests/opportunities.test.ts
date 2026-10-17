@@ -9,7 +9,6 @@ import { LOOKS_NODE, demoLooksHot, withLooksHot } from "../lib/looksHot.ts";
 import { LIKELY_NODE, demoMoveLikely, withMoveLikelyNode } from "../lib/moveLikely.ts";
 import { DEALS_NODE, demoDeals, withDealsNode } from "../lib/deals.ts";
 import { demoRadar, withLifeEventsNode } from "../lib/lifeEvents.ts";
-import { demoMarketPulse, withMarketPulseNode } from "../lib/marketPulse.ts";
 import { FOLLOW_NODE } from "../lib/followUps.ts";
 import { needsOf } from "../lib/needs.ts";
 import { ALL_CLEAR_LINE, OPP_NODE, PEOPLE_MENU_PARTS, oppLine, withOpportunities } from "../lib/opportunities.ts";
@@ -29,7 +28,6 @@ function brainRing(opp: boolean, leads = demoNewLeads()) {
   let g: G = liveGraph(MASTER, opts, {});
   g = withMoveCoach(g, true);
   g = withMoveLikelyNode(g, demoMoveLikely());
-  g = withMarketPulseNode(g, demoMarketPulse(today));
   g = withDealsNode(g, demoDeals(today), today);
   g = withLifeEventsNode(g, demoRadar(today));
   g = withNewLeadsNode(g, leads);
@@ -39,13 +37,16 @@ function brainRing(opp: boolean, leads = demoNewLeads()) {
 }
 const ring = (g: G) => g.nodes.filter((n) => n.parentId === "move");
 
-test("the ring: 16 orbs before, 13 after; the four parts leave it, Follow-ups stays", () => {
+// Rewritten 17 Oct: Market Pulse left the ring (HOME-REPORT v0.4 box 3: it folds into Market Reports inside Outreach), so
+// the same busy-day ring is one orb smaller: 15 before Opportunities, 12 after (was 16 and 13).
+test("the ring: 15 orbs before, 12 after; the four parts leave it, Follow-ups stays", () => {
   // before: the same graph with the four parts put back on ONE MOVE (as they were until today)
   const parts = new Set([LEADS_NODE, NTS_NODE, LOOKS_NODE, LIKELY_NODE]);
   const after = brainRing(true);
   const before = after.nodes.filter((n) => n.id !== OPP_NODE).map((n) => (parts.has(n.id) ? { ...n, parentId: "move" } : n));
-  assert.equal(ring({ nodes: before, edges: [] }).length, 16);
-  assert.equal(ring(after).length, 13);
+  assert.equal(ring({ nodes: before, edges: [] }).length, 15);
+  assert.equal(ring(after).length, 12);
+  assert.ok(!ring(after).some((n) => n.label === "Market Pulse"));
   const labels = ring(after).map((n) => n.label);
   assert.ok(labels.includes("Opportunities"));
   assert.ok(labels.includes("Follow-ups"));
@@ -108,7 +109,7 @@ test("always shown, runs again safely, gone when ONE MOVE is locked", () => {
   const twice = withOpportunities(withOpportunities(g));
   assert.equal(twice.nodes.filter((n) => n.id === OPP_NODE).length, 1);
   assert.equal(twice.edges.filter((e) => e.target === LOOKS_NODE).length, 1);
-  assert.equal(ring(twice).length, 13);
+  assert.equal(ring(twice).length, 12); // 13 until 17 Oct: Market Pulse left the ring (HOME-REPORT v0.4 box 3)
   // a part rebuilt later (a fresh answer) goes back on ONE MOVE until Opportunities runs again, then inside it
   const fresh = withOpportunities(withLooksHot(twice, []));
   assert.equal(fresh.nodes.find((n) => n.id === LOOKS_NODE)!.parentId, OPP_NODE);

@@ -55,7 +55,7 @@ import PulseCoachView from "./PulseCoachView.tsx";
 import ReferralsView from "./ReferralsView.tsx";
 import WinsView from "./WinsView.tsx";
 import LifeUpcomingView from "./LifeUpcomingView.tsx";
-import MarketPulseView from "./MarketPulseView.tsx";
+import OutreachPanel, { AttractionSection } from "./OutreachPanel.tsx";
 import MoveLikelyView from "./MoveLikelyView.tsx";
 import DealsView, { type SetStatus as DealSetStatus } from "./DealsView.tsx";
 import TeamView from "./TeamView.tsx";
@@ -93,7 +93,8 @@ import { ASK_AI_NODE, monthOf, readResults, resultKey, withAskAiNode, type Answe
 import { LIKELY_NODE, callBody as likelyCallBody, callUrl as likelyCallUrl, demoMoveLikely, emptyMoveLikely, moveLikelyUrl, notUsefulUrl, pastClientsUrl, readMoveLikely, readPastClientsAnswer, withMoveLikelyNode, withoutPerson, type MoveLikely, type PastClient, type Person as LikelyPerson, type RouteReason } from "@/lib/moveLikely.ts";
 import { OPP_LABEL, OPP_NODE, PEOPLE_MENU_PARTS, withOpportunities } from "@/lib/opportunities.ts";
 import { readRoute } from "@/lib/routeFirst.ts";
-import { MARKET_NODE, demoMarketPulse, marketPulseUrl, marketSendUrl, readMarketPulse, sendBody as marketSendBody, withMarketPulseNode, withSent as withMarketSent, type MarketPulse, type Vip as MarketVip } from "@/lib/marketPulse.ts";
+import { HOME_REPORTS_PATH } from "@/lib/homeReport.ts";
+import { PANEL_FIRST, attractionUrl, demoAttraction, demoEvents, demoOutreach, eventsUrl, outreachUrl, partOf, readAttraction, readEvents, readOutreach, withEventsNodes, withOutreachNodes, type Attraction, type EventsNow, type Outreach } from "@/lib/outreach.ts";
 import { DEALS_NODE, dealUrl, dealsUrl, demoDeals, readClosingAsk, readDeals, statusBody as dealStatusBody, withDealsNode, withStatus as withDealStatus, type Deal } from "@/lib/deals.ts";
 import { LIFE_NODE } from "@/lib/lifeEvents.ts";
 import { DATES_STAT, demoUpcoming, readUpcoming, taskBody as lifeTaskBody, taskUrl as lifeTaskUrl, upcomingUrl as lifeUpcomingUrl, withLifeUpcomingNode, type Upcoming, type UpcomingList } from "@/lib/lifeUpcoming.ts";
@@ -182,12 +183,12 @@ const TOUR_AGENT: BrainAgent = { ...DEMO_AGENT, growth: true, plan: "ONE Complet
 const TOUR_PAGES: [string, string, string][] = [
   ["/contacts", "Contacts", "move-0"], ["/contacts/vip", "VIP Management", "move-2"], ["/contacts/audit", "Touch Audit", "move-1"],
   ["/hot-warm-cold", "Hot/Warm/Cold", "move-9"], ["/rolodex", "Business Rolodex", "move-0"], ["/daily", "Daily Tracker", "move"],
-  ["/weekly", "Weekly Tracker", "move"], ["/profile", "My Profile", "move"], ["/home-reports", "Home Reports", "move"],
+  ["/weekly", "Weekly Tracker", "move"], ["/profile", "My Profile", "move"], ["/home-reports", "Market Reports", "move"],
 ];
-// The example agent (?demo=1) has no ONE MOVE menu either; Home Reports gets its orb so the example shows it (HOME-REPORT
+// The example agent (?demo=1) has no ONE MOVE menu either; Market Reports gets its orb so the example shows it (HOME-REPORT
 // §5.4, 16 Oct). It runs on example data there, with no network.
 // My Profile too, for "Pulse knows me" (PROFILE §5c, 16 Oct), on the example agent's own data.
-const DEMO_PAGES: [string, string, string][] = [["/home-reports", "Home Reports", "move"], ["/profile", "My Profile", "move"]];
+const DEMO_PAGES: [string, string, string][] = [["/home-reports", "Market Reports", "move"], ["/profile", "My Profile", "move"]];
 function withTourPages(g: BusinessGraph, pages = TOUR_PAGES): BusinessGraph {
   const have = new Set(g.nodes.map((n) => n.id));
   const nodes = [...g.nodes];
@@ -234,7 +235,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const habitsRef = useRef<HabitToday[] | null>(null);
   const lifeRef = useRef<UpcomingList | null>(null);
   const dealsRef = useRef<Deal[] | null>(null);
-  const marketRef = useRef<MarketPulse | null>(null);
+  const outreachRef = useRef<Outreach | null>(null);
+  const eventsRef = useRef<EventsNow | null>(null);
   const likelyRef = useRef<MoveLikely | null>(null);
   // Likely to move's one honest reason and ONE MOVE's past clients 5+ years (lib/moveLikely.ts), for the rebuild.
   const likelyOptsRef = useRef<{ mlsMissing: boolean | null; pastClients: PastClient[] | null; routeReason: RouteReason | null }>({ mlsMissing: null, pastClients: null, routeReason: null });
@@ -264,7 +266,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // crashed the page (Parry, 4 Oct, after "Yes, log it" on Sarah Bennett).
   const swapGraph = useCallback((fresh: BusinessGraph) => {
     // Opportunities last (lib/opportunities.ts; Parry, 17 Oct): its four parts move inside it, whatever built them.
-    const next = withOpportunities(withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withMarketPulseNode(withDealsNode(withLifeUpcomingNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), marketRef.current), likelyRef.current, likelyOptsRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn()), ntsRef.current), looksRef.current));
+    const next = withOpportunities(withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withEventsNodes(withOutreachNodes(withDealsNode(withLifeUpcomingNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), outreachRef.current), eventsRef.current), likelyRef.current, likelyOptsRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn()), ntsRef.current), looksRef.current));
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -1027,33 +1029,33 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     },
     [live],
   );
-  // Market Pulse (§3aa): from ONE MOVE once it answers (404 until then: no orb), the example agent's month in the demo.
-  const [market, setMarket] = useState<MarketPulse | null>(null);
-  const [marketOpen, setMarketOpen] = useState(false);
-  useEffect(() => {
-    if (!live) return setMarket(demoMarketPulse(todayIn()));
-    fetch(marketPulseUrl, { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => setMarket(j ? readMarketPulse(j) : null))
-      .catch(() => {});
+  // Outreach and Events show what each tool is doing (lib/outreach.ts; Parry, 16 Oct: "2 yes", "3 yes"), and Agent
+  // Attraction on the Team orb for a team lead. From ONE MOVE's read-only routes; the example agent's in the demo.
+  // (Market Pulse folded into Market Reports, HOME-REPORT v0.4: /api/brain/market-pulse is no longer called.)
+  const [outreach, setOutreach] = useState<Outreach | null>(null);
+  const [eventsNow, setEventsNow] = useState<EventsNow | null>(null);
+  const [attraction, setAttraction] = useState<Attraction | null>(null);
+  const [hrStart, setHrStart] = useState<"vips" | null>(null);
+  const loadOutreach = useCallback(() => {
+    if (!live) {
+      setOutreach(demoOutreach());
+      setEventsNow(demoEvents(todayIn()));
+      setAttraction(demoAttraction(todayIn()));
+      return;
+    }
+    const get = (url: string) => fetch(url, { credentials: "include", cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    void get(outreachUrl).then((j) => j && setOutreach(readOutreach(j)));
+    void get(eventsUrl).then((j) => j && setEventsNow(readEvents(j)));
+    void get(attractionUrl).then((j) => j && setAttraction(readAttraction(j)));
   }, [live]);
   useEffect(() => {
-    marketRef.current = market;
-    setGraph((g) => withMarketPulseNode(g, market));
-  }, [market]);
-  const sendMarket = useCallback(
-    async (v: MarketVip): Promise<boolean> => {
-      if (live) {
-        const ok = await fetch(marketSendUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(marketSendBody(v.id)) })
-          .then((r) => r.ok)
-          .catch(() => false);
-        if (!ok) return false;
-      }
-      setMarket((m) => (m ? withMarketSent(m, v.id, new Date().toISOString()) : m));
-      return true;
-    },
-    [live],
-  );
+    loadOutreach();
+  }, [loadOutreach]);
+  useEffect(() => {
+    outreachRef.current = outreach;
+    eventsRef.current = eventsNow;
+    setGraph((g) => withEventsNodes(withOutreachNodes(g, outreach), eventsNow));
+  }, [outreach, eventsNow]);
   // Deals under contract (§3z): from ONE MOVE once it answers (404 until then: no orb), the example agent's in the demo.
   const [deals, setDeals] = useState<Deal[] | null>(null);
   const [dealsOpen, setDealsOpen] = useState<false | "list" | "add">(false);
@@ -2051,7 +2053,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   }
 
   // ---- navigation ---------------------------------------------------------
+  // A panel-first page (lib/outreach.ts PANEL_FIRST: the Outreach and Events orbs) opens on its side panel; its button
+  // opens the page itself. Moving to any other orb closes it again.
+  const [fullPage, setFullPage] = useState<string | null>(null);
   const goTo = useCallback((id: string) => {
+    setFullPage((p) => (p && movePageId(p) === id ? p : null));
     setHighlight(null);
     setAsk(null);
     setTour(null);
@@ -2164,6 +2170,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     // (Parry, 13 Oct: /dashboard/team-leads landed on the main dashboard).
     if (ix.byId.has(want)) goTo(want);
     else pendingPage.current = want;
+    // an address names the page itself, so a panel-first page opens full
+    if (fromPath) setFullPage(fromPath);
     // once, on arrival
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2305,6 +2313,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   };
   // A row in a list opens its orb exactly as a tap on the orb does (audit stage 2: the "This week" row showed a panel
   // with no way to set commitments, while the orb opens Commitments).
+  // The ONE MOVE open helper: a page inside the Brain, full window, even a panel-first one (lib/outreach.ts).
+  const openMovePage = (path: string) => {
+    setHrStart(null);
+    setFullPage(path);
+    goTo(movePageId(path));
+  };
   const openOrb = (id: string) => {
     drag.current.moved = false;
     clickNode(id);
@@ -2323,7 +2337,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     if (id === HABITS_NODE) return openHabits();
     if (id === LIFE_NODE) return setLifeOpen(true);
     if (id === DEALS_NODE) return setDealsOpen("list");
-    if (id === MARKET_NODE) return setMarketOpen(true);
     if (id === LIKELY_NODE) return setLikelyOpen(true);
     if (id === ASK_AI_NODE) return setAiOpen(true);
     // The Team orb's Leaderboard and War room come to the middle with their side panel (orbs hard rule); the full
@@ -2344,7 +2357,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     if (a.kind === "join") return void window.open(a.href, "_blank", "noopener");
     if (a.kind === "movePage") {
       const page = movePageId(a.path);
-      return ix.byId.has(page) ? goTo(page) : void window.open(moveMenuHref(a.path), "_blank", "noopener");
+      return ix.byId.has(page) ? openMovePage(a.path) : void window.open(moveMenuHref(a.path), "_blank", "noopener");
     }
     // My Profile on that tab: the page reads the tab from the address when it opens.
     const page = movePageId("/profile");
@@ -2453,7 +2466,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   };
   // A ONE MOVE page that opens inside the Brain (lib/moveMenu.ts IN_BRAIN).
   // the example agent's New to Sort orb (lib/graph/move.ts) opens the same native view as the live one
-  const pagePanel = !ask && !tour ? inBrainPage(state.focusId) ?? (state.focusId === DEMO_NTS_NODE ? { label: "New to Sort", path: NTS_PATH } : null) : null;
+  const rawPage = !ask && !tour ? inBrainPage(state.focusId) ?? (state.focusId === DEMO_NTS_NODE ? { label: "New to Sort", path: NTS_PATH } : null) : null;
+  const pagePanel = rawPage && (!PANEL_FIRST.has(rawPage.path) || fullPage === rawPage.path) ? rawPage : null;
   // A page opened for one person (the person panel's Refer / Post a need): its query rides on the frame's address.
   // Each opening starts behind the veil again, even for the same page.
   const panelPath = pagePanel?.path ?? null;
@@ -3245,6 +3259,34 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             <TeamHubPanel id={focus.id} team={team} war={war} onb={onbShown} removed={onbRemovedRef.current} now={Date.now()} needs={needs} openOrb={openOrb} />
           ) : null}
 
+          {focus.id === TEAM_HUB && attraction?.teamLead && !ask ? <AttractionSection a={attraction} live={live} /> : null}
+
+          {partOf(focus.id) && focus.product === "move" && !focus.locked && !ask && !tour ? (
+            <OutreachPanel
+              key={focus.id}
+              part={partOf(focus.id)!}
+              outreach={outreach}
+              events={eventsNow}
+              live={live}
+              onOpenPage={(path) => {
+                // the example agent opens only what the Brain draws itself (Market Reports); nothing reaches ONE MOVE
+                if (!live && path !== HOME_REPORTS_PATH) return setSiteNote(`Example agent: signed in, this opens ${partOf(focus.id)!.label} in ONE MOVE.`);
+                if (!ix.byId.has(movePageId(path))) return void window.open(moveMenuHref(path), "_blank", "noopener");
+                openMovePage(path);
+              }}
+              onBulk={() => {
+                openMovePage(HOME_REPORTS_PATH);
+                setHrStart("vips");
+              }}
+              onOpenPerson={(id) => {
+                const page = movePageId("/contacts");
+                if (!ix.byId.has(page)) return;
+                setContactOpen({ id, k: Date.now() });
+                goTo(page);
+              }}
+            />
+          ) : null}
+
           {onbIdOf(focus.id) && !ask && (() => {
             const m = onbShown?.find((x) => x.id === onbIdOf(focus.id));
             return m ? <OnboardingPanel key={focus.id} m={m} /> : null;
@@ -3382,15 +3424,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               <span>
                 <b>Open likely to move</b>
                 <span>Past clients whose homes suggest a move may be coming, with the reasons and a check-in.</span>
-              </span>
-            </button>
-          )}
-          {focus.id === MARKET_NODE && market && !tour && (
-            <button className="pi-film pm-open" onClick={() => setMarketOpen(true)}>
-              <span className="pi-play" aria-hidden="true">∿</span>
-              <span>
-                <b>Open Market Pulse</b>
-                <span>Each VIP&apos;s own market for the month, ready for you to send.</span>
               </span>
             </button>
           )}
@@ -3933,6 +3966,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                 />
               ) : vipNative && nativeKind === "homereports" ? (
                 <HomeReports
+                  key={hrStart ?? "all"}
+                  startAt={hrStart ?? undefined}
                   demo={!live && !productTour}
                   onUnavailable={vipUnavailable}
                   onBack={() => goTo(focus.parentId ?? "move")}
@@ -4087,7 +4122,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           onClose={() => setLikelyOpen(false)}
         />
       ) : null}
-      {marketOpen && market ? <MarketPulseView data={market} demo={!live} onSend={sendMarket} onClose={() => setMarketOpen(false)} /> : null}
       {dealsOpen && deals ? <DealsView deals={deals} today={todayIn()} demo={!live} onStatus={setDealStatus} onClose={() => setDealsOpen(false)} onAdded={dealAdded} startAdding={dealsOpen === "add"} /> : null}
       {lifeOpen && life ? <LifeUpcomingView data={life} demo={!live} onTask={lifeTask} onClose={() => setLifeOpen(false)} /> : null}
       {winsOpen && wins ? (

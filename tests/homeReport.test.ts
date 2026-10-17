@@ -109,7 +109,9 @@ test("the bodies ONE MOVE's routes take", () => {
   assert.deepEqual(changeBody("r1", 7, " "), { id: "r1", send_day: 7, note: "" });
   assert.deepEqual(rprBody("r1", "https://x.com/a"), { id: "r1", rpr_url: "https://x.com/a" });
   assert.deepEqual(bulkBody(["a", "b", "a"]), { contact_ids: ["a", "b"] });
-  assert.equal(bulkButton(3), "Start the Home Report for 3");
+  // Rewritten 17 Oct: the name agents see is Market Report (HOME-REPORT v0.4; Parry, 16 Oct: "1 yes").
+  assert.equal(bulkButton(3), "Start 3 Market Reports");
+  assert.equal(bulkButton(1), "Start 1 Market Report");
 });
 
 test("bulk list and the monthly card: checked, earliest day first", () => {

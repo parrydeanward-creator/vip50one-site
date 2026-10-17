@@ -22,8 +22,11 @@ test("follow-ups no longer include the reminders", () => {
   const g = liveGraph(MASTER, opts("complete"), {});
   const fu = g.nodes.filter((n) => n.parentId === "move-followups").map((n) => n.label);
   assert.deepEqual(fu, ["Call Brian Irby"]);
-  const at = g.nodes.filter((n) => n.parentId === "move-attraction").map((n) => n.label);
-  assert.deepEqual(at, ["Agent Attraction 1"]);
+  // Rewritten 17 Oct: Agent Attraction left Outreach (walker 2026-10-17-0230 item 3). It shows on the Team orb for a team
+  // lead (GET /api/brain/team/attraction), so the live graph no longer holds a "move-attraction" group; it is not a
+  // follow-up either.
+  assert.ok(!g.nodes.some((n) => n.id === "move-attraction" || n.parentId === "move-attraction"));
+  assert.ok(!g.nodes.some((n) => n.label === "Agent Attraction 1"));
 });
 
 test("Relationship (no ONE Open): the reminder stays in ONE MOVE, with its own group", () => {

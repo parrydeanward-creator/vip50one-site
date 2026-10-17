@@ -206,14 +206,14 @@ function body(id: string) {
         <div className="mv-news">
           <div className="mv-blocks">
             <span className="mv-lbl">Blocks</span>
-            {["Header", "Market Pulse", "Featured home", "Local event", "Tip", "Footer"].map((b) => (
+            {["Header", "Market Report", "Featured home", "Local event", "Tip", "Footer"].map((b) => (
               <span key={b}>{b}</span>
             ))}
           </div>
           <div className="mv-paper">
             <b className="mv-ph">The Willow Creek Letter · October</b>
             <div className="mv-pulse sc-in" style={d(300)}>
-              <span className="mv-lbl" style={{ color: T }}>Market Pulse</span>
+              <span className="mv-lbl" style={{ color: T }}>Market Report</span>
               <div>
                 <span><b>$598K</b> median price</span>
                 <span><b>21</b> days on market</span>

@@ -7,7 +7,9 @@ import HomeReportSection from "./HomeReportSection.tsx";
 import { monthWords } from "@/lib/marketPulse.ts";
 import {
   bulkBody,
+  VIPS_BULK,
   bulkButton,
+  bulkGroupUrl,
   bulkUrl,
   demoBulk,
   demoMonthCard,
@@ -20,13 +22,23 @@ import {
   type BulkPerson,
   type MonthCard,
   type MonthRow,
+  CREDIT_LINE,
+  FEED_LINE,
+  FEED_LIVE,
 } from "@/lib/homeReport.ts";
 
-// Home Reports, ONE MOVE's /home-reports drawn in the Brain (HOME-REPORT.md §4.2, §5.4; Parry 16 Oct, and the hard rule
-// of 13 Oct: every feature in Classic and the Brain). This month's reports round a centre that counts the ones due: Due,
-// Coming later, Sent, and the past clients ready to start. Tap a group: it comes to the middle (the orb rule, 6 Oct) and
-// its people list in the panel; tap a person for their Home Report card. The bulk start lists every past client ticked;
-// the agent unticks, then starts. The example agent (?demo=1) runs on example data with no network.
+/** The example agent's VIPs with no report yet (invented). */
+const DEMO_VIPS: BulkPerson[] = [
+  { id: "demo-hr-rosa", name: "Rosa Diaz", address: "1290 E Pepperwood Dr, Sandy, UT 84092" },
+  { id: "demo-hr-priya", name: "Priya Shah", address: "62 W Corner Canyon Rd, Draper, UT 84020" },
+];
+
+// Market Reports, ONE MOVE's /home-reports drawn in the Brain (HOME-REPORT.md §4.2, §5.4, v0.4; Parry 16 Oct, and the
+// hard rule of 13 Oct: every feature in Classic and the Brain). This month's reports round a centre that counts the ones
+// due: Due, Coming later, Sent, and the VIPs and past clients ready to start (v0.4 box 3: Market Pulse's "a note for every
+// VIP" is now "Set up Market Reports for all your VIPs"). Tap a group: it comes to the middle (the orb rule, 6 Oct) and its
+// people list in the panel; tap a person for their Market Report card. A bulk start lists everyone ticked; the agent
+// unticks, then starts. The example agent (?demo=1) runs on example data with no network.
 
 const SIZE = 1000;
 const C = SIZE / 2;
@@ -37,9 +49,16 @@ const GREEN = "#3fbf7f";
 const SKY = "#6fb6ff";
 const LAV = "#b7a6ff";
 
-type Key = "due" | "coming" | "sent" | "start";
-const LABEL: Record<Key, string> = { due: "Due now", coming: "Later this month", sent: "Sent", start: "Past clients to start" };
-const HUE: Record<Key, string> = { due: GOLD, coming: SKY, sent: GREEN, start: LAV };
+type Key = "due" | "coming" | "sent" | "vips" | "past";
+type StartKey = "vips" | "past";
+const LABEL: Record<Key, string> = { due: "Due now", coming: "Later this month", sent: "Sent", vips: "VIPs to start", past: "Past clients to start" };
+const HUE: Record<Key, string> = { due: GOLD, coming: SKY, sent: GREEN, vips: LAV, past: LAV };
+const isStart = (k: Key | null): k is StartKey => k === "vips" || k === "past";
+const START_TITLE: Record<StartKey, string> = { vips: VIPS_BULK, past: "Past clients to start" };
+const START_SUM: Record<StartKey, string> = {
+  vips: "Your VIP-50 and VIP-100 with an address and an email who have no Market Report yet. Untick anyone you would rather leave out. Each one goes on the 5th of the month.",
+  past: "Past clients with an address and an email who have no Market Report yet. Untick anyone you would rather leave out. Each one goes on the 5th of the month.",
+};
 const first = (name: string) => name.split(" ")[0] ?? "";
 
 export default function HomeReports({
@@ -48,8 +67,11 @@ export default function HomeReports({
   onBack,
   onClassic,
   onOpenPerson,
+  startAt,
 }: {
   demo: boolean;
+  /** Open on a bulk start: "vips" for "Set up Market Reports for all your VIPs". */
+  startAt?: StartKey;
   onUnavailable: () => void;
   onBack: () => void;
   onClassic: () => void;
@@ -58,10 +80,10 @@ export default function HomeReports({
 }) {
   const cam = useSvgCamera(SIZE);
   const [card, setCard] = useState<MonthCard | null>(null);
-  const [bulk, setBulk] = useState<BulkPerson[]>([]);
+  const [bulks, setBulks] = useState<Record<StartKey, BulkPerson[]>>({ vips: [], past: [] });
   const [ticked, setTicked] = useState<Set<string>>(new Set());
   const [err, setErr] = useState<string | null>(null);
-  const [sel, setSel] = useState<Key | null>(null);
+  const [sel, setSel] = useState<Key | null>(startAt ?? null);
   const [who, setWho] = useState<MonthRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -70,9 +92,10 @@ export default function HomeReports({
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date());
     if (demo) {
       const b = demoBulk();
+      const v = DEMO_VIPS;
       setCard(demoMonthCard(today));
-      setBulk(b);
-      setTicked(new Set(b.map((p) => p.id)));
+      setBulks({ vips: v, past: b });
+      setTicked(new Set([...v, ...b].map((p) => p.id)));
       return;
     }
     let r: Response;
@@ -82,17 +105,19 @@ export default function HomeReports({
       return onUnavailable();
     }
     if (r.status === 404 || r.status === 405) return onUnavailable();
-    if (!r.ok) return setErr(r.status === 401 ? "Sign in again to see your Home Reports." : "ONE couldn't load your Home Reports just now.");
+    if (!r.ok) return setErr(r.status === 401 ? "Sign in again to see your Market Reports." : "ONE couldn't load your Market Reports just now.");
     const m = readMonthCard(await r.json().catch(() => null));
     if (!m) return onUnavailable();
-    const b = await fetch(bulkUrl, { credentials: "include", cache: "no-store" })
-      .then((x) => (x.ok ? x.json() : null))
-      .then((j) => readBulk(j) ?? [])
-      .catch(() => [] as BulkPerson[]);
+    const list = (group: "vips" | "past_clients") =>
+      fetch(bulkGroupUrl(group), { credentials: "include", cache: "no-store" })
+        .then((x) => (x.ok ? x.json() : null))
+        .then((j) => readBulk(j) ?? [])
+        .catch(() => [] as BulkPerson[]);
+    const [v, b] = await Promise.all([list("vips"), list("past_clients")]);
     setCard(m);
-    setBulk(b);
+    setBulks({ vips: v, past: b });
     // Every row ticked; the agent unticks anyone to leave out (§4.2).
-    setTicked(new Set(b.map((p) => p.id)));
+    setTicked(new Set([...v, ...b].map((p) => p.id)));
     setErr(null);
   }, [demo, onUnavailable]);
   useEffect(() => {
@@ -111,19 +136,21 @@ export default function HomeReports({
     return (
       <div className="page-panel-veil" role="status">
         <span className="page-panel-spin" aria-hidden="true" />
-        Opening your Home Reports…
+        Opening your Market Reports…
       </div>
     );
   }
 
   const g = monthGroups(card);
-  const rows: Record<Key, MonthRow[]> = { due: g.due, coming: g.coming, sent: g.sent, start: [] };
-  const keys: Key[] = (["due", "coming", "sent", "start"] as Key[]).filter((k) => (k === "start" ? bulk.length > 0 : rows[k].length > 0));
+  const rows: Record<Key, MonthRow[]> = { due: g.due, coming: g.coming, sent: g.sent, vips: [], past: [] };
+  // The VIPs' start stays even when empty while it was asked for, so the panel can say so.
+  const keys: Key[] = (["due", "coming", "sent", "vips", "past"] as Key[]).filter((k) => (isStart(k) ? bulks[k].length > 0 || (k === sel && k === startAt) : rows[k].length > 0));
   const seats = keys.map((k, i) => {
     const ang = (i / Math.max(keys.length, 1)) * 2 * Math.PI;
     return { k, x: C + RING * Math.sin(ang), y: C - RING * Math.cos(ang) };
   });
-  const countOf = (k: Key) => (k === "start" ? bulk.length : rows[k].length);
+  const countOf = (k: Key) => (isStart(k) ? bulks[k].length : rows[k].length);
+  const bulk = isStart(sel) ? bulks[sel] : [];
 
   const pick = (k: Key, x: number, y: number) => {
     setWho(null);
@@ -152,7 +179,9 @@ export default function HomeReports({
   });
 
   const startBulk = async () => {
-    const people = bulk.filter((p) => ticked.has(p.id));
+    if (!isStart(sel)) return;
+    const from = sel;
+    const people = bulks[from].filter((p) => ticked.has(p.id));
     if (!people.length) return;
     setBusy(true);
     let started = people.length;
@@ -169,19 +198,20 @@ export default function HomeReports({
       await load();
     } else {
       setCard((m) => (m ? withBulkStarted(m, people, (p) => `demo-bulk-${p.id}`) : m));
-      setBulk((b) => b.filter((p) => !ticked.has(p.id)));
+      const started = new Set(people.map((p) => p.id));
+      setBulks((b) => ({ vips: b.vips.filter((p) => !started.has(p.id)), past: b.past.filter((p) => !started.has(p.id)) }));
     }
     setBusy(false);
     setSel(null);
     cam.reset();
-    setNote(`Started ${started} Home Report${started === 1 ? "" : "s"}, each on the 5th.${skipped ? ` ${skipped} could not start.` : ""}`);
+    setNote(`Started ${started} Market Report${started === 1 ? "" : "s"}, each on the 5th.${skipped ? ` ${skipped} could not start.` : ""}`);
   };
 
   const due = g.due.length;
   return (
     <div className="vr" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
       <div className="vr-stage">
-        <svg ref={cam.svgRef} className="vr-svg" viewBox={cam.viewBox} preserveAspectRatio="xMidYMid meet" {...cam.handlers} role="group" aria-label="Home Reports this month">
+        <svg ref={cam.svgRef} className="vr-svg" viewBox={cam.viewBox} preserveAspectRatio="xMidYMid meet" {...cam.handlers} role="group" aria-label="Market Reports this month">
           <defs>
             <radialGradient id="hr-glass" cx="50%" cy="50%" r="50%">
               <stop offset="0" stopColor="#0b1226" />
@@ -214,7 +244,7 @@ export default function HomeReports({
                 <circle cx={x} cy={y} r={56} fill="url(#hr-glass)" stroke={HUE[k]} strokeWidth={on ? 4 : 2.5} />
                 <circle cx={x} cy={y} r={56} fill="url(#hr-hi)" pointerEvents="none" />
                 <text className="pm-mark" x={x} y={y + 2} textAnchor="middle" fontSize={24} fill={HUE[k]}>{n}</text>
-                <text className="cm-orb-k" x={x} y={y + 22} textAnchor="middle">{k === "start" ? "TO START" : n === 1 ? "REPORT" : "REPORTS"}</text>
+                <text className="cm-orb-k" x={x} y={y + 22} textAnchor="middle">{isStart(k) ? "TO START" : n === 1 ? "REPORT" : "REPORTS"}</text>
                 <text className="pm-name-l" x={x} y={y + 56 + 24} textAnchor="middle">{LABEL[k]}</text>
               </g>
             );
@@ -234,7 +264,7 @@ export default function HomeReports({
         </div>
       </div>
 
-      <aside className="drawer vr-drawer pm-drawer" aria-label="Home Reports">
+      <aside className="drawer vr-drawer pm-drawer" aria-label="Market Reports">
         <div className="d-head">
           <span className="chip" style={{ color: GREEN, borderColor: GREEN }}>ONE MOVE</span>
         </div>
@@ -244,13 +274,14 @@ export default function HomeReports({
             <HomeReportSection key={who.contactId} contactId={who.contactId} first={first(who.name)} demo={demo} onChanged={() => { if (!demo) void load(); }} />
             <p className="hr-links">
               {onOpenPerson && !demo ? <button className="vr-classic" onClick={() => onOpenPerson(who.contactId)}>Open {first(who.name)}&apos;s contact card</button> : null}
-              <button className="vr-classic" onClick={() => setWho(null)}>Back to {sel ? LABEL[sel] : "Home Reports"}</button>
+              <button className="vr-classic" onClick={() => setWho(null)}>Back to {sel ? LABEL[sel] : "Market Reports"}</button>
             </p>
           </>
-        ) : sel === "start" ? (
+        ) : isStart(sel) ? (
           <>
-            <h1 className="d-title">Past clients to start</h1>
-            <p className="d-sum">Past clients with an address and an email who have no Home Report yet. Untick anyone you would rather leave out. Each one goes on the 5th of the month.</p>
+            <h1 className="d-title">{START_TITLE[sel]}</h1>
+            <p className="d-sum">{START_SUM[sel]}</p>
+            {bulk.length === 0 ? <p className="pm-empty">{sel === "vips" ? "Every VIP with an address and an email already has one." : "Every past client with an address and an email already has one."}</p> : null}
             <ul className="pm-list hr-bulk">
               {bulk.map((p) => (
                 <li key={p.id}>
@@ -275,9 +306,9 @@ export default function HomeReports({
               ))}
             </ul>
             <div className="decide-btns">
-              <button type="button" className="chip-btn primary" disabled={busy || ticked.size === 0} onClick={() => void startBulk()}>{bulkButton(bulk.filter((p) => ticked.has(p.id)).length)}</button>
+              <button type="button" className="chip-btn primary" disabled={busy || bulk.every((p) => !ticked.has(p.id))} onClick={() => void startBulk()}>{bulkButton(bulk.filter((p) => ticked.has(p.id)).length)}</button>
             </div>
-            <button className="vr-classic" onClick={() => { setSel(null); cam.reset(); }}>All Home Reports</button>
+            <button className="vr-classic" onClick={() => { setSel(null); cam.reset(); }}>All Market Reports</button>
           </>
         ) : sel ? (
           <>
@@ -293,16 +324,17 @@ export default function HomeReports({
                 </li>
               ))}
             </ul>
-            <button className="vr-classic" onClick={() => { setSel(null); cam.reset(); }}>All Home Reports</button>
+            <button className="vr-classic" onClick={() => { setSel(null); cam.reset(); }}>All Market Reports</button>
           </>
         ) : (
           <>
-            <h1 className="d-title">Home Reports</h1>
+            <h1 className="d-title">Market Reports</h1>
             <p className="d-sub">
               {card.reports.length ? `${card.reports.length} running · ${due ? `${due} due now` : "none due now"}` : "None running yet"} · {monthWords(card.month)} report
             </p>
-            <p className="d-sum">A monthly report on each client&apos;s own neighbourhood, sent until you or they stop it. Start one on any contact&apos;s card{bulk.length ? ", or for your past clients here" : ""}. Tap a group to see who is in it.</p>
-            <p className="pm-empty">Until the MLS feed is live, no figures go out by themselves: on each report&apos;s day you paste that month&apos;s RPR link and send it from your own email.</p>
+            <p className="d-sum">A monthly report on each client&apos;s own neighbourhood, sent until you or they stop it. Switch one on from any contact&apos;s card{bulks.vips.length || bulks.past.length ? ", or for your VIPs and past clients here" : ""}. Tap a group to see who is in it. {CREDIT_LINE}</p>
+            {bulks.vips.length > 0 ? <button type="button" className="chip-btn primary" onClick={() => { setSel("vips"); const s = seats.find((x) => x.k === "vips"); if (s) cam.centreOn(s.x, s.y); }}>{VIPS_BULK}</button> : null}
+            {FEED_LIVE ? null : <p className="pm-empty">{FEED_LINE} Until then, on each report&apos;s day you may paste that month&apos;s RPR link and send it from your own email.</p>}
             <p className="pm-empty">Requests from your site start {card.autostart ? "by themselves" : "with one tap from a task"}. Change it in My Profile.</p>
           </>
         )}

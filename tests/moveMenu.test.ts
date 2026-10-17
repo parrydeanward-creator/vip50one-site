@@ -25,9 +25,10 @@ test("ONE MOVE menu: all 32 Classic pages, in Parry's groups, no admin items", (
   assert.deepEqual(MOVE_TOP.map((m) => m.label), ["Dashboard"]);
   assert.deepEqual(MOVE_GROUPS.map((g) => g.label), ["People", "Trackers", "Events", "Outreach", "Learn"]);
   assert.deepEqual(MOVE_BOTTOM.map((m) => m.label), ["The Lounge", "My Profile"]);
+  // Rewritten 17 Oct: Home Reports is called Market Reports (HOME-REPORT v0.4; Parry, 16 Oct: "1 yes"); same path.
   assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "Drop-By Map", "Opportunities", "Hot/Warm/Cold", "Business Rolodex", "Referral Network", "Buyer Needs", "Your listings", "Life Events", "Deals"]);
   assert.deepEqual(MOVE_GROUPS[0].pages.filter((m) => ["Opportunities", "Life Events", "Deals"].includes(m.label)).map((m) => m.path), ["/opportunities", "/life-events", "/deals"]);
-  assert.deepEqual(MOVE_GROUPS[3].pages.map((m) => [m.label, m.path]), [["Overview", "/outreach"], ["Newsletter", "/newsletter"], ["Landing Pages", "/landing-pages"], ["Action Plans", "/action-plans"], ["Home Reports", "/home-reports"]]);
+  assert.deepEqual(MOVE_GROUPS[3].pages.map((m) => [m.label, m.path]), [["Overview", "/outreach"], ["Newsletter", "/newsletter"], ["Landing Pages", "/landing-pages"], ["Action Plans", "/action-plans"], ["Market Reports", "/home-reports"]]);
   assert.deepEqual(MOVE_GROUPS[1].pages.map((m) => [m.label, m.path]), [["Daily Tracker", "/daily"], ["Weekly Tracker", "/weekly"], ["90-Day Challenge", "/challenge"], ["Scoreboard", "/achievements"], ["Analytics", "/analytics"]]);
   assert.ok(MOVE_MENU.every((m) => m.path.startsWith("/") && !m.path.startsWith("/admin") && m.path !== "/users"));
   assert.equal(new Set(MOVE_MENU.map((m) => m.path)).size, MOVE_MENU.length);
@@ -108,7 +109,7 @@ test("every ONE MOVE menu page opens inside the Brain; other orbs do not", async
   assert.equal(IN_BRAIN.size, 37);
   assert.equal(inBrainPage(movePageId("/achievements"))?.label, "Scoreboard");
   assert.equal(inBrainPage(movePageId("/drop-by"))?.label, "Drop-By Map");
-  assert.equal(inBrainPage(movePageId("/home-reports"))?.label, "Home Reports");
+  assert.equal(inBrainPage(movePageId("/home-reports"))?.label, "Market Reports"); // renamed 17 Oct (HOME-REPORT v0.4)
   assert.equal(inBrainPage(movePageId("/listings"))?.label, "Your listings");
   assert.equal(inBrainPage(movePageId("/referral-network"))?.label, "Referral Network");
   assert.equal(inBrainPage(movePageId("/buyer-needs"))?.label, "Buyer Needs");

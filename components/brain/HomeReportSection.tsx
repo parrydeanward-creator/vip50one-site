@@ -34,12 +34,18 @@ import {
   valueLine,
   withValue,
   type ContactReports,
+  AREA_WORDS,
+  CARD_TITLE,
+  CREDIT_LINE,
+  FEED_LINE,
+  FEED_LIVE,
 } from "@/lib/homeReport.ts";
 
-// The Home Report on a person (HOME-REPORT.md §4.1, §6; Parry 16 Oct). Set up once (address, day, Start) and ONE MOVE
-// fills and sends it every month until the agent or the contact stops it. Before the MLS feed the agent pastes that
-// month's RPR link, opens it in their own email, and taps "I sent it". Same routes as ONE MOVE Classic's card. In the
-// demo it runs on example data and nothing is called.
+// The Monthly Market Report on a person (HOME-REPORT.md §4.1, §6, v0.4 box 1; Parry 16 Oct: "1 yes"). One switch on
+// every contact, writing the same MASTER row as Classic's: On starts it for the contact's own home (the area is their
+// neighbourhood, never a city or ZIP), Off stops it. ONE MOVE fills and sends it every month until the agent or the
+// contact stops it. Before the MLS feed the agent may paste that month's RPR link, open it in their own email, and tap
+// "I sent it". Same routes as ONE MOVE Classic's card. In the demo it runs on example data and nothing is called.
 
 const mtnToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date());
 
@@ -118,7 +124,7 @@ export default function HomeReportSection({ contactId, first, demo = false, onCh
     }
   };
   const stop = async () => {
-    if (!live || !window.confirm(`Stop ${name}'s Home Report? No more months will be sent.`)) return;
+    if (!live || !window.confirm(`Turn off ${name}'s Market Report? No more months will be sent.`)) return;
     await write("DELETE", stopReportUrl(live.id), null, (c) => withStopped(c, live.id, new Date().toISOString()), "Stopped. The months already sent stay on the record.");
   };
   const month = live ? rprMonth(live, today) : null;
@@ -139,9 +145,42 @@ export default function HomeReportSection({ contactId, first, demo = false, onCh
   };
   const typed = value == null ? null : parseValue(value);
 
+  // The switch: On starts the report on the 5th for the contact's own home; Off stops it (asks first).
+  const canStart = s.canEmail && setup.address.trim().length >= 5;
+  const flip = () => {
+    if (busy) return;
+    if (live) return void stop();
+    if (!s.canEmail) return setMsg({ ok: false, text: `Add an email for ${name} first.` });
+    if (setup.address.trim().length < 5) {
+      if (!form) setForm(setup);
+      return setMsg({ ok: false, text: "Which home? Add their address." });
+    }
+    void start();
+  };
+
   return (
-    <div className="cc-tasks hr-card">
-      <h2>Home Report</h2>
+    <div className="cc-tasks hr-card" aria-label={`${CARD_TITLE} for ${name}`}>
+      <div className="hr-head">
+        <h2>{CARD_TITLE}</h2>
+        <button
+          type="button"
+          role="switch"
+          className={`hr-switch${live ? " on" : ""}`}
+          aria-checked={!!live}
+          aria-label={`${CARD_TITLE} for ${name}`}
+          disabled={busy || (!live && !s.canEmail)}
+          onClick={flip}
+        >
+          <i aria-hidden="true" />
+          <span>{live ? "On" : "Off"}</span>
+        </button>
+      </div>
+      <p className="hr-sub">
+        Area: {AREA_WORDS}
+        {live ? ` (${live.address})` : setup.address.trim() ? ` (${setup.address.trim()})` : ""}
+      </p>
+      {FEED_LIVE ? null : <p className="hr-sub">{FEED_LINE}</p>}
+      <p className="hr-sub">{CREDIT_LINE}</p>
       {live ? (
         <>
           <p className="hr-line">{runningLine(live)}</p>
@@ -149,7 +188,7 @@ export default function HomeReportSection({ contactId, first, demo = false, onCh
           {month ? (
             <div className="cc-perm-form">
               <label>
-                {monthWords(month)} RPR report link
+                {monthWords(month)} RPR report link (optional, until the feed is live)
                 <input type="text" inputMode="url" value={rpr} placeholder="https://" maxLength={2000} onChange={(e) => setRpr(e.target.value)} />
               </label>
               <div className="cc-perm-acts">
@@ -160,7 +199,6 @@ export default function HomeReportSection({ contactId, first, demo = false, onCh
                 )}
                 <button type="button" className="chip-btn primary" disabled={busy || !link} onClick={() => void sentIt()}>I sent it</button>
               </div>
-              <small className="hr-sub">Until the MLS feed is live, no figures go out by themselves: you send each month from your own email.</small>
             </div>
           ) : null}
           <div className="cc-perm-form">
@@ -196,23 +234,27 @@ export default function HomeReportSection({ contactId, first, demo = false, onCh
             </div>
           ) : (
             <div className="cc-perm-acts">
-              <button type="button" className="chip-btn" disabled={busy} onClick={() => { setChanging(true); setForm({ address: live.address, day: String(live.sendDay), note: live.note ?? "" }); }}>Change</button>
-              <button type="button" className="chip-btn" disabled={busy} onClick={() => void stop()}>Stop</button>
+              <button type="button" className="chip-btn" disabled={busy} onClick={() => { setChanging(true); setForm({ address: live.address, day: String(live.sendDay), note: live.note ?? "" }); }}>Change day or note</button>
             </div>
           )}
         </>
       ) : !s.canEmail ? (
         <p className="hr-sub">Add an email for {name} first.</p>
-      ) : (
+      ) : form ? (
         <div className="cc-perm-form">
-          <p className="hr-line">Send {name} a monthly report on their home&apos;s own neighbourhood.</p>
           <label>The home<input type="text" value={setup.address} maxLength={300} placeholder="Street, city, state" onChange={(e) => setForm({ ...setup, address: e.target.value })} /></label>
           <label>Day of the month (1 to 28)<input type="text" inputMode="numeric" value={setup.day} maxLength={2} onChange={(e) => setForm({ ...setup, day: e.target.value })} /></label>
           <small className="hr-sub">The 5th is best: last month&apos;s figures have settled.</small>
           <label>Your note (optional)<input type="text" value={setup.note} maxLength={1500} placeholder="Leave empty for the standard note" onChange={(e) => setForm({ ...setup, note: e.target.value })} /></label>
           <div className="cc-perm-acts">
-            <button type="button" className="chip-btn primary" disabled={busy} onClick={() => void start()}>Start</button>
+            <button type="button" className="chip-btn primary" disabled={busy || !canStart} onClick={() => void start()}>Turn on</button>
+            <button type="button" className="chip-btn" disabled={busy} onClick={() => setForm(null)}>Cancel</button>
           </div>
+        </div>
+      ) : (
+        <div className="cc-perm-acts">
+          <p className="hr-line">Off. Turn it on to send {name} a monthly report on their own neighbourhood, on the 5th.</p>
+          <button type="button" className="chip-btn" disabled={busy} onClick={() => setForm(setup)}>Pick the day, home or note</button>
         </div>
       )}
       {past.length > 0 && <p className="cc-source">Stopped before: {past.map(stoppedWords).join("; ")}</p>}
