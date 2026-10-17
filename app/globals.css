@@ -2635,3 +2635,34 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
   .vr.rf-work .rf-cols { grid-template-columns: 1fr 1fr; }
 }
 .pm-note.bad { color: #ff9a8a; }
+
+/* Deals: Add a deal and each deal's timeline (walker note; vip50-web-crm#295). Form and list side by side on a wide
+   screen, stacked on a phone. */
+/* Add a deal stacks above the list: side by side squeezed the list to a sliver in the side panel (screen check 17 Oct). */
+.dl-split { display: grid; gap: 18px; }
+.dl-add { padding: 12px; border: 1px solid rgba(212, 175, 55, 0.35); border-radius: 14px; background: rgba(255, 255, 255, 0.02); }
+.dl-add .decide-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.dl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.dl-picked { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 15px; color: #fff; }
+.dl-upload { display: grid; gap: 6px; }
+.dl-upload label.chip-btn { justify-content: center; position: relative; }
+.dl-upload label.chip-btn:focus-within { outline: 2px solid var(--gold-2); outline-offset: 2px; }
+.dl-busy { opacity: 0.7; }
+.dl-check { margin: 0; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(245, 197, 66, 0.5); color: #f5c542; font-size: 13px; }
+.cm-row.dl-read { border-color: rgba(245, 197, 66, 0.55); }
+.cm-row.dl-unread { border-color: rgba(255, 179, 107, 0.8); background: rgba(255, 179, 107, 0.06); }
+.dl-warn { color: #ffb36b; font-size: 12px; }
+.dl-ok { color: #3fbf7f; font-size: 12px; }
+.dl-src { margin: -6px 0 0; color: var(--text-3); font-size: 13px; }
+.dl-add-btn { margin: 4px 0 12px; }
+.dl-row { display: grid; gap: 2px; text-align: left; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.dl-tl { list-style: none; margin: 4px 0 8px; padding: 0 0 0 4px; display: grid; gap: 0; }
+.dl-tl li { position: relative; display: flex; align-items: center; gap: 12px; padding: 8px 0 8px 2px; }
+.dl-tl li:not(:last-child)::after { content: ""; position: absolute; left: 7px; top: 26px; bottom: -8px; width: 2px; background: rgba(160, 175, 210, 0.22); }
+.dl-tl-dot { flex: none; width: 12px; height: 12px; border-radius: 50%; }
+.dl-tl .pm-body { display: grid; gap: 2px; flex: 1; }
+.dl-tl .pm-body small { color: var(--text-3); font-size: 12px; }
+.dl-tl-left { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.dl-tl-passed { opacity: 0.6; }
+.dl-example { display: grid; gap: 6px; padding: 12px; border: 1px dashed rgba(160, 175, 210, 0.35); border-radius: 14px; }
+.dl-repc { margin-top: 4px; }

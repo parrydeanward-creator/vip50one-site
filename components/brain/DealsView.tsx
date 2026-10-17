@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import PulseRing from "./PulseRing.tsx";
-import { SIDE_WORD, dealLevel, dueOn, movedLine, nextDate, timeWords, whenLine, type ClosingAsk, type Deal, type Status } from "@/lib/deals.ts";
+import AddDealForm from "./AddDealForm.tsx";
+import { LEVEL_HUE, SIDE_WORD, SOURCE_WORD, dealLevel, dealName, daysWords, dueOn, exampleDeal, movedLine, nextDate, repcLinkUrl, timeWords, timeline, whenLine, type ClosingAsk, type Deal, type Status } from "@/lib/deals.ts";
 
 // Deals under contract (VIP-SUMMARY §3z). Each deal round a centre that counts them; a deal pulses red on a deadline's
 // day and yellow the day before. Tap one: it comes to the middle (Parry, 6 Oct, the rule for every orb) with every
@@ -20,7 +21,32 @@ const date = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US
 
 export type SetStatus = (d: Deal, status: Status, closing?: { id: string } | "new") => Promise<"ok" | "failed" | ClosingAsk>;
 
-export default function DealsView({ deals, today, demo, onStatus, onClose }: { deals: Deal[]; today: string; demo: boolean; onStatus: SetStatus; onClose: () => void }) {
+const money = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+
+/** A deal's dates in the order they fall, coloured by days left (red on the day, yellow the day before). */
+function Timeline({ d, today, label }: { d: Deal; today: string; label: string }) {
+  const rows = timeline(d, today);
+  if (!rows.length) return <p className="pm-empty">No dates yet. Add them in ONE MOVE, or add the deal again with its REPC.</p>;
+  return (
+    <ol className="dl-tl" aria-label={label}>
+      {rows.map((x) => {
+        const moved = movedLine(x);
+        return (
+          <li key={x.key} className={`dl-tl-${x.level}`} aria-label={`${x.label}, ${date(dueOn(x))}, ${daysWords(x, today)}`}>
+            <i className="dl-tl-dot" style={{ background: LEVEL_HUE[x.level], boxShadow: x.level === "now" || x.level === "today" ? `0 0 0 4px ${LEVEL_HUE[x.level]}33` : undefined }} aria-hidden="true" />
+            <span className="pm-body">
+              <b>{x.label}</b>
+              <small>{date(dueOn(x))}{moved ? ` · ${moved}` : ""}</small>
+            </span>
+            <span className="dl-tl-left" style={{ color: LEVEL_HUE[x.level] }}>{daysWords(x, today)}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+export default function DealsView({ deals, today, demo, onStatus, onClose, onAdded, startAdding = false }: { deals: Deal[]; today: string; demo: boolean; onStatus: SetStatus; onClose: () => void; onAdded: (d: Deal | null) => void; startAdding?: boolean }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
@@ -29,6 +55,9 @@ export default function DealsView({ deals, today, demo, onStatus, onClose }: { d
   const [note, setNote] = useState<string | null>(null);
   const [ask, setAsk] = useState<{ deal: Deal; q: ClosingAsk } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(startAdding);
+  const [confirmClose, setConfirmClose] = useState<string | null>(null);
+  const [repcMsg, setRepcMsg] = useState<string | null>(null);
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -55,12 +84,39 @@ export default function DealsView({ deals, today, demo, onStatus, onClose }: { d
     }
     setSel(d.id);
     setAsk(null);
+    setConfirmClose(null);
+    setRepcMsg(null);
+    setAdding(false);
     cam.centreOn(x, y);
   };
   const back = () => {
     setSel(null);
     setAsk(null);
+    setConfirmClose(null);
+    setRepcMsg(null);
     cam.reset();
+  };
+  // The agent's own REPC, by a link good for 10 minutes; the tab opens first so the browser does not block it.
+  const viewRepc = async (d: Deal) => {
+    setRepcMsg(null);
+    if (demo || !d.repcPath) return setRepcMsg(demo ? "In the example there is no file to open." : "The signed REPC is kept with this deal in ONE MOVE.");
+    const w = window.open("", "_blank");
+    const r = await fetch(repcLinkUrl(d.repcPath), { credentials: "include", cache: "no-store" }).catch(() => null);
+    const j = r?.ok ? await r.json().catch(() => null) : null;
+    if (j && typeof j.url === "string" && /^https:\/\//.test(j.url)) {
+      if (w) {
+        w.opener = null;
+        w.location.href = j.url;
+      } else window.location.assign(j.url);
+    } else {
+      w?.close();
+      setRepcMsg("The REPC could not be opened just now. Try again.");
+    }
+  };
+  const saved = (d: Deal | null) => {
+    setAdding(false);
+    onAdded(d);
+    setNote(d ? `Saved. ${dealName(d)} is under contract, with every deadline.` : "Saved. It shows here in a moment.");
   };
   const set = async (d: Deal, status: Status, closing?: { id: string } | "new") => {
     setBusy(true);
@@ -69,7 +125,7 @@ export default function DealsView({ deals, today, demo, onStatus, onClose }: { d
     if (r === "failed") return setNote("That didn't save just now. Nothing was changed.");
     if (r !== "ok") return setAsk({ deal: d, q: r });
     back();
-    setNote(status === "closed" ? `Closed. ${d.contact.name}'s closing counts toward your goals once.` : status === "fell_through" ? "Marked as fallen through. Its reminders stop." : "Back under contract.");
+    setNote(status === "closed" ? "Closed. Counted in Goals: Closed so far." : status === "fell_through" ? "Marked as fallen through. Its reminders stop." : "Back under contract.");
   };
   const tap = (go: () => void) => ({
     onClick: go,
@@ -83,7 +139,7 @@ export default function DealsView({ deals, today, demo, onStatus, onClose }: { d
 
   return (
     <div className="pm-full pop" role="dialog" aria-modal="true" aria-labelledby="dl-title">
-      <div className="vr" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
+      <div className={`vr${adding ? " dl-wide" : ""}`} onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
         <div className="vr-stage">
           <svg ref={cam.svgRef} className="vr-svg" viewBox={cam.viewBox} preserveAspectRatio="xMidYMid meet" {...cam.handlers} role="group" aria-label="Deals under contract">
             <defs>
@@ -114,13 +170,13 @@ export default function DealsView({ deals, today, demo, onStatus, onClose }: { d
               const n = d.status === "under_contract" ? nextDate(d, today) : null;
               const on = sel === d.id;
               return (
-                <g key={d.id} data-tap className={`cm-orb${on ? " picked" : ""}`} role="button" tabIndex={0} aria-pressed={on} aria-label={`${d.contact.name}: ${n ? whenLine(n, today) : STATUS_WORD[d.status]}`} {...tap(() => pick(d, x, y))}>
+                <g key={d.id} data-tap className={`cm-orb${on ? " picked" : ""}`} role="button" tabIndex={0} aria-pressed={on} aria-label={`${dealName(d)}: ${n ? whenLine(n, today) : STATUS_WORD[d.status]}`} {...tap(() => pick(d, x, y))}>
                   {level !== "good" && <PulseRing r={56} level={level} x={x} y={y} />}
                   <circle cx={x} cy={y} r={56} fill="url(#dl-glass)" stroke={hue} strokeWidth={on ? 4 : 2.5} strokeOpacity={d.status === "under_contract" ? 1 : 0.6} />
                   <circle cx={x} cy={y} r={56} fill="url(#dl-hi)" pointerEvents="none" />
                   <text className="pm-mark" x={x} y={y - 6} textAnchor="middle" fontSize={22} fill={hue}>{d.status === "closed" ? "✓" : d.status === "fell_through" ? "×" : n ? (dueOn(n) === today ? "Today" : String(Math.round((Date.parse(dueOn(n)) - Date.parse(today)) / 86_400_000))) : "·"}</text>
                   <text className="cm-orb-k" x={x} y={y + 20} textAnchor="middle">{d.status === "under_contract" ? (n ? n.label.toUpperCase().slice(0, 14) : "NO DATES") : STATUS_WORD[d.status].toUpperCase()}</text>
-                  <text className="pm-name-l" x={x} y={y + 56 + 24} textAnchor="middle">{d.contact.name}</text>
+                  <text className="pm-name-l" x={x} y={y + 56 + 24} textAnchor="middle">{dealName(d).slice(0, 26)}</text>
                 </g>
               );
             })}
@@ -143,26 +199,28 @@ export default function DealsView({ deals, today, demo, onStatus, onClose }: { d
           <div className="d-head">
             <span className="chip" style={{ color: "#3fbf7f", borderColor: "#3fbf7f" }}>ONE MOVE</span>
           </div>
-          <h1 className="d-title" id="dl-title">{picked ? picked.contact.name : "Deals"}</h1>
+          <h1 className="d-title" id="dl-title">{picked ? dealName(picked) : "Deals"}</h1>
           {picked ? (
             <section className="cm-form">
-              <p className="d-sub">{SIDE_WORD[picked.side]} · {STATUS_WORD[picked.status]} · {picked.form} REPC{picked.acceptedOn ? ` · accepted ${date(picked.acceptedOn)}` : ""}</p>
+              <p className="d-sub">
+                {picked.contact && picked.address ? `${picked.address} · ` : ""}
+                {SIDE_WORD[picked.side]} · {STATUS_WORD[picked.status]} · {picked.form} REPC{picked.acceptedOn ? ` · accepted ${date(picked.acceptedOn)}` : ""}
+              </p>
+              <p className="dl-src">
+                {SOURCE_WORD[picked.source ?? "manual"]}
+                {picked.price != null ? ` · ${money(picked.price)}` : ""}
+                {picked.gci != null ? ` · GCI ${money(picked.gci)}` : ""}
+              </p>
               <h2 className="pm-h">Deadlines, {timeWords(picked.deadlineTime)} on the day</h2>
-              <ul className="pm-list pm-compact">
-                {picked.dates.map((x) => {
-                  const lv = picked.status === "under_contract" && dueOn(x) >= today ? (dueOn(x) === today ? "#ff6b6b" : whenLine(x, today).endsWith("tomorrow") ? "#f5c542" : "#3fbf7f") : "#8089a2";
-                  const moved = movedLine(x);
-                  return (
-                    <li key={x.key}>
-                      <i className="pm-dot" style={{ background: lv }} aria-hidden="true" />
-                      <span className="pm-body">
-                        <b>{x.label}</b>
-                        <small>{date(x.on)}{dueOn(x) >= today ? ` · ${whenLine(x, today).slice(x.label.length).replace(/^ /, "")}` : " · passed"}{moved ? ` · ${moved}` : ""}</small>
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+              <Timeline d={picked} today={today} label={`Timeline for ${dealName(picked)}`} />
+              {picked.hasRepc ? (
+                <div>
+                  <button type="button" className="vr-classic dl-repc" onClick={() => void viewRepc(picked)} aria-label={`View REPC for ${dealName(picked)}`}>
+                    View REPC
+                  </button>
+                  {repcMsg ? <small className="pm-empty" role="status"> {repcMsg}</small> : null}
+                </div>
+              ) : null}
               {ask && ask.deal.id === picked.id ? (
                 <div className="vr-ask" role="alert">
                   <p className="d-sum">{ask.q.question}</p>
@@ -171,11 +229,19 @@ export default function DealsView({ deals, today, demo, onStatus, onClose }: { d
                     <button type="button" className="chip-btn" disabled={busy} onClick={() => void set(picked, "closed", "new")}>No, a new closing</button>
                   </div>
                 </div>
+              ) : confirmClose === picked.id ? (
+                <div className="vr-ask" role="alert">
+                  <p className="d-sum">Mark {dealName(picked)} closed? It counts once in Goals: Closed so far, with its GCI when you have it.</p>
+                  <div className="decide-btns">
+                    <button type="button" className="chip-btn primary" disabled={busy} onClick={() => void set(picked, "closed")}>Yes, it closed</button>
+                    <button type="button" className="chip-btn" disabled={busy} onClick={() => setConfirmClose(null)}>Not yet</button>
+                  </div>
+                </div>
               ) : (
                 <div className="decide-btns">
                   {picked.status === "under_contract" ? (
                     <>
-                      <button type="button" className="chip-btn primary" disabled={busy} onClick={() => void set(picked, "closed")}>It closed</button>
+                      <button type="button" className="chip-btn primary" disabled={busy} onClick={() => setConfirmClose(picked.id)}>Mark closed</button>
                       <button type="button" className="chip-btn" disabled={busy} onClick={() => void set(picked, "fell_through")}>It fell through</button>
                     </>
                   ) : (
@@ -183,32 +249,48 @@ export default function DealsView({ deals, today, demo, onStatus, onClose }: { d
                   )}
                 </div>
               )}
-              <p className="pm-empty">Dates are as you typed them. On the 2027 form, earnest money and settlement that land on a weekend or Utah holiday move to the next business day. For cancellation rights, ask your broker or the contract.</p>
+              <p className="pm-empty">Dates are as on the contract. On the 2027 form, earnest money and settlement that land on a weekend or Utah holiday move to the next business day. For cancellation rights, ask your broker or the contract.</p>
               <button className="vr-classic" onClick={back}>All deals</button>
             </section>
           ) : (
-            <>
-              <p className="d-sub">{open.length ? `${open.length} under contract${red ? ` · ${red} due today` : ""}` : "None under contract"}</p>
-              <p className="d-sum">Every REPC deadline with days left. A deal pulses yellow the day before a deadline and red on the day. Tap one to see its dates.</p>
-              {open.length ? (
-                <ul className="pm-list pm-compact">
-                  {open.map((d) => {
-                    const n = nextDate(d, today);
-                    return (
-                      <li key={d.id}>
-                        <i className="pm-dot" style={{ background: dealLevel(d, today) === "now" ? "#ff6b6b" : dealLevel(d, today) === "today" ? "#f5c542" : "#3fbf7f" }} aria-hidden="true" />
-                        <span className="pm-body">
-                          <b>{d.contact.name}</b>
-                          <small>{SIDE_WORD[d.side]} · {n ? whenLine(n, today) : "no dates left"}</small>
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className="pm-empty">Add a deal on the person in ONE MOVE or ONE GO, with its REPC dates, and it shows here with every deadline.</p>
-              )}
-            </>
+            <div className="dl-split">
+              {adding ? <AddDealForm today={today} live={!demo} onSaved={saved} onCancel={() => setAdding(false)} /> : null}
+              <section aria-label="Your deals">
+                <p className="d-sub">{open.length ? `${open.length} under contract${red ? ` · ${red} due today` : ""}` : "None under contract"}</p>
+                <p className="d-sum">Every REPC deadline with days left. A deal pulses yellow the day before a deadline and red on the day. Tap one to see its dates.</p>
+                {!adding ? (
+                  <button type="button" className="chip-btn primary dl-add-btn" onClick={() => setAdding(true)} aria-label="Add a deal">
+                    Add a deal
+                  </button>
+                ) : null}
+                {open.length ? (
+                  <ul className="pm-list pm-compact">
+                    {open.map((d) => {
+                      const n = nextDate(d, today);
+                      const k = list.indexOf(d);
+                      const seat = seats[k];
+                      return (
+                        <li key={d.id}>
+                          <i className="pm-dot" style={{ background: dealLevel(d, today) === "now" ? "#ff6b6b" : dealLevel(d, today) === "today" ? "#f5c542" : "#3fbf7f" }} aria-hidden="true" />
+                          <button type="button" className="pm-body dl-row" onClick={() => seat && pick(d, seat.x, seat.y)}>
+                            <b>{dealName(d)}</b>
+                            <small>{SIDE_WORD[d.side]} · {n ? whenLine(n, today) : "no dates left"} · {SOURCE_WORD[d.source ?? "manual"]}</small>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div className="dl-example" aria-label="Example deal">
+                    <p className="pm-empty">Add your first deal and every REPC deadline shows here. This is an example, not saved:</p>
+                    <span className="vr-flag" style={{ color: "#f5c542" }}>EXAMPLE</span>
+                    <p className="d-sub">{exampleDeal(today).address} · Buyer · {SOURCE_WORD.manual}</p>
+                    <Timeline d={exampleDeal(today)} today={today} label="Example deal timeline" />
+                    <small className="pm-empty">Due diligence is tomorrow, so it turns yellow today and red on the day.</small>
+                  </div>
+                )}
+              </section>
+            </div>
           )}
           <p className="pm-promise">{demo ? "Example agent. " : ""}Only you see your deals; a coach or team leader sees at most a count. Nothing is sent to anyone.</p>
         </aside>
