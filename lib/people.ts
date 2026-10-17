@@ -46,6 +46,8 @@ export interface Person {
   pulse: { line: string; nextStep: "call" | "text" | "card" | null; urgency: "now" | "today" } | null;
   sections: Section[];
   timelineCount: number;
+  /** LEADS §1.7b: a partial lead, no phone or email and no consent (GO/MOVE vip50-web-crm#306). */
+  leftEarly: boolean;
 }
 
 export type EventKind = "call" | "text" | "email" | "note" | "touch" | "task" | "open_house" | "listing" | "showing" | "web" | "deal" | "other";
@@ -163,8 +165,12 @@ export function readPerson(j: unknown): Person | null {
     pulse: p && str(p.line, 200) ? { line: str(p.line, 200)!, nextStep: step === "call" || step === "text" || step === "card" ? step : null, urgency: p.urgency === "now" ? "now" : "today" } : null,
     sections,
     timelineCount: num(o.timeline_count),
+    leftEarly: o.left_early === true,
   };
 }
+
+/** The person card's line for a partial lead (Classic shows the same words). */
+export const LEFT_EARLY_LINE = "Left before giving a phone or email. Mail a note or drop by; nothing can be emailed or texted to them.";
 
 const KINDS: EventKind[] = ["call", "text", "email", "note", "touch", "task", "open_house", "listing", "showing", "web", "deal", "other"];
 /** §3k.6. */

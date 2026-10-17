@@ -4,7 +4,7 @@ import { STORY_LABEL, filterStory, productsIn, storyProduct, type StoryProduct }
 import AskGroupSection from "./AskGroupSection.tsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { dialable, mailable } from "@/lib/contact.ts";
-import { byName, editText, editValue, gapsIn, groupColor, listUrl, peopleUrl, personTag, personUrl, readGroups, readPage, readPerson, readTimeline, sectionColor, showValue, timelineUrl, type Field, type Groups, type Person, type PersonItem, type Section, type Timeline } from "@/lib/people.ts";
+import { byName, editText, editValue, gapsIn, groupColor, listUrl, peopleUrl, personTag, personUrl, readGroups, readPage, readPerson, readTimeline, LEFT_EARLY_LINE, sectionColor, showValue, timelineUrl, type Field, type Groups, type Person, type PersonItem, type Section, type Timeline } from "@/lib/people.ts";
 import { initialsOf, ringRows } from "@/lib/vips.ts";
 import { focusFace, focusRings } from "@/lib/orbs.ts";
 import { useSvgCamera } from "./useSvgCamera.ts";
@@ -751,6 +751,7 @@ export default function Contacts({
             </div>
             <div className="pmenu-row">
               <h1 className="d-title">{person.name}</h1>
+              {person.leftEarly ? <p className="d-sub" role="note">{LEFT_EARLY_LINE}</p> : null}
               <PersonMenu first={firstOf(person.firstName ?? person.name)} onDelete={deletePerson} />
             </div>
             {person.pulse && (
