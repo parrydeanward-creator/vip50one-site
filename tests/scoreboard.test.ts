@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { missionDot, missionLine, readScoreboard, scoreboardUrl, streakXpLines } from "../lib/scoreboard.ts";
+import { missionDot, missionLine, readScoreboard, scoreboardUrl, streakXpLines, weeklyScoreLines } from "../lib/scoreboard.ts";
+import { pulseRead } from "../lib/pulseCoach.ts";
 
 // ONE MOVE's `GET /api/brain/scoreboard` (vip50-web-crm#281): the shape is app/api/brain/scoreboard/route.ts there
 // (lib/mission.ts buildMissionRows mapped to snake_case `progress_label`; streak a day count; xp {week, last_week}).
@@ -55,8 +56,39 @@ test("Mission Control and Streak and XP words come from ONE MOVE's numbers", () 
   assert.equal(missionDot("Not Started"), "idle");
   const w = streakXpLines(s);
   assert.equal(w.streak, "12 days");
-  assert.equal(w.xp, "310 this week");
-  assert.match(w.xpNote, /^1,240 last week · weekly score 44, 104, 96/);
+  // Rewritten 17 Oct (Walker's re-check): XP is named XP, and the stale weekly_totals history is no longer called
+  // "weekly score" beside it (the weekly score comes from weeklyScoreLines, the Weekly Review's weeks).
+  assert.equal(w.xp, "310 XP this week");
+  assert.match(w.xpNote, /^1,240 XP last week\./);
+  assert.doesNotMatch(w.xpNote, /44, 104, 96/);
   assert.equal(streakXpLines({ ...s, streak: 1, history: [] }).streak, "1 day");
-  assert.equal(streakXpLines({ ...s, history: [] }).xpNote, "1,240 last week.");
+  assert.equal(streakXpLines({ ...s, history: [] }).xpNote, w.xpNote);
+});
+
+// Parry's live weeks (weekly_scores, 17 Oct): the Weekly Review said 92 last week, the Scoreboard 45, 56, 50, 58.
+const PARRY_WEEKS = [
+  { start: "2026-09-14", score: 26, minimum: 100 },
+  { start: "2026-09-21", score: 9, minimum: 100 },
+  { start: "2026-09-28", score: 39, minimum: 100 },
+  { start: "2026-10-05", score: 92, minimum: 100 },
+  { start: "2026-10-12", score: 15, minimum: 100 },
+];
+
+test("weeklyScoreLines: the Weekly Review's weeks, last full week big, this week and the weeks before in the note", () => {
+  const w = weeklyScoreLines(PARRY_WEEKS, "2026-10-17")!;
+  assert.equal(w.big, "92 last week");
+  assert.equal(w.note, "8 short of 100 · 15 this week so far · before that 39, 9, 26 (newest first). Daily tracker points plus the weekly bonus boxes; the standard is 100.");
+  assert.equal(weeklyScoreLines([{ start: "2026-10-05", score: 104, minimum: 100 }], "2026-10-17")!.note.startsWith("Above the 100."), true);
+  assert.equal(weeklyScoreLines([{ start: "2026-10-12", score: 15, minimum: 100 }], "2026-10-17")!.big, "15 this week so far");
+  assert.equal(weeklyScoreLines([], "2026-10-17"), null);
+  assert.equal(weeklyScoreLines(null, "2026-10-17"), null);
+  assert.equal(weeklyScoreLines([{ start: "2026-10-05", score: null, minimum: 100 }], "2026-10-17"), null);
+});
+
+test("weeklyScoreLines agrees with Pulse's read: the same last week as the Weekly Review", () => {
+  const h = { weeks: PARRY_WEEKS.map((w) => ({ ...w, counts: { call: 0, video_text: 0, social: 0, newsletter: 0, mixer: 0, face_to_face: 0, handwritten: 0, drop_by: 0 } as never, habits: {} as never, hwc: { hot: 0, warm: 0, cold: 0 } })), weekdays: [] };
+  const read = pulseRead(h, null, "2026-10-17");
+  const card = read?.parts.find((p) => p.title === "Weekly score");
+  assert.equal(card?.big, "92");
+  assert.equal(weeklyScoreLines(PARRY_WEEKS, "2026-10-17")!.big, `${card?.big} last week`);
 });

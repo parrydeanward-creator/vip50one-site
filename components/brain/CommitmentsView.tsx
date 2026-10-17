@@ -33,6 +33,7 @@ import {
   resultWord,
   setBody,
   starters,
+  keepLine,
   type Commitments,
   type Draft,
   type Item,
@@ -347,6 +348,8 @@ export default function CommitmentsView({
   const fill = n ? on / n : 0;
   const top = C + CORE - 2 * CORE * fill;
   const level = dueLevel(c.due, c.today, hour);
+  // The core's keep line on two rows: "3 of 3 kept last week" / "100% over 8 weeks" (the same words as the panel).
+  const keep = (keepLine(c) ?? "").split(" · ").filter(Boolean);
   const picked = week.find((i) => i.id === sel) ?? null;
   const daily = c.daily?.items ?? [];
   const dailyPicked = daily.find((i) => i.id === sel) ?? null;
@@ -405,7 +408,9 @@ export default function CommitmentsView({
             {level && <PulseRing r={CORE} level={level} x={C} y={C} />}
             <text className="dt-score" x={C} y={C - 6} textAnchor="middle">{n ? `${on}/${n}` : "0"}</text>
             <text className="dt-score-sub" x={C} y={C + 24} textAnchor="middle">THIS WEEK</text>
-            {c.keepRate8w != null && <text className="pm-core-end" x={C} y={C + 48} textAnchor="middle">{`${Math.round(c.keepRate8w * 100)}% kept, 8 weeks`}</text>}
+            {keep.map((t, k) => (
+              <text key={t} className="pm-core-end" x={C} y={C + 48 + k * 18} textAnchor="middle">{t}</text>
+            ))}
             {seats.map(({ i, x, y, r }) => {
               const frac = i.kind === "yes_no" || !i.target ? (i.result === "kept" ? 1 : 0) : Math.min(1, (i.count ?? 0) / i.target);
               const col = i.result ? RES_COLOR[i.result] : reached(i) ? RES_COLOR.kept : GOLD;
@@ -489,8 +494,7 @@ export default function CommitmentsView({
           </div>
           <h1 className="d-title" id="cm-title">This week</h1>
           <p className="d-sub">
-            {c.keepRate8w != null ? `You keep ${Math.round(c.keepRate8w * 100)}% of your commitments` : "Set them Monday, check in Friday"}
-            {c.streak ? ` · ${c.streak}-week streak` : ""}
+            {keepLine(c) ?? "Set them Monday, check in Friday"}
           </p>
           <p className="d-sum">Monday you set up to {MAX.week}. Friday you check in on each one, then set up to {MAX.weekend} for the weekend. Your coach sees them; nobody else does. Counted ones fill as you work.</p>
 
@@ -533,7 +537,8 @@ export default function CommitmentsView({
               {drafts.length < MAX[mode.period] && (
                 <button className="vr-btn" onClick={() => setDrafts((all) => [...all, { text: "", kind: "yes_no", target: null }])}>+ Add one</button>
               )}
-              <p className="pm-promise">Pulse suggested these from your week. Change them, or write your own.</p>
+              {/* Only where Pulse's starters fill the form (the week, nothing set yet); the weekend starts empty. */}
+              {mode.period === "week" && !(c.week?.items ?? []).length ? <p className="pm-promise">Pulse suggested these from your week. Change them, or write your own.</p> : null}
               <button className="pi-btn pm-send" disabled={busy} onClick={() => doSet(mode.period)}>{busy ? "Saving…" : mode.period === "week" ? "Commit to my week" : "Commit to my weekend"}</button>
             </section>
           )}

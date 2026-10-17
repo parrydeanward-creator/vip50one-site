@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { GraphNode } from "@/lib/graph/types.ts";
 import { CHALLENGE, COMING, challengeDay } from "@/lib/oneYou.ts";
 import { groupLine, type LiveChallenge } from "@/lib/challenge.ts";
@@ -29,6 +30,10 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
   const group = byId("ch-group");
   const started = data ? !!on : !!day;
   const url = data?.url ?? CHALLENGE.pageUrl;
+  // Past the last day (Walker, 17 Oct: "never a frozen day 90"): when it finished, the results, the sealed letter, the
+  // certificate and a new 90 days.
+  const fin = on?.finished ?? null;
+  const [letterOpen, setLetterOpen] = useState(false);
 
   return (
     <div className="ch-panel">
@@ -37,7 +42,52 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
         {CHALLENGE.why}
       </p>
 
-      {started ? (
+      {on && fin ? (
+        <>
+          <ul className="pm-list pm-compact">
+            <li>
+              <span className="pm-time">Done</span>
+              <span className="pm-body">
+                <b>{fin.label ? `Finished on ${fin.label}` : "Finished"}</b>
+                <small>{`All ${on.of} days are behind you.`}</small>
+              </span>
+            </li>
+            <li>
+              <span className="pm-time">Results</span>
+              <span className="pm-body">
+                <b>{on.results ? `${on.results.daysScored} of ${on.of} days scored · ${on.results.average} a day on average` : "On your Results wall"}</b>
+                <small>{on.results ? "Your daily score out of 100, across the 90 days." : "Your days scored and your average are on the challenge page in ONE MOVE."}</small>
+              </span>
+            </li>
+            <li>
+              <span className="pm-time">Certificate</span>
+              <span className="pm-body">
+                <b>Your certificate</b>
+                <small>Open it from the challenge page in ONE MOVE, to print or share.</small>
+              </span>
+            </li>
+          </ul>
+          {!tour ? (
+            <>
+              <button className="pi-film pm-open" onClick={() => (on.letter ? setLetterOpen((o) => !o) : onOpenPage(url))} aria-expanded={on.letter ? letterOpen : undefined}>
+                <span className="pi-play" aria-hidden="true">✉</span>
+                <span>
+                  <b>Open your sealed letter</b>
+                  <span>The letter you wrote yourself on Day 1.</span>
+                </span>
+              </button>
+              {on.letter && letterOpen ? <p className="d-sum ch-letter">{on.letter}</p> : null}
+              <button className="pi-film pm-open" onClick={() => onOpenPage(url)}>
+                <span className="pi-play" aria-hidden="true">↗</span>
+                <span>
+                  <b>Start a new 90 days</b>
+                  <span>Your tap: a new Day 1 setup opens in ONE MOVE.</span>
+                </span>
+              </button>
+            </>
+          ) : null}
+        </>
+      ) : started ? (
         <ul className="pm-list pm-compact">
           <li>
             <span className="pm-time">Day</span>
@@ -129,7 +179,7 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
             <i className="pm-dot" style={{ background: d.title === "The sealed letter" ? GOLD : DIM }} aria-hidden="true" />
             <span className="pm-body">
               <b>{d.title}</b>
-              <small>{d.title === "The sealed letter" && started ? `Sealed until Day ${day?.of ?? on?.of ?? 90}.` : d.line}</small>
+              <small>{d.title === "The sealed letter" && fin ? "Yours to open now: your 90 days are done." : d.title === "The sealed letter" && started ? `Sealed until Day ${day?.of ?? on?.of ?? 90}.` : d.line}</small>
             </span>
           </li>
         ))}
@@ -148,7 +198,7 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
       ) : null}
       <p className="d-sum">{CHALLENGE.end}</p>
 
-      {!tour ? (
+      {!tour && !fin ? (
         <button className="pi-film pm-open" onClick={() => onOpenPage(url)}>
           <span className="pi-play" aria-hidden="true">↗</span>
           <span>
