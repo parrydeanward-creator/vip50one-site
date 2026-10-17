@@ -89,9 +89,12 @@ export interface TomorrowItem { ref: string; title: string; why: string; item: P
 
 const rowRef = (r: Slot) => r.ref ?? r.id.replace(/^day:/, "");
 
-/** Is the working day over: now at or past its end, or nothing left to do today while something waits for tomorrow. */
-export function dayIsDone(now: string | null | undefined, hours: Hours, leftToday: number, tomorrow: number): boolean {
-  if (!now) return false;
+/** Is the working day over: now at or past its end, or nothing left to do today while something waits for tomorrow.
+ * Never before the day has begun, and never on a day off (walker, 17 Oct: "over" at 07:40 on a Saturday; a day off and
+ * a day not started yet have their own words, lib/workDay.ts dayStart). */
+export function dayIsDone(now: string | null | undefined, hours: Hours, leftToday: number, tomorrow: number, dayOff = false): boolean {
+  if (!now || dayOff) return false;
+  if (toMin(now) < toMin(hours.start)) return false;
   return toMin(now) >= toMin(hours.end) || (leftToday === 0 && tomorrow > 0);
 }
 

@@ -28,7 +28,7 @@ test("the orb is red while anyone is unreached, green when all are, green and pl
   const all = demoNewLeads();
   const green = withNewLeadsNode(g, { ...all, untouched: 0, people: all.people.map((p) => ({ ...p, touched: true })) });
   assert.equal(green.nodes.find((n) => n.id === LEADS_NODE)!.status, "healthy");
-  const none = withNewLeadsNode(g, { today: null, count: 0, untouched: 0, people: [] }).nodes.find((n) => n.id === LEADS_NODE)!;
+  const none = withNewLeadsNode(g, { today: null, count: 0, untouched: 0, waiting: 0, people: [] }).nodes.find((n) => n.id === LEADS_NODE)!;
   assert.equal(none.status, "healthy");
   assert.equal(none.secondaryLabel, "None yet today");
   assert.equal(none.needCount, undefined);
@@ -144,4 +144,32 @@ test("the lead's name: trimmed, 60 at most, one of them typed; the route's words
   assert.deepEqual(body, { fields: { first_name: "Ann", last_name: "Lee" } });
   assert.equal((await saveName("c1", "Ann", "", ok({ ok: false, error: "Contact not found." }, 404))).error, "Contact not found.");
   assert.equal((await saveName("c1", "", "", ok({ ok: true }))).error, "Type a first or last name.");
+});
+
+// Walker, 17 Oct 07:40 MT: "New leads today" held 11 on Parry's live account, most from 9-13 Oct. Keeping them until
+// reached is right; the orb and panel are now "New leads", the line says "1 today · 10 waiting", and among the ones
+// waiting from earlier days the oldest comes first (today's, newest first, above them).
+test("New leads: '1 today · 10 waiting', today's first, then the oldest waiting", async () => {
+  const { LEADS_LABEL, leadsLine } = await import("../lib/newLeads.ts");
+  const days = ["09", "09", "10", "10", "11", "11", "12", "12", "13", "13"];
+  const people = [
+    ...days.map((d, i) => ({ id: `w${i}`, name: `Waiting ${i}`, created_at: `2026-10-${d}T1${i % 10}:00:00Z`, today: false, touched: false })),
+    { id: "t1", name: "Today One", created_at: "2026-10-17T13:30:00Z", today: true, touched: false },
+  ];
+  const l = readNewLeads({ today: "2026-10-17", new_leads: { count: 1, people: [...people].reverse() } })!;
+  assert.equal(l.count, 1);
+  assert.equal(l.waiting, 10);
+  assert.equal(leadsLine(l), "1 today · 10 waiting");
+  assert.deepEqual(l.people.slice(0, 3).map((p) => p.id), ["t1", "w0", "w1"]);
+  assert.equal(l.people.at(-1)!.id, "w9");
+  const g: { nodes: GraphNode[]; edges: GraphEdge[] } = { nodes: [{ id: "move", type: "product", label: "ONE MOVE", parentId: "one", product: "move", importance: 1 }], edges: [] };
+  const orb = withNewLeadsNode(g, l).nodes.find((n) => n.id === LEADS_NODE)!;
+  assert.equal(orb.label, LEADS_LABEL);
+  assert.equal(orb.label, "New leads");
+  assert.equal(orb.secondaryLabel, "1 today · 10 waiting");
+  assert.equal(leadsLine({ count: 2, untouched: 1, waiting: 0 }), "2 today · 1 not reached yet");
+  assert.equal(leadsLine({ count: 2, untouched: 0, waiting: 0 }), "2 today, all reached");
+  // reached in this session: waiting drops with it
+  const r = withOutcome(l, "w0", "reached", null, "2026-10-17T14:00:00Z");
+  assert.equal(leadsLine(r), "1 today · 9 waiting");
 });

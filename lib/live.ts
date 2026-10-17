@@ -1,5 +1,5 @@
 import { stripMarkers } from "./personTask.ts";
-import { FOLLOW_NODE, MAX_SHOWN, followNode } from "./followUps.ts";
+import { FOLLOW_NODE, MAX_SHOWN, followNode, OVERDUE_STAT } from "./followUps.ts";
 import { NTS_NODE, NTS_PATH, SUMMARY as NTS_SUMMARY } from "./newToSort.ts";
 import { withOpportunities } from "./opportunities.ts";
 import { celebrateIds, withSpecialDays } from "./specialDays.ts";
@@ -441,6 +441,14 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
   const dates = moveItems.filter((i) => i.kind === "birthday");
   const audit = moveItems.filter((i) => i.kind === "vip_touch");
   const bookHere = moveItems.filter((i) => i.kind === "book_open_house"); // no ONE Open in the package
+  // ONE MOVE's "Follow-ups overdue" is the overdue follow-ups only, and the Follow-ups orb shows the same number
+  // (walker, 17 Oct: the panel said 13, counting every follow-up item, while the orb said "All clear"). vip_summary
+  // sends at most 40 overdue items, so its whole count (followups_overdue, every open overdue task) less the overdue
+  // items that are not follow-ups (Agent Attraction, Book an open house) is the number, never below what was sent.
+  const overdueFollow = followups.filter((i) => i.urgency === "alert").length;
+  const overdueOther = moveItems.filter((i) => i.urgency === "alert" && i.id.startsWith("go:task:") && !followups.includes(i)).length;
+  const overdueAll = found ? stat(env!, "followups_overdue")?.value ?? null : null;
+  const followOverdue = overdueAll != null ? Math.max(overdueFollow, overdueAll - overdueOther) : overdueFollow;
   add({
     id: "move",
     type: "product",
@@ -453,7 +461,7 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
     summary: "Everyone you know, and what you promised them.",
     stats: found
       ? [
-          { label: "Follow-ups overdue", value: String(followups.length) },
+          { label: OVERDUE_STAT, value: String(followOverdue) },
           { label: "Birthdays and anniversaries (30 days)", value: String(dates.length) },
           ...(ofMax(touched) ? [{ label: "VIP-50 fully touched", value: ofMax(touched)! }] : []),
         ]
@@ -474,7 +482,6 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
         .filter((b) => b && typeof b.label === "string" && b.label.trim())
         .map((b) => ({ label: b.label.trim(), done: b.done === true, points: Number.isFinite(b.points) ? b.points : 1 }))
     : undefined;
-  const overdueCount = found ? stat(env!, "followups_overdue")?.value ?? null : null;
   const weekBoxes = found ? stat(env!, "week_boxes_done") : undefined;
   const challenge = found ? stat(env!, "challenge_day") : undefined;
   const groupStats = (key: string): GraphNode["stats"] => {
@@ -542,7 +549,7 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
     const rank = (i: SummaryItem) => (i.urgency === "alert" ? 0 : i.urgency === "today" ? 1 : 2);
     const shown = [...followups].sort((a, b) => rank(a) - rank(b)).slice(0, MAX_SHOWN);
     const n = (u: SummaryItem["urgency"]) => followups.filter((i) => i.urgency === u).length;
-    const fu = followNode(n("alert"), n("today"), n("soon"), overdueCount);
+    const fu = followNode(n("alert"), n("today"), n("soon"), followOverdue);
     add(found ? fu : { ...fu, secondaryLabel: "Waiting on ONE MOVE", status: undefined, needFloor: undefined });
     shown.forEach((it, k) => itemNode(add, it, FOLLOW_NODE, "move", 1 - k * 0.03));
   }

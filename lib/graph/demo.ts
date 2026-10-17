@@ -67,7 +67,7 @@ export function demoGraph(pkg: PackageId = "complete", opts: { deep?: boolean } 
       pace: { headline: "Current pace: 22 / 26", detail: "4 high-value actions could close the gap." } },
     { id: "move", type: "product", label: "ONE MOVE", secondaryLabel: "Relationship intelligence", parentId: "one", product: "move", importance: 0.9, status: "action",
       summary: "Everyone you know, and what you promised them.",
-      stats: [{ label: "Follow-ups overdue", value: "4" }, { label: "New to Sort", value: "3" }] },
+      stats: [{ label: "Follow-ups overdue", value: "2" }, { label: "New to Sort", value: "3" }] },
     { id: "marquee", type: "product", label: "MARQUEE", secondaryLabel: "Listing intelligence", parentId: "one", product: "marquee", importance: 0.85, status: "attention",
       summary: "Every listing's marketing, from the first presentation to the weekly seller report.",
       stats: [{ label: "Waiting for approval", value: "5" }, { label: "Active listings", value: "2" }] },

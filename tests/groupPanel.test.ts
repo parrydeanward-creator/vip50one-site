@@ -66,3 +66,43 @@ test("v1.6: today's boxes, weekly boxes, the challenge day (hidden when not enro
   const g3 = liveGraph(e3, { pkg: "relationship", firstName: "P", reachable: true, today: "2026-10-04" }, {});
   assert.ok(!g3.nodes.find((n) => n.id === "move-g-trackers")!.stats!.some((s) => s.label === "90-Day Challenge"));
 });
+
+// Walker, 17 Oct 07:40 MT: on Parry's live account Outreach and Events said "Nothing here needs you right now" above
+// plain links, while the demo showed each part's line. A live-shaped graph with the routes' real answers
+// (vip50-web-crm lib/outreach-events.ts) must give every part its line and pulse in the group panel.
+test("live Outreach and Events: each part's line and pulse in the group panel; no Overview tile", async () => {
+  const { readOutreach, readEvents, withOutreachNodes, withEventsNodes, OUTREACH_PARTS, EVENTS_PARTS } = await import("../lib/outreach.ts");
+  const { partRows, openTiles } = await import("../lib/groupPanel.ts");
+  const { moveGroupsFor } = await import("../lib/moveMenu.ts");
+  const o = readOutreach({ newsletter: { sent_this_month: 0 }, market_reports: { set_up: 3, ready_for_1st: 2 }, action_plans: { running: 4, waiting_to_send: 1 }, landing_pages: { visitors_month: null, leads_month: 5 } });
+  const e = readEvents({
+    calendar_next7: [{ id: "c1", title: "Coffee", date: "2026-10-18", start_time: "09:30:00", end_time: null, category: "meeting" }],
+    vip_event: { next: { id: "v1", title: "Mastermind", on: "2026-10-29", location: null }, invited: null, yes: null },
+    mixer: { next_on: "2026-11-06", title: "Fall Mixer", invites_sent_this_month: 0, yes: 0 },
+  });
+  assert.ok(o && e);
+  const live = withEventsNodes(withOutreachNodes(g, o), e);
+  const lix = indexGraph(live);
+  const out = partRows(lix, "move-g-outreach", OUTREACH_PARTS);
+  assert.deepEqual(out.map((p) => [p.label, p.line]), [
+    ["Newsletter", "Not sent yet"],
+    ["Market Reports", "3 set up · 2 ready for the 1st"],
+    ["Action Plans", "4 running · 1 waiting for you to send"],
+    ["Landing Pages", "Leads this month: 5"],
+  ]);
+  assert.equal(out[0].lit, true);
+  assert.ok(!lix.byId.has("move-p-/outreach") && !out.some((p) => p.label === "Overview"));
+  const ev = partRows(lix, "move-g-events", EVENTS_PARTS);
+  assert.deepEqual(ev.map((p) => p.label), ["Calendar", "VIP Events", "Mixer"]);
+  assert.equal(ev[0].line, "1 thing in the next 7 days");
+  assert.match(ev[1].line, /^Next: Mastermind · /);
+  assert.match(ev[2].line, /^Next: .* · No invites sent this month$/);
+  assert.equal(ev[2].lit, true);
+  // the Open tiles never repeat a part, and Outreach's "Overview" is never a tile
+  const outreachGroup = moveGroupsFor(true).find((x) => x.key === "outreach")!;
+  assert.deepEqual(openTiles(outreachGroup.pages, new Set(OUTREACH_PARTS.map((p) => p.path))), []);
+  // before ONE MOVE answers, the parts are still listed, never "Nothing here needs you"
+  const before = partRows(ix, "move-g-outreach", OUTREACH_PARTS);
+  assert.equal(before.length, 4);
+  assert.ok(before.every((p) => p.line.length > 0));
+});

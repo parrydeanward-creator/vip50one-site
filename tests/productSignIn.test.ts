@@ -65,3 +65,31 @@ test("hopOutcome: enter, locked, or the plain product address for anything else"
   assert.deepEqual(hopOutcome("vip-open", { ok: false, reason: "not_included" }, { message: "boom" }, "/"), { kind: "fallback", url: "https://open.vip-50.com/" }, "an error is never read as locked");
   assert.equal(fallbackUrl("vip-open", "//evil.example"), "https://open.vip-50.com/");
 });
+
+// Marquee's vip_summary room cards (VIP-SUMMARY §3ai.2) link like `/go?c=<id>&s=door`: the whole path is one encoded
+// `next`, so `&s=door` reaches Marquee instead of being read as a second parameter of /go/marquee (ecosystem, 17 Oct).
+test("a Marquee link with & survives the hop whole: built, read once by /go, and handed on", async () => {
+  const { goHref, goUrl, enterUrl, fallbackUrl, hopOutcome, cleanNext } = await import("../lib/productSignIn.ts");
+  const { toolHref } = await import("../lib/productTools.ts");
+  const path = "/go?c=abc&s=door";
+  const href = goHref("marquee", path);
+  assert.equal(href, "/go/marquee?next=%2Fgo%3Fc%3Dabc%26s%3Ddoor");
+  assert.equal(toolHref("marquee", path), href);
+  assert.equal(toolHref("marquee", `https://marquee.vip-50.com${path}`), href);
+  assert.equal(goUrl("marquee", path), `https://www.vip50one.com${href}`);
+  // what app/go/[product]/route.ts does: searchParams decodes once, cleanNext keeps it whole
+  const u = new URL(href, "https://www.vip50one.com");
+  assert.equal(u.searchParams.get("s"), null);
+  const next = cleanNext(u.searchParams.get("next"));
+  assert.equal(next, path);
+  // signed out: the way back through /login keeps it whole too
+  const back = `/go/marquee?next=${encodeURIComponent(next)}`;
+  const login = new URL(`/login?next=${encodeURIComponent(back)}`, u);
+  assert.equal(cleanNext(new URL(login.searchParams.get("next")!, u).searchParams.get("next")), path);
+  // the enter page and the plain address both carry it whole
+  const t = "a".repeat(64);
+  const enter = enterUrl("marquee", "https://marquee.vip-50.com/auth/one", t, next)!;
+  assert.equal(new URL(enter).searchParams.get("next"), path);
+  assert.equal(hopOutcome("marquee", { ok: true, url: "https://marquee.vip-50.com/auth/one", ticket: t }, null, next).kind, "enter");
+  assert.equal(fallbackUrl("marquee", next), "https://marquee.vip-50.com/go?c=abc&s=door");
+});

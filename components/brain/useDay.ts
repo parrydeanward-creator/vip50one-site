@@ -7,6 +7,7 @@ import { MAX_TASKS_SHOWN, planUrl, putBody, suggest, type Plan, type PlanItem } 
 import { toldBusy, type Answers, type Told } from "@/lib/overview.ts";
 import { addDays, slide } from "@/lib/assist.ts";
 import { floor5 } from "@/lib/dayView.ts";
+import { nextWorkingDay, readWeek, weekTemplateUrl, worksOn, type Week } from "@/lib/workDay.ts";
 import { buildDay, customItem, customKey, customsOn, DAY_OVER_WHY, dayPutBody, dayUrl, denverNow, readDay, toMin, tomorrowPlan, type Block, type Busy, type Custom, type DayPlan } from "@/lib/schedule.ts";
 
 // The day as Pulse plans it (VIP-SUMMARY §3o), shared by the Day Clock and the Brain's Next line and
@@ -60,6 +61,10 @@ export interface Day {
   // Once the day is done, Plan my day shows tomorrow (audit 3.1.9): tomorrow's date, and its plan built from what moves
   // there, over tomorrow's hours and calendar (ONE MOVE's day for that date when it answers).
   tomorrowDate: string;
+  /** Today is a day off in the agent's week (ONE MOVE's day says so, or their week template; walker 17 Oct). */
+  dayOff: boolean;
+  /** The agent's week template from ONE MOVE, null until it answers (or for the example agent). */
+  week: Week | null;
   planTomorrow: (items: PlanItem[]) => { hours: { start: string; end: string }; busy: Busy[]; plan: DayPlan };
   loadTomorrow: () => void;
 }
@@ -102,7 +107,17 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
       .then((j) => setMove(readDay(j)))
       .catch(() => {});
   }, [date]);
-  const tomorrowDate = useMemo(() => addDays(date, 1), [date]);
+  // The agent's working week (§3o.4): which days are off, so a day off never reads as a day that is over, and the
+  // next plan to show is the next working day's (walker, 17 Oct).
+  const [week, setWeek] = useState<Week | null>(null);
+  useEffect(() => {
+    if (!live) return;
+    fetch(weekTemplateUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setWeek(readWeek(j)))
+      .catch(() => {});
+  }, [live]);
+  const tomorrowDate = useMemo(() => (week ? nextWorkingDay(date, week) : addDays(date, 1)), [date, week]);
   // tomorrow's hours and calendar from ONE MOVE, asked for once, only when Plan my day shows tomorrow
   const askedTomorrow = useRef(false);
   const loadTomorrow = useCallback(() => {
@@ -300,5 +315,6 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
     }
   };
 
-  return { date, now, hours, busy, plan: shown, moved: slid?.note ?? null, carry, tomorrowDate, planTomorrow, loadTomorrow, approvedAt: (move?.approvedAt ?? approved?.at) || null, fromMove: !!move, customs, told, tell, addBlock, removeBlock, approve, replan: unapprove };
+  const dayOff = !!move?.dayOff || !worksOn(date, week);
+  return { date, now, hours, busy, plan: shown, moved: slid?.note ?? null, carry, tomorrowDate, dayOff, week, planTomorrow, loadTomorrow, approvedAt: (move?.approvedAt ?? approved?.at) || null, fromMove: !!move, customs, told, tell, addBlock, removeBlock, approve, replan: unapprove };
 }
