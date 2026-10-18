@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { GBP_ADDRESS, arrivalFirstId, arrivalFor, isArrivalPath, openTarget, type Arrival } from "../lib/deepLink.ts";
-import { arrivalExact, landing } from "../lib/deepLinkNode.ts";
+import { arrivalExact, landing, seedArrival } from "../lib/deepLinkNode.ts";
 import { MENU_ORB, MOVE_COACH, MOVE_GROUPS, MOVE_HIDDEN, MOVE_MENU, TEAM_LEADS_PAGE, moveGroupId, movePageId, withMoveCoach, withTeamLeadsPage } from "../lib/moveMenu.ts";
 import { GBP_PATH } from "../lib/gbp.ts";
 import { START_NODE, demoStart, withStartNode } from "../lib/gettingStarted.ts";
@@ -152,4 +152,28 @@ test("signing in keeps the place asked for: every address and a known ?open=", (
   assert.equal(afterSignIn("/dashboard?open=getting-started", "/dashboard/profile"), "/dashboard?open=getting-started");
   assert.equal(afterSignIn("/dashboard/deals", null), "/dashboard/deals");
   for (const p of MENU_PATHS) assert.equal(appTarget(`/dashboard${p}`), `/dashboard${p}`, p);
+});
+
+// Live check 18 Oct: the server painted "Good morning" for /dashboard/opportunities, /events, /learn, /life-events and
+// ?open=growth, because those orbs join the map only after the routes answer. The first map now holds them.
+test("first paint: every menu address and ?open= name is on the map the server draws (example and signed in)", () => {
+  const bases: [string, BusinessGraph, string | null][] = [
+    ["example walk-through", withMoveCoach(withExampleMoveTools(withDemoTrackers(withTourPages(oneYouView(demoGraph("complete"))))), false), TODAY],
+    ["signed-in Complete", withMoveCoach(liveGraph(MASTER, { pkg: "complete", firstName: "P", reachable: true, today: TODAY }, {}), false), null],
+  ];
+  for (const [name, base, exampleToday] of bases) {
+    // Deals and Life events wait for their routes when signed in; Getting started for its steps; Team for the team answer
+    const later = exampleToday ? [] : ["/deals", "/life-events"];
+    for (const p of MENU_PATHS.filter((p) => !later.includes(p))) {
+      const a = arrivalFor(p, null)!;
+      assert.ok(arrivalExact(a, has(seedArrival(base, a, { growth: true, exampleToday }))), `${name} ${p}`);
+    }
+    for (const o of ["growth", "growth:ads", "profile", "youone", "move", "marquee", "showly", "open", "events", "outreach", "learn", "trackers", "opportunities"]) {
+      const a = arrivalFor(null, o)!;
+      assert.ok(arrivalExact(a, has(seedArrival(base, a, { growth: true, exampleToday }))), `${name} ?open=${o}`);
+    }
+    // a plain visit, or a place already there, leaves the first map as it was
+    assert.equal(seedArrival(base, null, { growth: true, exampleToday }), base);
+    assert.equal(seedArrival(base, arrivalFor("/profile", null), { growth: true, exampleToday }), base);
+  }
 });
