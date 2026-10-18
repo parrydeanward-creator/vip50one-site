@@ -444,3 +444,138 @@ export const barPct = (n: number, max: number) => (max > 0 ? Math.round((Math.ma
 /** "+2", "−1", "same" for a count against another month. */
 export const delta = (now: number, then: number) => (now === then ? "same" : now > then ? `+${now - then}` : `−${then - now}`);
 export const shortPrice = (n: number) => (n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(n % 1_000_000 ? 2 : 0).replace(/0$/, "")}M` : `$${Math.round(n / 1000)}K`);
+
+// ---- The twelve additions (HOME-REPORT §3a, Parry 18 Oct: "add all 12") ----------------------------------------
+// The example shows all twelve; the agent's "Your report settings" card on the Market Reports page switches the
+// optional ones off, sets the monthly video and the quarterly postcard. The stop link, credit lines and consent
+// wording are always included. No value or estimate for the client's home is ever shown (CLAUDE.md §3).
+
+/** The optional sections an agent may switch off. Keys are what ONE MOVE's settings route stores. */
+export const OPTIONAL_SECTIONS = [
+  { key: "video", label: "Your monthly video" },
+  { key: "near_you", label: "What's happening near you" },
+  { key: "home_care", label: "This month's home care" },
+  { key: "pros", label: "Your trusted pros" },
+  { key: "improvements", label: "What they've done to their home" },
+  { key: "rates", label: "Mortgage rates this month" },
+  { key: "buyers", label: "What buyers near them are looking for" },
+  { key: "special", label: "Special editions (anniversary and January)" },
+  { key: "moving", label: "Thinking of moving?" },
+  { key: "referral", label: "Know someone thinking of moving?" },
+  { key: "ask_pulse", label: "Ask Pulse about your neighbourhood" },
+  { key: "language_print", label: "En español and Print / PDF" },
+] as const;
+export type SectionKey = (typeof OPTIONAL_SECTIONS)[number]["key"];
+
+export const SETTINGS_FIXED_NOTE = "The stop link, credit lines and consent wording are always included.";
+export const VIDEO_HINT = "Optional. A month without one has no video.";
+export const POSTCARD_LABEL = "Mailed postcard (quarterly, charged per card at cost)";
+export const SAVING_SOON = "Saving opens soon";
+/** What the example's "Thinking of moving?" button shows. It never shows a value. */
+export const MOVING_REPLY = "Your agent will prepare a market analysis for you";
+
+export interface ReportSettings { sections: Record<SectionKey, boolean>; postcard: boolean }
+/** Every section on, postcard off (HOME-REPORT §3a.12). */
+export const defaultSettings = (): ReportSettings => ({
+  sections: Object.fromEntries(OPTIONAL_SECTIONS.map((s) => [s.key, true])) as Record<SectionKey, boolean>,
+  postcard: false,
+});
+export const settingsUrl = `${homeReportUrl}/settings`;
+export const videoUrl = `${homeReportUrl}/video`;
+/** Read ONE MOVE's settings reply; unknown or missing keys keep their defaults. Null when it is not settings. */
+export function readSettings(j: unknown): ReportSettings | null {
+  if (!j || typeof j !== "object") return null;
+  const o = j as { sections?: unknown; postcard?: unknown };
+  const base = defaultSettings();
+  if (o.sections && typeof o.sections === "object") {
+    for (const s of OPTIONAL_SECTIONS) {
+      const v = (o.sections as Record<string, unknown>)[s.key];
+      if (typeof v === "boolean") base.sections[s.key] = v;
+    }
+  }
+  if (typeof o.postcard === "boolean") base.postcard = o.postcard;
+  return base;
+}
+
+const lastThursday = (ym: string) => {
+  const d = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0));
+  while (d.getUTCDay() !== 4) d.setUTCDate(d.getUTCDate() - 1);
+  return d.getUTCDate();
+};
+
+export interface ExampleMore {
+  video: { title: string; length: string };
+  near: { places: { name: string; kind: string; isNew: boolean }[]; event: { title: string; when: string; where: string } };
+  care: { title: string; text: string }[];
+  pros: { name: string; trade: string; note: string }[];
+  done: { items: { what: string; year: string }[]; general: string };
+  rates: { rows: { label: string; now: string; last: string; ago: string }[]; line: string; credit: string };
+  buyers: { price: { label: string; n: number }[]; beds: { label: string; n: number }[] };
+  special: string;
+  moving: { button: string; reply: string };
+  referral: { link: string; shares: string[] };
+  ask: { question: string; answer: string };
+}
+
+/** Invented content for the twelve additions in the example report. */
+export function exampleMore(r: ExampleReport): ExampleMore {
+  const month = r.month;
+  const y = Number(month.slice(0, 4));
+  return {
+    video: { title: `A word from ${r.agent.first}`, length: "0:48" },
+    near: {
+      places: [
+        { name: "Corner Table Cafe", kind: "Coffee and breakfast", isNew: true },
+        { name: "Draper Fitness Collective", kind: "Gym", isNew: true },
+        { name: "Corner Canyon Trailhead", kind: "Trails and parks", isNew: false },
+        { name: "Smith's Marketplace", kind: "Grocery", isNew: false },
+      ],
+      event: { title: `${r.agent.first}'s client appreciation evening`, when: "Thursday the 24th, 6 pm", where: "Draper Park pavilion" },
+    },
+    care: [
+      { title: "Drain and shut off outdoor taps", text: "Disconnect hoses and shut off the outside taps before the first hard freeze." },
+      { title: "Test smoke and carbon monoxide alarms", text: "Press each test button and replace any battery that chirps." },
+      { title: "Clear the gutters and window wells", text: "Leaves left in them hold water against the house as snow melts." },
+    ],
+    pros: [
+      { name: "Wasatch Heating and Air", trade: "Furnace tune-ups", note: "Used by several of my clients." },
+      { name: "Summit Roof Repair", trade: "Roofing and gutters", note: "Fair and on time." },
+      { name: "Bright Day Cleaning", trade: "House cleaning", note: "Careful and friendly." },
+    ],
+    done: {
+      items: [
+        { what: "New water heater", year: String(y - 2) },
+        { what: "Finished basement bathroom", year: String(y - 1) },
+        { what: "Fresh exterior paint", year: String(y) },
+      ],
+      general: "In general, kitchens, bathrooms and fresh paint are the projects that most often pay off when a home is sold.",
+    },
+    rates: {
+      rows: [
+        { label: "30-year fixed", now: "6.21%", last: "6.35%", ago: "6.73%" },
+        { label: "15-year fixed", now: "5.41%", last: "5.52%", ago: "5.89%" },
+      ],
+      line: "Rates are a little lower than last month, which helps buyers' monthly payments.",
+      credit: `Source: Freddie Mac Primary Mortgage Market Survey, ${shortMonth(month)} ${lastThursday(month)}, ${y}`,
+    },
+    buyers: {
+      price: [
+        { label: "Under $600K", n: 3 },
+        { label: "$600K to $800K", n: 5 },
+        { label: "Over $800K", n: 4 },
+      ],
+      beds: [
+        { label: "3 bedrooms", n: 3 },
+        { label: "4 bedrooms", n: 6 },
+        { label: "5 or more", n: 3 },
+      ],
+    },
+    special: `On the anniversary of your closing you get a "years in your home" edition, and every January a year in review. Same sections, a different opening.`,
+    moving: { button: "Thinking of moving?", reply: MOVING_REPLY },
+    referral: { link: "https://vip50homes.com/r/alex-morgan-j7k2", shares: ["Text it", "Email it", "Copy the link"] },
+    ask: {
+      question: "What is the average price for a single-family home in Draper?",
+      answer: "Pulse answers from public figures, with the source and year. For your own home, your agent prepares the market analysis.",
+    },
+  };
+}
