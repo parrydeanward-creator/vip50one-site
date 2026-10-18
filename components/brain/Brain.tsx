@@ -125,6 +125,7 @@ import { LEADS_NODE, demoNewLeads, leadOf, readNewLeads, todayUrl, withNewLeadsN
 import LeadCard from "./LeadCard.tsx";
 import { postDay, type TeamPost } from "@/lib/teamPosts.ts";
 import { perProduct } from "@/lib/perProduct.ts";
+import ListingFitsSection from "./ListingFitsSection.tsx";
 import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, type Launch } from "@/lib/launch.ts";
 import LaunchPanel from "./LaunchPanel.tsx";
 import LooksHotPanel from "./LooksHotPanel.tsx";
@@ -3539,7 +3540,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
 
           {launchRefOf(focus.id) && focus.product === "marquee" && !focus.locked && !ask && (
             <LaunchPanel
-              key={focus.id}
               listingRef={launchRefOf(focus.id)!}
               launch={launches?.find((l) => l.listingRef === launchRefOf(focus.id)) ?? null}
               live={live}
@@ -3549,6 +3549,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                 goTo(movePageId(path));
               }}
             />
+          )}
+
+          {/^marquee:listing:/.test(focus.id) && launchRefOf(focus.id) && focus.product === "marquee" && !focus.locked && !ask && (
+            <ListingFitsSection listingId={launchRefOf(focus.id)!} live={live} address={focus.label} />
           )}
 
           {focus.decide && !focus.locked && !ask && (

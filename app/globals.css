@@ -2847,3 +2847,13 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .gbp-nums dd { margin: 2px 0 0; font-size: 26px; font-weight: 700; color: var(--text); }
 .gbp-footer { margin-top: 18px; text-align: center; }
 @media (min-width: 900px) { .gbp-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+
+/* Who of mine fits this home (VIP-SUMMARY §3aj) in a listing orb's side panel */
+.fits-card { margin-top: 14px; }
+.fits-title { margin: 0 0 6px; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; }
+.fits-line { margin: 0 0 8px; font-size: 13px; opacity: 0.85; }
+.fits-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 8px; }
+.fits-list label { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.4; cursor: pointer; }
+.fits-tick { margin-top: 3px; width: 16px; height: 16px; flex: none; accent-color: #d4af37; }
+.fits-from { opacity: 0.65; }
+.fits-sent, .fits-note { margin: 8px 0 0; font-size: 12px; opacity: 0.75; }
