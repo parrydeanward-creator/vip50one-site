@@ -162,7 +162,8 @@ const T = {
   },
   // Wait (real time, not slowed) until text appears on the page.
   async waitText(re, ms = 30000) {
-    await p.getByText(re).first().waitFor({ state: "visible", timeout: ms });
+    await p.evaluate(() => window.dispatchEvent(new Event("focus"))); // the day re-checks now, not at its next 20 s tick
+    await p.getByText(re).first().waitFor({ state: "visible", timeout: ms * SLOW });
   },
   async type(locator, text) {
     const l = typeof locator === "string" ? p.locator(locator).first() : locator.first();
