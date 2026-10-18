@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { monthWords } from "@/lib/marketPulse.ts";
+import { ExampleReportButton } from "./MarketReportExample.tsx";
 import {
   DEFAULT_DAY,
   changeBody,
@@ -181,6 +182,7 @@ export default function HomeReportSection({ contactId, first, demo = false, onCh
       </p>
       {FEED_LIVE ? null : <p className="hr-sub">{FEED_LINE}</p>}
       <p className="hr-sub">{CREDIT_LINE}</p>
+      <p className="hr-sub"><ExampleReportButton label="See an example" className="mr-link" /></p>
       {live ? (
         <>
           <p className="hr-line">{runningLine(live)}</p>
