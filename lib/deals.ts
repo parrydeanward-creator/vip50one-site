@@ -26,6 +26,8 @@ export interface Deal {
   hasRepc?: boolean;
   /** The agent's own REPC file, when ONE MOVE gives it (or the agent just uploaded it here). */
   repcPath?: string | null;
+  /** SITE-FEEDS K16: the client sees this deal's dates on the agent's site (ONE MOVE's default is on). */
+  clientPage?: boolean;
   side: Side;
   status: Status;
   form: "2018" | "2027";
@@ -76,6 +78,7 @@ export function readDeals(raw: unknown): Deal[] | null {
       source: o.source === "rezen" || o.source === "marquee" ? o.source : "manual",
       hasRepc: o.has_repc === true || !!str(o.repc_file_path, 200),
       repcPath: str(o.repc_file_path, 200),
+      clientPage: o.client_page !== false,
       side: o.side === "sell" || o.side === "both" ? o.side : "buy",
       status: STATUSES.includes(o.status as Status) ? (o.status as Status) : "under_contract",
       form: o.repc_form === "2018" ? "2018" : "2027",
@@ -154,6 +157,9 @@ export function readClosingAsk(raw: unknown): ClosingAsk | null {
 export const dealName = (d: Deal): string => d.contact?.name ?? d.address ?? "A deal";
 /** The client's first name, else the street number and name. */
 export const shortName = (d: Deal): string => (d.contact ? d.contact.name.split(" ")[0] : (d.address ?? "A deal").split(",")[0]);
+
+/** The deals after the client page switch changed on one (SITE-FEEDS K16). */
+export const withClientPage = (list: Deal[], id: string, on: boolean): Deal[] => list.map((d) => (d.id === id ? { ...d, clientPage: on } : d));
 
 /** The deals after one status change, before ONE MOVE answers again. */
 export const withStatus = (list: Deal[], id: string, status: Status): Deal[] => list.map((d) => (d.id === id ? { ...d, status } : d));
