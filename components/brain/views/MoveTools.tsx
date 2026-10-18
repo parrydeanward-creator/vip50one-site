@@ -6,6 +6,7 @@ import { PRODUCT_COLOR, hex } from "@/lib/brain/theme.ts";
 import { moveMenuHref } from "@/lib/moveMenu.ts";
 import { ANALYTICS, DOCS, M2_TOOLS, REF_AGENTS, dropByAreas, fitsFor, m2KeyOf, m2Reduce, m2Start, money, type M2Key } from "@/lib/examples/move2.ts";
 import ShowlyOpenShell, { HomeBlock, OpenToolButton } from "./ShowlyOpenShell.tsx";
+import { ListingPhoto, exampleCard } from "../ListingCards.tsx";
 import { AnalyticsView, Bars, DocsView, DropByView, Face, ListingsView, LoungeView, NeedsView, ReferralView, VideosView } from "./MoveViews.tsx";
 import "@/app/showly-open-views.css";
 import "@/app/move2-views.css";
@@ -106,19 +107,23 @@ export default function MoveTools({ node }: { node: GraphNode }) {
       case "listings":
         return (
           <>
-            <OpenToolButton label="Your listings" line="Each listing with its launch checklist, views and showings." onOpen={() => openAt("listings")} />
+            <OpenToolButton label="Your listings" line="Each listing with its photo, launch, who of yours fits and the next open house." onOpen={() => openAt("listings")} />
             <p className="pso-cap"><span className="pso-ex">Example</span> {s.listings.length} listings</p>
             <ul className="pso-list">
-              {s.listings.map((l) => (
-                <li key={l.id} className="pso-row">
-                  <HomeBlock hue={l.hue} label={l.street} small />
-                  <span className="pso-row-b">
-                    <b>{l.street}</b>
-                    <small>{l.city} · {money(l.price)} · {l.steps.filter((x) => x.done).length} of {l.steps.length} steps</small>
-                  </span>
-                  <span className={`pso-pill m2-st ${l.status.replace(/\s+/g, "-").toLowerCase()}`}>{l.status}</span>
-                </li>
-              ))}
+              {s.listings.map((l) => {
+                const c = exampleCard(l);
+                return (
+                  <li key={l.id} className="pso-row lst-row">
+                    <span className="lst-thumb"><ListingPhoto image={null} tone={c.tone} label={l.street} example /></span>
+                    <span className="pso-row-b">
+                      <b>{l.street}</b>
+                      <small>{money(l.price)}{c.facts ? ` · ${c.facts}` : ""}</small>
+                      <small className="pso-quiet">{c.launch?.launched ? `Launch ${c.launch.done} of ${c.launch.total} done` : "Not launched yet"}{l.fits ? ` · ${l.fits} of your people fit` : ""}</small>
+                    </span>
+                    <span className={`pso-pill m2-st ${l.status.replace(/\s+/g, "-").toLowerCase()}`}>{l.status}</span>
+                  </li>
+                );
+              })}
             </ul>
           </>
         );

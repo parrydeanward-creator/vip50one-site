@@ -7,6 +7,7 @@ import { addGoals, type GoalKey } from "./goals.ts";
 import { includes } from "./products.ts";
 import { productToolOrbs, toolForKind, type ToolOrb } from "./productTools.ts";
 import { goHref, goUrl } from "./productSignIn.ts";
+import { listingFacts } from "./listingCards.ts";
 import { MENU_ORB, MOVE_BOTTOM, MOVE_GROUPS, moveGroupId, moveMenuHref, movePageId } from "./moveMenu.ts";
 import type { DayItem, DayKind } from "./day.ts";
 import type { BusinessGraph, DatedNote, GraphEdge, GraphNode, NodeStatus, ProductKey } from "./graph/types.ts";
@@ -654,6 +655,7 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
         summary: `${l.address}. ${listingLine(l, o.today)}.`,
         href: safeImage(l.link ?? null),
         image: safeImage(l.image ?? null),
+        listing: listingFacts(l as unknown as Record<string, unknown>, (a?.env ?? null) as Record<string, unknown> | null, (others.open?.env ?? null) as Record<string, unknown> | null, o.today) ?? undefined,
       }));
       rows.forEach((r, j) => add({
         id: r.id,
@@ -712,6 +714,7 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
         summary: `${l.address}. ${listingLine(l, o.today)}.`,
         href: safeImage(l.link ?? null),
         image: safeImage(l.image ?? null),
+        listing: listingFacts(l as unknown as Record<string, unknown>, (a?.env ?? null) as Record<string, unknown> | null, (others.open?.env ?? null) as Record<string, unknown> | null, o.today) ?? undefined,
       }));
     }
   });

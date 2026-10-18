@@ -1,3 +1,4 @@
+import type { PieceKey, PieceState } from "../launch.ts";
 import { MOVE_URL } from "../host.ts";
 import { moveGroupId, moveMenuHref, movePageId } from "../moveMenu.ts";
 import type { GraphEdge, GraphNode } from "../graph/types.ts";
@@ -657,22 +658,19 @@ export function fitsFor(n: Need, list: readonly ExListing[] = NEED_LISTINGS): Ex
 export const money = (n: number) => `$${n.toLocaleString("en-US")}`;
 export const NEED_AREAS = ["Bountiful", "Centerville", "Farmington", "Kaysville", "Woods Cross"];
 
-// Your listings (LAUNCH.md §5)
-export interface MyListing { id: string; street: string; city: string; price: number; status: "Launching" | "Active" | "Under contract"; days: number; views: number; showings: number; hue: number; steps: { label: string; done: boolean }[] }
+// Your listings (LAUNCH.md §5), drawn as the same photo cards a live agent sees (components/brain/ListingCards.tsx)
+export type ExLaunch = Partial<Record<PieceKey, PieceState>>;
+export interface MyListing {
+  id: string; street: string; city: string; price: number; status: "Launching" | "Active" | "Under contract"; days: number;
+  beds: number; baths: number; sqft: number; views: number; showings: number; tone: "dusk" | "sage" | "sand" | "slate" | "ember" | "sky";
+  fits: number; openHouse: string | null; marquee: string | null; launch: ExLaunch | null;
+}
 export const MY_LISTINGS: MyListing[] = [
-  {
-    id: "ml1", street: "1212 Maple Ridge Dr", city: "Bountiful", price: 549_000, status: "Launching", days: 0, views: 0, showings: 0, hue: 35,
-    steps: [{ label: "Photos booked", done: true }, { label: "Seller story written", done: true }, { label: "Coming-soon post approved", done: false }, { label: "Open house set", done: false }, { label: "VIP preview sent", done: false }],
-  },
-  {
-    id: "ml2", street: "322 Orchard Ln", city: "Centerville", price: 489_000, status: "Active", days: 12, views: 1420, showings: 9, hue: 200,
-    steps: [{ label: "Photos booked", done: true }, { label: "Seller story written", done: true }, { label: "Coming-soon post approved", done: true }, { label: "Open house set", done: true }, { label: "VIP preview sent", done: true }],
-  },
-  {
-    id: "ml3", street: "640 Meadow Brook Ln", city: "Kaysville", price: 715_000, status: "Under contract", days: 21, views: 2210, showings: 14, hue: 120,
-    steps: [{ label: "Inspection done", done: true }, { label: "Appraisal in", done: false }, { label: "Closing booked", done: false }],
-  },
+  { id: "ml1", street: "1212 Maple Ridge Dr", city: "Bountiful, UT 84010", price: 549_000, status: "Launching", days: 0, beds: 4, baths: 3, sqft: 2860, views: 0, showings: 0, tone: "dusk", fits: 3, openHouse: null, marquee: "Photos in; Marquee is building the campaign", launch: null },
+  { id: "ml2", street: "322 Orchard Ln", city: "Centerville, UT 84014", price: 489_000, status: "Active", days: 12, beds: 3, baths: 2, sqft: 1980, views: 1420, showings: 9, tone: "sage", fits: 2, openHouse: "Sat 24 Oct, 11:00 AM · 6 signed up ahead", marquee: "2 pieces to approve · 3 scheduled · 5 posted this month", launch: { marquee_page: "done", site_page: "done", open_house: "ready", ad_draft: "ready", buyer_notes: "done" } },
+  { id: "ml3", street: "640 Meadow Brook Ln", city: "Kaysville, UT 84037", price: 715_000, status: "Under contract", days: 21, beds: 5, baths: 4, sqft: 4010, views: 2210, showings: 14, tone: "sand", fits: 0, openHouse: null, marquee: "Closing post waits until it records", launch: { marquee_page: "done", site_page: "done", open_house: "done", ad_draft: "done", buyer_notes: "done" } },
 ];
+export const EXAMPLE_LAUNCHED: ExLaunch = { marquee_page: "ready", site_page: "drafting", open_house: "drafting", ad_draft: "drafting", buyer_notes: "ready" };
 
 // Analytics (Trackers)
 export const ANALYTICS = {
@@ -746,7 +744,8 @@ export type M2Act =
   | { t: "drop"; id: string }
   | { t: "refer"; client: string; agentId: string; note: string }
   | { t: "need"; need: Need }
-  | { t: "step"; id: string; i: number }
+  | { t: "launch"; id: string }
+  | { t: "listingNote"; text: string }
   | { t: "watched"; id: string }
   | { t: "post"; text: string }
   | { t: "like"; id: string }
@@ -767,8 +766,13 @@ export function m2Reduce(s: M2State, a: M2Act): M2State {
     }
     case "need":
       return { ...s, needs: [a.need, ...s.needs], note: { ...s.note, needs: `${a.need.buyer}'s need is posted to your team. ${fitsFor(a.need).length} homes fit now. ${EXAMPLE_SENT}` } };
-    case "step":
-      return { ...s, listings: s.listings.map((l) => (l.id === a.id ? { ...l, steps: l.steps.map((x, i) => (i === a.i ? { ...x, done: !x.done } : x)) } : l)), note: { ...s.note, listings: `Checklist updated. ${EXAMPLE_SAVED}` } };
+    case "launch": {
+      const l = s.listings.find((x) => x.id === a.id);
+      if (!l || l.launch) return s;
+      return { ...s, listings: s.listings.map((x) => (x.id === a.id ? { ...x, launch: EXAMPLE_LAUNCHED } : x)), note: { ...s.note, listings: `Launch started for ${l.street}: Pulse is drafting all five pieces, and you approve each one before anything goes out. ${EXAMPLE_SAVED}` } };
+    }
+    case "listingNote":
+      return { ...s, note: { ...s.note, listings: a.text } };
     case "watched":
       return { ...s, videos: s.videos.map((v) => (v.id === a.id ? { ...v, watched: !v.watched } : v)), note: { ...s.note, videos: `Marked. ${EXAMPLE_SAVED}` } };
     case "post":

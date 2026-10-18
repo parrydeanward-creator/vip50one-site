@@ -87,6 +87,8 @@ export interface GraphNode {
   boxes?: { label: string; done: boolean; points: number }[];
   // A goal orb's facts (closings, referrals, GCI this goal year), for its pace and the Income Map.
   goal?: import("../goals.ts").GoalFacts;
+  // A listing orb's facts (photo, price, days on market, posts, open house), for Your listings' cards (lib/listingCards.ts).
+  listing?: import("../listingCards.ts").ListingFacts;
 }
 
 export interface GraphEdge {

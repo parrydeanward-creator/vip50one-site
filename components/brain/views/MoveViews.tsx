@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { initialsOf } from "@/lib/vips.ts";
-import { ANALYTICS, DOCS, NEED_AREAS, NEED_LISTINGS, REF_AGENTS, dropByAreas, fitsFor, money, type M2Act, type M2State, type Need } from "@/lib/examples/move2.ts";
+import { ANALYTICS, DOCS, NEED_AREAS, NEED_LISTINGS, REF_AGENTS, dropByAreas, fitsFor, EXAMPLE_SAVED, money, type M2Act, type M2State, type Need } from "@/lib/examples/move2.ts";
 import { HomeBlock } from "./ShowlyOpenShell.tsx";
+import { ListingCard, exampleCard } from "../ListingCards.tsx";
 
 // The full views of ONE MOVE's example tools inside the Brain (walker 18 Oct): Drop-By Map, Referral Network, Buyer
 // Needs, Your listings, Analytics, Video Library, VIP Docs and The Lounge. Every action works on screen only.
@@ -223,31 +224,24 @@ export function NeedsView({ s, act }: { s: M2State; act: (a: M2Act) => void }) {
 // ---- Your listings --------------------------------------------------------------------------------------------------
 
 export function ListingsView({ s, act }: { s: M2State; act: (a: M2Act) => void }) {
+  const say = (text: string) => act({ t: "listingNote", text });
   return (
     <>
       <Note text={s.note.listings} />
-      <ul className="pso-homes m2-gap">
+      <div className="lst-grid">
         {s.listings.map((l) => (
-          <li key={l.id} className="pso-home">
-            <HomeBlock hue={l.hue} label={l.street} />
-            <div className="pso-home-b">
-              <p className="pso-home-t"><b>{l.street}</b><span className={`pso-pill m2-st ${l.status.replace(/\s+/g, "-").toLowerCase()}`}>{l.status}</span></p>
-              <small>{l.city} · {money(l.price)}{l.days ? ` · ${l.days} days on market` : " · not live yet"}</small>
-              <small>{l.views.toLocaleString("en-US")} views · {l.showings} showings</small>
-              <ul className="pso-checks">
-                {l.steps.map((st, i) => (
-                  <li key={st.label}>
-                    <button type="button" className={`pso-check${st.done ? " on" : ""}`} onClick={() => act({ t: "step", id: l.id, i })} aria-pressed={st.done}>
-                      <i aria-hidden="true">{st.done ? "✓" : ""}</i>
-                      <span>{st.label}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </li>
+          <ListingCard
+            key={l.id}
+            v={exampleCard(l)}
+            canLaunch
+            onOpen={() => say(`${l.street}: on your own listing this opens its orb, with Launch and Who of mine fits beside it. ${EXAMPLE_SAVED}`)}
+            onLaunch={() => (l.launch ? say(`${l.street}: each piece opens where it lives, for you to approve. Nothing goes out until you do. ${EXAMPLE_SAVED}`) : act({ t: "launch", id: l.id }))}
+            onFits={() => say(`${l.street}: ${l.fits} of your people fit. On your own listing, Make my call list puts them on today's calls; nothing is sent. ${EXAMPLE_SAVED}`)}
+            onMarquee={() => say(`${l.street}: on your own listing this opens it in Marquee, already signed in. ${EXAMPLE_SAVED}`)}
+            onReport={l.status === "Launching" ? undefined : () => say(`${l.street}: on your own listing this opens this week's seller report in Marquee. ${EXAMPLE_SAVED}`)}
+          />
         ))}
-      </ul>
+      </div>
     </>
   );
 }
