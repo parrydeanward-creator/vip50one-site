@@ -18,11 +18,13 @@ import "@/app/market-report.css";
 // "Your report settings" on the Market Reports page (HOME-REPORT §3a): this month's video, which optional sections
 // go in, and the quarterly postcard. In example mode it is local state only. Live, it reads and saves through ONE
 // MOVE's /api/brain/home-report/settings and /video (the same credentialed calls as the rest of this page); until
-// those exist (404, 405 or a failed call) it says "Saving opens soon" and keeps what the agent chose on screen.
+// those answer, a live agent does not see the card at all (Parry, 18 Oct: a card that cannot save looked broken while
+// he set up a report); if a save fails later it says "Saving opens soon" and keeps what the agent chose on screen.
 
 export default function ReportSettings({ demo }: { demo: boolean }) {
   const [s, setS] = useState<Settings>(defaultSettings);
   const [soon, setSoon] = useState(false);
+  const [ready, setReady] = useState(demo);
   const [msg, setMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -32,12 +34,11 @@ export default function ReportSettings({ demo }: { demo: boolean }) {
     fetch(settingsUrl, { credentials: "include", cache: "no-store" })
       .then(async (r) => {
         if (off) return;
-        if (!r.ok) return setSoon(true);
+        if (!r.ok) return;
         const got = readSettings(await r.json().catch(() => null));
-        if (got) setS(got);
-        else setSoon(true);
+        if (got) { setS(got); setReady(true); }
       })
-      .catch(() => { if (!off) setSoon(true); });
+      .catch(() => {});
     return () => { off = true; };
   }, [demo]);
 
@@ -73,6 +74,8 @@ export default function ReportSettings({ demo }: { demo: boolean }) {
     else el.removeAttribute("capture");
     el.click();
   };
+
+  if (!ready) return null;
 
   return (
     <section className="mrs" aria-label="Your report settings">

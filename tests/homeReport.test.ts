@@ -332,4 +332,6 @@ test("report settings: every section on and the postcard off by default", () => 
   assert.equal(readSettings(null), null);
   const src = readFileSync(new URL("../components/brain/ReportSettings.tsx", import.meta.url), "utf8");
   assert.ok(src.includes("POSTCARD_LABEL") && src.includes("SETTINGS_FIXED_NOTE") && src.includes("VIDEO_HINT"));
+  // A live agent sees the card only once ONE MOVE's settings route answers (Parry, 18 Oct).
+  assert.ok(/useState\(demo\)/.test(src) && src.includes("if (!ready) return null;"));
 });
