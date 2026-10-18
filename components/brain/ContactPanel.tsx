@@ -24,6 +24,7 @@ import DraftsSection, { type DraftPreset } from "./DraftsSection.tsx";
 import LifeEventsSection from "./LifeEventsSection.tsx";
 import PermissionsSection from "./PermissionsSection.tsx";
 import HomeReportSection from "./HomeReportSection.tsx";
+import CmaSection from "./CmaSection.tsx";
 import TalkSection from "./TalkSection.tsx";
 import LeadCard from "./LeadCard.tsx";
 import { leadCardMode, type LeadOutcome, type NewLead, type RetryWhen } from "@/lib/newLeads.ts";
@@ -272,6 +273,7 @@ function ContactCard({ contactId, taskId, onLogged, lead, agentFirst, onLeadOutc
       <DraftsSection contactId={contactId} phone={tel} email={mail} onSent={(k) => tap(k)} preset={preset} />
       <PermissionsSection contactId={contactId} />
       <HomeReportSection contactId={contactId} first={first} />
+      <CmaSection contactId={contactId} first={first} />
       <SendsSection contactId={contactId} />
       {card.source_label && <p className="cc-source">{card.source_label}</p>}
     </div>
