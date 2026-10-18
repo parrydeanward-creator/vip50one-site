@@ -62,6 +62,8 @@ import MarqueeView from "./views/MarqueeView.tsx";
 import { mqKeyOf, type MqKey } from "@/lib/examples/marquee.ts";
 import ShowlyTools, { SHOWLY_TOOL } from "./views/ShowlyTools.tsx";
 import OpenTools, { OPEN_TOOL } from "./views/OpenTools.tsx";
+import GrowthPanel, { realLabel } from "./views/GrowthPanel.tsx";
+import GrowthView from "./views/GrowthView.tsx";
 import WinsView from "./WinsView.tsx";
 import LifeUpcomingView from "./LifeUpcomingView.tsx";
 import OutreachPanel, { AttractionSection } from "./OutreachPanel.tsx";
@@ -1561,6 +1563,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   );
   // Power Hour: today's calls, most urgent first, then the VIP-50 with no call this month.
   const [powerOpen, setPowerOpen] = useState(false);
+  const [growthOpen, setGrowthOpen] = useState<string | null>(null); // a Growth piece's full view, by its key
   const callsKey = JSON.stringify(lineUp(graph.today ?? [], roster));
   const calls = useMemo(() => JSON.parse(callsKey) as Call[], [callsKey]);
   const [power, setPower] = useState<PowerSession | null>(null);
@@ -2248,7 +2251,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     const wantsProfile = openParam === "profile";
     // ?open=<name> for an orb with no ONE MOVE page of its own (Parry, 17 Oct: a Getting started link must land in the
     // Brain, not Classic): https://www.vip50one.com/dashboard?open=getting-started
-    const orb = openParam ? OPEN_ORBS[openParam] : undefined;
+    // ?open=growth or ?open=growth:<piece> opens ONE Growth or one of its pieces (the phone shows only six orbs at a time).
+    const orb = openParam ? OPEN_ORBS[openParam] ?? (openParam === GROWTH_NODE || isGrowthChild(openParam) ? openParam : undefined) : undefined;
     if (!fromPath && !wantsProfile && !orb) return;
     if (openParam) {
       u.searchParams.delete("open");
@@ -3673,13 +3677,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           {mqKeyOf(focus.id) && !tour && !ask ? (
             <MarqueePanel tool={mqKeyOf(focus.id)!} today={todayIn()} example={!live || !!focus.secondaryLabel?.startsWith("Example")} onOpen={(deck, tool) => setMqOpen({ tool: tool ?? mqKeyOf(focus.id)!, deck, href: focus.href })} />
           ) : null}
+          {/* Each Growth piece shows its example in the panel and opens its full view inside the Brain (Parry, 18 Oct);
+              the real place (studio, ONE MOVE, My Profile) stays as the secondary button. */}
+          {growthPiece && <GrowthPanel childKey={growthPiece.key} showOpen={!tour} onOpen={() => setGrowthOpen(growthPiece.key)} />}
           {growthPiece && !tour && (growthPiece.button ? (
-            <button className="pi-film pm-open" onClick={() => runGrowth(growthPiece.button!.action)}>
-              <span className="pi-play" aria-hidden="true">↗</span>
-              <span>
-                <b>{growthPiece.button.label}</b>
-                <span>{growthPiece.button.note}</span>
-              </span>
+            <button type="button" className="chip-btn gv-real" title={growthPiece.button.note} onClick={() => runGrowth(growthPiece.button!.action)}>
+              {realLabel(growthPiece.button.action.kind)} ↗
             </button>
           ) : null)}
           {focus.id === LIKELY_NODE && !tour && (
@@ -4368,6 +4371,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           onClose={() => setGoalsOpen(false)}
         />
       ) : null}
+      {growthOpen ? <GrowthView start={growthOpen} keys={growthChildren(growthState).map((c) => c.key)} live={live} onClose={() => setGrowthOpen(null)} /> : null}
       {powerOpen ? (
         <PowerHourView calls={calls} session={session} live={live} onSession={savePower} onTick={(ref, on) => tickDay(`day:${ref}`, on)} onClose={() => setPowerOpen(false)} />
       ) : null}
