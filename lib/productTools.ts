@@ -265,7 +265,7 @@ const OPEN_EXAMPLE: Record<(typeof OPEN_KEYS)[number], Record<string, unknown>> 
   open_houses: { items: [{ address: "123 Example Lane", phase: "prepare", visitors: 0, tasks_left: 6 }, { address: "45 Sample Court", phase: "follow_up", visitors: 14, tasks_left: 2 }] },
   visitors: { items: [{ name: "Sam R", address: "45 Sample Court", rating: 3, hot: true }, { name: "Lee T", address: "45 Sample Court", rating: 2, hot: false }] },
   questions: { items: [{ question: "How old is the roof?", room: "Kitchen", answered: false }] },
-  reports: { items: [{ address: "45 Sample Court", seller_report_sent: true, seller_recap_ready: true, buyer_reports_sent: 9 }] },
+  reports: { items: [{ address: "45 Sample Court", seller_report_sent: false, seller_recap_ready: true, buyer_reports_sent: 9 }] },
   scorecard: { open_houses: 2, sign_ins: 23, contacts: 19, appointments: 3, clients: 1 },
   safety: { active: true, buddy: "Your buddy gets a text if you do not check out on time" },
 };
@@ -412,9 +412,9 @@ export function showlyToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] {
     }];
   });
   const toursOrb = orb(p, "tours", "Tours", "One tour per showing day: capture each home with photos and a voice note, then build the recap and send it.", {
-    sub: tours ? (tours.length ? plural(tours.length, "tour") + " in 60 days" : "No tours yet") : "1 tour",
+    sub: tours ? (tours.length ? plural(tours.length, "tour") + " in 60 days" : "No tours yet") : "2 tours",
     stats: week != null ? [{ label: "Tours this week", value: String(week) }] : undefined,
-    rows: tours ? tourRows : exampleRows(p, "tours", [["Dana", "4 homes · Sat 10:00 · recap sent"]]),
+    rows: tours ? tourRows : exampleRows(p, "tours", [["Dana", "5 homes · Sat 10:00 · recap ready"]]),
     path: "/app",
     example: !tours,
   });
@@ -422,7 +422,7 @@ export function showlyToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] {
   const answersOrb = orb(p, "answers", "Buyer answers", "Your buyers answer Yes, Maybe or No on each home, with a note, the moment they open the recap.", {
     sub: answers != null ? (answers ? `${plural(answers, "home")} answered, 7 days` : "No new answers") : "2 Yes",
     stats: answers != null ? [{ label: "New answers, 7 days", value: String(answers) }] : undefined,
-    rows: answers != null ? [] : exampleRows(p, "answers", [["Dana", "Yes on 2 homes · Maybe on 1"]]),
+    rows: answers != null ? [] : exampleRows(p, "answers", [["Dana", "Yes on 2 homes · Maybe on 2 · No on 1"]]),
     path: "/app",
     example: answers == null,
     kinds: ["reaction"],
@@ -440,8 +440,8 @@ export function showlyToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] {
     }];
   });
   const recapsOrb = orb(p, "recaps", "Recaps", "The tour recap your buyer opens on their phone: every home, your notes for them, and Yes, Maybe or No.", {
-    sub: recaps ? (recaps.length ? plural(recaps.length, "recap") : "None sent yet") : "Viewed 3 times",
-    rows: recaps ? recapRows : exampleRows(p, "recaps", [["Dana", "Sent Sat · viewed 3 times · 2 of 4 homes answered"]]),
+    sub: recaps ? (recaps.length ? plural(recaps.length, "recap") : "None sent yet") : "2 ready to send",
+    rows: recaps ? recapRows : exampleRows(p, "recaps", [["Dana", "Sat · 5 homes · ready to send"], ["Marcus", "Thu · 3 homes · ready to send"]]),
     path: "/app",
     example: !recaps,
   });
@@ -450,12 +450,12 @@ export function showlyToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] {
   const lo = lender ? str(lender.lo_name, 60) : null;
   const waitingLetters = lender ? num(lender.requests_waiting) : null;
   const lenderOrb = orb(p, "lender", "Lender", "Your loan officer on every recap: ask for a pre-approval letter for any home and see the moment it is ready. They never see your notes.", {
-    sub: connected === false ? "Not connected" : connected ? (lo ? `${lo} · connected` : "Connected") : back != null ? (back ? `${plural(back, "letter")} back, 14 days` : "No letters back") : "Not connected",
+    sub: connected === false ? "Not connected" : connected ? (lo ? `${lo} · connected` : "Connected") : back != null ? (back ? `${plural(back, "letter")} back, 14 days` : "No letters back") : "Priya · connected",
     stats: [
       back != null ? { label: "Letters back, 14 days", value: String(back) } : null,
       waitingLetters != null ? { label: "Requests waiting", value: String(waitingLetters) } : null,
     ].filter((x): x is Stat => !!x),
-    rows: lender || back != null ? (connected === false ? [{ id: `${toolId(p, "lender")}:connect`, label: "Connect your loan officer", sub: "Letters for each home in minutes", type: "feature" }] : []) : exampleRows(p, "lender", [["Connect your loan officer", "Letters for each home in minutes"]]),
+    rows: lender || back != null ? (connected === false ? [{ id: `${toolId(p, "lender")}:connect`, label: "Connect your loan officer", sub: "Letters for each home in minutes", type: "feature" }] : []) : exampleRows(p, "lender", [["Priya", "Connected · 1 letter ready, 1 waiting"]]),
     link: lender?.link,
     path: "/app",
     example: !lender && back == null,
