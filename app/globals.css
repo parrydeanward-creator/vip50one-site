@@ -2802,7 +2802,24 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .cma-link-row { display: flex; gap: 6px; }
 .cma-link-row input { flex: 1; font-size: 12px; }
 .cma-nosite { margin-top: 6px; }
-@media (min-width: 900px) { .cma-cols { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); align-items: start; } .cma-side { position: sticky; top: 12px; } }
+@media (min-width: 900px) { .cma-cols { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); align-items: start; } }
+.cma-side { display: grid; gap: 14px; min-width: 0; }
+.cma-part label, .cma-part input, .cma-part textarea { min-width: 0; }
+.cma-part input[type="text"], .cma-part textarea { padding: 7px 9px; border: 1px solid rgba(160, 175, 210, 0.35); border-radius: 8px; background: rgba(11, 18, 38, 0.8); color: var(--text); font: inherit; font-size: 14px; color-scheme: dark; box-sizing: border-box; width: 100%; }
+.cma-part textarea { resize: vertical; }
+.cma-net-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
+.cma-net-grid label, .cma-prep-row label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-3); }
+.cma-next-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cma-next-grid label:first-child { grid-column: 1 / -1; }
+.cma-net-line { margin: 4px 0 0; }
+.cma-count { margin: 2px 0; }
+.cma-part-acts { margin-top: 10px; align-items: center; }
+.cma-prep { display: grid; gap: 10px; margin-top: 10px; }
+.cma-prep-row { display: grid; gap: 8px; padding: 10px; border: 1px solid rgba(160, 175, 210, 0.2); border-radius: 10px; }
+.cma-prep-do { display: flex; gap: 6px; }
+.cma-prep-pro { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.cma-prep-add { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.cma-prep-add .link, .cma-prep-row .link { padding: 0; }
 @media (max-width: 480px) { .cma-adj-row { grid-template-columns: 1fr 90px; } .cma-adj-x { grid-column: 1 / -1; } }
 .cma-adj .link, .cma-video .link, .cma-nosite .link { padding: 0; }
 
@@ -2857,3 +2874,10 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .fits-tick { margin-top: 3px; width: 16px; height: 16px; flex: none; accent-color: #d4af37; }
 .fits-from { opacity: 0.65; }
 .fits-sent, .fits-note { margin: 8px 0 0; font-size: 12px; opacity: 0.75; }
+
+.tours-check { display: flex; align-items: center; gap: 10px; margin: 6px 0; font-size: 14px; color: var(--text); }
+.tours-check input { width: 18px; height: 18px; accent-color: var(--gold-2); }
+.tours-days { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+.tours-times { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 6px 0; }
+.tours-times label { display: grid; gap: 4px; font-size: 13px; color: var(--text-2); }
+.tours-times input { min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); font: inherit; color-scheme: dark; }
