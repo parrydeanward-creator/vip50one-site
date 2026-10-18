@@ -22,7 +22,10 @@ const toProduct = async (T, orb) => {
 // Open a tool inside an orb: the product's orbs (one step back if already inside it), then the tool from its panel.
 const openTool = async (T, orb, tool) => {
   await toProduct(T, orb);
-  await T.click(T.inside(tool));
+  // Products list their tools down the left (the rail); older panels list them in the drawer.
+  const r = T.rail(tool).first();
+  if (await r.isVisible().catch(() => false)) await T.click(r);
+  else await T.click(T.inside(tool));
 };
 // The tool's own full screen, from the "Open …" button in its panel.
 const openFull = async (T, label) => {

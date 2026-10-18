@@ -20,7 +20,7 @@ const to = Number(process.argv[4] || CHAPTERS.length);
 const W = 1920, H = 1080;
 // The page runs SLOW times slower (the map's own clock, CSS animations, every wait here), then the video is sped back
 // up; a machine without a GPU then still draws every frame (as scripts/record-watch.mjs does for the films).
-const SLOW = Number(process.env.SLOW || 3);
+const SLOW = Number(process.env.SLOW || 6);
 // DRY=<dir>: a quick check run, no video, a screenshot after every moment and short waits (find what misses first).
 const DRY = process.env.DRY || "";
 const BASE = process.env.BASE || "http://localhost:3102";
@@ -30,13 +30,33 @@ const suffix = from === 1 && to === CHAPTERS.length ? "" : `-ch${from}-${to}`;
 // How long a line takes to say (Brian, about 2.6 words a second), with a breath after.
 export const sayMs = (say) => Math.max(3200, Math.round(say.split(/\s+/).length * 390 + 1100));
 
-const b = await chromium.launch({ executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium", args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
+const b = await chromium.launch({ executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium", args: process.env.SWIFTSHADER ? ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] : [] }); // the default draws about 3x more frames here
 const ctx = await b.newContext({ timezoneId: "America/Denver", viewport: { width: W, height: H }, ...(DRY ? {} : { recordVideo: { dir, size: { width: W, height: H } } }) });
 // The example agent's day runs on a Monday morning (Parry, 16 Oct: the Day Clock must show a full day, recorded in the
 // daytime). The page's clock is shifted, not frozen: timers and animations run as normal. T.advance(min) moves it on.
 const TOUR_TIME = process.env.TOUR_TIME || "2026-10-19T08:40:00-06:00";
 const SHIFT = new Date(TOUR_TIME).getTime() - Date.now();
-await ctx.addInitScript(`(() => { const shift = ${SHIFT}; const R = Date; let extra = 0; try { extra = +sessionStorage.getItem("tourExtra") || 0; } catch {} globalThis.__tourAdd = (min) => { extra += min * 60000; try { sessionStorage.setItem("tourExtra", String(extra)); } catch {} }; class D extends R { constructor(...a) { if (a.length === 0) super(R.now() + shift + extra); else super(...a); } static now() { return R.now() + shift + extra; } } D.parse = R.parse; D.UTC = R.UTC; globalThis.Date = D; })();`);
+// Time runs SLOW times slower inside the page too (Date, performance.now, animation frames, timers), so the
+// map's own motion is slowed with everything else. This container draws only a few frames a second; with the
+// page's clock slowed, the sped-up film gets enough frames and every movement plays at real speed (17 Oct:
+// Parry saw the map in slow motion when only CSS and the waits were slowed).
+const DILATE = DRY ? 1 : SLOW;
+await ctx.addInitScript(`(() => { const shift = ${SHIFT}; const k = ${DILATE}; const R = Date; const r0 = R.now(); const pn = performance.now.bind(performance); const p0 = pn();
+  let extra = 0; try { extra = +sessionStorage.getItem("tourExtra") || 0; } catch {}
+  globalThis.__tourAdd = (min) => { extra += min * 60000; try { sessionStorage.setItem("tourExtra", String(extra)); } catch {} };
+  const nowMs = () => r0 + (R.now() - r0) / k + shift + extra;
+  class D extends R { constructor(...a) { if (a.length === 0) super(nowMs()); else super(...a); } static now() { return nowMs(); } }
+  D.parse = R.parse; D.UTC = R.UTC; globalThis.Date = D;
+  if (k !== 1) {
+    const perfNow = () => p0 + (pn() - p0) / k;
+    performance.now = perfNow;
+    const raf = globalThis.requestAnimationFrame.bind(globalThis);
+    globalThis.requestAnimationFrame = (cb) => raf(() => cb(perfNow()));
+    const st = globalThis.setTimeout.bind(globalThis), si = globalThis.setInterval.bind(globalThis);
+    globalThis.setTimeout = (fn, ms, ...a) => st(fn, (+ms || 0) * k, ...a);
+    globalThis.setInterval = (fn, ms, ...a) => si(fn, (+ms || 0) * k, ...a);
+  }
+})();`);
 const t0 = Date.now();
 const p = await ctx.newPage();
 const cdp = await ctx.newCDPSession(p);
@@ -138,7 +158,7 @@ const T = {
   },
   // Move the page's clock on by min minutes (a missed block, a later hour).
   async advance(min) {
-    await p.evaluate((m) => globalThis.__tourAdd && globalThis.__tourAdd(m), min);
+    await p.evaluate((m) => { globalThis.__tourAdd && globalThis.__tourAdd(m); window.dispatchEvent(new Event("focus")); }, min); // focus: the day re-checks at once
   },
   // Wait (real time, not slowed) until text appears on the page.
   async waitText(re, ms = 30000) {
