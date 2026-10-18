@@ -125,6 +125,7 @@ import { LEADS_NODE, demoNewLeads, leadOf, readNewLeads, todayUrl, withNewLeadsN
 import LeadCard from "./LeadCard.tsx";
 import { postDay, type TeamPost } from "@/lib/teamPosts.ts";
 import { perProduct } from "@/lib/perProduct.ts";
+import ListingFitsSection from "./ListingFitsSection.tsx";
 import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, type Launch } from "@/lib/launch.ts";
 import LaunchPanel from "./LaunchPanel.tsx";
 import LooksHotPanel from "./LooksHotPanel.tsx";
@@ -3549,6 +3550,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                 goTo(movePageId(path));
               }}
             />
+          )}
+
+          {/^marquee:listing:/.test(focus.id) && launchRefOf(focus.id) && focus.product === "marquee" && !focus.locked && !ask && (
+            <ListingFitsSection key={focus.id} listingId={launchRefOf(focus.id)!} live={live} />
           )}
 
           {focus.decide && !focus.locked && !ask && (
