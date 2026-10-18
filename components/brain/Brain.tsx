@@ -64,6 +64,9 @@ import ShowlyTools, { SHOWLY_TOOL } from "./views/ShowlyTools.tsx";
 import OpenTools, { OPEN_TOOL } from "./views/OpenTools.tsx";
 import GrowthPanel, { realLabel } from "./views/GrowthPanel.tsx";
 import GrowthView from "./views/GrowthView.tsx";
+import MoveTools from "./views/MoveTools.tsx";
+import MoveExampleFetch from "./views/MoveExampleFetch.tsx";
+import { EXAMPLE_NATIVE, M2_PATHS, m2KeyOf, withExampleMoveTools } from "@/lib/examples/move2.ts";
 import WinsView from "./WinsView.tsx";
 import LifeUpcomingView from "./LifeUpcomingView.tsx";
 import OutreachPanel, { AttractionSection } from "./OutreachPanel.tsx";
@@ -289,7 +292,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const war30Ref = useRef<War30 | null>(null);
   const hubNow = (): HubInput => ({ lead: isTeamLead(warRef.current, onbRef.current, teamSitesRef.current) || !!peopleRef.current?.people.length, team: teamRef.current, war: warRef.current, onb: onbRef.current, removed: onbRemovedRef.current, now: Date.now(), people: peopleRef.current, war30: war30Ref.current });
   const admin = agent.admin === true;
-  const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(productTour ? withDemoTrackers(withTourPages(initialGraph)) : live ? initialGraph : withDemoTrackers(withTourPages(initialGraph, DEMO_PAGES)), null), admin), teamLeadsHint));
+  const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(productTour ? withExampleMoveTools(withDemoTrackers(withTourPages(initialGraph))) : live ? initialGraph : withDemoTrackers(withTourPages(initialGraph, DEMO_PAGES)), null), admin), teamLeadsHint));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
   // this, a refresh after logging a call changed nothing on screen.
@@ -1126,8 +1129,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     eventsRef.current = eventsNow;
     plansRef.current = plans;
     learnRef.current = learn;
-    setGraph((g) => withLearnNodes(withPlanNodes(withEventsNodes(withOutreachNodes(g, outreach), eventsNow), plans), learn));
-  }, [outreach, eventsNow, plans, learn]);
+    setGraph((g) => {
+      const next = withLearnNodes(withPlanNodes(withEventsNodes(withOutreachNodes(g, outreach), eventsNow), plans), learn);
+      // the walk-through's Video Library and VIP Docs move under Learn once it is there (lib/examples/move2.ts)
+      return productTour ? withExampleMoveTools(next) : next;
+    });
+  }, [outreach, eventsNow, plans, learn, productTour]);
   // Deals under contract (§3z): from ONE MOVE once it answers (404 until then: no orb), the example agent's in the demo.
   const [deals, setDeals] = useState<Deal[] | null>(null);
   const [dealsOpen, setDealsOpen] = useState<false | "list" | "add">(false);
@@ -2649,7 +2656,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // A ONE MOVE page that opens inside the Brain (lib/moveMenu.ts IN_BRAIN).
   // the example agent's New to Sort orb (lib/graph/move.ts) opens the same native view as the live one
   const rawPage = !ask && !tour ? inBrainPage(state.focusId) ?? (state.focusId === DEMO_NTS_NODE ? { label: "New to Sort", path: NTS_PATH } : null) : null;
-  const pagePanel = rawPage && (!(PANEL_FIRST.has(rawPage.path) || LEARN_PANEL_FIRST.has(rawPage.path)) || fullPage === rawPage.path) ? rawPage : null;
+  // The example agent's Drop-By Map, Referral Network... open on their side panel (lib/examples/move2.ts), not a sign-in page.
+  const pagePanel = rawPage && !(!live && M2_PATHS.has(rawPage.path)) && (!(PANEL_FIRST.has(rawPage.path) || LEARN_PANEL_FIRST.has(rawPage.path)) || fullPage === rawPage.path) ? rawPage : null;
   // A page opened for one person (the person panel's Refer / Post a need): its query rides on the frame's address.
   // Each opening starts behind the veil again, even for the same page.
   const panelPath = pagePanel?.path ?? null;
@@ -4065,6 +4073,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           {/* Showly and ONE Open tools: the example (or the agent's own rows) in the panel, and a full view inside the Brain (Parry, 18 Oct). */}
           {!ask && !tour && SHOWLY_TOOL.test(focus.id) ? <ShowlyTools node={focus} kids={kids} live={live} /> : null}
           {!ask && !tour && OPEN_TOOL.test(focus.id) ? <OpenTools node={focus} kids={kids} live={live} /> : null}
+          {!ask && !tour && !live && m2KeyOf(focus.id) ? <MoveTools node={focus} /> : null}
 
           {focus.locked && focus.id !== GROWTH_NODE && (
             <a className="btn" href={UPGRADE_URL}>
@@ -4185,6 +4194,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             </header>
             )}
             <div ref={frameBoxRef} className="page-panel-body">
+              {/* the example agent: ONE MOVE's answers from invented data, so the native view draws filled (lib/examples/move2.ts) */}
+              {!live && vipNative && nativeKind && EXAMPLE_NATIVE.has(nativeKind) ? <MoveExampleFetch /> : null}
               {vipNative && nativeKind === "audit" ? (
                 <TouchAudit
                   onUnavailable={vipUnavailable}
@@ -4224,7 +4235,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                 />
               ) : vipNative && nativeKind === "profile" ? (
                 <MyProfile
-                  demo={!live && !productTour}
+                  demo={!live}
                   gbpDemo={!live}
                   onOpenGbp={openGbp}
                   onUnavailable={vipUnavailable}
