@@ -13,6 +13,7 @@ import {
   referralLinkUrl,
   type MyHome,
   IMPROVEMENTS_HEAD,
+  MAX_IMPROVEMENT_PHOTOS,
   improvementLine,
   type PersonExtras,
   type ReferralLink,
@@ -56,7 +57,17 @@ export function MyHomeLine({ myHome }: { myHome: MyHome | null | undefined }) {
           <p>{IMPROVEMENTS_HEAD}</p>
           <ul>
             {myHome.improvements.map((i) => (
-              <li key={i.id}>{improvementLine(i)}</li>
+              <li key={i.id}>
+                {improvementLine(i)}
+                {i.photos && i.photos.length ? (
+                  <ul className="imp-photos" aria-label={`Photos of ${i.what}`}>
+                    {i.photos.slice(0, MAX_IMPROVEMENT_PHOTOS).map((u, k) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <li key={u}><img className="imp-photo" src={u} alt={`${i.what}, photo ${k + 1}`} width={56} height={56} loading="lazy" referrerPolicy="no-referrer" /></li>
+                    ))}
+                  </ul>
+                ) : null}
+              </li>
             ))}
           </ul>
         </div>

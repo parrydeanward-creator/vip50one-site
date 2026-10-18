@@ -14,6 +14,8 @@ export const cmaStartUrl = `${cmaUrl}/start`;
 export const cmaSaveUrl = `${cmaUrl}/save`;
 export const cmaSendUrl = `${cmaUrl}/send`;
 export const cmaDraftUrl = `${cmaUrl}/draft`;
+export const cmaRefreshUrl = `${cmaUrl}/refresh`;
+export const cmaNextHomeSearchUrl = `${cmaUrl}/next-home-search`;
 /** Where the website is set up (Getting Started's website step goes here too). */
 export const SITE_SETUP_URL = `${MOVE_URL}/profile/agent-hub`;
 
@@ -92,7 +94,16 @@ export interface Cma {
   buyerDemand: { count: number; asOf: string | null } | null;
 }
 export interface WelcomeVideo { on: boolean; seconds: number | null; recordUrl: string | null }
-export interface CmaLoaded { contactId: string; cma: Cma; link: string | null; hasSite: boolean; welcomeVideo: WelcomeVideo | null }
+export interface CmaLoaded {
+  contactId: string;
+  cma: Cma;
+  link: string | null;
+  hasSite: boolean;
+  welcomeVideo: WelcomeVideo | null;
+  /** The sent CMA this draft was redrawn from (vip50-web-crm#320), with what changed since it was sent. */
+  refreshedFrom?: string | null;
+  changes?: CmaChanges | null;
+}
 
 const str = (v: unknown, max = 300): string | null => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
 const numOr = (v: unknown): number | null => {
@@ -204,6 +215,94 @@ export function readCmaLoaded(j: unknown): CmaLoaded | null {
     link: https(r.link),
     hasSite: r.has_site !== false,
     welcomeVideo: v && typeof v === "object" ? { on: v.on === true, seconds: numOr(v.seconds), recordUrl: https(v.record_url) } : null,
+    refreshedFrom: str(r.refreshed_from, 100),
+    changes: readChanges(r.changes),
+  };
+}
+
+// ---- The monthly redraw (vip50-web-crm#320; Classic's CmaEditor, same words) -----------------------------------------
+export const REDRAW_BUTTON = "Redraw with this month's sales";
+export const REDRAW_BUSY = "Redrawing…";
+export const REDRAW_FAILED = "Could not redraw just now.";
+export const REDRAW_HEAD = "Redrawn with this month's sales. What changed since you sent it:";
+export const REDRAW_KEPT = "Your range, notes, net sheet and the rest are kept. Check it, then Send: their old page closes when the new one goes live.";
+export const NO_CHANGE_LINE = "No change in the comparables since you sent it";
+export const DEMO_SUFFIX = "(Example: nothing was saved.)";
+
+export interface CmaChanges {
+  carried: string[];
+  noLongerShown: string[];
+  new: string[];
+  listingChanges: { listingId: string; kind: string }[];
+}
+const strList = (v: unknown): string[] => (Array.isArray(v) ? v.flatMap((x) => (str(x, 100) ? [str(x, 100) as string] : [])) : []);
+
+/** GET ?id='s `changes` (carried[], no_longer_shown[], new[], listing_changes[]); null when absent. */
+export function readChanges(v: unknown): CmaChanges | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const listingChanges = (Array.isArray(o.listing_changes) ? o.listing_changes : []).flatMap((x) => {
+    if (!x || typeof x !== "object") return [];
+    const r = x as Record<string, unknown>;
+    const listingId = str(r.listing_id, 100), kind = str(r.kind, 40);
+    return listingId && kind ? [{ listingId, kind }] : [];
+  });
+  return { carried: strList(o.carried), noLongerShown: strList(o.no_longer_shown), new: strList(o.new), listingChanges };
+}
+
+const CHANGE_WORDS: Record<string, string> = {
+  price_changed: "price changed",
+  under_contract: "went under contract",
+  back_on_market: "came back on the market",
+  closed: "sold",
+  no_longer_for_sale: "is no longer for sale",
+};
+
+/** Property's changes since the last send as plain lines (counts and kinds; no values), as Classic's changeLines. */
+export function changeLines(c: CmaChanges | null | undefined, addressOf: (id: string) => string = (id) => `MLS ${id}`): string[] {
+  if (!c) return [];
+  const out: string[] = [];
+  if (c.new.length) out.push(`${c.new.length} new comparable${c.new.length === 1 ? "" : "s"} suggested`);
+  if (c.noLongerShown.length) out.push(`${c.noLongerShown.length} comparable${c.noLongerShown.length === 1 ? " is" : "s are"} no longer shown`);
+  for (const l of c.listingChanges) out.push(`${addressOf(l.listingId)} ${CHANGE_WORDS[l.kind] ?? l.kind.replace(/_/g, " ")}`);
+  if (!out.length) out.push(NO_CHANGE_LINE);
+  return out;
+}
+
+/** The redraw button shows on a sent CMA whose link is live (as Classic). */
+export const canRedraw = (c: Cma) => !!c.sent && c.sent.linkLive;
+
+/** POST refresh's answer: the new cma_id, or ONE MOVE's words (else plain ones). */
+export function readRefreshAnswer(j: unknown, httpOk: boolean): { ok: true; cmaId: string } | { ok: false; words: string } {
+  const r = (j && typeof j === "object" ? j : {}) as Record<string, unknown>;
+  const id = str(r.cma_id, 100);
+  if (httpOk && r.ok !== false && id) return { ok: true, cmaId: id };
+  return { ok: false, words: str(r.words, 300) ?? str(r.error, 300) ?? REDRAW_FAILED };
+}
+
+// ---- Your next home: "Approve the search for them" (vip50-web-crm#319) -------------------------------------------------
+export const APPROVE_SEARCH = "Approve the search for them";
+export const APPROVE_BUSY = "Saving…";
+export const SEARCH_SAVED = "Saved in their account on your site. They get alerts only if they turn them on.";
+export const SEARCH_FAILED = "Could not save the search.";
+
+/** POST next-home-search's answer: the saved line on ok, else ONE MOVE's words (else plain ones). */
+export function readSearchAnswer(j: unknown, httpOk = true): { ok: boolean; text: string } {
+  const r = (j && typeof j === "object" ? j : {}) as Record<string, unknown>;
+  if (httpOk && r.ok === true) return { ok: true, text: SEARCH_SAVED };
+  return { ok: false, text: str(r.words, 300) ?? str(r.error, 300) ?? SEARCH_FAILED };
+}
+
+/** The example after a redraw: a fresh draft that keeps the range, notes and parts, with a few example changes. */
+export function demoRedraw(d: CmaLoaded, fromId: string): CmaLoaded {
+  const first = d.cma.comparables[0]?.listingId ?? "demo-l1";
+  const second = d.cma.comparables[1]?.listingId ?? "demo-l2";
+  return {
+    ...d,
+    link: null,
+    refreshedFrom: fromId,
+    changes: { carried: d.cma.comparables.map((c) => c.listingId), noLongerShown: ["demo-old-1"], new: ["demo-new-1", "demo-new-2"], listingChanges: [{ listingId: first, kind: "price_changed" }, { listingId: second, kind: "under_contract" }] },
+    cma: { ...d.cma, status: d.cma.range ? "ready" : "draft", sent: null },
   };
 }
 

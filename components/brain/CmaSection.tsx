@@ -123,6 +123,13 @@ export default function CmaSection({ contactId, first, demo = false }: { contact
           demo={demo}
           demoData={demo ? demoData[open.cmaId] : undefined}
           onChanged={changed}
+          onOpenNew={(id, data) => {
+            const row: CmaRow = { cmaId: id, address: open.address, status: "draft", link: null, linkEnds: null, sentAt: null, createdAt: new Date().toISOString() };
+            if (data) setDemoData((x) => ({ ...x, [id]: data }));
+            setRows((x) => [row, ...(x ?? [])]);
+            setOpen(row);
+            if (!demo) void load();
+          }}
           onClose={() => {
             setOpen(null);
             if (!demo) void load();

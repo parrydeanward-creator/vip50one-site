@@ -70,7 +70,7 @@ export default function OutreachPanel({
       <section className="d-list" aria-label="Action Plans now">
         <h2>Right now</h2>
         {outreach ? <p className="hr-line">{plansLine(outreach.plansRunning, outreach.plansWaiting)}</p> : waiting}
-        <p className="hr-sub">A plan&apos;s texts and emails wait as tasks for you to send, unless you switched its automatic sends on.</p>
+        <p className="hr-sub">A plan&apos;s texts always wait as ready-to-send tasks that open on your phone. Its emails wait too, unless you switched that plan&apos;s automatic emails on.</p>
         {example}
         <div className="op-acts">{open("Open Action Plans")}</div>
       </section>
