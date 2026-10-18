@@ -11,7 +11,9 @@ export async function GET(req: NextRequest) {
   const to = req.nextUrl.clone();
   to.search = "";
   if (await identity()) {
-    to.pathname = target;
+    const [p, q = ""] = target.split("?");
+    to.pathname = p;
+    to.search = q ? `?${q}` : "";
   } else {
     to.pathname = "/login";
     if (target !== "/dashboard") to.search = `?next=${encodeURIComponent(target)}`;

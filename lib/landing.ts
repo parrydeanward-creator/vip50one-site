@@ -1,4 +1,5 @@
-import { IN_BRAIN, pageFromAddress } from "./moveMenu.ts";
+import { pageFromAddress } from "./moveMenu.ts";
+import { isArrivalPath, openTarget } from "./deepLink.ts";
 
 // Where a signed-in agent lands (audit stage 1, Parry 14 Oct: "fix all of the above issues. even the new onnes").
 // - Land where they last were: the Brain keeps its last page in a cookie; sign-in goes back there.
@@ -22,11 +23,17 @@ export function lastPlace(v: string | null | undefined): string | null {
 
 /** /app?to=...: a ONE MOVE path ("/weekly") or a Brain address ("/dashboard/weekly") opens inside the Brain. */
 export function appTarget(to: string | null | undefined): string {
-  if (!to || !to.startsWith("/") || to.startsWith("//")) return "/dashboard";
+  if (!to || !to.startsWith("/") || to.startsWith("//") || to.includes("\\")) return "/dashboard";
   const path = to.split(/[?#]/)[0].replace(/\/+$/, "") || "/";
-  if (path === "/dashboard" || path === "/") return "/dashboard";
+  // ?open=<thing> survives signing in (lib/deepLink.ts), only for a name it knows; any other query is dropped
+  let open = "";
+  try {
+    const o = new URLSearchParams(to.split("#")[0].split("?")[1] ?? "").get("open");
+    if (o && o.length <= 120 && openTarget(o)) open = `?open=${encodeURIComponent(o)}`;
+  } catch {}
+  if (path === "/dashboard" || path === "/") return `/dashboard${open}`;
   const inner = path.startsWith("/dashboard/") ? path.slice("/dashboard".length) : path;
-  return IN_BRAIN.has(inner) ? `/dashboard${inner}` : "/dashboard";
+  return isArrivalPath(inner) && !inner.includes("..") ? `/dashboard${inner}${open}` : `/dashboard${open}`;
 }
 
 /** After sign-in: an asked-for place on this site (Brain or the reactivate page), else the last place, else the Brain. */

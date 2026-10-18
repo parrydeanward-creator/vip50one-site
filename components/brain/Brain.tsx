@@ -168,6 +168,9 @@ import { needWords, needsOf, type Need } from "@/lib/needs.ts";
 import { SEEN_KEY } from "@/lib/pulseIntro.ts";
 import type { SceneNeed } from "./scene.ts";
 import { returnNote, withoutNotes } from "@/lib/googleReturn.ts";
+import { arrivalFor, type Arrival } from "@/lib/deepLink.ts";
+import { DEMO_PAGES, withTourPages } from "@/lib/examples/tourPages.ts";
+import { arrivalExact, landing } from "@/lib/deepLinkNode.ts";
 import { IN_BRAIN, MENU_ORB, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_TOP, inBrainPage, moveGroupsFor, withMoveCoach, moveEmbedHref, moveGroupId, moveMenuHref, movePageId, type MovePage, pageAddress, pageFromAddress, withTeamLeadsPage } from "@/lib/moveMenu.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
@@ -201,38 +204,11 @@ function denverHour(now = new Date()): number {
 // showing, for the recorded product tour. The recorder answers their data calls with invented example data.
 const TOUR_AGENT: BrainAgent = { ...DEMO_AGENT, growth: true, plan: "ONE Complete + ONE Growth", label: "Sarah Bennett, ONE Complete + ONE Growth" };
 
-// The walk-through (?walk=1): the example graph has no ONE MOVE page nodes (lib/live.ts adds them for signed-in
-// agents), so a menu click on Contacts, VIP Management... found no node and went home. Add the pages drawn natively,
-// each under the example orb it belongs to.
-const TOUR_PAGES: [string, string, string][] = [
-  ["/contacts", "Contacts", "move-0"], ["/contacts/vip", "VIP Management", "move-2"], ["/contacts/audit", "Touch Audit", "move-1"],
-  ["/hot-warm-cold", "Hot/Warm/Cold", "move-9"], ["/rolodex", "Business Rolodex", "move-0"], ["/daily", "Daily Tracker", "move"],
-  ["/weekly", "Weekly Tracker", "move"], ["/profile", "My Profile", "move"], ["/home-reports", "Market Reports", "move"],
-];
-// The example agent (?demo=1) has no ONE MOVE menu either; Market Reports gets its orb so the example shows it (HOME-REPORT
-// §5.4, 16 Oct). It runs on example data there, with no network.
-// My Profile too, for "Pulse knows me" (PROFILE §5c, 16 Oct), on the example agent's own data.
-const DEMO_PAGES: [string, string, string][] = [["/home-reports", "Market Reports", "move"], ["/profile", "My Profile", "move"]];
-function withTourPages(g: BusinessGraph, pages = TOUR_PAGES): BusinessGraph {
-  const have = new Set(g.nodes.map((n) => n.id));
-  const nodes = [...g.nodes];
-  const edges = [...g.edges];
-  for (const [path, label, parent] of pages) {
-    const id = movePageId(path);
-    if (have.has(id)) continue;
-    const parentId = have.has(parent) ? parent : "move";
-    have.add(id);
-    nodes.push({ id, type: "feature", label, parentId, product: "move", importance: 0.3, href: moveMenuHref(path) });
-    edges.push({ id: `${parentId}>${id}`, source: parentId, target: id, relationshipType: "belongs_to", strength: 1 });
-  }
-  return { ...g, nodes, edges };
-}
-
-/** ?open=<name> -> the orb it opens (Brain-only orbs; ONE MOVE pages open by their own address). */
-const OPEN_ORBS: Record<string, string> = { "getting-started": START_NODE };
-
-export default function Brain({ graph: initialGraph, pkg = "complete", agent: agentIn = DEMO_AGENT, live = false, startPage = null, productTour = false }: { graph: BusinessGraph; pkg?: string; agent?: BrainAgent; live?: boolean; startPage?: string | null; productTour?: boolean }) {
+export default function Brain({ graph: initialGraph, pkg = "complete", agent: agentIn = DEMO_AGENT, live = false, startPage = null, startOpen = null, productTour = false }: { graph: BusinessGraph; pkg?: string; agent?: BrainAgent; live?: boolean; startPage?: string | null; startOpen?: string | null; productTour?: boolean }) {
   const agent = productTour ? TOUR_AGENT : agentIn;
+  // What the address asked for (/dashboard/<page>, ?open=<thing>; lib/deepLink.ts): it opens on arrival, ahead of the
+  // morning fly-through, Meet Pulse and the morning note (Parry, 18 Oct: links "just open the dashboard").
+  const [arrival] = useState(() => arrivalFor(startPage, startOpen));
   // Arriving on Team Leads means the agent is on a team: its orb is there before the team answer comes back.
   const teamLeadsHint = startPage === TEAM_LEADS_PATH;
   const hello = `${greeting()}, ${agent.firstName}.`;
@@ -292,7 +268,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const war30Ref = useRef<War30 | null>(null);
   const hubNow = (): HubInput => ({ lead: isTeamLead(warRef.current, onbRef.current, teamSitesRef.current) || !!peopleRef.current?.people.length, team: teamRef.current, war: warRef.current, onb: onbRef.current, removed: onbRemovedRef.current, now: Date.now(), people: peopleRef.current, war30: war30Ref.current });
   const admin = agent.admin === true;
-  const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(productTour ? withExampleMoveTools(withDemoTrackers(withTourPages(initialGraph))) : live ? initialGraph : withDemoTrackers(withTourPages(initialGraph, DEMO_PAGES)), null), admin), teamLeadsHint));
+  const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(productTour || (!live && arrival?.kind === "page") ? withExampleMoveTools(withDemoTrackers(withTourPages(initialGraph))) : live ? initialGraph : withDemoTrackers(withTourPages(initialGraph, DEMO_PAGES)), null), admin), teamLeadsHint));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
   // this, a refresh after logging a call changed nothing on screen.
@@ -401,7 +377,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     if (window.location.pathname === GBP_PATH) window.history.replaceState(null, "", "/dashboard" + window.location.search);
   }, []);
   useEffect(() => {
-    if (window.location.pathname === GBP_PATH) setGbpOpen(true);
+    if (window.location.pathname === GBP_PATH || arrival?.kind === "gbp") setGbpOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Morning Pulse (Parry, 16 Oct 21:14 MT): replaces Watch Pulse work, Watch ONE Work and Listen on the signed-in dashboard.
   const [mp, setMp] = useState<{ beats: MpBeat[]; example: boolean } | null>(null);
@@ -409,6 +386,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [goTour, setGoTour] = useState(false); // the ONE GO phone tour (Film B)
   useEffect(() => {
     if (!live) return;
+    if (arrival) return; // a link to a page opens that page; Meet Pulse waits for a plain visit
     try {
       if (window.localStorage.getItem(SEEN_KEY)) return;
       window.localStorage.setItem(SEEN_KEY, "1");
@@ -419,8 +397,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   }, [live]);
   const [state, setState] = useState(() => {
     const s = nav.start(graph.rootId);
-    const want = startPage ? movePageId(startPage) : null;
-    return want && graph.nodes.some((n) => n.id === want) ? nav.go(s, want) : s;
+    const want = arrival ? arrivalExact(arrival, (id) => graph.nodes.some((n) => n.id === id)) : null;
+    return want ? nav.go(s, want) : s;
   });
   const [phone, setPhone] = useState(false);
   const [ready, setReady] = useState(false);
@@ -1838,7 +1816,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     if (!ready) return;
     // Arriving on a page (a link to /dashboard/team-leads) opens that page, never the morning fly-through over it; the
     // visit is not counted, so the fly-through still plays the next time the Brain itself is opened today.
-    if (startPage) return;
+    if (arrival) return;
     let prev: string | null = null;
     let anchor: string | null = null;
     const now = new Date();
@@ -2249,39 +2227,39 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     fitNow(true);
   }, [graph.rootId, fitNow]);
 
-  // A page's own address (/dashboard/profile) or PROFILE.md §4's
-  // ?open=profile opens that page on arrival.
+  // A page's own address (/dashboard/profile), PROFILE.md §4's ?open=profile, or any ?open=<thing> (lib/deepLink.ts:
+  // growth, growth:<piece>, getting-started, goals, deals, team, a product, a ONE MOVE group or page) opens it on arrival.
+  // An orb that arrives a moment later (Team Leads and Team wait for the team answer, Getting started for its steps)
+  // opens when it appears (Parry, 13 Oct: /dashboard/team-leads landed on the main dashboard); if it never comes, the
+  // nearest orb opens with a plain line, never the bare map.
+  const pendingArrival = useRef<Arrival | null>(arrival && arrival.kind !== "gbp" ? arrival : null);
+  const [arrivalFinal, setArrivalFinal] = useState(false);
   useEffect(() => {
     const u = new URL(window.location.href);
-    const fromPath = pageFromAddress(u.pathname);
-    const openParam = u.searchParams.get("open");
-    const wantsProfile = openParam === "profile";
-    // ?open=<name> for an orb with no ONE MOVE page of its own (Parry, 17 Oct: a Getting started link must land in the
-    // Brain, not Classic): https://www.vip50one.com/dashboard?open=getting-started
-    // ?open=growth or ?open=growth:<piece> opens ONE Growth or one of its pieces (the phone shows only six orbs at a time).
-    const orb = openParam ? OPEN_ORBS[openParam] ?? (openParam === GROWTH_NODE || isGrowthChild(openParam) ? openParam : undefined) : undefined;
-    if (!fromPath && !wantsProfile && !orb) return;
-    if (openParam) {
+    if (u.searchParams.has("open")) {
       u.searchParams.delete("open");
       window.history.replaceState(null, "", u.toString());
     }
-    const want = orb ?? movePageId(fromPath ?? "/profile");
-    // A page whose orb arrives a moment later (Team Leads waits for the team answer) opens when it appears
-    // (Parry, 13 Oct: /dashboard/team-leads landed on the main dashboard).
-    if (ix.byId.has(want)) goTo(want);
-    else pendingPage.current = want;
-    // an address names the page itself, so a panel-first page opens full
-    if (fromPath) setFullPage(fromPath);
+    if (!pendingArrival.current) return;
+    const t = setTimeout(() => setArrivalFinal(true), live ? 8000 : 2500);
+    return () => clearTimeout(t);
     // once, on arrival
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const pendingPage = useRef<string | null>(null);
   useEffect(() => {
-    const want = pendingPage.current;
-    if (!want || !ix.byId.has(want)) return;
-    pendingPage.current = null;
-    goTo(want);
-  }, [ix, goTo]);
+    const a = pendingArrival.current;
+    if (!a) return;
+    const l = landing(a, (id) => ix.byId.has(id), (id) => !!ix.byId.get(id)?.locked, arrivalFinal);
+    if (!l) return;
+    pendingArrival.current = null;
+    goTo(l.id);
+    // an address names the page itself, so a panel-first page opens full
+    if (l.exact && a.kind === "page") setFullPage(a.path);
+    if (!l.exact && l.note) {
+      setGoogleNote({ ok: false, kicker: a.label, what: l.note });
+      setTimeout(() => setGoogleNote(null), 12000);
+    }
+  }, [ix, goTo, arrivalFinal]);
 
   useEffect(() => {
     const g = returnNote(window.location.search);
@@ -2672,7 +2650,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     if (!arrived.current) {
       // let the arrival effects open the page the address names first
       arrived.current = true;
-      if (!panelPath && pageFromAddress(window.location.pathname)) return;
+      if (!panelPath && (arrival || pageFromAddress(window.location.pathname))) return;
     }
     const want = pageAddress(panelPath);
     if (window.location.pathname !== want) window.history.replaceState(null, "", want + window.location.search + window.location.hash);
