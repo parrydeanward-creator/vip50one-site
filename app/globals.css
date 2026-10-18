@@ -2820,3 +2820,27 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .share-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
 .share-acts a.chip-btn { text-decoration: none; }
 .share-setup { color: #f5c542; }
+
+/* Google Business Profile (GBP.md §5b, 18 Oct): the full screen over the Brain, the CMA workspace's look; four sections in two columns on desktop */
+.gbp-state { margin-bottom: 14px; }
+.gbp-state .link { padding: 6px 0 0; font-weight: 500; opacity: 0.8; }
+.gbp-cols { display: grid; gap: 14px; }
+.gbp-col h2 { margin: 6px 0 8px; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-2); }
+.gbp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.gbp-item { padding-top: 10px; }
+.gbp-item.low { border-color: rgba(255, 107, 107, 0.7); }
+.gbp-stars.low { color: #ff8a80; border-color: #ff8a80; }
+.gbp-needs { color: #ff8a80; font-size: 12px; font-weight: 700; }
+.gbp-quote { color: var(--text-2); }
+.gbp-replied { margin-top: 6px; }
+.gbp-src { font-size: 10px; padding: 1px 8px; color: var(--text-3); border-color: var(--line); }
+.gbp-src.on { color: #3fbf7f; border-color: #3fbf7f; }
+.gbp-box { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-3); margin-top: 8px; }
+.gbp-box textarea { width: 100%; box-sizing: border-box; resize: vertical; padding: 7px 9px; border: 1px solid rgba(160, 175, 210, 0.35); border-radius: 8px; background: rgba(11, 18, 38, 0.8); color: var(--text); font: inherit; font-size: 14px; color-scheme: dark; }
+.gbp-photo { width: 100%; max-height: 180px; object-fit: cover; border-radius: 10px; margin: 6px 0; }
+.gbp-val { margin-bottom: 6px; }
+.gbp-nums dl { margin: 10px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gbp-nums dt { font-size: 12px; color: var(--text-3); }
+.gbp-nums dd { margin: 2px 0 0; font-size: 26px; font-weight: 700; color: var(--text); }
+.gbp-footer { margin-top: 18px; text-align: center; }
+@media (min-width: 900px) { .gbp-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }

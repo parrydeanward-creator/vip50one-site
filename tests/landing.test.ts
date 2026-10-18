@@ -45,9 +45,10 @@ test("phone menu: one list; Growth rows only with Growth; team rows only for tea
   const base = { live: true, growth: false, siteHost: "pat.vip50homes.com", teamHosts: [] as string[], agentTeamHrefs: [] as string[], classicUrl: "https://move.vip50one.com/dashboard" };
   // Rewritten 15 Oct (rows added on purpose, walker 14 Oct, Parry approved): "My plan and billing" and "Help".
   // And again 15 Oct, on purpose: "Add-ons" after billing (CHECKOUT §2, vip50-web-crm#260).
-  assert.deepEqual(menuRows(base).map((r) => r.label), ["My Profile", "My website", "My plan and billing", "Add-ons", "Help: what everything means", "Watch the ONE GO tour", "Classic view", "Sign out"]);
-  assert.deepEqual(menuRows({ ...base, growth: true, teamHosts: ["team.vip50homes.com"] }).map((r) => r.label), ["My Profile", "My website", "Growth results", "Team website", "Ad requests", "My plan and billing", "Add-ons", "Help: what everything means", "Watch the ONE GO tour", "Classic view", "Sign out"]);
-  assert.deepEqual(menuRows({ ...base, teamHosts: ["team.vip50homes.com"] }).map((r) => r.label), ["My Profile", "My website", "Team website", "My plan and billing", "Add-ons", "Help: what everything means", "Watch the ONE GO tour", "Classic view", "Sign out"]);
+  // And again 18 Oct, on purpose: "Google Business Profile" after My website (GBP.md §5b; shown only with a site).
+  assert.deepEqual(menuRows(base).map((r) => r.label), ["My Profile", "My website", "Google Business Profile", "My plan and billing", "Add-ons", "Help: what everything means", "Watch the ONE GO tour", "Classic view", "Sign out"]);
+  assert.deepEqual(menuRows({ ...base, growth: true, teamHosts: ["team.vip50homes.com"] }).map((r) => r.label), ["My Profile", "My website", "Google Business Profile", "Growth results", "Team website", "Ad requests", "My plan and billing", "Add-ons", "Help: what everything means", "Watch the ONE GO tour", "Classic view", "Sign out"]);
+  assert.deepEqual(menuRows({ ...base, teamHosts: ["team.vip50homes.com"] }).map((r) => r.label), ["My Profile", "My website", "Google Business Profile", "Team website", "My plan and billing", "Add-ons", "Help: what everything means", "Watch the ONE GO tour", "Classic view", "Sign out"]);
   assert.ok(menuRows(base).every((r) => r.line.length > 10), "every row has a plain line");
   assert.deepEqual(menuRows({ ...base, live: false }), []);
   assert.equal(HINT, "Tap any orb to see what needs you. Red means right now.");

@@ -14,6 +14,8 @@ import DailyTracker from "./DailyTracker.tsx";
 import WeeklyTracker from "./WeeklyTracker.tsx";
 import Rolodex from "./Rolodex.tsx";
 import HomeReports from "./HomeReports.tsx";
+import GbpScreen from "./GbpScreen.tsx";
+import { GBP_PATH } from "@/lib/gbp.ts";
 import MyProfile from "./MyProfile.tsx";
 import AddonsPanel from "./AddonsPanel.tsx";
 import Contacts from "./Contacts.tsx";
@@ -376,6 +378,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [intro, setIntro] = useState(false);
   const [guide, setGuide] = useState(false); // What everything means
   const [addonsOpen, setAddonsOpen] = useState(false); // Add-ons (CHECKOUT §2)
+  // Google Business Profile (GBP.md §5b): a full screen over the Brain, at /dashboard/google-profile.
+  const [gbpOpen, setGbpOpen] = useState(false);
+  const openGbp = useCallback(() => {
+    setGbpOpen(true);
+    if (window.location.pathname !== GBP_PATH) window.history.replaceState(null, "", GBP_PATH + window.location.search);
+  }, []);
+  const closeGbp = useCallback(() => {
+    setGbpOpen(false);
+    if (window.location.pathname === GBP_PATH) window.history.replaceState(null, "", "/dashboard" + window.location.search);
+  }, []);
+  useEffect(() => {
+    if (window.location.pathname === GBP_PATH) setGbpOpen(true);
+  }, []);
   // Morning Pulse (Parry, 16 Oct 21:14 MT): replaces Watch Pulse work, Watch ONE Work and Listen on the signed-in dashboard.
   const [mp, setMp] = useState<{ beats: MpBeat[]; example: boolean } | null>(null);
   const [mpOffer, setMpOffer] = useState(false); // the once-a-day offer on the morning note
@@ -2791,6 +2806,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                       const a = r.action;
                       setMenuOpen(false);
                       if (a.kind === "profile") goTo(movePageId("/profile"));
+                      else if (a.kind === "gbp") openGbp();
                       else if (a.kind === "start") reopenStart();
                       else if (a.kind === "help") setGuide(true);
                       else if (a.kind === "goTour") setGoTour(true);
@@ -4166,6 +4182,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               ) : vipNative && nativeKind === "profile" ? (
                 <MyProfile
                   demo={!live && !productTour}
+                  gbpDemo={!live}
+                  onOpenGbp={openGbp}
                   onUnavailable={vipUnavailable}
                   onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
@@ -4403,6 +4421,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
         />
       )}
       {addonsOpen && <AddonsPanel onClose={() => setAddonsOpen(false)} />}
+      {gbpOpen && <GbpScreen demo={!live} onClose={closeGbp} />}
       {guide && (
         <SignalsFilm
           onClose={() => setGuide(false)}
