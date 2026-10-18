@@ -1,0 +1,7 @@
+/* ONE MOVE group panels (walker 18 Oct): each part's count and a few lines of what is in it */
+.gp-list.gp-parts button { align-items: flex-start; }
+.gp-list.gp-parts button > i { margin-top: 6px; }
+.gp-list.gp-parts button > em { align-self: center; }
+.gp-ex { display: grid; gap: 2px; margin-top: 6px; padding-left: 8px; border-left: 2px solid rgba(212, 175, 55, 0.35); }
+.gp-list .gp-ex small { font-size: 12px; color: var(--text-3); white-space: normal; overflow-wrap: anywhere; }
+.gp-list .gp-count { flex: none; align-self: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; display: inline-grid; place-items: center; font-size: 11px; font-weight: 700; color: #111; }

@@ -4,12 +4,15 @@ import type { GraphIndex } from "@/lib/graph/model.ts";
 import type { GraphNode } from "@/lib/graph/types.ts";
 import { STATUS, hex } from "@/lib/brain/theme.ts";
 import { menuNodeId, moveGroupsFor } from "@/lib/moveMenu.ts";
-import { daysLeftInMonth, liveItemsUnder, meter, openTiles, partRows, tipFor } from "@/lib/groupPanel.ts";
-import { EVENTS_PARTS, OUTREACH_PARTS } from "@/lib/outreach.ts";
+import { daysLeftInMonth, liveItemsUnder, meter, openTiles, tipFor } from "@/lib/groupPanel.ts";
+import type { EventsNow } from "@/lib/outreach.ts";
+import type { Learn } from "@/lib/learn.ts";
+import { groupParts, partExamples, partsFor } from "@/lib/examples/move.ts";
+import "@/app/move-views.css";
 
 // The right panel for a ONE MOVE group (Parry, 4 Oct): "what should I do here
 // right now, and how am I doing", never a description of the menu.
-export default function GroupPanel({ node, ix, today, goTo }: { node: GraphNode; ix: GraphIndex; today: string; goTo: (id: string) => void }) {
+export default function GroupPanel({ node, ix, today, goTo, demo = false, events = null, learn = null }: { node: GraphNode; ix: GraphIndex; today: string; goTo: (id: string) => void; demo?: boolean; events?: EventsNow | null; learn?: Learn | null }) {
   const key = node.id.replace(/^move-g-/, "");
   const group = moveGroupsFor(true).find((g) => g.key === key);
   const items = liveItemsUnder(ix, node.id);
@@ -17,11 +20,14 @@ export default function GroupPanel({ node, ix, today, goTo }: { node: GraphNode;
   const coming = items.filter((n) => n.status === "opportunity").slice(0, 5);
   const tip = tipFor(doNow.length ? doNow : items);
   const stats = node.stats ?? [];
-  // Outreach and Events (walker, 17 Oct): each part with its line and pulse, lit ones first in the tip.
-  const partList = key === "outreach" ? OUTREACH_PARTS : key === "events" ? EVENTS_PARTS : [];
-  const parts = partRows(ix, node.id, partList);
+  // Outreach and Events (walker, 17 Oct), Trackers and Learn (walker, 18 Oct): each part with its count, its pulse and
+  // a few lines of what is in it (lib/examples/move.ts); a tap opens the part's own view.
+  const partList = partsFor(key);
+  const parts = groupParts(ix, node.id, partList);
   const litParts = parts.filter((p) => p.lit);
-  const tiles = group ? openTiles(group.pages, new Set(partList.map((p) => p.path))) : [];
+  const partIds = new Set(partList.flatMap((p) => p.ids));
+  const examples = partExamples(key, parts, { demo, today, events, learn, ix });
+  const tiles = group ? openTiles(group.pages, new Set<string>()).filter((pg) => !partIds.has(menuNodeId(pg.path))) : [];
 
   return (
     <div className="gp">
@@ -32,16 +38,28 @@ export default function GroupPanel({ node, ix, today, goTo }: { node: GraphNode;
 
       {parts.length > 0 && (
         <section aria-label={`${node.label}: what each is doing`}>
-          <h2>What each is doing</h2>
-          <ul className="gp-list">
+          <h2>What each is doing{demo ? " (Example)" : ""}</h2>
+          <ul className="gp-list gp-parts">
             {parts.map((p) => (
               <li key={p.id}>
-                <button onClick={() => goTo(p.id)} aria-label={`${p.label}: ${p.line}`} data-lit={p.lit ? "1" : undefined}>
+                <button onClick={() => goTo(p.id)} aria-label={`${p.label}: ${p.line}${p.count ? `, ${p.count} need you` : ""}`} data-lit={p.lit ? "1" : undefined}>
                   <i style={{ background: hex(STATUS[p.status ?? "healthy"].color), opacity: p.status ? 1 : 0.35 }} />
                   <span>
                     <b>{p.label}</b>
                     <small>{p.line}</small>
+                    {examples[p.id] && (
+                      <span className="gp-ex">
+                        {examples[p.id].map((t) => (
+                          <small key={t}>{t}</small>
+                        ))}
+                      </span>
+                    )}
                   </span>
+                  {p.count > 0 && (
+                    <b className="gp-count" style={{ background: hex(STATUS[p.status ?? "attention"].color) }} aria-hidden="true">
+                      {p.count}
+                    </b>
+                  )}
                   <em aria-hidden="true">→</em>
                 </button>
               </li>

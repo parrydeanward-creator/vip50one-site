@@ -22,6 +22,7 @@ import Contacts from "./Contacts.tsx";
 import HotWarmCold from "./HotWarmCold.tsx";
 import TouchAudit from "./TouchAudit.tsx";
 import GroupPanel from "./GroupPanel.tsx";
+import { demoDailyRaw, demoWeeklyRaw, menuTarget, withDemoTrackers } from "@/lib/examples/move.ts";
 import type { BusinessGraph, GraphNode } from "@/lib/graph/types.ts";
 import { DESKTOP_BUDGET, PHONE_BUDGET, childrenOf, indexGraph, pathTo, visibleSet } from "@/lib/graph/model.ts";
 import { bounds, layout } from "@/lib/brain/layout.ts";
@@ -286,7 +287,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const war30Ref = useRef<War30 | null>(null);
   const hubNow = (): HubInput => ({ lead: isTeamLead(warRef.current, onbRef.current, teamSitesRef.current) || !!peopleRef.current?.people.length, team: teamRef.current, war: warRef.current, onb: onbRef.current, removed: onbRemovedRef.current, now: Date.now(), people: peopleRef.current, war30: war30Ref.current });
   const admin = agent.admin === true;
-  const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(productTour ? withTourPages(initialGraph) : live ? initialGraph : withTourPages(initialGraph, DEMO_PAGES), null), admin), teamLeadsHint));
+  const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(productTour ? withDemoTrackers(withTourPages(initialGraph)) : live ? initialGraph : withDemoTrackers(withTourPages(initialGraph, DEMO_PAGES)), null), admin), teamLeadsHint));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
   // this, a refresh after logging a call changed nothing on screen.
@@ -2634,7 +2635,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             <a className="rail-btn rail-link" href={moveMenuHref(m.path)}>{inner}</a>
           )
         ) : IN_BRAIN.has(m.path) ? (
-          <button className="rail-btn rail-link" onClick={() => goTo(movePageId(m.path))}>{inner}</button>
+          <button className="rail-btn rail-link" onClick={() => goTo(menuTarget(m.path, (id) => ix.byId.has(id)))}>{inner}</button>
         ) : (
           <a className="rail-btn rail-link" href={moveMenuHref(m.path)}>{inner}</a>
         )}
@@ -2934,13 +2935,32 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   const open = openGroups.includes(g.key);
                   return (
                     <li key={g.key} className={`rail-group ${open ? "open" : ""}`}>
-                      <button className="rail-btn rail-group-btn" aria-expanded={open} onClick={() => toggleGroup(g.key)}>
+                      {/* A group head opens its group (walker 18 Oct): the orb comes to the middle with its panel; the caret
+                          only folds the list. */}
+                      <button
+                        className="rail-btn rail-group-btn"
+                        aria-expanded={open}
+                        onClick={() => {
+                          if (!gn) return toggleGroup(g.key);
+                          if (!open) toggleGroup(g.key);
+                          goTo(gn.id);
+                        }}
+                      >
                         <span className="rail-text">
                           <span>{g.label}</span>
                           {gn?.status && gn.secondaryLabel && <small>{gn.secondaryLabel}</small>}
                         </span>
-                        {gn?.status && <i className="rail-dot" style={{ background: hex(STATUS[gn.status].color) }} aria-label={STATUS[gn.status].label} />}
-                        <span className="rail-caret" aria-hidden>{open ? "▾" : "▸"}</span>
+                        {gn && <RowMark n={gn} need={needs.get(gn.id)} />}
+                        <span
+                          className="rail-caret"
+                          aria-hidden
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleGroup(g.key);
+                          }}
+                        >
+                          {open ? "▾" : "▸"}
+                        </span>
                       </button>
                       {open && (
                         <ul className="rail-sublist">
@@ -3381,7 +3401,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             focus.summary && !isMoveGroup(focus.id) && <p className="d-sum">{focus.summary}</p>
           )}
 
-          {isMoveGroup(focus.id) && !ask && <GroupPanel node={focus} ix={ix} today={localDay(new Date())} goTo={goTo} />}
+          {isMoveGroup(focus.id) && !ask && <GroupPanel node={focus} ix={ix} today={localDay(new Date())} goTo={goTo} demo={!live} events={eventsNow} learn={learn} />}
 
           {/* the demo's example lead: the lead card on screen only (there is no ONE MOVE contact behind it) */}
           {!live && focus.id.startsWith(`${LEADS_NODE}:`) && leadOf(newLeads, focus.contactId) && !ask ? (
@@ -4231,6 +4251,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               ) : vipNative && nativeKind === "weekly" ? (
                 <WeeklyTracker
                   onUnavailable={vipUnavailable}
+                  example={live ? undefined : demoWeeklyRaw(todayIn())}
                   onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
@@ -4238,6 +4259,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               ) : vipNative && nativeKind === "daily" ? (
                 <DailyTracker
                   onUnavailable={vipUnavailable}
+                  example={live ? undefined : demoDailyRaw(todayIn())}
                   onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
