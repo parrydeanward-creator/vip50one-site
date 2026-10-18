@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookieDomainFor } from "./lib/host.ts";
 import { MASTER_PUBLISHABLE_KEY, MASTER_URL } from "./lib/master.ts";
-import { LAST_COOKIE, afterSignIn, homeSendsToBrain } from "./lib/landing.ts";
+import { LAST_COOKIE, afterSignIn, appTarget, homeSendsToBrain } from "./lib/landing.ts";
 import { cleanupHeaders } from "./lib/staleCookies.ts";
 
 // Keeps the MASTER session fresh and sends signed-out visitors from the
@@ -64,7 +64,10 @@ export async function middleware(req: NextRequest) {
   if (!user && path.startsWith("/dashboard") && !demo) {
     const to = req.nextUrl.clone();
     to.pathname = "/login";
-    to.search = "";
+    // A link to a page (/dashboard/weekly, ?open=growth) comes back to that page after signing in (lib/landing.ts
+    // keeps only places it knows); the plain dashboard needs no next.
+    const asked = appTarget(path + req.nextUrl.search);
+    to.search = asked !== "/dashboard" ? `?next=${encodeURIComponent(asked)}` : "";
     return done(NextResponse.redirect(to));
   }
   if (user && path === "/login") {

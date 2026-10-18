@@ -6,7 +6,7 @@ import { PACKAGE_LABEL, fullPlanName } from "@/lib/products.ts";
 import { signedInBundle } from "@/lib/server/live.ts";
 import type { PackageId } from "@/lib/types.ts";
 import { redirect } from "next/navigation";
-import { pageFromAddress } from "@/lib/moveMenu.ts";
+import { isArrivalPath } from "@/lib/deepLink.ts";
 
 // ONE Brain is the dashboard (Parry, 29 Sep; vip50-ecosystem research/ONE-BRAIN.md).
 // Signed in: the agent's own business from MASTER's vip_summary (ONE GO and
@@ -21,13 +21,17 @@ export default async function Dashboard({ searchParams, params }: { searchParams
   // /dashboard/team-leads, /dashboard/profile, ...: open on that page from the first paint (Parry, 13 Oct: Team Leads
   // showed the main page first, then flew over).
   const parts = (await params)?.page;
-  const startPage = parts?.length ? pageFromAddress(`/dashboard/${parts.join("/")}`) : null;
+  // Every Brain address (lib/deepLink.ts): a ONE MOVE page, a native orb (/dashboard/opportunities), a group
+  // (/dashboard/people), Google Business Profile; and ?open=<thing> (growth, getting-started, goals, a product...).
+  const asked = parts?.length ? `/${parts.join("/")}` : null;
+  const startPage = asked && isArrivalPath(asked) ? asked : null;
+  const startOpen = typeof sp.open === "string" ? sp.open.slice(0, 120) : null;
   if (sp.demo === "1") {
     const p = typeof sp.package === "string" ? sp.package : "";
     const pkg: PackageId = p in PACKAGE_LABEL ? (p as PackageId) : "complete";
     // ?walk=1: the recorded product tour (Film A) shows the menu, My Profile and the team cards too. (?tour=1 is the
     // morning fly-through.)
-    return <Brain graph={oneYouView(demoGraph(pkg))} pkg={pkg} startPage={startPage} productTour={sp.walk === "1"} />;
+    return <Brain graph={oneYouView(demoGraph(pkg))} pkg={pkg} startPage={startPage} startOpen={startOpen} productTour={sp.walk === "1"} />;
   }
   const live = await signedInBundle();
   if (!live) redirect("/login");
@@ -56,5 +60,5 @@ export default async function Dashboard({ searchParams, params }: { searchParams
   const { graph } = bundle;
   const plan = fullPlanName(me.pkg, me.growth);
   const label = `${me.displayName}, ${plan}${me.founding ? ", founding member" : ""}`;
-  return <Brain graph={graph} pkg={me.pkg} live startPage={startPage} agent={{ firstName: me.firstName, initials: me.initials, label, name: me.displayName, plan, photo: me.photo, admin: me.admin, growth: me.growth }} />;
+  return <Brain graph={graph} pkg={me.pkg} live startPage={startPage} startOpen={startOpen} agent={{ firstName: me.firstName, initials: me.initials, label, name: me.displayName, plan, photo: me.photo, admin: me.admin, growth: me.growth }} />;
 }
