@@ -53,10 +53,10 @@ export interface HomeReport {
 /** GET /api/brain/home-report?contact_id= */
 export interface ContactReports { reports: HomeReport[]; suggestedAddress: string | null; canEmail: boolean; email: string | null; autostart: boolean }
 /** GET /api/brain/home-report/bulk: past clients with an address and an email, no report running. */
-export interface BulkPerson { id: string; name: string; address: string }
+export interface BulkPerson { id: string; name: string; address: string; /** Why ONE MOVE listed them, when it says ("VIP-50", "Past client"). */ why?: string }
 export interface MonthRow { id: string; contactId: string; name: string; address: string; sendDay: number; sent: boolean; startedBy: StartedBy }
 /** GET /api/brain/home-report/month. `month` is the finished month the reports cover (September, sent in October). */
-export interface MonthCard { month: string; today: string; autostart: boolean; reports: MonthRow[] }
+export interface MonthCard { month: string; today: string; autostart: boolean; reports: MonthRow[]; /** True only when ONE MOVE says the MLS feed is live (`feed_live`); else this site's FEED_LIVE. */ feedLive: boolean }
 
 const str = (v: unknown, max = 200): string | null => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
 const ym = (v: unknown): string | null => {
@@ -119,7 +119,9 @@ export function readBulk(j: unknown): BulkPerson[] | null {
     if (!p || typeof p !== "object") return [];
     const o = p as Record<string, unknown>;
     const id = str(o.id, 80), name = str(o.name, 120), address = str(o.address, 300);
-    return id && name && address ? [{ id, name, address }] : [];
+    const tier = o.tier === "vip50" ? "VIP-50" : o.tier === "vip100" ? "VIP-100" : null;
+    const why = str(o.why, 80) ?? tier;
+    return id && name && address ? [{ id, name, address, ...(why ? { why } : {}) }] : [];
   });
 }
 
@@ -138,7 +140,7 @@ export function readMonthCard(j: unknown): MonthCard | null {
     return [{ id, contactId, name: str(o.name, 120) ?? "No name", address, sendDay, sent: o.sent === true, startedBy: by(o.started_by) }];
   });
   reports.sort((a, b) => a.sendDay - b.sendDay || a.name.localeCompare(b.name));
-  return { month, today, autostart: r.autostart === true, reports };
+  return { month, today, autostart: r.autostart === true, reports, feedLive: typeof r.feed_live === "boolean" ? r.feed_live : FEED_LIVE };
 }
 
 /** "5th", "1st", "22nd". */
@@ -276,7 +278,7 @@ export function withRprSent(c: ContactReports, id: string, month: string, at: st
 export function withBulkStarted(card: MonthCard, people: BulkPerson[], idOf: (p: BulkPerson) => string): MonthCard {
   const have = new Set(card.reports.map((r) => r.contactId));
   const add = people.filter((p) => !have.has(p.id)).map((p) => ({ id: idOf(p), contactId: p.id, name: p.name, address: p.address, sendDay: DEFAULT_DAY, sent: false, startedBy: "bulk" as const }));
-  return readMonthCard({ month: card.month, today: card.today, autostart: card.autostart, reports: [...card.reports, ...add].map((r) => ({ id: r.id, contact_id: r.contactId, name: r.name, address: r.address, send_day: r.sendDay, sent: r.sent, started_by: r.startedBy })) })!;
+  return readMonthCard({ month: card.month, today: card.today, autostart: card.autostart, feed_live: card.feedLive, reports: [...card.reports, ...add].map((r) => ({ id: r.id, contact_id: r.contactId, name: r.name, address: r.address, send_day: r.sendDay, sent: r.sent, started_by: r.startedBy })) })!;
 }
 
 // ---- the example agent (?demo=1): no network --------------------------------------------------------------------------
@@ -322,3 +324,123 @@ export function demoBulk(): BulkPerson[] {
   })!;
 }
 
+
+// ---- how it works, said plainly (Parry 18 Oct: "how is the user supposed to set it up etc.") --------------------------
+
+export const HOW_TITLE = "How Market Reports work";
+export const HOW_STEPS: { title: string; text: string }[] = [
+  { title: "Pick who gets one", text: "Tick people in the list, or switch it on from a person's card." },
+  { title: "Start", text: "Each report fills itself from the MLS and goes on the 5th, from your name, until you or they stop it." },
+  { title: "It counts", text: "Every report sent counts as that person's monthly market report touch." },
+];
+export const FEED_WAIT = "Your reports start the month the UtahRealEstate.com feed is connected. You can set people up now; nothing is sent before then.";
+
+/** The one status line under the steps, from the month card. */
+export function feedStatus(card: Pick<MonthCard, "feedLive" | "reports" | "today">): string {
+  if (!card.feedLive) return FEED_WAIT;
+  const n = card.reports.length;
+  if (!n) return "The MLS feed is connected. Pick who gets one and start; the first reports go on their day.";
+  const left = card.reports.filter((r) => !r.sent).length;
+  return `${n} running. ${left ? `${left} still to go this month.` : "Every report for this month has gone."}`;
+}
+
+/** The centre orb's three lines: the count, what it counts, and the line under it. */
+export function coreLines(card: Pick<MonthCard, "feedLive" | "reports" | "month">, due: number): { big: string; sub: string; end: string } {
+  const n = card.reports.length;
+  if (!card.feedLive) return { big: String(n), sub: "SET UP", end: "Waiting for the MLS feed" };
+  if (due) return { big: String(due), sub: "DUE NOW", end: `${monthWords(card.month)} report` };
+  return { big: n ? "✓" : "0", sub: "RUNNING", end: `${monthWords(card.month)} report` };
+}
+
+/** "JS" from "Jane Smith"; one letter for one name. */
+export function initials(name: string): string {
+  const w = name.trim().split(/\s+/).filter(Boolean);
+  if (!w.length) return "?";
+  return ((w[0][0] ?? "") + (w.length > 1 ? w[w.length - 1][0] ?? "" : "")).toUpperCase();
+}
+
+/** Why a person is on a start list: ONE MOVE's own reason, else the list they came from. */
+export function whyListed(group: "vips" | "past", p: BulkPerson): string {
+  const base = p.why ?? (group === "vips" ? "On your VIP list" : "Past client");
+  return `${base} · has a home address and email, no report yet`;
+}
+
+/** "Select all" / "Clear" over one list, keeping ticks on anyone outside it. */
+export function tickAll(ticked: Set<string>, people: BulkPerson[], on: boolean): Set<string> {
+  const n = new Set(ticked);
+  for (const p of people) (on ? n.add(p.id) : n.delete(p.id));
+  return n;
+}
+
+// ---- the example report (§3, in order): invented figures, labelled as an example ------------------------------------
+
+export interface ExampleCard { price: number; beds: number; baths: number; sqft: number; street: string; listed: string; credit: string }
+export interface ExampleCount { label: string; now: number; lastMonth: number; yearAgo: number }
+export interface ExampleReport {
+  month: string;
+  monthName: string;
+  lastMonthName: string;
+  yearAgoName: string;
+  first: string;
+  area: string;
+  forSale: { count: number; min: number; max: number; cards: ExampleCard[] };
+  counts: ExampleCount[];
+  pace: { days: number; daysLast: number; supply: number };
+  demand: number;
+  note: string;
+  agent: { name: string; first: string; brokerage: string; phone: string; email: string };
+  period: string;
+  source: string;
+}
+
+const shortMonth = (ym: string) => new Date(`${ym}-15T12:00:00Z`).toLocaleDateString("en-US", { month: "long", timeZone: "UTC" });
+const yearAgo = (ym: string) => `${Number(ym.slice(0, 4)) - 1}${ym.slice(4, 7)}`;
+const lastDay = (ym: string) => new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0)).getUTCDate();
+const NUM = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+const words = (n: number) => NUM[n] ?? String(n);
+
+/** The fixed note (§3.6: plain code fills a template until URE answers question 2). */
+export function exampleNote(first: string, month: string, forSale: number, days: number): string {
+  const weeks = Math.max(1, Math.round(days / 7));
+  return `Hi ${first}, here is what happened in your neighbourhood in ${shortMonth(month)}. ${words(forSale).replace(/^./, (c) => c.toUpperCase())} homes are for sale near you now, and homes are selling in about ${words(weeks)} week${weeks === 1 ? "" : "s"}. If you ever want to talk about what this means for your home, just reply.`;
+}
+
+/** The example "Your home's neighbourhood" for the finished month before `today`. Every figure is invented. */
+export function exampleReport(today: string): ExampleReport {
+  const month = lastMonth(today);
+  const before = lastMonth(`${month}-15`);
+  const ago = yearAgo(month);
+  const credit = "Listing courtesy of Example Brokerage, LLC";
+  const forSale = { count: 7, min: 589000, max: 1150000, cards: [
+    { price: 649900, beds: 4, baths: 3, sqft: 2860, street: "E Willow Bend Ct, Draper", listed: "3 days ago", credit },
+    { price: 725000, beds: 5, baths: 3.5, sqft: 3410, street: "S Fox Meadow Ln, Draper", listed: "6 days ago", credit },
+    { price: 589000, beds: 3, baths: 2, sqft: 1980, street: "E Aspen Ridge Way, Draper", listed: "9 days ago", credit },
+  ] };
+  const pace = { days: 21, daysLast: 18, supply: 2.4 };
+  return {
+    month,
+    monthName: monthWords(month),
+    lastMonthName: shortMonth(before),
+    yearAgoName: monthWords(ago),
+    first: "Jane",
+    area: "homes within half a mile of your home",
+    forSale,
+    counts: [
+      { label: "New listings", now: 9, lastMonth: 7, yearAgo: 11 },
+      { label: "Went pending", now: 6, lastMonth: 5, yearAgo: 8 },
+      { label: "Closed", now: 5, lastMonth: 6, yearAgo: 7 },
+    ],
+    pace,
+    demand: 4,
+    note: exampleNote("Jane", month, forSale.count, pace.days),
+    agent: { name: "Alex Morgan", first: "Alex", brokerage: "Example Realty, LLC", phone: "(801) 555-0142", email: "alex@example.com" },
+    period: `${shortMonth(month)} 1 to ${lastDay(month)}, ${month.slice(0, 4)}, single-family homes within half a mile, compared with ${shortMonth(before)} and ${monthWords(ago)}.`,
+    source: "Source: UtahRealEstate.com. Figures are aggregated and deemed reliable but not guaranteed.",
+  };
+}
+
+/** A bar's width, 0 to 100, against the largest figure shown beside it. */
+export const barPct = (n: number, max: number) => (max > 0 ? Math.round((Math.max(0, n) / max) * 100) : 0);
+/** "+2", "−1", "same" for a count against another month. */
+export const delta = (now: number, then: number) => (now === then ? "same" : now > then ? `+${now - then}` : `−${then - now}`);
+export const shortPrice = (n: number) => (n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(n % 1_000_000 ? 2 : 0).replace(/0$/, "")}M` : `$${Math.round(n / 1000)}K`);

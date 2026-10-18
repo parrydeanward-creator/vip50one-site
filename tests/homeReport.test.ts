@@ -196,3 +196,82 @@ test("the agent's value: typed forms, limits and the 92-day rule (HOME-REPORT §
   assert.match(valueLine(cleared, "2026-10-16"), /not set/);
   assert.equal(withValue(c, "r1", 700000, "2026-10-16").reports[0].agentValueOn, "2026-10-16");
 });
+
+// ---- 18 Oct: how it works, the start list, the example report ----
+import { FEED_WAIT, HOW_STEPS, barPct, coreLines, delta, exampleNote, exampleReport, feedStatus, initials, shortPrice, tickAll, whyListed } from "../lib/homeReport.ts";
+
+test("three plain steps and the honest feed line", () => {
+  assert.equal(HOW_STEPS.length, 3);
+  assert.match(HOW_STEPS[1].text, /5th/);
+  assert.match(HOW_STEPS[2].text, /monthly market report touch/);
+  const card = demoMonthCard("2026-10-18");
+  assert.equal(card.feedLive, false);
+  assert.equal(feedStatus(card), FEED_WAIT);
+  assert.match(FEED_WAIT, /UtahRealEstate\.com feed is connected/);
+  assert.equal(feedStatus({ ...card, feedLive: true }), "3 running. 2 still to go this month.");
+  assert.match(feedStatus({ ...card, feedLive: true, reports: [] }), /feed is connected/);
+});
+
+test("month card reads feed_live when ONE MOVE sends it", () => {
+  const base = { month: "2026-09", today: "2026-10-18", reports: [] };
+  assert.equal(readMonthCard({ ...base, feed_live: true })!.feedLive, true);
+  assert.equal(readMonthCard(base)!.feedLive, false);
+});
+
+test("the centre orb explains 0 before the feed", () => {
+  const card = { month: "2026-09", feedLive: false, reports: [] };
+  assert.deepEqual(coreLines(card, 0), { big: "0", sub: "SET UP", end: "Waiting for the MLS feed" });
+  const live = demoMonthCard("2026-10-18");
+  assert.equal(coreLines(live, 0).big, "3");
+  assert.equal(coreLines({ ...live, feedLive: true }, 2).sub, "DUE NOW");
+  assert.equal(coreLines({ ...live, feedLive: true, reports: [] }, 0).big, "0");
+});
+
+test("start list helpers", () => {
+  assert.equal(initials("Jane Smith"), "JS");
+  assert.equal(initials("Mary Ann van Dyke"), "MD");
+  assert.equal(initials("Cher"), "C");
+  assert.equal(initials("  "), "?");
+  const p = { id: "a", name: "A B", address: "1 Main St, Draper" };
+  assert.match(whyListed("vips", p), /^On your VIP list · /);
+  assert.match(whyListed("past", p), /^Past client · /);
+  assert.match(whyListed("vips", { ...p, why: "VIP-50" }), /^VIP-50 · /);
+  assert.equal(readBulk({ people: [{ ...p, tier: "vip100" }] })![0].why, "VIP-100");
+  assert.equal(readBulk({ people: [p] })![0].why, undefined);
+  const people = [p, { ...p, id: "b" }];
+  assert.deepEqual([...tickAll(new Set(["z"]), people, true)].sort(), ["a", "b", "z"]);
+  assert.deepEqual([...tickAll(new Set(["a", "b", "z"]), people, false)], ["z"]);
+});
+
+test("the example report follows §3, invented and with no value", () => {
+  const r = exampleReport("2026-10-18");
+  assert.equal(r.month, "2026-09");
+  assert.equal(r.monthName, "September 2026");
+  assert.equal(r.lastMonthName, "August");
+  assert.equal(r.yearAgoName, "September 2025");
+  assert.equal(r.area, "homes within half a mile of your home");
+  assert.equal(r.forSale.cards.length, 3);
+  for (const c of r.forSale.cards) {
+    assert.match(c.credit, /^Listing courtesy of /);
+    assert.ok(c.price >= r.forSale.min && c.price <= r.forSale.max);
+  }
+  assert.deepEqual(r.counts.map((c) => c.label), ["New listings", "Went pending", "Closed"]);
+  assert.match(r.period, /^September 1 to 30, 2026/);
+  assert.match(r.source, /UtahRealEstate\.com/);
+  assert.ok(!JSON.stringify(r).match(/value|estimate|worth/i));
+  assert.equal(exampleReport("2026-01-10").yearAgoName, "December 2024");
+  assert.match(exampleReport("2026-03-02").period, /^February 1 to 28, 2026/);
+});
+
+test("example note, bars and numbers", () => {
+  assert.equal(exampleNote("Jane", "2026-09", 7, 21), "Hi Jane, here is what happened in your neighbourhood in September. Seven homes are for sale near you now, and homes are selling in about three weeks. If you ever want to talk about what this means for your home, just reply.");
+  assert.equal(barPct(5, 10), 50);
+  assert.equal(barPct(3, 0), 0);
+  assert.equal(delta(9, 7), "+2");
+  assert.equal(delta(5, 6), "−1");
+  assert.equal(delta(4, 4), "same");
+  assert.equal(shortPrice(589000), "$589K");
+  assert.equal(shortPrice(1150000), "$1.15M");
+  assert.equal(shortPrice(1200000), "$1.2M");
+  assert.equal(shortPrice(2000000), "$2M");
+});

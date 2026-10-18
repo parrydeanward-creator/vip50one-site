@@ -7,6 +7,8 @@ import HomeReportSection from "./HomeReportSection.tsx";
 import CmaSection from "./CmaSection.tsx";
 import { PersonFeeds } from "./SiteFeedsSection.tsx";
 import { monthWords } from "@/lib/marketPulse.ts";
+import { ExampleReportButton } from "./MarketReportExample.tsx";
+import "@/app/market-report.css";
 import {
   bulkBody,
   VIPS_BULK,
@@ -25,8 +27,13 @@ import {
   type MonthCard,
   type MonthRow,
   CREDIT_LINE,
-  FEED_LINE,
-  FEED_LIVE,
+  HOW_STEPS,
+  HOW_TITLE,
+  coreLines,
+  feedStatus,
+  initials,
+  tickAll,
+  whyListed,
 } from "@/lib/homeReport.ts";
 
 /** The example agent's VIPs with no report yet (invented). */
@@ -89,6 +96,8 @@ export default function HomeReports({
   const [who, setWho] = useState<MonthRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  /** The three steps on a phone fold behind "How it works" so the map keeps its room; always open on desktop. */
+  const [steps, setSteps] = useState(false);
 
   const load = useCallback(async () => {
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date());
@@ -210,8 +219,26 @@ export default function HomeReports({
   };
 
   const due = g.due.length;
+  const core = coreLines(card, due);
+  const tickedHere = bulk.filter((p) => ticked.has(p.id)).length;
   return (
-    <div className="vr" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
+    <div className="vr mr-vr" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
+      <section className="mr-how" aria-label={HOW_TITLE}>
+        <div className="mr-how-head">
+          <h2>{HOW_TITLE}</h2>
+          <ExampleReportButton />
+        </div>
+        <button type="button" className="mr-link mr-how-toggle" aria-expanded={steps} onClick={() => setSteps((v) => !v)}>{steps ? "Hide the three steps" : "Show the three steps"}</button>
+        <ol className={`mr-steps${steps ? " open" : ""}`}>
+          {HOW_STEPS.map((st, i) => (
+            <li key={st.title}>
+              <span className="mr-step-n" aria-hidden="true">{i + 1}</span>
+              <span><b>{st.title}.</b> {st.text}</span>
+            </li>
+          ))}
+        </ol>
+        <p className={`mr-status${card.feedLive ? " live" : ""}`} role="status"><i aria-hidden="true" />{feedStatus(card)}</p>
+      </section>
       <div className="vr-stage">
         <svg ref={cam.svgRef} className="vr-svg" viewBox={cam.viewBox} preserveAspectRatio="xMidYMid meet" {...cam.handlers} role="group" aria-label="Market Reports this month">
           <defs>
@@ -230,12 +257,12 @@ export default function HomeReports({
             <line key={`l-${k}`} className="vr-link" x1={C} y1={C} x2={x} y2={y} />
           ))}
           <g aria-label={`${due} due now`} {...(sel ? { "data-tap": true, role: "button", tabIndex: 0, ...tap(() => { setSel(null); setWho(null); cam.reset(); }) } : {})}>
-            {due > 0 && <PulseRing r={CORE} level="today" x={C} y={C} />}
-            <circle cx={C} cy={C} r={CORE} fill="url(#hr-glass)" stroke={due ? GOLD : GREEN} strokeWidth={3} />
+            {due > 0 && card.feedLive && <PulseRing r={CORE} level="today" x={C} y={C} />}
+            <circle cx={C} cy={C} r={CORE} fill="url(#hr-glass)" stroke={due && card.feedLive ? GOLD : card.feedLive ? GREEN : SKY} strokeWidth={3} />
             <circle cx={C} cy={C} r={CORE} fill="url(#hr-hi)" pointerEvents="none" />
-            <text className="dt-score" x={C} y={C - 4} textAnchor="middle">{due ? due : card.reports.length ? "✓" : "0"}</text>
-            <text className="dt-score-sub" x={C} y={C + 26} textAnchor="middle">{due ? "DUE NOW" : "RUNNING"}</text>
-            <text className="pm-core-end" x={C} y={C + 50} textAnchor="middle">{`${monthWords(card.month)} report`}</text>
+            <text className="dt-score" x={C} y={C - 4} textAnchor="middle">{core.big}</text>
+            <text className="dt-score-sub" x={C} y={C + 26} textAnchor="middle">{core.sub}</text>
+            <text className="pm-core-end" x={C} y={C + 50} textAnchor="middle">{core.end}</text>
           </g>
           {seats.map(({ k, x, y }) => {
             const on = sel === k;
@@ -285,8 +312,15 @@ export default function HomeReports({
           <>
             <h1 className="d-title">{START_TITLE[sel]}</h1>
             <p className="d-sum">{START_SUM[sel]}</p>
+            {bulk.length > 0 ? (
+              <div className="mr-pick-bar">
+                <span>{tickedHere} of {bulk.length} ticked</span>
+                <button type="button" className="mr-link" disabled={tickedHere === bulk.length} onClick={() => setTicked((s) => tickAll(s, bulk, true))}>Select all</button>
+                <button type="button" className="mr-link" disabled={tickedHere === 0} onClick={() => setTicked((s) => tickAll(s, bulk, false))}>Clear</button>
+              </div>
+            ) : null}
             {bulk.length === 0 ? <p className="pm-empty">{sel === "vips" ? "Every VIP with an address and an email already has one." : "Every past client with an address and an email already has one."}</p> : null}
-            <ul className="pm-list hr-bulk">
+            <ul className="mr-people">
               {bulk.map((p) => (
                 <li key={p.id}>
                   <input
@@ -302,15 +336,19 @@ export default function HomeReports({
                       })
                     }
                   />
-                  <label className="pm-body" htmlFor={`hr-b-${p.id}`}>
-                    <b>{p.name}</b>
-                    <small>{p.address}</small>
+                  <label className="mr-person" htmlFor={`hr-b-${p.id}`}>
+                    <span className="mr-avatar" aria-hidden="true">{initials(p.name)}</span>
+                    <span className="mr-person-body">
+                      <b>{p.name}</b>
+                      <small>{p.address}</small>
+                      <em>{whyListed(sel, p)}</em>
+                    </span>
                   </label>
                 </li>
               ))}
             </ul>
             <div className="decide-btns">
-              <button type="button" className="chip-btn primary" disabled={busy || bulk.every((p) => !ticked.has(p.id))} onClick={() => void startBulk()}>{bulkButton(bulk.filter((p) => ticked.has(p.id)).length)}</button>
+              <button type="button" className="chip-btn primary" disabled={busy || tickedHere === 0} onClick={() => void startBulk()}>{bulkButton(tickedHere)}</button>
             </div>
             <button className="vr-classic" onClick={() => { setSel(null); cam.reset(); }}>All Market Reports</button>
           </>
@@ -338,7 +376,7 @@ export default function HomeReports({
             </p>
             <p className="d-sum">A monthly report on each client&apos;s own neighbourhood, sent until you or they stop it. Switch one on from any contact&apos;s card{bulks.vips.length || bulks.past.length ? ", or for your VIPs and past clients here" : ""}. Tap a group to see who is in it. {CREDIT_LINE}</p>
             {bulks.vips.length > 0 ? <button type="button" className="chip-btn primary" onClick={() => { setSel("vips"); const s = seats.find((x) => x.k === "vips"); if (s) cam.centreOn(s.x, s.y); }}>{VIPS_BULK}</button> : null}
-            {FEED_LIVE ? null : <p className="pm-empty">{FEED_LINE} Until then, on each report&apos;s day you may paste that month&apos;s RPR link and send it from your own email.</p>}
+            {card.feedLive ? null : <p className="pm-empty">Until the feed is connected, on each report&apos;s day you may paste that month&apos;s RPR link on a person&apos;s card and send it from your own email; that month counts as sent.</p>}
             <p className="pm-empty">Requests from your site start {card.autostart ? "by themselves" : "with one tap from a task"}. Change it in My Profile.</p>
           </>
         )}
