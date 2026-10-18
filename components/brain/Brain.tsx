@@ -56,6 +56,9 @@ import IncomeMapView from "./IncomeMapView.tsx";
 import ForecastView from "./ForecastView.tsx";
 import PulseCoachView from "./PulseCoachView.tsx";
 import ReferralsView from "./ReferralsView.tsx";
+import MarqueePanel from "./views/MarqueePanel.tsx";
+import MarqueeView from "./views/MarqueeView.tsx";
+import { mqKeyOf, type MqKey } from "@/lib/examples/marquee.ts";
 import WinsView from "./WinsView.tsx";
 import LifeUpcomingView from "./LifeUpcomingView.tsx";
 import OutreachPanel, { AttractionSection } from "./OutreachPanel.tsx";
@@ -686,6 +689,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   );
   // Referral Scoreboard (§3r): who sent business and who is likely next, from ONE MOVE; the example agent's until it answers.
   const [refsOpen, setRefsOpen] = useState(false);
+  // Marquee's tools inside the Brain on the labelled example (Parry, 18 Oct: no blank side panels).
+  const [mqOpen, setMqOpen] = useState<{ tool: MqKey; deck?: string; href?: string } | null>(null);
   // §3af: referrals with other ONE agents, counts only, on the Scoreboard.
   const [network, setNetwork] = useState<NetworkCounts | null>(null);
   useEffect(() => {
@@ -3643,6 +3648,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               </span>
             </a>
           )}
+          {mqKeyOf(focus.id) && !tour && !ask ? (
+            <MarqueePanel tool={mqKeyOf(focus.id)!} today={todayIn()} example={!live || !!focus.secondaryLabel?.startsWith("Example")} onOpen={(deck, tool) => setMqOpen({ tool: tool ?? mqKeyOf(focus.id)!, deck, href: focus.href })} />
+          ) : null}
           {growthPiece && !tour && (growthPiece.button ? (
             <button className="pi-film pm-open" onClick={() => runGrowth(growthPiece.button!.action)}>
               <span className="pi-play" aria-hidden="true">↗</span>
@@ -4385,6 +4393,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       ) : null}
       {partnersOpen && partners ? <PartnersView state={partners} me={weekScore} today={todayIn()} demo={!live} onClose={() => setPartnersOpen(false)} onAct={partnerAct} /> : null}
       {habitsOpen && theHabits.length ? <HabitsView habits={theHabits} demo={!live} onClose={() => setHabitsOpen(false)} onTick={tickHabit} /> : null}
+      {mqOpen ? <MarqueeView tool={mqOpen.tool} deck={mqOpen.deck} href={mqOpen.href} today={todayIn()} onClose={() => setMqOpen(null)} /> : null}
       {refsOpen && refs ? <ReferralsView network={network} onNetwork={() => { setRefsOpen(false); goTo(movePageId("/referral-network")); }} data={refs} today={todayIn()} demo={!live} onClose={() => setRefsOpen(false)} onAsk={askReferral} onThank={thankReferral} onThanked={thankedReferral} onPerson={openReferralPerson} /> : null}
       {agentRead ? <PulseCoachView read={agentRead.read} who={agentRead.who} demo={!live} onClose={() => setAgentRead(null)} /> : null}
       {cmOpen && commitments && (
