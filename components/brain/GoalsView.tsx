@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import GoalsPanel from "./GoalsPanel.tsx";
+import ClosingsFoundCard from "./ClosingsFoundCard.tsx";
 import { money, type GoalFacts, type GoalKey, type IncomeMap } from "@/lib/goals.ts";
 import { monthWords } from "@/lib/forecast.ts";
 import type { GoalsThree } from "@/lib/oneYou.ts";
@@ -22,6 +23,7 @@ export default function GoalsView({
   demo,
   rezenConnected,
   onSaveGoal,
+  onClosingLogged,
   onProfile,
   onReferrals,
   referralsLine,
@@ -37,6 +39,8 @@ export default function GoalsView({
   demo: boolean;
   rezenConnected: boolean | null;
   onSaveGoal: (key: GoalKey, value: number) => Promise<string | null>;
+  /** Reads the closed count again after a closing found in the MLS is logged. */
+  onClosingLogged: () => Promise<unknown> | void;
   onProfile: () => void;
   onReferrals: () => void;
   /** "4 referrals this goal year", the Referrals orb's own count; tapping it opens the orb. */
@@ -84,6 +88,7 @@ export default function GoalsView({
           </button>
         ) : null}
         <GoalsPanel goals={goals} today={today} demo={demo} rezenConnected={rezenConnected} onSave={onSaveGoal} onProfile={onProfile} onReferrals={onReferrals} />
+        <ClosingsFoundCard demo={demo} onLogged={onClosingLogged} />
 
         <h2 className="wr-h">2. Likely next 3 months</h2>
         {likely ? (

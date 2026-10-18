@@ -4355,6 +4355,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           demo={!live}
           rezenConnected={rezenOn}
           onSaveGoal={saveGoal}
+          onClosingLogged={() => Promise.all([refreshLive(), loadGoalsPlan()])}
           onProfile={() => {
             setGoalsOpen(false);
             goTo(movePageId("/profile"));
