@@ -59,6 +59,8 @@ import ReferralsView from "./ReferralsView.tsx";
 import MarqueePanel from "./views/MarqueePanel.tsx";
 import MarqueeView from "./views/MarqueeView.tsx";
 import { mqKeyOf, type MqKey } from "@/lib/examples/marquee.ts";
+import ShowlyTools, { SHOWLY_TOOL } from "./views/ShowlyTools.tsx";
+import OpenTools, { OPEN_TOOL } from "./views/OpenTools.tsx";
 import WinsView from "./WinsView.tsx";
 import LifeUpcomingView from "./LifeUpcomingView.tsx";
 import OutreachPanel, { AttractionSection } from "./OutreachPanel.tsx";
@@ -4034,6 +4036,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               )}
             </div>
           )}
+
+          {/* Showly and ONE Open tools: the example (or the agent's own rows) in the panel, and a full view inside the Brain (Parry, 18 Oct). */}
+          {!ask && !tour && SHOWLY_TOOL.test(focus.id) ? <ShowlyTools node={focus} kids={kids} live={live} /> : null}
+          {!ask && !tour && OPEN_TOOL.test(focus.id) ? <OpenTools node={focus} kids={kids} live={live} /> : null}
 
           {focus.locked && focus.id !== GROWTH_NODE && (
             <a className="btn" href={UPGRADE_URL}>
