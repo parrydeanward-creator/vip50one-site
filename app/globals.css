@@ -2815,6 +2815,7 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .cc-myhome b { color: #f5c542; font-weight: 600; }
 .pc-card > .share-card { padding: 0 14px 12px; }
 .share-card h2 { margin-top: 14px; }
+.share-card .hr-head .chip-btn { margin-top: 14px; }
 .share-url { margin: 8px 0; padding: 8px 10px; border: 1px solid rgba(255,255,255,.14); border-radius: 10px; font-size: 13px; color: #fff; word-break: break-all; background: rgba(255,255,255,.03); }
 .share-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
 .share-acts a.chip-btn { text-decoration: none; }

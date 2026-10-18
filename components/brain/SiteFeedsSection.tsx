@@ -69,27 +69,25 @@ export default function ShareLinkSection({ contactId, first, demo = false }: { c
   const [copied, setCopied] = useState(false);
   const name = first.trim();
 
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
     setA(null);
     setErr(null);
     setCopied(false);
+  }, [contactId]);
+
+  // As Classic: the link is made only when the agent taps (ONE MOVE makes the code on the first ask, then keeps it).
+  const get = async () => {
+    setErr(null);
     if (demo) return setA(demoReferralLink(name));
-    let live = true;
-    fetch(referralLinkUrl(contactId), { credentials: "include", cache: "no-store" })
-      .then(async (r) => {
-        const j = await r.json().catch(() => null);
-        if (!live) return;
-        const got = readReferralLink(j);
-        if (got) return setA(got);
-        setErr((j && typeof j.error === "string" && j.error) || "Could not make the link just now. Try again.");
-      })
-      .catch(() => {
-        if (live) setErr("Could not make the link just now. Try again.");
-      });
-    return () => {
-      live = false;
-    };
-  }, [contactId, demo, name]);
+    setBusy(true);
+    const r = await fetch(referralLinkUrl(contactId), { credentials: "include", cache: "no-store" }).catch(() => null);
+    const j = r ? await r.json().catch(() => null) : null;
+    setBusy(false);
+    const got = readReferralLink(j);
+    if (got) return setA(got);
+    setErr((j && typeof j.error === "string" && j.error) || "Could not make the link just now. Try again.");
+  };
 
   const copy = async () => {
     if (!a || !a.ok) return;
@@ -103,11 +101,17 @@ export default function ShareLinkSection({ contactId, first, demo = false }: { c
 
   return (
     <div className="cc-tasks hr-card share-card" aria-label={`${SHARE_TITLE} for ${name || "this VIP"}`}>
-      <h2>{SHARE_TITLE}</h2>
+      <div className="hr-head">
+        <h2>{SHARE_TITLE}</h2>
+        {!a ? (
+          <button type="button" className="chip-btn primary share-get" disabled={busy} onClick={() => void get()}>
+            {busy ? "Getting…" : `Get ${name ? `${name}'s` : "their"} link`}
+          </button>
+        ) : null}
+      </div>
       <p className="hr-sub">
         A link just for {name || "this VIP"} to send friends. Anyone who reaches out through it is credited to {name || "them"} as a referral.
       </p>
-      {!a && !err ? <p className="hr-sub">Getting the link…</p> : null}
       {a && !a.ok ? (
         <p className="hr-line share-words">
           {a.words}
