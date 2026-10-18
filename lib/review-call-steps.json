@@ -156,7 +156,7 @@
           "min": "5 min",
           "items": [
             "Which plans to start, and for whom",
-            "Each plan's automatic texts and emails: off unless they switch them on",
+            "Each plan's automatic emails: off unless they switch them on; plan texts are always a ready-to-send task, sent from the agent's own phone",
             "SOI managed monthly ($149): want Pulse to draft every monthly touch for them to approve?"
           ]
         },
