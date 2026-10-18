@@ -114,9 +114,9 @@ export const CHAPTERS = [
     title: "Morning Pulse",
     moments: [
       { say: "Each morning Pulse greets you on the right: the three things that matter most today, and your whole day below.", do: async (T) => { await T.home(); await T.hover(".drawer h2, .drawer h1"); } },
-      { say: "Press Play Morning Pulse, and Pulse walks you through your morning: what changed since yesterday, then today, one thing at a time.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /Play Morning Pulse/ })); await T.wait(1500); await T.click('[aria-label="Pause Morning Pulse"]'); } },
-      { say: "Since yesterday: two new leads came in, Rosa and Ken. Pulse takes you to them, in ONE MOVE.", do: async (T) => { await T.click('[aria-label="Skip to the next part"]'); await T.wait(2500); } },
-      { say: "A deal deadline is coming up too, for Ken. Each part takes you to the right place, with the person in the middle.", do: async (T) => { await T.click('[aria-label="Skip to the next part"]'); await T.wait(2500); } },
+      { say: "Press Play Morning Pulse and Pulse walks you through your morning. Since yesterday, two new leads came in, Rosa and Ken, and Pulse takes you straight to them.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /Play Morning Pulse/ })); await T.wait(1500); await T.click('[aria-label="Pause Morning Pulse"]'); } },
+      { say: "A deal deadline is coming up too, for Ken. Each part takes you to the right place in your Brain.", do: async (T) => { await T.click('[aria-label="Skip to the next part"]'); await T.wait(2500); } },
+      { say: "Then what matters today: the three most important things, and why.", do: async (T) => { await T.click('[aria-label="Skip to the next part"]'); await T.wait(2500); } },
       { say: "Pause, skip, or turn the voice off any time. Close it and you're back on your map.", do: async (T) => { await T.hover('[aria-label="Skip to the next part"]'); await T.wait(1200); await T.click('[aria-label="Close Morning Pulse"]'); await T.home(); } },
       { say: "The gold pill at the top always tells you what to do right now, and until when.", do: async (T) => { await T.hover(".next-pill"); } },
       { say: "Click the gold ONE in the middle to meet Pulse: what it is doing for you now, and what is coming next.", do: async (T) => { await T.click('[aria-label^="ONE, Your business"]').catch(() => {}); await T.wait(2500); } },
