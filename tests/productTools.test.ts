@@ -87,7 +87,9 @@ test("Marquee: six tools; examples when the new arrays are absent, real rows whe
   const ex = marqueeToolOrbs(null, TODAY);
   assert.deepEqual(ex.map((x) => x.label), ["Listings", "Calendar", "Posts waiting", "Seller reports", "Presentations", "Room cards"]);
   assert.ok(ex.every((x) => x.example));
-  assert.deepEqual(ex[3].rows.map((r) => `${r.label}: ${r.sub}`), ["Week 2: Example · Sent 13 Oct", "Week 3: Example · Waiting on your six answers"]);
+  // 18 Oct: the Seller reports example rows are the two reports its side panel shows (lib/examples/marquee.ts), so the
+  // orbs and the panel tell one story (was "Week 2" and "Week 3" with no home).
+  assert.deepEqual(ex[3].rows.map((r) => `${r.label}: ${r.sub}`), ["1482 Maple Ridge Dr: Example · Week 1 · ready to send to Laura", "310 Willow Bend Rd: Example · Week 3 · ready to send to Mark"]);
   assert.deepEqual(ex[4].rows.map((r) => `${r.label}: ${r.sub}`), ["Listing appointment: Example · 8 pages · ready", "Marketing packet: Example · 12 pages · approved"]);
   assert.equal(ex[5].rows[0].sub, "Example · 6 of 7 rooms written");
   const env = {

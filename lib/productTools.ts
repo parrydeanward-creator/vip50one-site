@@ -1,5 +1,6 @@
 import { goHref, productLink, type SignInProduct } from "./productSignIn.ts";
 import type { NodeStatus, Stat } from "./graph/types.ts";
+import { MQ_LISTINGS, MQ_REPORTS, MQ_ROOMS_FOR, MQ_SCHEDULED, dayName } from "./examples/marquee.ts";
 
 // VIP-SUMMARY §3ai (v1.80, 17 Oct; Parry, 16 Oct: "marquee, open and showly could go deeper and show more features and
 // what each tool actually does"). Opening Marquee, ONE Open or Showly shows its tools as child orbs, each with a filled
@@ -295,9 +296,9 @@ export function marqueeToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] 
   const active = num(statOf(env, "active_listings")?.value);
 
   const listingsOrb = orb(p, "listings", "Listings", "Every listing's marketing in one place: live, under contract and recently closed, each with its campaign.", {
-    sub: listings ? (listings.length ? plural(listings.length, "home") : "No listings yet") : "1 home",
+    sub: listings ? (listings.length ? plural(listings.length, "home") : "No listings yet") : plural(MQ_LISTINGS.length, "home"),
     stats: active != null ? [{ label: "Active listings", value: String(active) }] : undefined,
-    rows: listings ? [] : exampleRows(p, "listings", [["123 Example Lane", "Live · 5 days on market"]]),
+    rows: listings ? [] : exampleRows(p, "listings", MQ_LISTINGS.map((l) => [l.street, `${l.status} · ${l.daysOnMarket == null ? "not on the market yet" : `${l.daysOnMarket} days on market`}`])),
     path: "/",
     example: !listings,
   });
@@ -314,15 +315,15 @@ export function marqueeToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] 
   }));
   const calendarOrb = orb(p, "calendar", "Calendar", "Every piece's posting day across your listings. Nothing posts unless you approved it and switched on scheduled posting.", {
     sub: posts ? (upcoming.length ? `${upcoming.length} scheduled` : "Nothing scheduled") : "3 scheduled",
-    rows: posts ? calRows : exampleRows(p, "calendar", [["123 Example Lane", "Instagram · Thu · Scheduled"], ["123 Example Lane", "Facebook · Fri · Scheduled"], ["123 Example Lane", "Instagram · Sat · Scheduled"]]),
+    rows: posts ? calRows : exampleRows(p, "calendar", MQ_SCHEDULED.map((c) => [c.listing, `${c.channel} · ${dayName(today, c.day)} · Scheduled`])),
     path: "/",
     example: !posts,
   });
 
   const postsOrb = orb(p, "posts", "Posts waiting", "The pieces Marquee built that wait for your approval. Nothing posts until you approve it.", {
-    sub: waiting != null ? (waiting ? `${waiting} to approve` : "Nothing waiting") : "5 to approve",
+    sub: waiting != null ? (waiting ? `${waiting} to approve` : "Nothing waiting") : "7 to approve",
     stats: waiting != null ? [{ label: "Waiting for approval", value: String(waiting) }] : undefined,
-    rows: waiting != null ? [] : exampleRows(p, "posts", [["5 pieces for 123 Example Lane", "Approve by Wed"]]),
+    rows: waiting != null ? [] : exampleRows(p, "posts", [["5 posts for 1482 Maple Ridge Dr", "First one posts tomorrow"], ["2 posts for 88 Aspen Ct", "Coming soon"]]),
     path: "/",
     example: waiting == null,
     kinds: ["approval"],
@@ -338,8 +339,8 @@ export function marqueeToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] 
   });
   const asked = repRows.filter((r) => r.status).length;
   const reportsOrb = orb(p, "reports", "Seller reports", "Every week: answer six questions, then Marquee sends your seller their report.", {
-    sub: reports ? (asked ? `${asked} waiting on you` : reports.length ? "Up to date" : "None yet") : "Week 3 waiting",
-    rows: reports ? repRows : exampleRows(p, "reports", [["Week 2", "Sent 13 Oct"], ["Week 3", "Waiting on your six answers"]]),
+    sub: reports ? (asked ? `${asked} waiting on you` : reports.length ? "Up to date" : "None yet") : plural(MQ_REPORTS.length, "report") + " to send",
+    rows: reports ? repRows : exampleRows(p, "reports", MQ_REPORTS.map((r) => [r.listing, `Week ${r.week} · ready to send to ${r.seller}`])),
     path: "/",
     example: !reports,
     kinds: ["report"],
@@ -374,7 +375,7 @@ export function marqueeToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] 
   });
   const roomsOrb = orb(p, "room_cards", "Room cards", "A card for each room of the home, written for the open house and the listing's room pages.", {
     sub: rooms ? (rooms.length ? plural(rooms.length, "home") : "None yet") : "6 of 7 written",
-    rows: rooms ? roomRows : exampleRows(p, "room_cards", [["123 Example Lane", "6 of 7 rooms written"]]),
+    rows: rooms ? roomRows : exampleRows(p, "room_cards", [[MQ_ROOMS_FOR, "6 of 7 rooms written"]]),
     path: "/",
     example: !rooms,
   });
