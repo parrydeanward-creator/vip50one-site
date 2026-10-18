@@ -34,6 +34,7 @@ import {
   replyBody,
   sourceWords,
   starsWords,
+  shownWords,
   stateWords,
   waitingGoogle,
   type GbpAnswer,
@@ -154,7 +155,7 @@ export default function GbpScreen({ demo = false, onClose }: { demo?: boolean; o
         {data ? (
           <>
             <section className="pc-card cma-box gbp-state" aria-label="State" data-state={data.state}>
-              <p className="hr-line gbp-state-line">{data.state === "not_connected" ? "Google Business Profile is not turned on." : stateWords(data.state, data.location)}</p>
+              <p className="hr-line gbp-state-line">{data.words || (data.state === "not_connected" ? "Google Business Profile is not turned on." : stateWords(data.state, data.location))}</p>
               {data.state === "not_connected" ? (
                 <>
                   <div className="cc-perm-acts">
@@ -322,7 +323,7 @@ export function GbpProfileCard({ demo = false, onOpen }: { demo?: boolean; onOpe
   return (
     <section className="pf-card gbp-card" aria-label={GBP_TITLE}>
       <h2>{GBP_TITLE}</h2>
-      <small className="pf-sub">{data ? stateWords(data.state, data.location) : "Loading..."}</small>
+      <small className="pf-sub">{data ? shownWords(data) : "Loading..."}</small>
       <div className="pf-btns">
         <a
           className="chip-btn"

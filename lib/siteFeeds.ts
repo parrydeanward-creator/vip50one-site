@@ -74,7 +74,33 @@ export function demoReferralLink(first: string | null | undefined): Extract<Refe
 
 // ---- MY-HOME v0.2: a past client's own page on the agent's site --------------------------------------------------------
 
-export interface MyHome { signedInAt: string | null; words: string }
+export interface Improvement { id: string; what: string; doneOn: string | null; cost: number | null }
+export interface MyHome { signedInAt: string | null; words: string; improvements?: Improvement[] }
+
+export const IMPROVEMENTS_HEAD = "Home improvements they shared with you:";
+
+/** One line, as Classic: "what (YYYY-MM) · $cost"; a missing month or cost is left out. */
+export function improvementLine(i: Improvement): string {
+  const month = i.doneOn && /^\d{4}-\d{2}/.test(i.doneOn) ? ` (${i.doneOn.slice(0, 7)})` : "";
+  const cost = i.cost != null ? ` · $${i.cost.toLocaleString("en-US")}` : "";
+  return `${i.what}${month}${cost}`;
+}
+
+/** `my_home.improvements`, shared rows only (GO/MOVE reads Websites); at most 5, as Classic. */
+export function readImprovements(v: unknown): Improvement[] {
+  const out: Improvement[] = [];
+  for (const x of Array.isArray(v) ? v : []) {
+    if (!x || typeof x !== "object") continue;
+    const r = x as Record<string, unknown>;
+    const id = str(r.id, 100);
+    const what = str(r.what, 200);
+    if (!id || !what) continue;
+    const cost = typeof r.cost === "number" && Number.isFinite(r.cost) && r.cost >= 0 ? Math.round(r.cost) : null;
+    out.push({ id, what, doneOn: str(r.done_on, 40), cost });
+    if (out.length === 5) break;
+  }
+  return out;
+}
 export interface PersonExtras { canShareLink: boolean; myHome: MyHome | null }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -101,13 +127,13 @@ export function readPersonExtras(raw: unknown): PersonExtras {
   const shown = words ? myHomeWords(words) : "";
   return {
     canShareLink: r.can_share_link === true,
-    myHome: h && shown ? { signedInAt: str(h.signed_in_at, 40), words: shown } : null,
+    myHome: h && shown ? { signedInAt: str(h.signed_in_at, 40), words: shown, improvements: readImprovements(h.improvements) } : null,
   };
 }
 
 /** The example agent's people (lib/homeReport.ts demoMonthCard): Jane is a VIP; Sara is a past client and a VIP. */
 export function demoPersonExtras(contactId: string): PersonExtras {
-  if (contactId === "demo-hr-sara") return { canShareLink: true, myHome: { signedInAt: "2026-10-12T15:04:00Z", words: myHomeWords("My Home: signed in, last on 2026-10-12") } };
+  if (contactId === "demo-hr-sara") return { canShareLink: true, myHome: { signedInAt: "2026-10-12T15:04:00Z", words: myHomeWords("My Home: signed in, last on 2026-10-12"), improvements: [{ id: "demo-imp-1", what: "New roof", doneOn: "2026-06-14", cost: 14500 }] } };
   if (contactId === "demo-hr-jane") return { canShareLink: true, myHome: null };
   return { canShareLink: false, myHome: null };
 }

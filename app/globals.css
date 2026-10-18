@@ -2813,6 +2813,9 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .dl-cp-msg { display: block; margin-top: 4px; }
 .cc-myhome { margin: 6px 0 10px; font-size: 13px; color: var(--text-2, #c9cfdf); }
 .cc-myhome b { color: #f5c542; font-weight: 600; }
+.cc-improvements { margin: -4px 0 10px; font-size: 13px; color: var(--text-2, #c9cfdf); }
+.cc-improvements p { margin: 0 0 4px; }
+.cc-improvements ul { margin: 0; padding-left: 18px; }
 .pc-card > .share-card { padding: 0 14px 12px; }
 .share-card h2 { margin-top: 14px; }
 .share-card .hr-head .chip-btn { margin-top: 14px; }

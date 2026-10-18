@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   FAILED, FOOTER, canSendText, connectBody, dateWords, demoGbp, demoStateFrom, fieldWords, fixBody, isLowStar, monthWords,
-  publishBody, readGbp, readGbpAnswer, replyBody, sortReviews, sourceWords, stateWords, waitingGoogle,
+  publishBody, shownWords, readGbp, readGbpAnswer, replyBody, sortReviews, sourceWords, stateWords, waitingGoogle,
 } from "../lib/gbp.ts";
 
 test("stateWords: the four states in plain words", () => {
@@ -127,4 +127,11 @@ test("menu: a Google Business Profile row follows My website, only with a site",
   assert.equal(keys[keys.indexOf("site") + 1], "gbp");
   assert.deepEqual(menuRows(base).find((r) => r.key === "gbp")?.action, { kind: "gbp" });
   assert.ok(!menuRows({ ...base, siteHost: null }).some((r) => r.key === "gbp"));
+});
+
+test("ONE MOVE's words are shown as given; without them the plain words", () => {
+  const d = readGbp({ ok: true, state: "waiting_google", words: "Waiting on Google (ONE MOVE words)." });
+  assert.equal(d.words, "Waiting on Google (ONE MOVE words).");
+  assert.equal(shownWords(d), "Waiting on Google (ONE MOVE words).");
+  assert.equal(shownWords(readGbp({ ok: true, state: "not_complete" })), stateWords("not_complete"));
 });

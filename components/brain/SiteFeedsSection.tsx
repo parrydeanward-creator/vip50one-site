@@ -12,6 +12,8 @@ import {
   readReferralLink,
   referralLinkUrl,
   type MyHome,
+  IMPROVEMENTS_HEAD,
+  improvementLine,
   type PersonExtras,
   type ReferralLink,
 } from "@/lib/siteFeeds.ts";
@@ -45,9 +47,21 @@ export function usePersonExtras(contactId: string, opts: { demo?: boolean; given
 export function MyHomeLine({ myHome }: { myHome: MyHome | null | undefined }) {
   if (!myHome) return null;
   return (
-    <p className="cc-myhome">
-      <b>My Home:</b> {myHome.words}
-    </p>
+    <>
+      <p className="cc-myhome">
+        <b>My Home:</b> {myHome.words}
+      </p>
+      {myHome.improvements && myHome.improvements.length ? (
+        <div className="cc-improvements">
+          <p>{IMPROVEMENTS_HEAD}</p>
+          <ul>
+            {myHome.improvements.map((i) => (
+              <li key={i.id}>{improvementLine(i)}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </>
   );
 }
 
