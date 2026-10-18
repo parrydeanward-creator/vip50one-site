@@ -2805,3 +2805,18 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 @media (min-width: 900px) { .cma-cols { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); align-items: start; } .cma-side { position: sticky; top: 12px; } }
 @media (max-width: 480px) { .cma-adj-row { grid-template-columns: 1fr 90px; } .cma-adj-x { grid-column: 1 / -1; } }
 .cma-adj .link, .cma-video .link, .cma-nosite .link { padding: 0; }
+
+/* SITE-FEEDS K16 and K17, MY-HOME v0.2 (vip50-web-crm#312): the Deal card's client page switch, "Share your link", "My Home:" */
+.dl-client-page { margin: 4px 0 10px; }
+.dl-client-page .hr-switch { margin-top: 6px; border-radius: 12px; text-align: left; align-items: flex-start; line-height: 1.35; padding: 6px 10px 6px 6px; }
+.dl-client-page .hr-switch i { flex: 0 0 30px; margin-top: 1px; }
+.dl-cp-msg { display: block; margin-top: 4px; }
+.cc-myhome { margin: 6px 0 10px; font-size: 13px; color: var(--text-2, #c9cfdf); }
+.cc-myhome b { color: #f5c542; font-weight: 600; }
+.pc-card > .share-card { padding: 0 14px 12px; }
+.share-card h2 { margin-top: 14px; }
+.share-card .hr-head .chip-btn { margin-top: 14px; }
+.share-url { margin: 8px 0; padding: 8px 10px; border: 1px solid rgba(255,255,255,.14); border-radius: 10px; font-size: 13px; color: #fff; word-break: break-all; background: rgba(255,255,255,.03); }
+.share-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
+.share-acts a.chip-btn { text-decoration: none; }
+.share-setup { color: #f5c542; }

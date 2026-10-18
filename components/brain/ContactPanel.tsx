@@ -25,6 +25,7 @@ import LifeEventsSection from "./LifeEventsSection.tsx";
 import PermissionsSection from "./PermissionsSection.tsx";
 import HomeReportSection from "./HomeReportSection.tsx";
 import CmaSection from "./CmaSection.tsx";
+import ShareLinkSection, { MyHomeLine, usePersonExtras } from "./SiteFeedsSection.tsx";
 import TalkSection from "./TalkSection.tsx";
 import LeadCard from "./LeadCard.tsx";
 import { leadCardMode, type LeadOutcome, type NewLead, type RetryWhen } from "@/lib/newLeads.ts";
@@ -66,6 +67,7 @@ function ContactCard({ contactId, taskId, onLogged, lead, agentFirst, onLeadOutc
   const [tried, setTried] = useState(false); // a lead: Call / Text / Email tapped, so "Did you reach them?" asks
   const [leadSorted, setLeadSorted] = useState(false);
   const leadMode = leadCardMode(lead, leadSorted);
+  const extras = usePersonExtras(contactId); // My Home and Share your link (vip50-web-crm#312)
   // a lead not reached yet answers "Did you reach them?" instead of "Log this call?" (Reached logs the call)
   const tap = (kind: TouchKind) => (leadMode === "reach" ? setTried(true) : setAsk(askFor(kind)));
 
@@ -136,6 +138,7 @@ function ContactCard({ contactId, taskId, onLogged, lead, agentFirst, onLeadOutc
           <span>No touches yet</span>
         )}
       </div>
+      <MyHomeLine myHome={extras?.myHome} />
       {(() => {
         // CONNECTIONS §5.2: a next step for an open house buyer. Each opens where the agent acts; nothing is sent from ONE.
         const offers = readOffers(card.offers);
@@ -274,6 +277,7 @@ function ContactCard({ contactId, taskId, onLogged, lead, agentFirst, onLeadOutc
       <PermissionsSection contactId={contactId} />
       <HomeReportSection contactId={contactId} first={first} />
       <CmaSection contactId={contactId} first={first} />
+      {extras?.canShareLink ? <ShareLinkSection contactId={contactId} first={first} /> : null}
       <SendsSection contactId={contactId} />
       {card.source_label && <p className="cc-source">{card.source_label}</p>}
     </div>

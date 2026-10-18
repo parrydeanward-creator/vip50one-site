@@ -1,5 +1,6 @@
 import { MOVE_URL } from "./host.ts";
 import { faceUrl } from "./vips.ts";
+import { readPersonExtras, type MyHome } from "./siteFeeds.ts";
 
 // VIP-SUMMARY §3k (v1.18, Parry 4 Oct "yes c"): Contacts in ONE Brain. ONE MOVE
 // keeps the contacts, the groups, Pulse's rules and the field catalogue
@@ -48,6 +49,10 @@ export interface Person {
   timelineCount: number;
   /** LEADS §1.7b: a partial lead, no phone or email and no consent (GO/MOVE vip50-web-crm#306). */
   leftEarly: boolean;
+  /** SITE-FEEDS K17: a VIP-50 or VIP-100, so the card offers "Share your link" (vip50-web-crm#312). */
+  canShareLink?: boolean;
+  /** MY-HOME v0.2: a past client's page on the agent's site; null for someone with no closing. */
+  myHome?: MyHome | null;
 }
 
 export type EventKind = "call" | "text" | "email" | "note" | "touch" | "task" | "open_house" | "listing" | "showing" | "web" | "deal" | "other";
@@ -166,6 +171,7 @@ export function readPerson(j: unknown): Person | null {
     sections,
     timelineCount: num(o.timeline_count),
     leftEarly: o.left_early === true,
+    ...readPersonExtras(o),
   };
 }
 

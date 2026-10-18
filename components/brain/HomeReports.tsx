@@ -5,6 +5,7 @@ import { useSvgCamera } from "./useSvgCamera.ts";
 import PulseRing from "./PulseRing.tsx";
 import HomeReportSection from "./HomeReportSection.tsx";
 import CmaSection from "./CmaSection.tsx";
+import { PersonFeeds } from "./SiteFeedsSection.tsx";
 import { monthWords } from "@/lib/marketPulse.ts";
 import {
   bulkBody,
@@ -272,6 +273,7 @@ export default function HomeReports({
         {who ? (
           <>
             <h1 className="d-title">{who.name}</h1>
+            <PersonFeeds key={`feeds-${who.contactId}`} contactId={who.contactId} first={first(who.name)} demo={demo} />
             <HomeReportSection key={who.contactId} contactId={who.contactId} first={first(who.name)} demo={demo} onChanged={() => { if (!demo) void load(); }} />
             <CmaSection key={`cma-${who.contactId}`} contactId={who.contactId} first={first(who.name)} demo={demo} />
             <p className="hr-links">

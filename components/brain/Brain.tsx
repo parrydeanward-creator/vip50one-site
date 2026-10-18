@@ -62,7 +62,7 @@ import { LearnPartPanel, LearnSearch } from "./LearnPanel.tsx";
 import { actionPlansUrl, examplePlan, isPlanNode, planOf, readPlans, withPlan, withPlanNodes, type ActionPlan } from "@/lib/actionPlans.ts";
 import { LEARN_PANEL_FIRST, demoLearn, learnPartOf, learnUrl, readLearn, withLearnNodes, type Learn } from "@/lib/learn.ts";
 import MoveLikelyView from "./MoveLikelyView.tsx";
-import DealsView, { type SetStatus as DealSetStatus } from "./DealsView.tsx";
+import DealsView, { type SetClientPage as DealSetClientPage, type SetStatus as DealSetStatus } from "./DealsView.tsx";
 import TeamView from "./TeamView.tsx";
 import WarRoomView from "./WarRoomView.tsx";
 import ReviewCallsView from "./ReviewCallsView.tsx";
@@ -100,7 +100,8 @@ import { OPP_LABEL, OPP_NODE, PEOPLE_MENU_PARTS, withOpportunities } from "@/lib
 import { readRoute } from "@/lib/routeFirst.ts";
 import { HOME_REPORTS_PATH } from "@/lib/homeReport.ts";
 import { PANEL_FIRST, attractionUrl, demoAttraction, demoEvents, demoOutreach, eventsUrl, outreachUrl, partOf, readAttraction, readEvents, readOutreach, withEventsNodes, withOutreachNodes, type Attraction, type EventsNow, type Outreach } from "@/lib/outreach.ts";
-import { DEALS_NODE, dealUrl, dealsUrl, demoDeals, readClosingAsk, readDeals, statusBody as dealStatusBody, withDealsNode, withStatus as withDealStatus, type Deal } from "@/lib/deals.ts";
+import { DEALS_NODE, dealUrl, dealsUrl, demoDeals, readClosingAsk, readDeals, statusBody as dealStatusBody, withClientPage as withDealClientPage, withDealsNode, withStatus as withDealStatus, type Deal } from "@/lib/deals.ts";
+import { clientPageBody, readSaveAnswer } from "@/lib/siteFeeds.ts";
 import { LIFE_NODE } from "@/lib/lifeEvents.ts";
 import { DATES_STAT, demoUpcoming, readUpcoming, taskBody as lifeTaskBody, taskUrl as lifeTaskUrl, upcomingUrl as lifeUpcomingUrl, withLifeUpcomingNode, type Upcoming, type UpcomingList } from "@/lib/lifeUpcoming.ts";
 import { readScoreboard, scoreboardUrl, type ScoreboardLive } from "@/lib/scoreboard.ts";
@@ -1429,6 +1430,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
         if (!r.ok) return "failed";
       }
       setDeals((list) => (list ? withDealStatus(list, d.id, status) : list));
+      return "ok";
+    },
+    [live],
+  );
+  // SITE-FEEDS K16: the client page switch on the Deal card. The example agent's switch is local; nothing is sent.
+  const setDealClientPage: DealSetClientPage = useCallback(
+    async (d, on) => {
+      if (live) {
+        const r = await fetch(dealUrl(d.id), { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(clientPageBody(on)) }).catch(() => null);
+        const a = readSaveAnswer(r ? await r.json().catch(() => null) : null, !!r?.ok);
+        if (!a.ok) return { error: a.error };
+      }
+      setDeals((list) => (list ? withDealClientPage(list, d.id, on) : list));
       return "ok";
     },
     [live],
@@ -4329,7 +4343,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           onClose={() => setLikelyOpen(false)}
         />
       ) : null}
-      {dealsOpen && deals ? <DealsView deals={deals} today={todayIn()} demo={!live} onStatus={setDealStatus} onClose={() => setDealsOpen(false)} onAdded={dealAdded} startAdding={dealsOpen === "add"} /> : null}
+      {dealsOpen && deals ? <DealsView deals={deals} today={todayIn()} demo={!live} onStatus={setDealStatus} onClientPage={setDealClientPage} onClose={() => setDealsOpen(false)} onAdded={dealAdded} startAdding={dealsOpen === "add"} /> : null}
       {lifeOpen && life ? <LifeUpcomingView data={life} demo={!live} onTask={lifeTask} onClose={() => setLifeOpen(false)} /> : null}
       {winsOpen && wins ? (
         <WinsView
