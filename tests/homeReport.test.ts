@@ -275,3 +275,61 @@ test("example note, bars and numbers", () => {
   assert.equal(shortPrice(1200000), "$1.2M");
   assert.equal(shortPrice(2000000), "$2M");
 });
+
+// ---- The twelve additions (HOME-REPORT §3a) ----
+import { readFileSync } from "node:fs";
+import { MOVING_REPLY, OPTIONAL_SECTIONS, defaultSettings, exampleMore, readSettings } from "../lib/homeReport.ts";
+
+test("the example report renders all twelve section headings", () => {
+  const src = readFileSync(new URL("../components/brain/MarketReportExample.tsx", import.meta.url), "utf8");
+  const headings = [
+    "{m.video.title}", // "A word from <agent>"
+    "What&apos;s happening near you",
+    "This month&apos;s home care",
+    "Your agent&apos;s trusted pros",
+    "What you&apos;ve done to your home",
+    "Mortgage rates this month",
+    "What buyers near you are looking for",
+    "Special editions",
+    "Thinking of moving?",
+    "Know someone thinking of moving?",
+    "Ask Pulse about your neighbourhood",
+    "En español",
+    "Print / PDF",
+  ];
+  for (const h of headings) assert.ok(src.includes(h), `missing: ${h}`);
+  const m = exampleMore(exampleReport("2026-10-18"));
+  assert.equal(m.video.title, "A word from Alex");
+  assert.ok(m.near.places.some((p) => p.isNew));
+  assert.equal(m.care.length, 3);
+  assert.equal(m.pros.length, 3);
+  assert.equal(m.rates.rows.length, 2);
+  assert.match(m.rates.credit, /^Source: Freddie Mac Primary Mortgage Market Survey, /);
+});
+
+test("Thinking of moving? shows no dollar value for the home", () => {
+  const m = exampleMore(exampleReport("2026-10-18"));
+  assert.equal(m.moving.reply, "Your agent will prepare a market analysis for you");
+  assert.equal(MOVING_REPLY, m.moving.reply);
+  assert.ok(!/\$/.test(`${m.moving.button} ${m.moving.reply}`));
+  const src = readFileSync(new URL("../components/brain/MarketReportExample.tsx", import.meta.url), "utf8");
+  const start = src.indexOf("<h2>Thinking of moving?</h2>");
+  const block = src.slice(start, src.indexOf("</section>", start));
+  assert.ok(!block.includes("$"));
+  // The "what you've done" line is general: no figure for the home.
+  assert.ok(!/\$|\d%/.test(m.done.general));
+});
+
+test("report settings: every section on and the postcard off by default", () => {
+  const d = defaultSettings();
+  assert.equal(d.postcard, false);
+  assert.equal(OPTIONAL_SECTIONS.length, 12);
+  for (const o of OPTIONAL_SECTIONS) assert.equal(d.sections[o.key], true);
+  const got = readSettings({ sections: { rates: false, junk: false }, postcard: true });
+  assert.equal(got?.sections.rates, false);
+  assert.equal(got?.sections.pros, true);
+  assert.equal(got?.postcard, true);
+  assert.equal(readSettings(null), null);
+  const src = readFileSync(new URL("../components/brain/ReportSettings.tsx", import.meta.url), "utf8");
+  assert.ok(src.includes("POSTCARD_LABEL") && src.includes("SETTINGS_FIXED_NOTE") && src.includes("VIDEO_HINT"));
+});

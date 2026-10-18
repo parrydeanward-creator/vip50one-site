@@ -8,6 +8,7 @@ import CmaSection from "./CmaSection.tsx";
 import { PersonFeeds } from "./SiteFeedsSection.tsx";
 import { monthWords } from "@/lib/marketPulse.ts";
 import { ExampleReportButton } from "./MarketReportExample.tsx";
+import ReportSettings from "./ReportSettings.tsx";
 import "@/app/market-report.css";
 import {
   bulkBody,
@@ -377,6 +378,7 @@ export default function HomeReports({
             <p className="d-sum">A monthly report on each client&apos;s own neighbourhood, sent until you or they stop it. Switch one on from any contact&apos;s card{bulks.vips.length || bulks.past.length ? ", or for your VIPs and past clients here" : ""}. Tap a group to see who is in it. {CREDIT_LINE}</p>
             {bulks.vips.length > 0 ? <button type="button" className="chip-btn primary" onClick={() => { setSel("vips"); const s = seats.find((x) => x.k === "vips"); if (s) cam.centreOn(s.x, s.y); }}>{VIPS_BULK}</button> : null}
             {card.feedLive ? null : <p className="pm-empty">Until the feed is connected, on each report&apos;s day you may paste that month&apos;s RPR link on a person&apos;s card and send it from your own email; that month counts as sent.</p>}
+            <ReportSettings demo={demo} />
             <p className="pm-empty">Requests from your site start {card.autostart ? "by themselves" : "with one tap from a task"}. Change it in My Profile.</p>
           </>
         )}

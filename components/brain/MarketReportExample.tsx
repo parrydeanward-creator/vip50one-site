@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { barPct, delta, dollars, exampleReport, initials, shortPrice } from "@/lib/homeReport.ts";
+import { barPct, delta, dollars, exampleMore, exampleReport, initials, shortPrice } from "@/lib/homeReport.ts";
 import "@/app/market-report.css";
 
 // "See an example report" (Parry 18 Oct: "what does the market report look like"). A full-screen preview of the monthly
@@ -15,6 +15,9 @@ const mtnToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Den
 export default function MarketReportExample({ onClose }: { onClose: () => void }) {
   const r = exampleReport(mtnToday());
   const closeRef = useRef<HTMLButtonElement>(null);
+  const m = exampleMore(r);
+  const [moving, setMoving] = useState(false);
+  const bmax = Math.max(...m.buyers.price.map((b) => b.n), ...m.buyers.beds.map((b) => b.n));
   const max = Math.max(...r.counts.flatMap((c) => [c.now, c.lastMonth, c.yearAgo]));
 
   useEffect(() => {
@@ -54,6 +57,15 @@ export default function MarketReportExample({ onClose }: { onClose: () => void }
             <h1>Your home&apos;s neighbourhood</h1>
             <p className="mr-area">For {r.area}</p>
           </header>
+
+          <section className="mr-sec mr-video">
+            <h2>{m.video.title}</h2>
+            <button type="button" className="mr-thumb" aria-label={`Play the video, ${m.video.length}`} onClick={(e) => e.preventDefault()}>
+              <span className="mr-play" aria-hidden="true" />
+              <em>{m.video.length}</em>
+            </button>
+            <p className="mr-small">A short video from {r.agent.first} each month. It plays on the web page.</p>
+          </section>
 
           <section className="mr-sec">
             <h2>For sale near you now</h2>
@@ -110,10 +122,102 @@ export default function MarketReportExample({ onClose }: { onClose: () => void }
             <p className="mr-small">A count only. Buyers&apos; names are never shared.</p>
           </section>
 
+          <section className="mr-sec">
+            <h2>Mortgage rates this month</h2>
+            <table className="mr-rates">
+              <thead><tr><th scope="col"><span className="mr-vh">Loan</span></th><th scope="col">Now</th><th scope="col">{r.lastMonthName}</th><th scope="col">A year ago</th></tr></thead>
+              <tbody>
+                {m.rates.rows.map((x) => (
+                  <tr key={x.label}><th scope="row">{x.label}</th><td><b>{x.now}</b></td><td>{x.last}</td><td>{x.ago}</td></tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mr-small">{m.rates.line}</p>
+            <p className="mr-credit">{m.rates.credit}</p>
+          </section>
+
+          <section className="mr-sec">
+            <h2>What buyers near you are looking for</h2>
+            <div className="mr-two">
+              {[["By price", m.buyers.price], ["By bedrooms", m.buyers.beds]].map(([t, rows]) => (
+                <div key={t as string}>
+                  <p className="mr-small mr-strong">{t as string}</p>
+                  {(rows as { label: string; n: number }[]).map((b) => (
+                    <div key={b.label} className="mr-bar-row"><i>{b.label}</i><span className="mr-bar now" style={{ width: `${barPct(b.n, bmax)}%` }} /><em>{b.n}</em></div>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <p className="mr-small">Counts of saved searches on my website that cover your home. Never names.</p>
+          </section>
+
+          <section className="mr-sec">
+            <h2>What&apos;s happening near you</h2>
+            <ul className="mr-places">
+              {m.near.places.map((p) => (
+                <li key={p.name}><b>{p.name}</b><span>{p.kind}</span>{p.isNew ? <em className="mr-new">New this month</em> : null}</li>
+              ))}
+            </ul>
+            <div className="mr-event"><b>{m.near.event.title}</b><span>{m.near.event.when} · {m.near.event.where}</span></div>
+          </section>
+
+          <div className="mr-grid2">
+            <section className="mr-sec">
+              <h2>This month&apos;s home care</h2>
+              <ol className="mr-care">
+                {m.care.map((c) => (<li key={c.title}><b>{c.title}</b><span>{c.text}</span></li>))}
+              </ol>
+            </section>
+            <section className="mr-sec">
+              <h2>Your agent&apos;s trusted pros</h2>
+              <ul className="mr-pros">
+                {m.pros.map((p) => (<li key={p.name}><b>{p.name}</b><span>{p.trade}</span><small>{p.note}</small></li>))}
+              </ul>
+            </section>
+          </div>
+
+          <section className="mr-sec">
+            <h2>What you&apos;ve done to your home</h2>
+            <ul className="mr-done">
+              {m.done.items.map((d) => (<li key={d.what}><b>{d.what}</b><span>{d.year}</span></li>))}
+            </ul>
+            <p className="mr-small">{m.done.general}</p>
+          </section>
+
           <section className="mr-sec mr-note">
             <h2>A note from {r.agent.first}</h2>
             <p>{r.note}</p>
             <p className="mr-sign">{r.agent.first}</p>
+          </section>
+
+          <section className="mr-sec">
+            <h2>Thinking of moving?</h2>
+            <p className="mr-small mr-first">One tap lets {r.agent.first} know. No value is shown here.</p>
+            <button type="button" className="mr-cta" onClick={() => setMoving(true)}>{m.moving.button}</button>
+            {moving ? <p className="mr-reply" role="status">{m.moving.reply}</p> : null}
+          </section>
+
+          <section className="mr-sec">
+            <h2>Know someone thinking of moving?</h2>
+            <p className="mr-small mr-first">Send them your link. {r.agent.first} takes care of them.</p>
+            <p className="mr-link-box">{m.referral.link}</p>
+            <div className="mr-shares">
+              {m.referral.shares.map((x) => (<button key={x} type="button" className="mr-share" onClick={(e) => e.preventDefault()}>{x}</button>))}
+            </div>
+          </section>
+
+          <section className="mr-sec">
+            <h2>Ask Pulse about your neighbourhood</h2>
+            <div className="mr-ask">
+              <p className="mr-q">{m.ask.question}</p>
+              <p className="mr-a">{m.ask.answer}</p>
+              <p className="mr-askbox" aria-hidden="true">Ask a question about your area</p>
+            </div>
+          </section>
+
+          <section className="mr-sec">
+            <h2>Special editions</h2>
+            <p className="mr-small mr-first">{m.special}</p>
           </section>
 
           <section className="mr-agent">
@@ -126,6 +230,7 @@ export default function MarketReportExample({ onClose }: { onClose: () => void }
           </section>
 
           <footer className="mr-foot">
+            <p className="mr-links"><a href="#" onClick={(e) => e.preventDefault()}>En español</a> · <a href="#" onClick={(e) => e.preventDefault()}>Print / PDF</a></p>
             <p>{r.period}</p>
             <p>{r.source}</p>
             <p>You get this report because {r.agent.first} set it up for your home. <a href="#" onClick={(e) => e.preventDefault()}>Stop my monthly report</a> (one click).</p>
