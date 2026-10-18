@@ -2761,3 +2761,89 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .lc-named { margin: 14px 0 0; font-size: 14px; color: var(--text-2); }
 .lc-named b { color: var(--text); font-size: 16px; margin-right: 6px; }
 .vr-bar.nts-plan { bottom: 84px; }
+
+/* CMA (LEADS §1.7c-d, 18 Oct): the card on a person and the full-screen workspace; desktop two columns, phone stacked */
+.pc-card > .cma-card { padding: 0 14px 12px; }
+.cma-card .hr-head .chip-btn { margin-top: 14px; }
+.cma-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.cma-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cma-row { display: grid; gap: 2px; flex: 1; min-width: 0; text-align: left; padding: 6px 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.cma-row:hover .hr-line { color: var(--gold-2); }
+.cma-full { overflow-y: auto; }
+.cma-shell { max-width: 1180px; margin: 0 auto; padding: 18px 16px 48px; }
+.cma-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.cma-top-t { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; flex: 1; }
+.cma-top-t .d-title { margin: 0; overflow-wrap: anywhere; }
+.cma-status.s-sent { color: #3fbf7f; border-color: #3fbf7f; }
+.cma-status.s-ready { color: var(--gold-2); border-color: var(--gold-2); }
+.cma-video { margin: 0 0 8px; }
+.cma-box { padding: 4px 14px 12px; }
+.cma-box h2 { margin-top: 12px; }
+.cma-cols { display: grid; gap: 14px; }
+.cma-comp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.cma-comp.dropped { opacity: 0.6; }
+.cma-comp-h { display: flex; gap: 10px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; padding-top: 10px; }
+.cma-comp-t { min-width: 0; flex: 1; display: grid; gap: 2px; }
+.cma-sugg { margin-left: 8px; font-size: 10px; padding: 1px 8px; }
+.cma-keep { display: flex; gap: 6px; }
+.cma-adj { display: grid; gap: 6px; margin-top: 8px; }
+.cma-adj-row { display: grid; grid-template-columns: 1fr 110px auto; gap: 6px; align-items: center; }
+.cma-adj-row input, .cma-range input, .cma-notes textarea, .cma-link-row input { min-width: 0; padding: 7px 9px; border: 1px solid rgba(160, 175, 210, 0.35); border-radius: 8px; background: rgba(11, 18, 38, 0.8); color: var(--text); font: inherit; font-size: 14px; color-scheme: dark; }
+.cma-adj-add, .cma-adj-x { justify-self: start; font-size: 13px; }
+.cma-credit { margin-top: 8px; }
+.cma-mid { margin: 0 0 4px; }
+.cma-mid b { color: var(--text); }
+.cma-range { display: flex; align-items: flex-end; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+.cma-range label, .cma-notes { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-3); }
+.cma-range input { width: 140px; }
+.cma-notes { margin-top: 4px; }
+.cma-notes textarea { width: 100%; resize: vertical; box-sizing: border-box; }
+.cma-link { display: grid; gap: 6px; margin-top: 10px; }
+.cma-link-row { display: flex; gap: 6px; }
+.cma-link-row input { flex: 1; font-size: 12px; }
+.cma-nosite { margin-top: 6px; }
+@media (min-width: 900px) { .cma-cols { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); align-items: start; } .cma-side { position: sticky; top: 12px; } }
+@media (max-width: 480px) { .cma-adj-row { grid-template-columns: 1fr 90px; } .cma-adj-x { grid-column: 1 / -1; } }
+.cma-adj .link, .cma-video .link, .cma-nosite .link { padding: 0; }
+
+/* SITE-FEEDS K16 and K17, MY-HOME v0.2 (vip50-web-crm#312): the Deal card's client page switch, "Share your link", "My Home:" */
+.dl-client-page { margin: 4px 0 10px; }
+.dl-client-page .hr-switch { margin-top: 6px; border-radius: 12px; text-align: left; align-items: flex-start; line-height: 1.35; padding: 6px 10px 6px 6px; }
+.dl-client-page .hr-switch i { flex: 0 0 30px; margin-top: 1px; }
+.dl-cp-msg { display: block; margin-top: 4px; }
+.cc-myhome { margin: 6px 0 10px; font-size: 13px; color: var(--text-2, #c9cfdf); }
+.cc-myhome b { color: #f5c542; font-weight: 600; }
+.cc-improvements { margin: -4px 0 10px; font-size: 13px; color: var(--text-2, #c9cfdf); }
+.cc-improvements p { margin: 0 0 4px; }
+.cc-improvements ul { margin: 0; padding-left: 18px; }
+.pc-card > .share-card { padding: 0 14px 12px; }
+.share-card h2 { margin-top: 14px; }
+.share-card .hr-head .chip-btn { margin-top: 14px; }
+.share-url { margin: 8px 0; padding: 8px 10px; border: 1px solid rgba(255,255,255,.14); border-radius: 10px; font-size: 13px; color: #fff; word-break: break-all; background: rgba(255,255,255,.03); }
+.share-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
+.share-acts a.chip-btn { text-decoration: none; }
+.share-setup { color: #f5c542; }
+
+/* Google Business Profile (GBP.md §5b, 18 Oct): the full screen over the Brain, the CMA workspace's look; four sections in two columns on desktop */
+.gbp-state { margin-bottom: 14px; }
+.gbp-state .link { padding: 6px 0 0; font-weight: 500; opacity: 0.8; }
+.gbp-cols { display: grid; gap: 14px; }
+.gbp-col h2 { margin: 6px 0 8px; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-2); }
+.gbp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.gbp-item { padding-top: 10px; }
+.gbp-item.low { border-color: rgba(255, 107, 107, 0.7); }
+.gbp-stars.low { color: #ff8a80; border-color: #ff8a80; }
+.gbp-needs { color: #ff8a80; font-size: 12px; font-weight: 700; }
+.gbp-quote { color: var(--text-2); }
+.gbp-replied { margin-top: 6px; }
+.gbp-src { font-size: 10px; padding: 1px 8px; color: var(--text-3); border-color: var(--line); }
+.gbp-src.on { color: #3fbf7f; border-color: #3fbf7f; }
+.gbp-box { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-3); margin-top: 8px; }
+.gbp-box textarea { width: 100%; box-sizing: border-box; resize: vertical; padding: 7px 9px; border: 1px solid rgba(160, 175, 210, 0.35); border-radius: 8px; background: rgba(11, 18, 38, 0.8); color: var(--text); font: inherit; font-size: 14px; color-scheme: dark; }
+.gbp-photo { width: 100%; max-height: 180px; object-fit: cover; border-radius: 10px; margin: 6px 0; }
+.gbp-val { margin-bottom: 6px; }
+.gbp-nums dl { margin: 10px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gbp-nums dt { font-size: 12px; color: var(--text-3); }
+.gbp-nums dd { margin: 2px 0 0; font-size: 26px; font-weight: 700; color: var(--text); }
+.gbp-footer { margin-top: 18px; text-align: center; }
+@media (min-width: 900px) { .gbp-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }

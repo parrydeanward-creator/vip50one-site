@@ -5,6 +5,7 @@ import { LeadMailSection, OwnAISection, PulseModesSection } from "./ConnectSecti
 import RezenSection from "./RezenSection.tsx";
 import VoiceSection from "./VoiceSection.tsx";
 import { syncKind, type VoiceKind } from "@/lib/voicePick.ts";
+import { GbpProfileCard } from "./GbpScreen.tsx";
 import WhereIWorkSection from "./WhereIWorkSection.tsx";
 import TimeOffSection from "./TimeOffSection.tsx";
 import { autostartBody, homeReportUrl, monthUrl, readMonthCard } from "@/lib/homeReport.ts";
@@ -48,6 +49,8 @@ export default function MyProfile({
   onBack,
   onClassic,
   demo = false,
+  gbpDemo = demo,
+  onOpenGbp,
 }: {
   onUnavailable: () => void;
   onChanged: () => void;
@@ -55,6 +58,10 @@ export default function MyProfile({
   onClassic: () => void;
   /** The example agent (?demo=1): example data, nothing called, nothing saved. */
   demo?: boolean;
+  /** Google Business Profile shows its example when true (the example agent and the tour). */
+  gbpDemo?: boolean;
+  /** Opens the Google Business Profile screen over the Brain. */
+  onOpenGbp?: () => void;
 }) {
   const [saved, setSaved] = useState<Profile | null>(null);
   const [draft, setDraft] = useState<Profile | null>(null);
@@ -303,6 +310,7 @@ export default function MyProfile({
       <div className="pf-cards">
         <WhereIWorkSection demo={demo} />
         <TimeOffSection demo={demo} />
+        <GbpProfileCard demo={gbpDemo} onOpen={onOpenGbp} />
       </div>
 
       {/* The same sections as Classic's My Profile (vip50-web-crm#253): Connections (reZEN first), Badges, Settings, Pulse. */}

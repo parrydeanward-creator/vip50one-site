@@ -3,6 +3,7 @@
 
 export type MenuAction =
   | { kind: "profile" }
+  | { kind: "gbp" }
   | { kind: "site"; host?: string; next?: string }
   | { kind: "href"; href: string }
   | { kind: "start" }
@@ -30,6 +31,7 @@ export function menuRows(m: MenuInput): MenuRow[] {
   const rows: MenuRow[] = [{ key: "profile", label: "My Profile", line: "Your photo and details, used by every product.", action: { kind: "profile" } }];
   if (m.start) rows.push({ key: "start", label: "Getting started", line: m.start, action: { kind: "start" } });
   if (m.siteHost) rows.push({ key: "site", label: "My website", line: "Edit your site and see who visited.", action: { kind: "site" } });
+  if (m.siteHost) rows.push({ key: "gbp", label: "Google Business Profile", line: "Reviews, posts and details on Google.", action: { kind: "gbp" } });
   if (m.siteHost && m.growth) rows.push({ key: "results", label: "Growth results", line: "Leads, appointments and closings from your ads.", action: { kind: "site", next: "/manage/results" } });
   for (const host of m.teamHosts) {
     rows.push({ key: `team:${host}`, label: "Team website", line: "Your team's site, its pages and its agents.", action: { kind: "site", host } });

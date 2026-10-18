@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import PulseRing from "./PulseRing.tsx";
 import AddDealForm from "./AddDealForm.tsx";
+import { CLIENT_PAGE_WORDS, SAVED, SAVING, showsClientPage } from "@/lib/siteFeeds.ts";
 import { LEVEL_HUE, SIDE_WORD, SOURCE_WORD, dealLevel, dealName, daysWords, dueOn, exampleDeal, movedLine, nextDate, repcLinkUrl, timeWords, timeline, whenLine, type ClosingAsk, type Deal, type Status } from "@/lib/deals.ts";
 
 // Deals under contract (VIP-SUMMARY §3z). Each deal round a centre that counts them; a deal pulses red on a deadline's
@@ -20,6 +21,42 @@ const STATUS_WORD: Record<Status, string> = { under_contract: "Under contract", 
 const date = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
 
 export type SetStatus = (d: Deal, status: Status, closing?: { id: string } | "new") => Promise<"ok" | "failed" | ClosingAsk>;
+/** SITE-FEEDS K16: save the client page switch; "ok", or ONE MOVE's words when it did not save. */
+export type SetClientPage = (d: Deal, on: boolean) => Promise<"ok" | { error: string }>;
+
+/**
+ * "Client can see their deal dates on your site" (SITE-FEEDS K16; Classic's Deal card has the same switch). It flips at
+ * once, says Saving... then Saved., and goes back to how it was when ONE MOVE does not take it.
+ */
+function ClientPageSwitch({ d, onSave }: { d: Deal; onSave: SetClientPage }) {
+  const saved = d.clientPage !== false;
+  const [on, setOn] = useState(saved);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setMsg(null), [d.id]);
+  useEffect(() => setOn(saved), [d.id, saved]);
+  const flip = async () => {
+    if (busy) return;
+    const next = !on;
+    setOn(next);
+    setBusy(true);
+    setMsg({ ok: true, text: SAVING });
+    const r = await onSave(d, next);
+    setBusy(false);
+    if (r === "ok") return setMsg({ ok: true, text: SAVED });
+    setOn(!next);
+    setMsg({ ok: false, text: r.error });
+  };
+  return (
+    <div className="dl-client-page">
+      <button type="button" role="switch" className={`hr-switch${on ? " on" : ""}`} aria-checked={on} aria-label={CLIENT_PAGE_WORDS} disabled={busy} onClick={() => void flip()}>
+        <i aria-hidden="true" />
+        <span>{CLIENT_PAGE_WORDS}</span>
+      </button>
+      {msg ? <small className={msg.ok ? "pm-empty dl-cp-msg" : "cc-err dl-cp-msg"} role="status">{msg.text}</small> : null}
+    </div>
+  );
+}
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
@@ -46,7 +83,7 @@ function Timeline({ d, today, label }: { d: Deal; today: string; label: string }
   );
 }
 
-export default function DealsView({ deals, today, demo, onStatus, onClose, onAdded, startAdding = false }: { deals: Deal[]; today: string; demo: boolean; onStatus: SetStatus; onClose: () => void; onAdded: (d: Deal | null) => void; startAdding?: boolean }) {
+export default function DealsView({ deals, today, demo, onStatus, onClientPage, onClose, onAdded, startAdding = false }: { deals: Deal[]; today: string; demo: boolean; onStatus: SetStatus; onClientPage: SetClientPage; onClose: () => void; onAdded: (d: Deal | null) => void; startAdding?: boolean }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
@@ -213,6 +250,7 @@ export default function DealsView({ deals, today, demo, onStatus, onClose, onAdd
               </p>
               <h2 className="pm-h">Deadlines, {timeWords(picked.deadlineTime)} on the day</h2>
               <Timeline d={picked} today={today} label={`Timeline for ${dealName(picked)}`} />
+              {showsClientPage(picked) ? <ClientPageSwitch d={picked} onSave={onClientPage} /> : null}
               {picked.hasRepc ? (
                 <div>
                   <button type="button" className="vr-classic dl-repc" onClick={() => void viewRepc(picked)} aria-label={`View REPC for ${dealName(picked)}`}>

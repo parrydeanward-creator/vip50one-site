@@ -14,6 +14,8 @@ import DailyTracker from "./DailyTracker.tsx";
 import WeeklyTracker from "./WeeklyTracker.tsx";
 import Rolodex from "./Rolodex.tsx";
 import HomeReports from "./HomeReports.tsx";
+import GbpScreen from "./GbpScreen.tsx";
+import { GBP_PATH } from "@/lib/gbp.ts";
 import MyProfile from "./MyProfile.tsx";
 import AddonsPanel from "./AddonsPanel.tsx";
 import Contacts from "./Contacts.tsx";
@@ -62,7 +64,7 @@ import { LearnPartPanel, LearnSearch } from "./LearnPanel.tsx";
 import { actionPlansUrl, examplePlan, isPlanNode, planOf, readPlans, withPlan, withPlanNodes, type ActionPlan } from "@/lib/actionPlans.ts";
 import { LEARN_PANEL_FIRST, demoLearn, learnPartOf, learnUrl, readLearn, withLearnNodes, type Learn } from "@/lib/learn.ts";
 import MoveLikelyView from "./MoveLikelyView.tsx";
-import DealsView, { type SetStatus as DealSetStatus } from "./DealsView.tsx";
+import DealsView, { type SetClientPage as DealSetClientPage, type SetStatus as DealSetStatus } from "./DealsView.tsx";
 import TeamView from "./TeamView.tsx";
 import WarRoomView from "./WarRoomView.tsx";
 import ReviewCallsView from "./ReviewCallsView.tsx";
@@ -100,7 +102,8 @@ import { OPP_LABEL, OPP_NODE, PEOPLE_MENU_PARTS, withOpportunities } from "@/lib
 import { readRoute } from "@/lib/routeFirst.ts";
 import { HOME_REPORTS_PATH } from "@/lib/homeReport.ts";
 import { PANEL_FIRST, attractionUrl, demoAttraction, demoEvents, demoOutreach, eventsUrl, outreachUrl, partOf, readAttraction, readEvents, readOutreach, withEventsNodes, withOutreachNodes, type Attraction, type EventsNow, type Outreach } from "@/lib/outreach.ts";
-import { DEALS_NODE, dealUrl, dealsUrl, demoDeals, readClosingAsk, readDeals, statusBody as dealStatusBody, withDealsNode, withStatus as withDealStatus, type Deal } from "@/lib/deals.ts";
+import { DEALS_NODE, dealUrl, dealsUrl, demoDeals, readClosingAsk, readDeals, statusBody as dealStatusBody, withClientPage as withDealClientPage, withDealsNode, withStatus as withDealStatus, type Deal } from "@/lib/deals.ts";
+import { clientPageBody, readSaveAnswer } from "@/lib/siteFeeds.ts";
 import { LIFE_NODE } from "@/lib/lifeEvents.ts";
 import { DATES_STAT, demoUpcoming, readUpcoming, taskBody as lifeTaskBody, taskUrl as lifeTaskUrl, upcomingUrl as lifeUpcomingUrl, withLifeUpcomingNode, type Upcoming, type UpcomingList } from "@/lib/lifeUpcoming.ts";
 import { readScoreboard, scoreboardUrl, type ScoreboardLive } from "@/lib/scoreboard.ts";
@@ -375,6 +378,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [intro, setIntro] = useState(false);
   const [guide, setGuide] = useState(false); // What everything means
   const [addonsOpen, setAddonsOpen] = useState(false); // Add-ons (CHECKOUT §2)
+  // Google Business Profile (GBP.md §5b): a full screen over the Brain, at /dashboard/google-profile.
+  const [gbpOpen, setGbpOpen] = useState(false);
+  const openGbp = useCallback(() => {
+    setGbpOpen(true);
+    if (window.location.pathname !== GBP_PATH) window.history.replaceState(null, "", GBP_PATH + window.location.search);
+  }, []);
+  const closeGbp = useCallback(() => {
+    setGbpOpen(false);
+    if (window.location.pathname === GBP_PATH) window.history.replaceState(null, "", "/dashboard" + window.location.search);
+  }, []);
+  useEffect(() => {
+    if (window.location.pathname === GBP_PATH) setGbpOpen(true);
+  }, []);
   // Morning Pulse (Parry, 16 Oct 21:14 MT): replaces Watch Pulse work, Watch ONE Work and Listen on the signed-in dashboard.
   const [mp, setMp] = useState<{ beats: MpBeat[]; example: boolean } | null>(null);
   const [mpOffer, setMpOffer] = useState(false); // the once-a-day offer on the morning note
@@ -1429,6 +1445,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
         if (!r.ok) return "failed";
       }
       setDeals((list) => (list ? withDealStatus(list, d.id, status) : list));
+      return "ok";
+    },
+    [live],
+  );
+  // SITE-FEEDS K16: the client page switch on the Deal card. The example agent's switch is local; nothing is sent.
+  const setDealClientPage: DealSetClientPage = useCallback(
+    async (d, on) => {
+      if (live) {
+        const r = await fetch(dealUrl(d.id), { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(clientPageBody(on)) }).catch(() => null);
+        const a = readSaveAnswer(r ? await r.json().catch(() => null) : null, !!r?.ok);
+        if (!a.ok) return { error: a.error };
+      }
+      setDeals((list) => (list ? withDealClientPage(list, d.id, on) : list));
       return "ok";
     },
     [live],
@@ -2777,6 +2806,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                       const a = r.action;
                       setMenuOpen(false);
                       if (a.kind === "profile") goTo(movePageId("/profile"));
+                      else if (a.kind === "gbp") openGbp();
                       else if (a.kind === "start") reopenStart();
                       else if (a.kind === "help") setGuide(true);
                       else if (a.kind === "goTour") setGoTour(true);
@@ -4152,6 +4182,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               ) : vipNative && nativeKind === "profile" ? (
                 <MyProfile
                   demo={!live && !productTour}
+                  gbpDemo={!live}
+                  onOpenGbp={openGbp}
                   onUnavailable={vipUnavailable}
                   onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
@@ -4329,7 +4361,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           onClose={() => setLikelyOpen(false)}
         />
       ) : null}
-      {dealsOpen && deals ? <DealsView deals={deals} today={todayIn()} demo={!live} onStatus={setDealStatus} onClose={() => setDealsOpen(false)} onAdded={dealAdded} startAdding={dealsOpen === "add"} /> : null}
+      {dealsOpen && deals ? <DealsView deals={deals} today={todayIn()} demo={!live} onStatus={setDealStatus} onClientPage={setDealClientPage} onClose={() => setDealsOpen(false)} onAdded={dealAdded} startAdding={dealsOpen === "add"} /> : null}
       {lifeOpen && life ? <LifeUpcomingView data={life} demo={!live} onTask={lifeTask} onClose={() => setLifeOpen(false)} /> : null}
       {winsOpen && wins ? (
         <WinsView
@@ -4389,6 +4421,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
         />
       )}
       {addonsOpen && <AddonsPanel onClose={() => setAddonsOpen(false)} />}
+      {gbpOpen && <GbpScreen demo={!live} onClose={closeGbp} />}
       {guide && (
         <SignalsFilm
           onClose={() => setGuide(false)}

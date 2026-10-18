@@ -11,6 +11,8 @@ import { useSvgCamera } from "./useSvgCamera.ts";
 import PulseRing, { PULSE_COLOR, levelOf, type PulseLevel } from "./PulseRing.tsx";
 import PermissionsSection from "./PermissionsSection.tsx";
 import HomeReportSection from "./HomeReportSection.tsx";
+import CmaSection from "./CmaSection.tsx";
+import ShareLinkSection, { MyHomeLine } from "./SiteFeedsSection.tsx";
 import CallPrepCard from "./CallPrepCard.tsx";
 import PersonMenu from "./PersonMenu.tsx";
 import { useHeldDelete } from "./useHeldDelete.tsx";
@@ -759,6 +761,7 @@ export default function Contacts({
                 <b>Pulse</b> {person.pulse.line}
               </p>
             )}
+            <MyHomeLine myHome={person.myHome} />
             <div className="ta-log">
               {tel && <button type="button" className={`chip-btn${person.pulse?.nextStep === "call" ? " primary" : ""}`} onClick={() => setPrepFor(person.id)}>Call</button>}
               {tel && <a className={`chip-btn${person.pulse?.nextStep === "text" ? " primary" : ""}`} href={`sms:${tel}`}>Text</a>}
@@ -790,6 +793,16 @@ export default function Contacts({
             <section className="pc-card">
               <HomeReportSection contactId={person.id} first={person.firstName || person.name.split(" ")[0] || ""} />
             </section>
+            {/* LEADS §1.7c (18 Oct): the contact's CMAs and "Build a CMA", as Classic's card (vip50-web-crm#310) */}
+            <section className="pc-card">
+              <CmaSection contactId={person.id} first={person.firstName || person.name.split(" ")[0] || ""} />
+            </section>
+            {/* SITE-FEEDS K17 (18 Oct): a VIP's own referral link on the agent's site, as Classic's card (vip50-web-crm#312) */}
+            {person.canShareLink ? (
+              <section className="pc-card">
+                <ShareLinkSection key={person.id} contactId={person.id} first={person.firstName || person.name.split(" ")[0] || ""} />
+              </section>
+            ) : null}
             <section className="pc-card">
               <button
                 className="pc-card-h"
