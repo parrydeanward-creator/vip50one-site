@@ -41,13 +41,27 @@ const openItem = async (T, orb, item) => {
 // A ONE MOVE page: its menu down the left in folding groups (People, Trackers, Events, Outreach, Learn); the live items
 // (Looks Hot, New leads today ...) are on the right.
 const MOVE_GROUP = { "Follow-ups": "People", Contacts: "People", "VIP Management": "People", "Touch Audit": "People", "Drop-By Map": "People", "Hot/Warm/Cold": "People", "Business Rolodex": "People", "Referral Network": "People", "Buyer Needs": "People", "Life Events": "People", Deals: "People", "New leads": "People", "Looks Hot": "People", "Likely to move": "People", "Daily Tracker": "Trackers", "Weekly Tracker": "Trackers" };
-const movePage = async (T, page, group = MOVE_GROUP[page]) => {
-  await backToBrain(T);
+// Click an orb on the map by its label (the map's own buttons sit over the orbs, hidden; the pointer goes to the orb).
+const orb = async (T, label) => {
+  const b = T.p.locator(`.node-btn[aria-label^="${label}"]`).first();
+  if (!(await b.count())) return false;
+  const box = await b.boundingBox().catch(() => null);
+  if (box) await T.point(box.x + box.width / 2, box.y + box.height / 2);
+  await b.evaluate((el) => el.click());
+  await T.wait(1400);
+  return true;
+};
+// A ONE MOVE page: from the ONE MOVE map, its orb; inside Opportunities or People, one step deeper.
+const OPP = ["New to Sort", "Looks Hot", "New leads", "Likely to move"];
+const movePage = async (T, page) => {
+  await leaveView(T);
   await toProduct(T, "ONE MOVE");
-  const item = () => T.p.locator(".rail button").filter({ hasText: new RegExp(`^\\s*${page.replace(/[/()]/g, "\\$&")}`) }).first();
-  if (group && !(await item().isVisible().catch(() => false))) await T.click(T.p.locator(".rail button").filter({ hasText: new RegExp(`^\\s*${group}`) }).first());
-  await T.click(item());
-  await T.wait(900);
+  if (OPP.includes(page)) { await orb(T, "Opportunities"); if (await orb(T, page)) return; }
+  if (await orb(T, page)) return;
+  const d = T.p.locator(".drawer button").filter({ hasText: new RegExp(`^\\s*${page.replace(/[/()]/g, "\\$&")}`) }).first();
+  if (await d.count()) { await T.click(d); await T.wait(1200); return; }
+  const r = T.p.locator(".rail button").filter({ hasText: page }).first();
+  if (await r.count()) { await T.click(r); await T.wait(1200); }
 };
 const moveLive = async (T, item) => {
   await toProduct(T, "ONE MOVE");
@@ -68,6 +82,25 @@ const openWeek = async (T) => {
 const closeOk = async (T) => {
   const ok = T.p.getByRole("button", { name: /^OK$/ });
   if (await ok.count()) await ok.first().click({ timeout: 2000 }).catch(() => {});
+};
+// Out of any full view: the Brain's "Back to the Brain" or a product view's "Close …".
+const leaveView = async (T) => {
+  for (const sel of ['[aria-label="Back to the Brain"]', '[aria-label^="Close Marquee"]', '[aria-label^="Close "]']) {
+    const b = T.p.locator(sel).first();
+    if (await b.isVisible().catch(() => false)) { await T.click(b); await T.wait(600); return; }
+  }
+};
+// A product's tool: its panel from the rail, then (open=true) its full view from "Open <tool>".
+const tool = async (T, orb, item, open = false) => {
+  await leaveView(T);
+  await toProduct(T, orb);
+  await T.click(T.rail(item));
+  await T.wait(1200);
+  if (open) { await T.click(T.p.locator(".drawer button.pm-open").first()); await T.wait(1500); }
+};
+const press = async (T, name) => {
+  const b = T.p.getByRole("button", { name }).first();
+  if (await b.count()) { await T.click(b); await T.wait(1200); await closeOk(T); }
 };
 const closeAny = async (T) => {
   const x = T.p.locator('[aria-label="Close"], .pi-close, button:has-text("Back to the map"), button:has-text("← Back")').first();
@@ -105,23 +138,26 @@ export const CHAPTERS = [
     title: "ONE Growth",
     intro: "Chapter three. ONE Growth: leads from your own ads, at cost, with no per-lead fees.",
     moments: [
-      { say: "ONE Growth is the lead side of ONE. Open it and its tools sit round it.", do: async (T) => { await T.click(T.rail("ONE GROWTH")); await T.wait(1200); } },
-      { say: "Pulse Ads writes your ads and runs them on your own Meta and Google accounts. You approve and publish, and you pay the ad spend at cost.", do: async (T) => { await T.click(T.rail("Pulse Ads")); } },
-      { say: "Farm areas gives each area you choose its own page, its ads and a monthly market note.", do: async (T) => { await toProduct(T, "ONE GROWTH"); await T.click(T.rail("Farm areas")); } },
-      { say: "Speed to lead: Pulse answers a new lead in seconds, in the mode you pick. Off, Ask me, or Autopilot.", do: async (T) => { await toProduct(T, "ONE GROWTH"); await T.click(T.rail("Speed to lead")); } },
-      { say: "Seller signals shows people who may sell soon, with the reasons, for you only.", do: async (T) => { await toProduct(T, "ONE GROWTH"); await T.click(T.rail("Seller signals")); } },
-      { say: "The lead inbox turns your Zillow, Realtor dot com and Homes dot com lead emails into contacts.", do: async (T) => { await toProduct(T, "ONE GROWTH"); await T.click(T.rail("Lead inbox")); } },
-      { say: "Results shows your spend, leads, appointments and closings by source. And team leads approve their agents' ad requests here.", do: async (T) => { await toProduct(T, "ONE GROWTH"); await T.click(T.rail("Results")); await T.wait(1500); await toProduct(T, "ONE GROWTH"); await T.click(T.rail("Ad requests")); } },
-      { say: "Every lead from your ads lands in ONE MOVE, under Opportunities, and pulses red until you reach them.", do: async (T) => { await T.home(); } },
+      { say: "ONE Growth is the lead side of ONE. Open it and its eight tools sit round it.", do: async (T) => { await leaveView(T); await toProduct(T, "ONE GROWTH"); } },
+      { say: "Pulse Ads writes your ads and runs them on your own Meta and Google accounts, with the picture, the words and what each one costs.", do: async (T) => { await tool(T, "ONE GROWTH", "Pulse Ads"); } },
+      { say: "Open it and every ad is there in full. Nothing runs until you approve it and press publish, and you pay the ad spend at cost.", do: async (T) => { await T.click(T.p.locator(".drawer button.pm-open").first()); await T.wait(1500); await press(T, /^Approve$/); } },
+      { say: "Farm areas gives each area you choose its own page, its ads and a monthly market note.", do: async (T) => { await tool(T, "ONE GROWTH", "Farm areas"); } },
+      { say: "Landing pages: home value, buyer and seller guides, relocation, each with the leads it brought in.", do: async (T) => { await tool(T, "ONE GROWTH", "Landing pages"); } },
+      { say: "Speed to lead: Pulse answers a new lead in seconds, in the mode you pick. Off, Ask me, or Autopilot.", do: async (T) => { await tool(T, "ONE GROWTH", "Speed to lead"); } },
+      { say: "Seller signals shows people who may sell soon, with the reasons, for you only.", do: async (T) => { await tool(T, "ONE GROWTH", "Seller signals"); } },
+      { say: "The lead inbox turns your Zillow, Realtor dot com and Homes dot com lead emails into contacts. Pulse drafts the reply; you send it.", do: async (T) => { await tool(T, "ONE GROWTH", "Lead inbox", true); await press(T, /^Reply draft$/); } },
+      { say: "Results shows your spend, leads, appointments and closings by source.", do: async (T) => { await tool(T, "ONE GROWTH", "Results"); } },
+      { say: "And team leads approve their agents' ad requests here. Every lead from your ads lands in ONE MOVE and pulses red until you reach it.", do: async (T) => { await tool(T, "ONE GROWTH", "Ad requests"); } },
     ],
   },
+
   {
     title: "Morning Pulse",
     moments: [
       { say: "Each morning Pulse greets you on the right: the three things that matter most today, and your whole day below.", do: async (T) => { await T.home(); await T.hover(".drawer h2, .drawer h1"); } },
       { say: "Press Play Morning Pulse and Pulse walks you through your morning. Since yesterday, two new leads came in, Rosa and Ken, and Pulse takes you straight to them.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /Play Morning Pulse/ })); await T.wait(1500); await T.click('[aria-label="Pause Morning Pulse"]'); } },
       { say: "A deal deadline is coming up too, for Ken. Each part takes you to the right place in your Brain.", do: async (T) => { await T.click('[aria-label="Skip to the next part"]'); await T.wait(2500); } },
-      { say: "Then what matters today: the three most important things, and why.", do: async (T) => { await T.click('[aria-label="Skip to the next part"]'); await T.wait(2500); } },
+      { say: "And Jen: it's her birthday, and she's one of your VIP-50. Pulse puts the call right in front of you.", do: async (T) => { await T.click('[aria-label="Skip to the next part"]'); await T.wait(2500); } },
       { say: "Pause, skip, or turn the voice off any time. Close it and you're back on your map.", do: async (T) => { await T.hover('[aria-label="Skip to the next part"]'); await T.wait(1200); await T.click('[aria-label="Close Morning Pulse"]'); await T.home(); } },
       { say: "The gold pill at the top always tells you what to do right now, and until when.", do: async (T) => { await T.hover(".next-pill"); } },
       { say: "Click the gold ONE in the middle to meet Pulse: what it is doing for you now, and what is coming next.", do: async (T) => { await T.click('[aria-label^="ONE, Your business"]').catch(() => {}); await T.wait(2500); } },
@@ -184,7 +220,7 @@ export const CHAPTERS = [
       { say: "Every VIP gets a call, a video text, a social touch, the newsletter and a mixer invite each month, and face to face, a note and a drop-by each quarter. The Touch Audit shows who is missing what.", do: async (T) => { await movePage(T, "Touch Audit"); } },
       { say: "See it as a ring or as a grid of every VIP and every touch.", do: async (T) => { const g = T.p.getByRole("button", { name: /^Grid$/ }).first(); if (await g.count()) await T.click(g); await T.wait(1500); } },
       { say: "Hot, Warm and Cold sorts every piece of business coming: Hot within three months, Warm three to twelve, Cold beyond. Each pulses until you've worked it today.", do: async (T) => { await movePage(T, "Hot/Warm/Cold"); } },
-      { say: "Opportunities gathers everything new that could become business. New to Sort holds new people waiting for a group.", do: async (T) => { await movePage(T, "Opportunities", null); await T.wait(600); const n = T.inside("New to Sort"); if (await n.count()) await T.click(n); await T.wait(1200); } },
+      { say: "Opportunities gathers everything new that could become business. New to Sort holds new people waiting for a group.", do: async (T) => { await movePage(T, "Opportunities"); await T.wait(600); const n = T.inside("New to Sort"); if (await n.count()) await T.click(n); await T.wait(1200); } },
       { say: "Looks Hot puts people Pulse thinks are ready in front of you, including people you know who came back to your website. Move them to Hot, or Not yet.", do: async (T) => { await movePage(T, "Looks Hot"); const h = T.p.getByRole("button", { name: /^Move to Hot$/ }).first(); if (await h.count()) await T.click(h); await T.wait(1200); await closeOk(T); } },
       { say: "New leads from your website, portals, ads and open houses stay red until you've reached each one.", do: async (T) => { await movePage(T, "New leads"); } },
       { say: "Likely to move finds past clients who may be ready to buy or sell again, with the reasons.", do: async (T) => { await movePage(T, "Likely to move"); } },
@@ -199,32 +235,45 @@ export const CHAPTERS = [
   },
   {
     title: "Marquee",
-    intro: "Chapter seven. Marquee: every listing's marketing, from the first presentation to the weekly seller report.",
+    intro: "Chapter eight. Marquee: every listing's marketing, from the first presentation to the weekly seller report.",
     moments: [
-      { say: "Open Marquee and your listings appear as homes: what needs you this week, and each listing's campaign.", do: async (T) => { await T.home(); await T.click(T.rail("MARQUEE")); } },
-      { say: "This listing has five posts waiting for your approval. Nothing goes out until you approve it and press publish.", do: async (T) => { await openItem(T, "MARQUEE", "1482 Maple Ridge Dr"); } },
-      { say: "Start a new listing, see your seller reports due, and where posting stands with Instagram and Facebook.", do: async (T) => { await openItem(T, "MARQUEE", "Start a new listing"); } },
+      { say: "Open Marquee and its tools sit round it: your listings, the calendar, posts waiting, seller reports, presentations and room cards.", do: async (T) => { await leaveView(T); await toProduct(T, "MARQUEE"); } },
+      { say: "Listings shows every home you're marketing, and where each campaign stands.", do: async (T) => { await tool(T, "MARQUEE", "Listings"); } },
+      { say: "Posts waiting holds what Marquee built for you: posts, stories and reels, each with its picture and caption.", do: async (T) => { await tool(T, "MARQUEE", "Posts waiting"); } },
+      { say: "Open them, and read each one. Nothing posts until you approve it and press publish.", do: async (T) => { await T.click(T.p.locator(".drawer button.pm-open").first()); await T.wait(2000); await T.scrollDrawer(500); } },
+      { say: "The calendar puts every approved piece on its day.", do: async (T) => { await tool(T, "MARQUEE", "Calendar"); } },
+      { say: "Seller reports: answer six questions each week, and Marquee builds the report for your seller. You send it.", do: async (T) => { await tool(T, "MARQUEE", "Seller reports"); } },
+      { say: "Presentations holds your listing appointment presentation and the marketing packet, built for each home.", do: async (T) => { await tool(T, "MARQUEE", "Presentations", true); await press(T, /^Next page$/); await press(T, /^Next page$/); } },
+      { say: "And room cards: a card for each room, for the open house and the listing's room pages.", do: async (T) => { await tool(T, "MARQUEE", "Room cards"); } },
     ],
   },
+
   {
     title: "Showly",
-    intro: "Chapter eight. Showly: buyer tours, with your clients answering yes, maybe or no on every home.",
+    intro: "Chapter nine. Showly: buyer tours, with your clients answering yes, maybe or no on every home.",
     moments: [
-      { say: "Your tours are here, with what came back since you sent them.", do: async (T) => { await T.home(); await T.click(T.rail("SHOWLY")); } },
-      { say: "The Millers answered on four homes. Each answer shows which homes to see again.", do: async (T) => { await openItem(T, "SHOWLY", "The Millers"); } },
-      { say: "Pre-approval letters and your lender sit here too, with sharing switched on.", do: async (T) => { await openItem(T, "SHOWLY", "Pre-approval letters"); } },
+      { say: "Open Showly: your tours, your buyers' answers, the recaps and your lender.", do: async (T) => { await leaveView(T); await toProduct(T, "SHOWLY"); } },
+      { say: "Tours: one tour per showing day. Capture each home with photos and a voice note, then build the recap and send it.", do: async (T) => { await tool(T, "SHOWLY", "Tours", true); } },
+      { say: "Buyer answers: your buyers say yes, maybe or no on each home, with a note, the moment they open the recap.", do: async (T) => { await tool(T, "SHOWLY", "Buyer answers"); } },
+      { say: "Recaps is what your buyer sees on their phone: every home, your notes for them, and their answer.", do: async (T) => { await tool(T, "SHOWLY", "Recaps"); } },
+      { say: "And your loan officer sits on every recap. Ask for a pre-approval letter for any home and see when it's ready. They never see your notes.", do: async (T) => { await tool(T, "SHOWLY", "Lender"); } },
     ],
   },
+
   {
     title: "ONE Open",
-    intro: "Chapter nine. ONE Open: the open house, from the plan to the last follow-up.",
+    intro: "Chapter ten. ONE Open: the open house, from the plan to the last follow-up.",
     moments: [
-      { say: "Every open house runs in four phases: Plan, Prepare, Host and Follow Up.", do: async (T) => { await T.home(); await T.click(T.rail("ONE OPEN")); } },
-      { say: "Prepare shows the tasks left before Sunday.", do: async (T) => { await openItem(T, "ONE OPEN", "Prepare"); } },
-      { say: "After the open house, every visitor goes to ONE MOVE, tagged with where they came from. Pulse suggests the follow-up; you choose.", do: async (T) => { await openItem(T, "ONE OPEN", "Follow Up"); } },
-      { say: "And your scorecard keeps your streak.", do: async (T) => { await openItem(T, "ONE OPEN", "Scorecard"); } },
+      { say: "Open ONE Open: open houses, visitors, questions, reports, your scorecard and safety.", do: async (T) => { await leaveView(T); await toProduct(T, "ONE OPEN"); } },
+      { say: "Every open house runs in four phases, Plan, Prepare, Host and Follow Up, each with its checklist.", do: async (T) => { await tool(T, "ONE OPEN", "Open houses", true); } },
+      { say: "Visitors: everyone who signed in. Rate them, mark the hot ones, and they're in ONE MOVE, tagged by open house.", do: async (T) => { await tool(T, "ONE OPEN", "Visitors", true); const r = T.p.locator('[aria-label^="Rate "]').first(); if (await r.count()) { await T.click(r); await T.wait(1200); } } },
+      { say: "Questions: what buyers asked, room by room. Answer them here.", do: async (T) => { await tool(T, "ONE OPEN", "Questions"); } },
+      { say: "Reports: the seller report, the seller recap, and a buyer report for each visitor.", do: async (T) => { await tool(T, "ONE OPEN", "Reports"); } },
+      { say: "The scorecard follows open houses to sign-ins, contacts, appointments and clients.", do: async (T) => { await tool(T, "ONE OPEN", "Scorecard"); } },
+      { say: "And safety: start a check-in when you host. If you don't check out on time, your buddy is told.", do: async (T) => { await tool(T, "ONE OPEN", "Safety"); } },
     ],
   },
+
   {
     title: "Ask Pulse",
     moments: [
@@ -251,15 +300,17 @@ export const CHAPTERS = [
   },
   {
     title: "Team",
-    intro: "Chapter thirteen. Team: for team leads, everything to run your team from one place.",
+    intro: "Chapter fourteen. Team: for team leads, everything to run your team from one place.",
     moments: [
-      { say: "Your team sits inside ONE YOU, with this week's standings.", do: async (T) => { await openTool(T, "ONE YOU", "Team"); } },
-      { say: "The war room shows the team's leads as they come in: who has each one, and how fast they were reached.", do: async (T) => { await openTool(T, "ONE YOU", "War room"); } },
-      { say: "Coaching shows the agents you coach: who set their week, who checked in, and what's left to set up.", do: async (T) => { await openTool(T, "ONE YOU", "Coaching"); await openFull(T, "Open coaching"); } },
-      { say: "From the team screen, add a member and everything turns on for them at once: their seat, their products, their site and their team page.", do: async (T) => { await closeAny(T); await openTool(T, "ONE YOU", "Team"); const o = T.p.locator("button", { hasText: /Open (the )?team/i }); if (await o.count()) await T.click(o); await T.wait(2000); } },
-      { say: "Share one invite link for several people joining at once, add a seat when you need one, and remove or put back a member.", do: async (T) => { await T.scrollDrawer(700); } },
+      { say: "Open Team and your agents sit round it, each with this week's score.", do: async (T) => { await leaveView(T); await toProduct(T, "TEAM"); } },
+      { say: "The leaderboard: names, photos and weekly scores, full screen for the office TV.", do: async (T) => { await tool(T, "TEAM", "Leaderboard"); } },
+      { say: "The war room shows the team's leads as they come in: where each came from, who has it, and how fast they reached them.", do: async (T) => { await tool(T, "TEAM", "War room"); } },
+      { say: "Onboarding follows new members through their first thirty days, step by step.", do: async (T) => { await tool(T, "TEAM", "Onboarding"); } },
+      { say: "Click an agent to see their week: score, VIP touches, commitments kept, and how fast they reach their leads.", do: async (T) => { await leaveView(T); await toProduct(T, "TEAM"); const j = T.p.locator(".rail button").filter({ hasText: /^\s*J\b/ }).first(); if (await j.count()) await T.click(j); await T.wait(1500); } },
+      { say: "And when you add someone to the team, everything turns on for them at once: their seat, their products, their site and their team page.", do: async (T) => { await T.scrollDrawer(500); } },
     ],
   },
+
   {
     title: "My Profile",
     moments: [
