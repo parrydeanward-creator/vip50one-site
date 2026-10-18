@@ -49,6 +49,21 @@ const moveLive = async (T, item) => {
   await T.click(T.inside(item));
   await T.wait(1200);
 };
+// Out of a full-screen tool (the Day Clock, Weekly Review ...) back to the map.
+const backToBrain = async (T) => {
+  const b = T.p.locator('[aria-label="Back to the Brain"]').first();
+  if (await b.isVisible().catch(() => false)) await T.click(b);
+};
+// This week's commitments open from the This week orb itself.
+const openWeek = async (T) => {
+  await T.p.locator('[aria-label^="This week,"]').first().evaluate((b) => b.click());
+  await T.wait(1500);
+};
+// The example agent's "OK" notes ("in your account this ...") close after they are read.
+const closeOk = async (T) => {
+  const ok = T.p.getByRole("button", { name: /^OK$/ });
+  if (await ok.count()) await ok.first().click({ timeout: 2000 }).catch(() => {});
+};
 const closeAny = async (T) => {
   const x = T.p.locator('[aria-label="Close"], .pi-close, button:has-text("Back to the map"), button:has-text("← Back")').first();
   if (await x.count()) await T.click(x).catch(() => {});
@@ -71,22 +86,39 @@ export const CHAPTERS = [
     title: "The Brain at a glance",
     moments: [
       { say: "This is your Brain: your whole business on one map. Gold ONE in the middle is Pulse, the A I that watches it all." },
-      { say: "Round it sit your five products: ONE YOU, ONE MOVE, Marquee, Showly and ONE Open.", do: async (T) => { await T.hover('[aria-label^="ONE YOU"]'); } },
-      { say: "Every orb tells you how it's doing. Pulsing red means something needs you right now. Yellow means today. A still green ring means all good." },
-      { say: "The number on an orb is how many things inside it need you. Follow the pulse and it leads you straight to the person." },
+      { say: "Round it sit ONE YOU, your Team, ONE MOVE, Marquee, Showly, ONE Open and ONE Growth. They're listed down the left too.", do: async (T) => { await T.hover(T.rail("ONE YOU")); await T.wait(600); await T.hover(T.rail("ONE GROWTH")); } },
+      { say: "Every orb tells you how it's doing. Pulsing red means something needs you right now. Yellow means today. A still green ring means all good.", do: async (T) => { await T.hover('[aria-label^="ONE MOVE"]').catch(() => {}); } },
+      { say: "The number on an orb is how many things inside it need you. Follow the pulse and it leads you straight to the person.", do: async (T) => { await T.hover('[aria-label^="ONE YOU"]').catch(() => {}); } },
       { say: "Click any orb and it comes to the middle, with its panel open on the right.", do: async (T) => { await T.click(T.rail("ONE MOVE")); } },
-      { say: "The back arrow takes you back to the whole map.", do: async (T) => { await T.back(); } },
-      { say: "Zoom in and out here, and the circle brings you back to ONE.", do: async (T) => { await T.click('[aria-label="Zoom in"]'); await T.click('[aria-label="Zoom out"]'); await T.home(); } },
+      { say: "The ONE in the path line at the top takes you back to the whole map.", do: async (T) => { await T.home(); } },
+      { say: "Zoom in and out with these buttons, to the right of the map on every screen. The circle brings you back to ONE.", do: async (T) => { await T.click('[aria-label="Zoom in"]'); await T.click('[aria-label="Zoom out"]'); await T.click('[aria-label="Centre on ONE"]').catch(() => {}); } },
       { say: "And the gold question mark opens the key to every light and colour, any time you need it.", do: async (T) => { await T.click('[aria-label="What everything means"]'); await T.wait(2500); } },
-      { say: "Every colour and ring is written out here, with a two minute film below if you want it.", do: async (T) => { await T.wait(2000); await closeAny(T); } },
+      { say: "Every colour and ring is written out here, with a two minute film below if you want it.", do: async (T) => { await T.wait(1500); await closeAny(T); await T.home(); } },
+    ],
+  },
+  {
+    title: "ONE Growth",
+    intro: "Chapter three. ONE Growth: leads from your own ads, at cost, with no per-lead fees.",
+    moments: [
+      { say: "ONE Growth is the lead side of ONE. Open it and its tools sit round it.", do: async (T) => { await T.click(T.rail("ONE GROWTH")); await T.wait(1200); } },
+      { say: "Pulse Ads writes your ads and runs them on your own Meta and Google accounts. You approve and publish, and you pay the ad spend at cost.", do: async (T) => { await T.click(T.rail("Pulse Ads")); } },
+      { say: "Farm areas gives each area you choose its own page, its ads and a monthly market note.", do: async (T) => { await toProduct(T, "ONE GROWTH"); await T.click(T.rail("Farm areas")); } },
+      { say: "Speed to lead: Pulse answers a new lead in seconds, in the mode you pick. Off, Ask me, or Autopilot.", do: async (T) => { await toProduct(T, "ONE GROWTH"); await T.click(T.rail("Speed to lead")); } },
+      { say: "Seller signals shows people who may sell soon, with the reasons, for you only.", do: async (T) => { await toProduct(T, "ONE GROWTH"); await T.click(T.rail("Seller signals")); } },
+      { say: "The lead inbox turns your Zillow, Realtor dot com and Homes dot com lead emails into contacts.", do: async (T) => { await toProduct(T, "ONE GROWTH"); await T.click(T.rail("Lead inbox")); } },
+      { say: "Results shows your spend, leads, appointments and closings by source. And team leads approve their agents' ad requests here.", do: async (T) => { await toProduct(T, "ONE GROWTH"); await T.click(T.rail("Results")); await T.wait(1500); await toProduct(T, "ONE GROWTH"); await T.click(T.rail("Ad requests")); } },
+      { say: "Every lead from your ads lands in ONE MOVE, under Opportunities, and pulses red until you reach them.", do: async (T) => { await T.home(); } },
     ],
   },
   {
     title: "Morning Pulse",
     moments: [
-      { say: "Each morning Pulse writes you a short note: the three things that matter most today.", do: async (T) => { await T.home(); } },
-      { say: "Tap Listen and Pulse reads it to you, so you can hear your day while you get ready.", do: async (T) => { await T.hover(T.inside("Listen")); } },
-      { say: "The gold pill at the top always tells you what to do right now, and when your day starts.", do: async (T) => { await T.hover(".next-pill"); } },
+      { say: "Each morning Pulse greets you on the right: the three things that matter most today, and your whole day below.", do: async (T) => { await T.home(); await T.hover(".drawer h2, .drawer h1"); } },
+      { say: "Press Play Morning Pulse, and Pulse walks you through your morning: what changed since yesterday, then today, one thing at a time.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /Play Morning Pulse/ })); await T.wait(1500); await T.click('[aria-label="Pause Morning Pulse"]'); } },
+      { say: "Since yesterday: two new leads came in, Rosa and Ken. Pulse takes you to them, in ONE MOVE.", do: async (T) => { await T.click('[aria-label="Skip to the next part"]'); await T.wait(2500); } },
+      { say: "A deal deadline is coming up too, for Ken. Each part takes you to the right place, with the person in the middle.", do: async (T) => { await T.click('[aria-label="Skip to the next part"]'); await T.wait(2500); } },
+      { say: "Pause, skip, or turn the voice off any time. Close it and you're back on your map.", do: async (T) => { await T.hover('[aria-label="Skip to the next part"]'); await T.wait(1200); await T.click('[aria-label="Close Morning Pulse"]'); await T.home(); } },
+      { say: "The gold pill at the top always tells you what to do right now, and until when.", do: async (T) => { await T.hover(".next-pill"); } },
       { say: "Click the gold ONE in the middle to meet Pulse: what it is doing for you now, and what is coming next.", do: async (T) => { await T.click('[aria-label^="ONE, Your business"]').catch(() => {}); await T.wait(2500); } },
       { say: "Close it, and you are back on your map.", do: async (T) => { await closeAny(T); await T.home(); } },
     ],
@@ -94,38 +126,43 @@ export const CHAPTERS = [
   {
     title: "Your day",
     moments: [
-      { say: "Pulse plans your day round your calendar. Here is Plan my day.", do: async (T) => { await T.click(T.inside("Plan my day")); await T.wait(2000); } },
-      { say: "Every block has a time and a reason: your calls, your VIP touches, your follow-ups, fitted round your appointments.", do: async (T) => { await T.scrollDrawer(500); } },
-      { say: "Look it over and tap Looks good. Your plan is set, and it goes to ONE GO on your phone.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /^Looks good$/ })); } },
-      { say: "Through the day, tick Done as you go. Anything you miss moves to the next open time by itself, and your fixed appointments never move.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /^Mark done/ })); } },
-      { say: "The Day Clock shows the same day round a clock. Every colour is a kind of work: calls gold, texts pink, face to face green.", do: async (T) => { await closeAny(T); await openTool(T, "ONE YOU", "Today"); } },
-      { say: "And Power Hour lines up your best calls with call prep for each one, a countdown, and what got done at the end.", do: async (T) => { await openTool(T, "ONE YOU", "Power Hour"); await openFull(T, "Start a Power Hour"); } },
-      { say: "Each call shows who it is, why now, and what to say. Pulse prepares it; you make the call.", do: async (T) => { await T.wait(2500); await closeAny(T); } },
+      { say: "Pulse plans your day round your calendar. Open ONE YOU, then Plan my day.", do: async (T) => { await T.click(T.rail("ONE YOU")); await T.click(T.rail("Plan my day")); } },
+      { say: "This is the Day Clock: today round a clock. Every colour is a kind of work. Calls gold, texts pink, face to face green, appointments blue.", do: async (T) => { await T.click(T.inside("Plan my day")); await T.wait(2000); } },
+      { say: "On the right, every block has a time and a reason, fitted round your two appointments.", do: async (T) => { await T.scrollPlan(380); } },
+      { say: "Your VIP touches are in it every day: the calls in your Power Hour, and one sitting for your texts, video texts and social touches.", do: async (T) => { await T.scrollPlan(420); await T.hover(T.text("Texts, video texts and social touches")); } },
+      { say: "Look it over and tap Looks good. Your plan is set, and it goes to ONE GO on your phone.", do: async (T) => { await T.scrollPlan(-2000); await T.click(T.p.getByRole("button", { name: /^Looks good$/ })); await T.wait(1500); await closeOk(T); } },
+      { say: "Through the day, tick each block done as you go. The Power Hour, done.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /^Mark done/ }).first()); await T.wait(1500); } },
+      { say: "The handwritten note, done. The count goes up, and the clock fills in.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /^Mark done/ }).first()); await T.wait(1200); await closeOk(T); await T.hover(".dayclock, svg").catch(() => {}); } },
+      { say: "Now say you miss a block. Rating Saturday's visitors was due at nine forty five, and the morning ran away.", do: async (T) => { await T.hover(T.text("Rate the 2 visitors from Saturday")); await T.advance(100); } },
+      { say: "Pulse moves it to the next open time by itself, and tells you. Your fixed appointments never move.", do: async (T) => { await T.waitText(/Moved Rate the 2 visitors/, 75000); await T.hover(T.text(/Moved Rate the 2 visitors/)); } },
+      { say: "Your calls happen in the Power Hour. Here it is, from ONE YOU.", do: async (T) => { await T.click('[aria-label="Back to the Brain"]').catch(() => {}); await toProduct(T, "ONE YOU"); await T.click(T.rail("Power Hour")); } },
+      { say: "Your best calls are lined up, most urgent first, each with why now: a birthday tomorrow, a thank you for a referral, a ninety day call.", do: async (T) => { await T.click(T.inside("Start a Power Hour")); await T.wait(1500); } },
+      { say: "Pick how long, and start. The countdown runs while you call.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /^60 min$/ })); await T.click(T.p.getByRole("button", { name: /^Start Power Hour$/i })); await T.wait(1500); } },
+      { say: "Jen first. You talked, so tap Talked. The call is logged in ONE MOVE, and Amy is next.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /^Talked$/i })); await T.wait(1200); await closeOk(T); } },
+      { say: "Amy didn't pick up. Left a message, and on to Nina. You make every call; Pulse never dials or sends anything for you.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /^Left a message$/i })); await T.wait(1200); await closeOk(T); } },
     ],
   },
   {
     title: "ONE YOU",
-    intro: "Chapter five. ONE YOU: your own place to plan your week and review how you're doing.",
+    intro: "Chapter six. ONE YOU: your own place to plan your week and see how you're doing.",
     moments: [
-      { say: "ONE YOU holds your scores at a glance: today's points, your weekly score toward 100, your streak and where you are on the leaderboard.", do: async (T) => { await T.home(); await T.click(T.rail("ONE YOU")); } },
-      { say: "This week holds your commitments. Set up to five each Monday, check in on Friday, and add weekend and daily commitments too.", do: async (T) => { await T.click(T.inside("This week")); } },
-      { say: "Your keep rate sits beside your weekly score. Only you and your coach see it." },
-      { say: "Weekly Review puts your week in one place: your score, your VIP touches, who you haven't reached, and three things for next week.", do: async (T) => { await openTool(T, "ONE YOU", "Weekly Review"); await openFull(T, "Open Weekly Review"); } },
-      { say: "Goals keeps your closings, referrals and income goals for your own goal year, counted from your start date.", do: async (T) => { await closeAny(T); await openTool(T, "ONE YOU", "Goals"); } },
-      { say: "The Income Map works your income goal back to the week: closings to go, conversations and VIP touches each week to stay on pace.", do: async (T) => { await openTool(T, "ONE YOU", "Income Map"); await openFull(T, "Open the Income Map"); } },
-      { say: "The Daily Tracker and Weekly Tracker count your points. A hundred a week is the standard.", do: async (T) => { await closeAny(T); await openTool(T, "ONE YOU", "Scoreboard"); } },
-      { say: "Badges are earned, never given. Hit the number in a week and the badge unlocks within minutes." },
-      { say: "Habits are your morning habits as one ring. Tick them here and they tick on your Daily Tracker.", do: async (T) => { await openTool(T, "ONE YOU", "Habits"); await openFull(T, "Open your Habits"); } },
-      { say: "Energy asks how you're feeling, so Pulse can plan a lighter day when you need one.", do: async (T) => { await closeAny(T); await openTool(T, "ONE YOU", "Energy"); } },
-      { say: "Time off: tell Pulse when you're away, and it shows who covers what while you're gone.", do: async (T) => { await openTool(T, "ONE YOU", "Time off"); } },
-      { say: "Wins keeps the good things that happened, so you can see them on a hard day.", do: async (T) => { await openTool(T, "ONE YOU", "Wins"); } },
-      { say: "Referrals is your scoreboard: who sent you business, who to thank, and who is likely to refer next.", do: async (T) => { await openTool(T, "ONE YOU", "Referrals"); await openFull(T, "Open the Referral Scoreboard"); } },
-      { say: "Partners are the lenders and businesses you work with, and what they're waiting on.", do: async (T) => { await closeAny(T); await openTool(T, "ONE YOU", "Partners"); } },
-      { say: "The income forecast shows what's likely to close in the next three months.", do: async (T) => { await openTool(T, "ONE YOU", "Income forecast"); } },
-      { say: "Pulse Coach reads your week: what's rising, what's slipping, your best day, and one focus for next week.", do: async (T) => { await openTool(T, "ONE YOU", "Pulse Coach"); await openFull(T, "Open Pulse Coach"); } },
-      { say: "The 90-Day Challenge tracks your day and your level.", do: async (T) => { await closeAny(T); await openTool(T, "ONE YOU", "90-Day"); } },
-      { say: "Onboarding shows what's left to set up, step by step.", do: async (T) => { await openTool(T, "ONE YOU", "Onboarding"); } },
-      { say: "And reZEN brings in your revenue share and your network, only what you choose to let through.", do: async (T) => { await openTool(T, "ONE YOU", "reZEN"); } },
+      { say: "ONE YOU's tools sit round it, and down the left. Each one shows you its own state before you open it.", do: async (T) => { await backToBrain(T); await toProduct(T, "ONE YOU"); } },
+      { say: "Getting started walks a new agent through the first days, one step at a time. Each step ticks itself when ONE sees it done.", do: async (T) => { await T.click(T.rail("Getting started")); await T.wait(800); await T.scrollDrawer(420); } },
+      { say: "This week holds your commitments: up to five set on Monday and checked in on Friday, your daily ones, and your weekend ones.", do: async (T) => { await openTool(T, "ONE YOU", "This week"); await openWeek(T); } },
+      { say: "Each one is marked Kept, Partly or Missed when you check in. Only you and your coach see them, and your keep rate sits beside your weekly score.", do: async (T) => { await T.scrollPlan(380); } },
+      { say: "Weekly Review puts your week in one place: your score, your VIP touches, who you haven't reached, your commitments and your goals.", do: async (T) => { await backToBrain(T); await openTool(T, "ONE YOU", "Weekly Review"); await openFull(T, "Open Weekly Review"); } },
+      { say: "Pulse reads your last eight weeks, then gives you three things for the rest of this week. Make any of them a commitment with one tap.", do: async (T) => { await T.scrollPlan(900); await T.click(T.p.getByRole("button", { name: /^Make it a commitment$/ }).first()); await T.wait(1000); await closeOk(T); } },
+      { say: "Today's VIP touches is your score for today, fourteen of twenty six points, and the people who matter most this week.", do: async (T) => { await backToBrain(T); await openTool(T, "ONE YOU", "Today's VIP touches"); await T.wait(800); await T.scrollDrawer(380); } },
+      { say: "Referrals shows who sent you business, who to thank, and who is likely to refer next.", do: async (T) => { await openTool(T, "ONE YOU", "Referrals"); await openFull(T, "Open the Referral Scoreboard"); } },
+      { say: "David sent you a referral and you thanked him in person. Log the thank-you. Ann hasn't heard from you in fifty eight days: add a task to ask her. ONE sends nothing.", do: async (T) => { await T.click('[aria-label="Log a thank-you to David"]'); await T.wait(1000); await closeOk(T); await T.click('[aria-label="Add ask task for Ann"]'); await T.wait(1000); await closeOk(T); } },
+      { say: "Habits are your morning habits as one ring. Tick Exercise here, and it ticks on your Daily Tracker too.", do: async (T) => { await backToBrain(T); await openTool(T, "ONE YOU", "Habits"); await openFull(T, "Open your Habits"); await T.click('[aria-label="Exercise done today"]'); await T.wait(1000); await closeOk(T); } },
+      { say: "Scoreboard shows this week's missions, the leaderboard, and your accountability partners. It resets every Monday.", do: async (T) => { await backToBrain(T); await openTool(T, "ONE YOU", "Scoreboard"); await T.wait(800); await T.scrollDrawer(450); } },
+      { say: "Goals runs your own goal year: what you've closed so far against each goal, and whether you're ahead or behind pace.", do: async (T) => { await openTool(T, "ONE YOU", "Goals"); await openFull(T, "Open Goals"); } },
+      { say: "Below it, the next three months, with the people likely to close in each one, and what to do each week to close the gap.", do: async (T) => { await T.scrollPlan(800); await T.wait(800); await T.scrollPlan(700); } },
+      { say: "reZEN brings in your revenue share and your network, only what you choose to let through in My Profile.", do: async (T) => { await backToBrain(T); await openTool(T, "ONE YOU", "reZEN"); } },
+      { say: "Coaching shows the agents you coach: who set their week, who checked in, how many they keep. The ones who need a word from you come first.", do: async (T) => { await openTool(T, "ONE YOU", "Coaching"); await openFull(T, "Open coaching"); } },
+      { say: "The 90-Day Challenge scores your day in five arenas, twenty points each: body, spirit, relationships, business and legacy.", do: async (T) => { await backToBrain(T); await openTool(T, "ONE YOU", "90-Day Challenge"); await T.wait(800); await T.scrollDrawer(400); } },
+      { say: "And once a month, Ask AI about you checks whether ChatGPT, Perplexity and Google name you when clients ask for an agent.", do: async (T) => { await openTool(T, "ONE YOU", "Ask AI about you"); await openFull(T, "Open Ask AI about you"); } },
     ],
   },
   {

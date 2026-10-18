@@ -32,6 +32,11 @@ export const sayMs = (say) => Math.max(3200, Math.round(say.split(/\s+/).length 
 
 const b = await chromium.launch({ executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium", args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
 const ctx = await b.newContext({ timezoneId: "America/Denver", viewport: { width: W, height: H }, ...(DRY ? {} : { recordVideo: { dir, size: { width: W, height: H } } }) });
+// The example agent's day runs on a Monday morning (Parry, 16 Oct: the Day Clock must show a full day, recorded in the
+// daytime). The page's clock is shifted, not frozen: timers and animations run as normal. T.advance(min) moves it on.
+const TOUR_TIME = process.env.TOUR_TIME || "2026-10-19T08:40:00-06:00";
+const SHIFT = new Date(TOUR_TIME).getTime() - Date.now();
+await ctx.addInitScript(`(() => { const shift = ${SHIFT}; const R = Date; let extra = 0; try { extra = +sessionStorage.getItem("tourExtra") || 0; } catch {} globalThis.__tourAdd = (min) => { extra += min * 60000; try { sessionStorage.setItem("tourExtra", String(extra)); } catch {} }; class D extends R { constructor(...a) { if (a.length === 0) super(R.now() + shift + extra); else super(...a); } static now() { return R.now() + shift + extra; } } D.parse = R.parse; D.UTC = R.UTC; globalThis.Date = D; })();`);
 const t0 = Date.now();
 const p = await ctx.newPage();
 const cdp = await ctx.newCDPSession(p);
@@ -123,6 +128,21 @@ const T = {
     if (box) await cursorTo(box.x + box.width / 2, box.y + box.height / 2);
     await p.mouse.wheel(0, px);
     await wait(900);
+  },
+  // Scroll the open tool's own side list (the Day Clock's plan, a full-screen tool) by px.
+  async scrollPlan(px) {
+    await cursorTo(1700, 600);
+    await p.mouse.move(1700, 600);
+    await p.mouse.wheel(0, px);
+    await wait(900);
+  },
+  // Move the page's clock on by min minutes (a missed block, a later hour).
+  async advance(min) {
+    await p.evaluate((m) => globalThis.__tourAdd && globalThis.__tourAdd(m), min);
+  },
+  // Wait (real time, not slowed) until text appears on the page.
+  async waitText(re, ms = 30000) {
+    await p.getByText(re).first().waitFor({ state: "visible", timeout: ms });
   },
   async type(locator, text) {
     const l = typeof locator === "string" ? p.locator(locator).first() : locator.first();
