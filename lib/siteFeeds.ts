@@ -74,7 +74,19 @@ export function demoReferralLink(first: string | null | undefined): Extract<Refe
 
 // ---- MY-HOME v0.2: a past client's own page on the agent's site --------------------------------------------------------
 
-export interface Improvement { id: string; what: string; doneOn: string | null; cost: number | null }
+export interface Improvement { id: string; what: string; doneOn: string | null; cost: number | null; photos?: string[] }
+
+/** Photos on an improvement: at most 3, https links only (they expire in a day, so they are shown, never stored). */
+export const MAX_IMPROVEMENT_PHOTOS = 3;
+export function readPhotos(v: unknown): string[] {
+  const out: string[] = [];
+  for (const x of Array.isArray(v) ? v : []) {
+    const u = str(x, 2000);
+    if (u && /^https:\/\/[^\s"'<>]+$/.test(u) && !out.includes(u)) out.push(u);
+    if (out.length === MAX_IMPROVEMENT_PHOTOS) break;
+  }
+  return out;
+}
 export interface MyHome { signedInAt: string | null; words: string; improvements?: Improvement[] }
 
 export const IMPROVEMENTS_HEAD = "Home improvements they shared with you:";
@@ -96,7 +108,8 @@ export function readImprovements(v: unknown): Improvement[] {
     const what = str(r.what, 200);
     if (!id || !what) continue;
     const cost = typeof r.cost === "number" && Number.isFinite(r.cost) && r.cost >= 0 ? Math.round(r.cost) : null;
-    out.push({ id, what, doneOn: str(r.done_on, 40), cost });
+    const photos = readPhotos(r.photos);
+    out.push({ id, what, doneOn: str(r.done_on, 40), cost, ...(photos.length ? { photos } : {}) });
     if (out.length === 5) break;
   }
   return out;
@@ -131,9 +144,14 @@ export function readPersonExtras(raw: unknown): PersonExtras {
   };
 }
 
+const demoPhoto = (c1: string, c2: string) =>
+  `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="112" height="112"><rect width="112" height="112" fill="${c1}"/><path d="M0 80 L40 40 L70 70 L90 50 L112 72 V112 H0Z" fill="${c2}"/></svg>`)}`;
+/** The example's improvement photos: drawn in place, so the example needs no network. */
+export const DEMO_PHOTOS = [demoPhoto("#33507a", "#1f3555"), demoPhoto("#6a4b2f", "#3d2a18"), demoPhoto("#2f6a52", "#1b3d2f")];
+
 /** The example agent's people (lib/homeReport.ts demoMonthCard): Jane is a VIP; Sara is a past client and a VIP. */
 export function demoPersonExtras(contactId: string): PersonExtras {
-  if (contactId === "demo-hr-sara") return { canShareLink: true, myHome: { signedInAt: "2026-10-12T15:04:00Z", words: myHomeWords("My Home: signed in, last on 2026-10-12"), improvements: [{ id: "demo-imp-1", what: "New roof", doneOn: "2026-06-14", cost: 14500 }] } };
+  if (contactId === "demo-hr-sara") return { canShareLink: true, myHome: { signedInAt: "2026-10-12T15:04:00Z", words: myHomeWords("My Home: signed in, last on 2026-10-12"), improvements: [{ id: "demo-imp-1", what: "New roof", doneOn: "2026-06-14", cost: 14500, photos: DEMO_PHOTOS }] } };
   if (contactId === "demo-hr-jane") return { canShareLink: true, myHome: null };
   return { canShareLink: false, myHome: null };
 }

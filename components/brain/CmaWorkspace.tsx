@@ -4,7 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import CmaParts from "./CmaParts.tsx";
 import {
+  DEMO_SUFFIX,
   MIDPOINT_LABEL,
+  REDRAW_BUSY,
+  REDRAW_BUTTON,
+  REDRAW_HEAD,
+  REDRAW_KEPT,
   NOTES_LINE,
   NO_SITE_WORDS,
   SEND_CONFIRM,
@@ -12,12 +17,16 @@ import {
   STATUS_LONG,
   STOP_CONFIRM,
   adjustedNow,
+  canRedraw,
+  changeLines,
   cmaOneUrl,
+  cmaRefreshUrl,
   cmaSaveUrl,
   cmaSendUrl,
   cmaStatus,
   compFacts,
   creditLine,
+  demoRedraw,
   demoSaved,
   demoShared,
   linkUntil,
@@ -26,6 +35,7 @@ import {
   priceWords,
   readCma,
   readCmaLoaded,
+  readRefreshAnswer,
   saveBody,
   subjectLine,
   toDrafts,
@@ -46,6 +56,7 @@ export default function CmaWorkspace({
   demo = false,
   demoData,
   onChanged,
+  onOpenNew,
   onClose,
 }: {
   cmaId: string;
@@ -54,6 +65,8 @@ export default function CmaWorkspace({
   demo?: boolean;
   demoData?: CmaLoaded;
   onChanged: (d: CmaLoaded) => void;
+  /** A redrawn draft was made: open it (the example's comes with its data). */
+  onOpenNew: (cmaId: string, demoData?: CmaLoaded) => void;
   onClose: () => void;
 }) {
   const [d, setD] = useState<CmaLoaded | null>(null);
@@ -169,6 +182,23 @@ export default function CmaWorkspace({
     void load();
   };
 
+  const redraw = async () => {
+    if (!d || busy) return;
+    setBusy(true);
+    setMsg(null);
+    if (demo) {
+      const id = `demo-cma-redraw-${Date.now()}`;
+      setBusy(false);
+      return onOpenNew(id, demoRedraw(d, cmaId));
+    }
+    const r = await fetch(cmaRefreshUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cma_id: cmaId }) }).catch(() => null);
+    const j = r ? await r.json().catch(() => null) : null;
+    setBusy(false);
+    const a = readRefreshAnswer(j, !!r?.ok);
+    if (!a.ok) return setMsg({ ok: false, text: a.words });
+    onOpenNew(a.cmaId);
+  };
+
   const copy = async (link: string) => {
     try {
       await navigator.clipboard.writeText(link);
@@ -180,6 +210,7 @@ export default function CmaWorkspace({
 
   const status = d ? cmaStatus(d.cma) : "draft";
   const sent = !!d?.cma.sent;
+  const redrawn = !!d && !!d.refreshedFrom && !sent;
   const live = status === "sent";
   const mid = d
     ? midpointFromAdjustments(d.cma.comparables.map((c) => ({ price: c.price, keep: !!keep[c.listingId], rows: adj[c.listingId] ?? [] })))
@@ -203,6 +234,17 @@ export default function CmaWorkspace({
         {!d && !loadErr ? <p className="hr-sub">Loading the CMA…</p> : null}
         {d ? (
           <>
+            {redrawn ? (
+              <section className="pc-card cma-box cma-redrawn" aria-label="What changed since you sent it">
+                <h2>{REDRAW_HEAD}</h2>
+                <ul className="cma-changes">
+                  {changeLines(d.changes, (id) => d.cma.comparables.find((c) => c.listingId === id)?.values.address_line ?? `MLS ${id}`).map((l) => (
+                    <li key={l}>{l}</li>
+                  ))}
+                </ul>
+                <small className="hr-sub">{REDRAW_KEPT}</small>
+              </section>
+            ) : null}
             {video ? (
               <p className="hr-sub cma-video">
                 {video.text}
@@ -302,6 +344,7 @@ export default function CmaWorkspace({
                   <div className="cc-perm-acts">
                     {!sent ? <button type="button" className="chip-btn primary cma-save" disabled={busy} onClick={() => void save()}>{busy ? "Saving…" : "Save"}</button> : null}
                     {!sent ? <button type="button" className="chip-btn cma-send" disabled={busy || !canSend} onClick={() => void share("send")}>Send (make the page live)</button> : null}
+                    {canRedraw(d.cma) ? <button type="button" className="chip-btn cma-redraw" disabled={busy} onClick={() => void redraw()}>{busy ? REDRAW_BUSY : REDRAW_BUTTON}</button> : null}
                     {live ? <button type="button" className="chip-btn cma-stop" disabled={busy} onClick={() => void share("stop")}>Stop the link</button> : null}
                   </div>
                   {!sent && dirty ? <p className="hr-sub">Save your changes before you send.</p> : null}
@@ -339,7 +382,7 @@ export default function CmaWorkspace({
                   }}
                 />
                 {d.cma.source ? <p className="cc-source">{d.cma.source}</p> : null}
-                {demo ? <p className="cc-source">Example agent. Nothing is sent.</p> : null}
+                {demo ? <p className="cc-source">Example agent. Nothing is sent. {DEMO_SUFFIX}</p> : null}
               </section>
             </div>
           </>

@@ -10,6 +10,12 @@ import {
   PITCH_HEADLINE_MAX,
   PITCH_LINES_MAX,
   PREP_MAX,
+  APPROVE_BUSY,
+  APPROVE_SEARCH,
+  DEMO_SUFFIX,
+  SEARCH_SAVED,
+  cmaNextHomeSearchUrl,
+  readSearchAnswer,
   blankPrep,
   cmaDraftUrl,
   cmaSaveUrl,
@@ -120,6 +126,23 @@ export default function CmaParts({
     say("prep", { ok: true, text: "Pulse drafted these from your seller's answers. Check them, then Save each part." });
   };
 
+  const [search, setSearch] = useState<Msg>(null);
+  const [searching, setSearching] = useState(false);
+  useEffect(() => setSearch(null), [cmaId]);
+  const approve = async () => {
+    if (searching) return;
+    setSearching(true);
+    setSearch(null);
+    if (demo) {
+      setSearching(false);
+      return setSearch({ ok: true, text: `${SEARCH_SAVED} ${DEMO_SUFFIX}` });
+    }
+    const r = await fetch(cmaNextHomeSearchUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cma_id: cmaId }) }).catch(() => null);
+    const j = r ? await r.json().catch(() => null) : null;
+    setSearching(false);
+    setSearch(readSearchAnswer(j, !!r?.ok));
+  };
+
   const rg = parseRange(low, high);
   const range = "range" in rg ? rg.range : null;
   const figs = netFigures(range, net);
@@ -175,6 +198,12 @@ export default function CmaParts({
         {countLine ? <p className="hr-sub cma-count">{countLine}</p> : null}
         {demandL ? <p className="hr-sub cma-count">{demandL}</p> : null}
         {foot("next_home", "Save next home", () => nextHomeBody(cmaId, next, d.cma.nextHome))}
+        {d.cma.nextHome ? (
+          <div className="cma-approve">
+            <button type="button" className="link cma-approve-btn" disabled={searching} onClick={() => void approve()}>{searching ? APPROVE_BUSY : APPROVE_SEARCH}</button>
+            {search ? <p className={search.ok ? "hr-sub cma-approve-msg" : "cc-err cma-approve-msg"} role="status">{search.text}</p> : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="pc-card cma-box cma-part" data-part="prep">
