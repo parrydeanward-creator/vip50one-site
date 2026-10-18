@@ -41,7 +41,7 @@ export default function Home() {
             </h1>
             <p className="sp-lead">
               If you have a sphere, you have a business. ONE turns the people you already know into referrals: it tells you who to reach today and why, keeps every
-              promise you made, and markets your listings, open houses and buyer tours. Five tools, connected, with ONE Brain watching over all of it.
+              promise you made, and markets your listings, open houses and buyer tours. Five tools, connected, with Pulse watching over all of it. Nothing goes out without your tap.
             </p>
             <div className="sp-cta-row">
               <a className="sp-cta" href={JOIN}>
@@ -83,9 +83,9 @@ export default function Home() {
           <p className="sp-eyebrow">ONE Brain</p>
           <h2>Open ONE. Do the work. It's that simple.</h2>
           <p>
-            Sign in and your business is one living map: ONE at the centre, your five products around it. ONE Brain plans your day in order, from the calls that
+            Sign in and your business is one living map: ONE at the centre, your five products around it. Pulse plans your day in order, from the calls that
             matter most to the approvals due before posting time. It ticks things off as you do them, and at day's end it tells you what got done and what moves to
-            tomorrow. Ask it anything about your business.
+            tomorrow. Ask Pulse anything about your business.
           </p>
           <figure id="film" className="sp-film">
             <video controls preload="none" playsInline poster="/home/one-film.jpg">

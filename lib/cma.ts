@@ -13,6 +13,7 @@ export const cmaOneUrl = (cmaId: string) => `${cmaUrl}?id=${encodeURIComponent(c
 export const cmaStartUrl = `${cmaUrl}/start`;
 export const cmaSaveUrl = `${cmaUrl}/save`;
 export const cmaSendUrl = `${cmaUrl}/send`;
+export const cmaDraftUrl = `${cmaUrl}/draft`;
 /** Where the website is set up (Getting Started's website step goes here too). */
 export const SITE_SETUP_URL = `${MOVE_URL}/profile/agent-hub`;
 
@@ -83,6 +84,12 @@ export interface Cma {
   notes: string;
   source: string | null;
   sent: { sentAt: string; linkEnds: string | null; linkLive: boolean } | null;
+  // LEADS §1.7d: the parts under the range. Each is null until the agent sets it.
+  net: NetSheet | null;
+  prep: PrepItem[] | null;
+  pitch: Pitch | null;
+  nextHome: NextHome | null;
+  buyerDemand: { count: number; asOf: string | null } | null;
 }
 export interface WelcomeVideo { on: boolean; seconds: number | null; recordUrl: string | null }
 export interface CmaLoaded { contactId: string; cma: Cma; link: string | null; hasSite: boolean; welcomeVideo: WelcomeVideo | null }
@@ -176,6 +183,11 @@ export function readCma(x: unknown): Cma | null {
     notes: typeof c.notes === "string" ? c.notes : "",
     source: str(c.source, 1200),
     sent: sent && typeof sent === "object" ? { sentAt: str(sent.sent_at, 40) ?? "", linkEnds: str(sent.link_ends, 40), linkLive: sent.link_live === true } : null,
+    net: readNet(c.net),
+    prep: readPrep(c.prep),
+    pitch: readPitch(c.pitch),
+    nextHome: readNextHome(c.next_home),
+    buyerDemand: readDemand(c.buyer_demand),
   };
 }
 
@@ -333,7 +345,7 @@ export function subjectLine(facts: Record<string, unknown>): string {
 
 const day = (iso: string | null): string | null => {
   if (!iso) return null;
-  const t = Date.parse(iso);
+  const t = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00Z` : iso);
   return Number.isFinite(t) ? new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Denver" }) : null;
 };
 
@@ -390,6 +402,11 @@ export function demoLoaded(contactId: string): CmaLoaded {
       range: null,
       midpoint: m ? { ...m, label: MIDPOINT_LABEL } : null,
       notes: "",
+      net: null,
+      prep: null,
+      pitch: null,
+      nextHome: null,
+      buyerDemand: null,
       source: "Example data. Based on information from UtahRealEstate.com once the feed is live.",
       sent: null,
     },
@@ -420,4 +437,260 @@ export function demoShared(d: CmaLoaded, action: "send" | "stop", now: Date): Cm
 export function rowFrom(r: CmaRow, d: CmaLoaded): CmaRow {
   const status = cmaStatus(d.cma);
   return { ...r, status, link: status === "sent" ? d.link : null, sentAt: d.cma.sent?.sentAt ?? r.sentAt, linkEnds: d.cma.sent?.linkEnds ?? r.linkEnds };
+}
+
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The four parts under the range (LEADS §1.7d; GO/MOVE's vip50-web-crm#316, same words as Classic). Each part saves on its
+// own through POST /api/brain/cma/save with only that part (a part left out stays unchanged; null clears it). Pulse
+// drafts fill fields and nothing else; nothing is saved until the agent presses that part's Save. No part ever proposes
+// a value: the net figures are arithmetic on the agent's own range and the agent's own costs.
+
+export type PartKey = "net" | "prep" | "pitch" | "next_home";
+export const PREP_MAX = 8;
+export const PITCH_HEADLINE_MAX = 120;
+export const PITCH_LINES_MAX = 5;
+export const COMMISSION_MAX = 10;
+export const PART_SAVING = "Saving...";
+export const PART_SAVED = "Saved.";
+export const PART_FAILED = "That did not save. Nothing was changed.";
+export const PREP_ERROR = `Up to ${PREP_MAX} items, each with Fix or Skip.`;
+
+// Net sheet
+export interface NetSheet { payoff: number; payoff2: number; commission_pct: number; title: number; tax: number; other: number }
+export type NetKey = keyof NetSheet;
+export const NET_FIELDS: { key: NetKey; label: string; pct?: boolean }[] = [
+  { key: "payoff", label: "Mortgage payoff" },
+  { key: "payoff2", label: "Second loan payoff" },
+  { key: "commission_pct", label: "Commission %", pct: true },
+  { key: "title", label: "Title and escrow" },
+  { key: "tax", label: "Prorated taxes" },
+  { key: "other", label: "Other costs" },
+];
+export type NetDraft = Record<NetKey, string>;
+export const emptyNetDraft = (): NetDraft => ({ payoff: "", payoff2: "", commission_pct: "", title: "", tax: "", other: "" });
+
+function readNet(v: unknown): NetSheet | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const n = (k: string) => Math.max(0, numOr(o[k]) ?? 0);
+  return { payoff: n("payoff"), payoff2: n("payoff2"), commission_pct: n("commission_pct"), title: n("title"), tax: n("tax"), other: n("other") };
+}
+export const netDraftOf = (n: NetSheet | null): NetDraft =>
+  n ? Object.fromEntries(NET_FIELDS.map((f) => [f.key, n[f.key] ? String(n[f.key]) : ""])) as NetDraft : emptyNetDraft();
+
+/** One typed number: blank is nothing (0); money is whole dollars; commission may have up to two decimals. Null when it is not a number. */
+function netNumber(s: string, pct: boolean): number | null {
+  const t = s.replace(/[$,%\s]/g, "");
+  if (t === "") return 0;
+  if (!(pct ? /^\d{1,3}(\.\d{1,2})?$/ : /^\d{1,9}$/).test(t)) return null;
+  return Number(t);
+}
+
+/** The six fields as typed, or the first problem in words. All six blank is no net sheet. */
+export function parseNet(d: NetDraft): { net: NetSheet | null } | { error: string } {
+  const out = {} as NetSheet;
+  for (const f of NET_FIELDS) {
+    const n = netNumber(d[f.key], !!f.pct);
+    if (n == null) return { error: f.pct ? `${f.label} must be a number, 0 to ${COMMISSION_MAX}.` : `${f.label} must be a dollar amount.` };
+    out[f.key] = n;
+  }
+  if (out.commission_pct < 0 || out.commission_pct > COMMISSION_MAX) return { error: `Commission % must be between 0 and ${COMMISSION_MAX}.` };
+  if (NET_FIELDS.every((f) => d[f.key].trim() === "")) return { net: null };
+  return { net: out };
+}
+
+/** The save body for the net sheet part only. */
+export function netBody(cmaId: string, d: NetDraft): { cma_id: string; net: NetSheet | null } | { error: string } {
+  const r = parseNet(d);
+  return "error" in r ? r : { cma_id: cmaId, net: r.net };
+}
+
+/**
+ * What the seller nets at the agent's own low and high: price less commission less costs. Null until the range and the
+ * fields exist (a range, and at least the commission % typed with every field a number).
+ */
+export function netFigures(range: { low: number; high: number } | null, d: NetDraft): { low: number; high: number } | null {
+  if (!range || d.commission_pct.trim() === "") return null;
+  const r = parseNet(d);
+  if ("error" in r || !r.net) return null;
+  const n = r.net;
+  const costs = n.payoff + n.payoff2 + n.title + n.tax + n.other;
+  const at = (price: number) => Math.round(price - (price * n.commission_pct) / 100 - costs);
+  return { low: at(range.low), high: at(range.high) };
+}
+export const netLine = (f: { low: number; high: number }) => `At your range, the seller nets about ${money(f.low)} to ${money(f.high)}.`;
+
+// Your next home
+export interface NextHome {
+  area: string | null;
+  filters: { zip?: string; city?: string; beds_min?: number; baths_min?: number; price_min?: number; price_max?: number; sub_types?: string[] };
+  count: number | null;
+  asOf: string | null;
+}
+export interface NextDraft { where: string; beds: string; price: string }
+export const emptyNextDraft = (): NextDraft => ({ where: "", beds: "", price: "" });
+
+function readNextHome(v: unknown): NextHome | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const f = (o.filters && typeof o.filters === "object" ? o.filters : {}) as Record<string, unknown>;
+  const filters: NextHome["filters"] = {};
+  const zip = str(f.zip, 10), city = str(f.city, 80);
+  if (zip) filters.zip = zip;
+  if (city) filters.city = city;
+  for (const k of ["beds_min", "baths_min", "price_min", "price_max"] as const) {
+    const n = numOr(f[k]);
+    if (n != null) filters[k] = n;
+  }
+  if (Array.isArray(f.sub_types)) filters.sub_types = f.sub_types.filter((x): x is string => typeof x === "string");
+  const count = numOr(o.count);
+  return { area: str(o.area, 80), filters, count: count == null ? null : Math.max(0, Math.round(count)), asOf: str(o.as_of, 40) };
+}
+function readDemand(v: unknown): { count: number; asOf: string | null } | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const count = numOr(o.count);
+  return count == null ? null : { count: Math.max(0, Math.round(count)), asOf: str(o.as_of, 40) };
+}
+export function nextDraftOf(n: NextHome | null): NextDraft {
+  if (!n) return emptyNextDraft();
+  return {
+    where: n.filters.zip ?? n.filters.city ?? n.area ?? "",
+    beds: n.filters.beds_min != null ? String(n.filters.beds_min) : "",
+    price: n.filters.price_max != null ? String(n.filters.price_max) : "",
+  };
+}
+
+/**
+ * The save body for the next-home part only: exactly one of zip or city (five digits is a ZIP, anything else a city),
+ * beds at least, price up to. The filters the screen does not show (baths, lowest price, home types) are carried over as
+ * they were. All three blank clears it.
+ */
+export function nextHomeBody(cmaId: string, d: NextDraft, prior: NextHome | null): { cma_id: string; next_home: Record<string, unknown> | null } | { error: string } {
+  const where = d.where.trim(), beds = d.beds.trim(), price = d.price.replace(/[$,\s]/g, "");
+  if (!where && !beds && !price) return { cma_id: cmaId, next_home: null };
+  if (!where) return { error: "Give a city or a ZIP." };
+  const isZip = /^\d{5}$/.test(where);
+  if (!isZip && (/\d/.test(where) || where.length > 80)) return { error: "Give a city or a five-digit ZIP, not both." };
+  if (beds && !/^\d{1,2}$/.test(beds)) return { error: "Beds at least must be a whole number." };
+  if (price && !/^\d{1,9}$/.test(price)) return { error: "Price up to must be a dollar amount." };
+  const nh: Record<string, unknown> = isZip ? { zip: where } : { city: where };
+  if (beds) nh.beds_min = Number(beds);
+  if (price) nh.price_max = Number(price);
+  const p = prior?.filters;
+  if (p?.baths_min != null) nh.baths_min = p.baths_min;
+  if (p?.price_min != null && (!price || p.price_min <= Number(price))) nh.price_min = p.price_min;
+  if (p?.sub_types?.length) nh.sub_types = p.sub_types;
+  return { cma_id: cmaId, next_home: nh };
+}
+
+const asOfWords = (iso: string | null) => (day(iso) ? ` (as of ${day(iso)})` : "");
+/** "14 homes for sale there match (as of Oct 18, 2026)." */
+export function nextCountLine(n: NextHome | null): string | null {
+  if (!n || n.count == null) return null;
+  return `${n.count} ${n.count === 1 ? "home for sale there matches" : "homes for sale there match"}${asOfWords(n.asOf)}.`;
+}
+/** "Buyers looking now: 3 saved searches on your site cover this home in your range (as of ...)." */
+export function demandLine(b: { count: number; asOf: string | null } | null): string | null {
+  if (!b) return null;
+  return `Buyers looking now: ${b.count} saved ${b.count === 1 ? "search" : "searches"} on your site cover this home in your range${asOfWords(b.asOf)}.`;
+}
+
+// Fix this, skip that
+export interface PrepItem { item: string; why: string; do: "fix" | "skip"; pro: { name: string; phone: string } | null }
+export interface PrepDraft { item: string; why: string; do: "fix" | "skip" | ""; proName: string; proPhone: string }
+export const blankPrep = (): PrepDraft => ({ item: "", why: "", do: "", proName: "", proPhone: "" });
+
+function readPrep(v: unknown): PrepItem[] | null {
+  if (!Array.isArray(v)) return null;
+  return v.flatMap((x) => {
+    if (!x || typeof x !== "object") return [];
+    const o = x as Record<string, unknown>;
+    const item = str(o.item, 200);
+    if (!item) return [];
+    const pr = o.pro && typeof o.pro === "object" ? (o.pro as Record<string, unknown>) : null;
+    const name = str(pr?.name, 120);
+    return [{ item, why: str(o.why, 400) ?? "", do: o.do === "skip" ? "skip" as const : "fix" as const, pro: name ? { name, phone: str(pr?.phone, 40) ?? "" } : null }];
+  });
+}
+export const prepDraftsOf = (p: PrepItem[] | null): PrepDraft[] =>
+  (p ?? []).map((x) => ({ item: x.item, why: x.why, do: x.do, proName: x.pro?.name ?? "", proPhone: x.pro?.phone ?? "" }));
+
+/** The save body for the prep part only: blank rows are ignored; at most 8; each needs What and Fix or Skip. */
+export function prepBody(cmaId: string, rows: PrepDraft[]): { cma_id: string; prep: unknown[] | null } | { error: string } {
+  const used = rows.filter((r) => r.item.trim() || r.why.trim() || r.proName.trim() || r.proPhone.trim() || r.do);
+  if (used.length > PREP_MAX) return { error: PREP_ERROR };
+  const prep: unknown[] = [];
+  for (const r of used) {
+    if (!r.item.trim() || (r.do !== "fix" && r.do !== "skip") || r.item.trim().length > 200 || r.why.trim().length > 400) return { error: PREP_ERROR };
+    const row: Record<string, unknown> = { item: r.item.trim(), do: r.do };
+    if (r.why.trim()) row.why = r.why.trim();
+    if (r.proName.trim()) row.pro = r.proPhone.trim() ? { name: r.proName.trim(), phone: r.proPhone.trim() } : { name: r.proName.trim() };
+    prep.push(row);
+  }
+  return { cma_id: cmaId, prep: prep.length ? prep : null };
+}
+
+// How we'd sell it
+export interface Pitch { headline: string; lines: string[] }
+export interface PitchDraft { headline: string; lines: string }
+function readPitch(v: unknown): Pitch | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const headline = str(o.headline, 400);
+  if (!headline) return null;
+  const lines = Array.isArray(o.lines) ? o.lines.flatMap((l) => (str(l, 600) ? [str(l, 600) as string] : [])) : [];
+  return { headline, lines };
+}
+export const pitchDraftOf = (p: Pitch | null): PitchDraft => ({ headline: p?.headline ?? "", lines: (p?.lines ?? []).join("\n") });
+export const pitchLines = (s: string): string[] => s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+/** The save body for the pitch part only: headline up to 120 characters, at most 5 lines. Both blank clears it. */
+export function pitchBody(cmaId: string, d: PitchDraft): { cma_id: string; pitch: Pitch | null } | { error: string } {
+  const headline = d.headline.trim(), lines = pitchLines(d.lines);
+  if (!headline && !lines.length) return { cma_id: cmaId, pitch: null };
+  if (!headline) return { error: "Add a headline." };
+  if (headline.length > PITCH_HEADLINE_MAX) return { error: `The headline is up to ${PITCH_HEADLINE_MAX} characters.` };
+  if (lines.length > PITCH_LINES_MAX) return { error: `Up to ${PITCH_LINES_MAX} lines.` };
+  return { cma_id: cmaId, pitch: { headline, lines } };
+}
+
+/** POST /api/brain/cma/draft's answer: Pulse's drafts to fill the fields, or the words when there are none. */
+export function readDraft(j: unknown): { prep: PrepDraft[]; pitch: PitchDraft | null } | { error: string } {
+  const o = (j && typeof j === "object" ? j : {}) as Record<string, unknown>;
+  if (o.ok === false || o.ok == null) return { error: str(o.words, 300) ?? str(o.error, 300) ?? "Pulse could not draft that just now. Fill it in yourself." };
+  const prep = (readPrep(o.prep) ?? []).slice(0, PREP_MAX);
+  let pitch: PitchDraft | null = null;
+  if (typeof o.pitch === "string" && o.pitch.trim()) pitch = { headline: o.pitch.trim().slice(0, PITCH_HEADLINE_MAX), lines: "" };
+  else {
+    const p = readPitch(o.pitch);
+    if (p) pitch = { headline: p.headline.slice(0, PITCH_HEADLINE_MAX), lines: p.lines.slice(0, PITCH_LINES_MAX).join("\n") };
+  }
+  return { prep: prepDraftsOf(prep), pitch };
+}
+
+/** The example's Pulse draft (?demo=1): what Pulse would fill in from a seller's answers. Nothing is saved. */
+export const DEMO_DRAFT: { prep: PrepDraft[]; pitch: PitchDraft } = {
+  prep: [
+    { item: "Repaint the front door", why: "First thing a buyer sees; cheap and quick.", do: "fix", proName: "", proPhone: "" },
+    { item: "Replace the carpet in the basement", why: "Buyers will price it in; leave it.", do: "skip", proName: "", proPhone: "" },
+    { item: "Deep clean and declutter", why: "Rooms read bigger.", do: "fix", proName: "", proPhone: "" },
+    { item: "Re-grout the guest bath", why: "Small fix, noticed on tours.", do: "fix", proName: "", proPhone: "" },
+    { item: "Redo the landscaping", why: "Costs more than it returns here.", do: "skip", proName: "", proPhone: "" },
+  ],
+  pitch: { headline: "A well-kept home, priced to be seen first this month", lines: "Photos and a video tour in the first week\nOpen house the first weekend\nEvery showing request answered the same day" },
+};
+
+/** The example after a part Save: the part is kept; the next-home counts are the example's own. */
+export function demoPart(d: CmaLoaded, body: Record<string, unknown>): CmaLoaded {
+  let cma = { ...d.cma };
+  if ("net" in body) cma = { ...cma, net: body.net as NetSheet | null };
+  if ("prep" in body) cma = { ...cma, prep: readPrep(body.prep) };
+  if ("pitch" in body) cma = { ...cma, pitch: body.pitch as Pitch | null };
+  if ("next_home" in body) {
+    const nh = readNextHome({ area: (body.next_home as { city?: string; zip?: string } | null)?.city ?? (body.next_home as { zip?: string } | null)?.zip, filters: body.next_home, count: body.next_home ? 14 : null, as_of: "2026-10-18" });
+    cma = { ...cma, nextHome: nh, buyerDemand: nh ? { count: 3, asOf: "2026-10-18" } : null };
+  }
+  return { ...d, cma };
 }

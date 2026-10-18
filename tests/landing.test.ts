@@ -49,6 +49,11 @@ test("phone menu: one list; Growth rows only with Growth; team rows only for tea
   assert.deepEqual(menuRows(base).map((r) => r.label), ["My Profile", "My website", "Google Business Profile", "My plan and billing", "Add-ons", "Help: what everything means", "Watch the ONE GO tour", "Classic view", "Sign out"]);
   assert.deepEqual(menuRows({ ...base, growth: true, teamHosts: ["team.vip50homes.com"] }).map((r) => r.label), ["My Profile", "My website", "Google Business Profile", "Growth results", "Team website", "Ad requests", "My plan and billing", "Add-ons", "Help: what everything means", "Watch the ONE GO tour", "Classic view", "Sign out"]);
   assert.deepEqual(menuRows({ ...base, teamHosts: ["team.vip50homes.com"] }).map((r) => r.label), ["My Profile", "My website", "Google Business Profile", "Team website", "My plan and billing", "Add-ons", "Help: what everything means", "Watch the ONE GO tour", "Classic view", "Sign out"]);
+  // Added 18 Oct, on purpose: a "Products" section (one row per product orb, locked ones too) so every product is
+  // reachable from the phone map, which draws only six orbs. Opens the orb as a map tap does.
+  const withProducts = menuRows({ ...base, products: [{ id: "growth", label: "ONE GROWTH", line: "Ads and leads.", locked: false }, { id: "showly", label: "SHOWLY", line: "Included with Complete.", locked: true }] });
+  assert.deepEqual(withProducts.slice(0, 3).map((r) => r.label), ["My Profile", "ONE GROWTH", "SHOWLY"]);
+  assert.deepEqual(withProducts[1].action, { kind: "orb", id: "growth" });
   assert.ok(menuRows(base).every((r) => r.line.length > 10), "every row has a plain line");
   assert.deepEqual(menuRows({ ...base, live: false }), []);
   assert.equal(HINT, "Tap any orb to see what needs you. Red means right now.");

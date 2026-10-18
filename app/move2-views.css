@@ -1,0 +1,66 @@
+/* ONE MOVE example tools and the example bar on native ONE MOVE views (walker 18 Oct). Prefix m2-. */
+.m2-exbar { position: absolute; left: 290px; top: 16px; z-index: 6; max-width: min(620px, calc(100% - 700px)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; padding: 6px 12px; border: 1px solid rgba(245, 197, 66, 0.35); border-radius: 999px; background: rgba(8, 12, 26, 0.88); color: var(--text-2); font-size: 12px; line-height: 1.4; pointer-events: none; }
+.m2-face { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: rgba(47, 183, 163, 0.2); border: 1px solid rgba(47, 183, 163, 0.6); color: #fff; font-weight: 800; font-size: 13px; letter-spacing: 0.02em; }
+.m2-face.sm { width: 32px; height: 32px; font-size: 11px; }
+.m2-note { margin: 8px 0; }
+.m2-sub { margin-left: 8px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-3); font-size: 12px; }
+.m2-done { opacity: 0.6; }
+.m2-done .pso-row-b b { text-decoration: line-through; }
+.m2-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-top: 12px; align-items: start; }
+.m2-field { display: grid; gap: 4px; margin: 0 0 10px; }
+.m2-field select, .m2-field input, .m2-reply input { width: 100%; box-sizing: border-box; min-height: 40px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(0, 0, 0, 0.25); color: var(--text); font: inherit; font-size: 14px; }
+.m2-field select option { background: #0c1328; }
+.m2-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.m2-btn { margin-top: 4px; }
+.m2-btn:disabled { opacity: 0.5; cursor: default; }
+.m2-gap { margin-top: 16px; }
+.m2-st.sent, .m2-st.launching { color: #f0c75a; border-color: rgba(240, 199, 90, 0.5); }
+.m2-st.talking, .m2-st.active { color: #8fd3ff; border-color: rgba(143, 211, 255, 0.5); }
+.m2-st.under-contract { color: #c3a6ff; border-color: rgba(195, 166, 255, 0.5); }
+.m2-st.closed { color: #5fd69b; border-color: rgba(95, 214, 155, 0.5); }
+.m2-rowbtn { width: 100%; text-align: left; cursor: pointer; color: inherit; font: inherit; }
+.m2-rowbtn.on, .m2-on { border-color: rgba(245, 197, 66, 0.6); background: rgba(245, 197, 66, 0.06); }
+.m2-bars { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 8px; }
+.m2-bars li { display: grid; grid-template-columns: minmax(96px, 34%) 1fr 34px; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
+.m2-bars b { text-align: right; color: #fff; font-variant-numeric: tabular-nums; }
+.m2-bar-l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m2-bar { display: block; height: 10px; border-radius: 5px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.m2-bar i { display: block; height: 100%; border-radius: 5px; background: var(--gold-2); }
+.m2-weeks { list-style: none; margin: 8px 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.m2-weeks li { display: grid; justify-items: center; gap: 4px; }
+.m2-weeks b { color: #fff; font-size: 16px; }
+.m2-weeks small { color: var(--text-3); font-size: 11px; }
+.m2-col { position: relative; display: block; width: 100%; max-width: 54px; height: 150px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); overflow: hidden; }
+.m2-col i { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(90, 169, 255, 0.75); border-radius: 8px 8px 0 0; }
+.m2-col i.met { background: rgba(95, 214, 155, 0.8); }
+.m2-col em { position: absolute; left: 0; right: 0; height: 2px; background: var(--gold-2); }
+.m2-play, .m2-doc { flex: none; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-style: normal; font-size: 13px; font-weight: 800; color: #fff; background: rgba(240, 106, 90, 0.22); border: 1px solid rgba(240, 106, 90, 0.55); }
+.m2-doc { background: rgba(90, 169, 255, 0.18); border-color: rgba(90, 169, 255, 0.5); }
+.m2-player { aspect-ratio: 16 / 9; border-radius: 12px; display: grid; place-items: center; align-content: center; gap: 6px; background: radial-gradient(circle at 50% 40%, rgba(47, 183, 163, 0.25), rgba(8, 12, 26, 0.95)); border: 1px solid var(--line); }
+.m2-player span { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 24px; }
+.m2-player small { color: var(--text-3); font-size: 12px; }
+.m2-paper .pso-q { margin: 0 0 8px; }
+.m2-doc-t { margin: 0 0 10px; font-size: 20px; color: #fff; }
+.m2-lounge { max-width: 760px; }
+.m2-post { list-style: none; }
+.m2-post-h { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.m2-replies { list-style: none; margin: 0 0 4px; padding: 0 0 0 12px; border-left: 2px solid var(--line); display: grid; gap: 4px; font-size: 13px; color: var(--text-2); }
+.m2-replies b { color: #fff; margin-right: 4px; }
+.m2-reply { display: flex; gap: 8px; margin-top: 8px; }
+.m2-area { margin: 0 0 10px; }
+.m2-area-h { margin: 6px 0 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-2); }
+.m2-area-h small { margin-left: 6px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-3); }
+.m2-under { margin-top: 10px; }
+.m2-nums2 { grid-template-columns: 1fr 1fr; }
+.m2-classic { display: inline-block; margin-top: 12px; font-size: 13px; }
+.m2-view { padding-top: 10px; }
+@media (max-width: 760px) {
+  .m2-cols { grid-template-columns: 1fr; }
+  .m2-exbar { left: auto; right: 12px; top: 14px; max-width: none; padding: 4px; }
+  .m2-exbar-t { display: none; }
+}
+/* The person card's "..." menu (PersonMenu, Contacts) shares the class names .pmenu and .pmenu-row with the photo menu's
+   drawer, so it drew as an empty dark box over the name. Scoped to the card only: the drawer is unchanged. */
+.pmenu:has(> .pmenu-btn) { position: relative; inset: auto; width: auto; max-height: none; box-shadow: none; height: auto; overflow: visible; padding: 0; border: 0; background: none; flex: none; }
+.pmenu-row:has(> .d-title) { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; cursor: default; }
+.pmenu-row:has(> .d-title) > .d-title { flex: 1 1 auto; min-width: 0; width: auto; }

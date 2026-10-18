@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { dailyLayout } from "@/lib/daily.ts";
 import { localDay } from "@/lib/morning.ts";
 import { asSections, dayName, readWeekly, tickable, weeklyFill, weeklyLine, weeklyUrl, withWeeklyTick, type WeeklyWeek } from "@/lib/weekly.ts";
@@ -23,11 +23,14 @@ const TEAL = "#2fb7a3";
 
 export default function WeeklyTracker({
   onUnavailable,
+  example,
   onChanged,
   onBack,
   onClassic,
 }: {
   onUnavailable: () => void;
+  /** The example agent (?demo=1): this raw answer instead of ONE MOVE's route; ticks stay on screen (walker 18 Oct). */
+  example?: unknown;
   onChanged: () => void;
   onBack: () => void;
   onClassic: () => void;
@@ -39,7 +42,16 @@ export default function WeeklyTracker({
   const [hover, setHover] = useState<string | null>(null);
   const cam = useSvgCamera(SIZE);
 
+  // Kept in a ref: the Brain builds a fresh example object on every render, and a reload would undo the ticks.
+  const exampleRef = useRef(example);
+  const isExample = example !== undefined;
   const load = useCallback(async () => {
+    const example = exampleRef.current;
+    if (isExample && example) {
+      setDay(readWeekly(example));
+      setNote("Example: the example agent's numbers, not real.");
+      return;
+    }
     let r: Response;
     try {
       r = await fetch(weeklyUrl, { credentials: "include", cache: "no-store" });
@@ -52,7 +64,7 @@ export default function WeeklyTracker({
     if (!d) return onUnavailable();
     setDay(d);
     setErr(null);
-  }, [onUnavailable]);
+  }, [onUnavailable, isExample]);
 
   useEffect(() => {
     load();
@@ -62,6 +74,11 @@ export default function WeeklyTracker({
   const tick = async (key: string, done: boolean) => {
     if (!day || busy) return;
     if (!tickable(sectionOf.get(key) ?? "")) return setNote("Custom activities are edited on the Weekly Tracker page in ONE MOVE (Classic).");
+    if (isExample) {
+      setDay(withWeeklyTick(day, key, done));
+      setNote("Example: nothing was saved.");
+      return;
+    }
     const before = day;
     setBusy(key);
     setNote(null);

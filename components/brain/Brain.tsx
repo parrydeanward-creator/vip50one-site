@@ -22,6 +22,7 @@ import Contacts from "./Contacts.tsx";
 import HotWarmCold from "./HotWarmCold.tsx";
 import TouchAudit from "./TouchAudit.tsx";
 import GroupPanel from "./GroupPanel.tsx";
+import { demoDailyRaw, demoWeeklyRaw, menuTarget, withDemoTrackers } from "@/lib/examples/move.ts";
 import type { BusinessGraph, GraphNode } from "@/lib/graph/types.ts";
 import { DESKTOP_BUDGET, PHONE_BUDGET, childrenOf, indexGraph, pathTo, visibleSet } from "@/lib/graph/model.ts";
 import { bounds, layout } from "@/lib/brain/layout.ts";
@@ -56,6 +57,16 @@ import IncomeMapView from "./IncomeMapView.tsx";
 import ForecastView from "./ForecastView.tsx";
 import PulseCoachView from "./PulseCoachView.tsx";
 import ReferralsView from "./ReferralsView.tsx";
+import MarqueePanel from "./views/MarqueePanel.tsx";
+import MarqueeView from "./views/MarqueeView.tsx";
+import { mqKeyOf, type MqKey } from "@/lib/examples/marquee.ts";
+import ShowlyTools, { SHOWLY_TOOL } from "./views/ShowlyTools.tsx";
+import OpenTools, { OPEN_TOOL } from "./views/OpenTools.tsx";
+import GrowthPanel, { realLabel } from "./views/GrowthPanel.tsx";
+import GrowthView from "./views/GrowthView.tsx";
+import MoveTools from "./views/MoveTools.tsx";
+import MoveExampleFetch from "./views/MoveExampleFetch.tsx";
+import { EXAMPLE_NATIVE, M2_PATHS, m2KeyOf, withExampleMoveTools } from "@/lib/examples/move2.ts";
 import WinsView from "./WinsView.tsx";
 import LifeUpcomingView from "./LifeUpcomingView.tsx";
 import OutreachPanel, { AttractionSection } from "./OutreachPanel.tsx";
@@ -125,6 +136,7 @@ import { LEADS_NODE, demoNewLeads, leadOf, readNewLeads, todayUrl, withNewLeadsN
 import LeadCard from "./LeadCard.tsx";
 import { postDay, type TeamPost } from "@/lib/teamPosts.ts";
 import { perProduct } from "@/lib/perProduct.ts";
+import ListingFitsSection from "./ListingFitsSection.tsx";
 import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, type Launch } from "@/lib/launch.ts";
 import LaunchPanel from "./LaunchPanel.tsx";
 import LooksHotPanel from "./LooksHotPanel.tsx";
@@ -280,7 +292,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const war30Ref = useRef<War30 | null>(null);
   const hubNow = (): HubInput => ({ lead: isTeamLead(warRef.current, onbRef.current, teamSitesRef.current) || !!peopleRef.current?.people.length, team: teamRef.current, war: warRef.current, onb: onbRef.current, removed: onbRemovedRef.current, now: Date.now(), people: peopleRef.current, war30: war30Ref.current });
   const admin = agent.admin === true;
-  const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(productTour ? withTourPages(initialGraph) : live ? initialGraph : withTourPages(initialGraph, DEMO_PAGES), null), admin), teamLeadsHint));
+  const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(productTour ? withExampleMoveTools(withDemoTrackers(withTourPages(initialGraph))) : live ? initialGraph : withDemoTrackers(withTourPages(initialGraph, DEMO_PAGES)), null), admin), teamLeadsHint));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
   // this, a refresh after logging a call changed nothing on screen.
@@ -685,6 +697,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   );
   // Referral Scoreboard (§3r): who sent business and who is likely next, from ONE MOVE; the example agent's until it answers.
   const [refsOpen, setRefsOpen] = useState(false);
+  // Marquee's tools inside the Brain on the labelled example (Parry, 18 Oct: no blank side panels).
+  const [mqOpen, setMqOpen] = useState<{ tool: MqKey; deck?: string; href?: string } | null>(null);
   // §3af: referrals with other ONE agents, counts only, on the Scoreboard.
   const [network, setNetwork] = useState<NetworkCounts | null>(null);
   useEffect(() => {
@@ -1115,8 +1129,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     eventsRef.current = eventsNow;
     plansRef.current = plans;
     learnRef.current = learn;
-    setGraph((g) => withLearnNodes(withPlanNodes(withEventsNodes(withOutreachNodes(g, outreach), eventsNow), plans), learn));
-  }, [outreach, eventsNow, plans, learn]);
+    setGraph((g) => {
+      const next = withLearnNodes(withPlanNodes(withEventsNodes(withOutreachNodes(g, outreach), eventsNow), plans), learn);
+      // the walk-through's Video Library and VIP Docs move under Learn once it is there (lib/examples/move2.ts)
+      return productTour ? withExampleMoveTools(next) : next;
+    });
+  }, [outreach, eventsNow, plans, learn, productTour]);
   // Deals under contract (§3z): from ONE MOVE once it answers (404 until then: no orb), the example agent's in the demo.
   const [deals, setDeals] = useState<Deal[] | null>(null);
   const [dealsOpen, setDealsOpen] = useState<false | "list" | "add">(false);
@@ -1552,6 +1570,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   );
   // Power Hour: today's calls, most urgent first, then the VIP-50 with no call this month.
   const [powerOpen, setPowerOpen] = useState(false);
+  const [growthOpen, setGrowthOpen] = useState<string | null>(null); // a Growth piece's full view, by its key
   const callsKey = JSON.stringify(lineUp(graph.today ?? [], roster));
   const calls = useMemo(() => JSON.parse(callsKey) as Call[], [callsKey]);
   const [power, setPower] = useState<PowerSession | null>(null);
@@ -2239,7 +2258,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     const wantsProfile = openParam === "profile";
     // ?open=<name> for an orb with no ONE MOVE page of its own (Parry, 17 Oct: a Getting started link must land in the
     // Brain, not Classic): https://www.vip50one.com/dashboard?open=getting-started
-    const orb = openParam ? OPEN_ORBS[openParam] : undefined;
+    // ?open=growth or ?open=growth:<piece> opens ONE Growth or one of its pieces (the phone shows only six orbs at a time).
+    const orb = openParam ? OPEN_ORBS[openParam] ?? (openParam === GROWTH_NODE || isGrowthChild(openParam) ? openParam : undefined) : undefined;
     if (!fromPath && !wantsProfile && !orb) return;
     if (openParam) {
       u.searchParams.delete("open");
@@ -2626,7 +2646,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             <a className="rail-btn rail-link" href={moveMenuHref(m.path)}>{inner}</a>
           )
         ) : IN_BRAIN.has(m.path) ? (
-          <button className="rail-btn rail-link" onClick={() => goTo(movePageId(m.path))}>{inner}</button>
+          <button className="rail-btn rail-link" onClick={() => goTo(menuTarget(m.path, (id) => ix.byId.has(id)))}>{inner}</button>
         ) : (
           <a className="rail-btn rail-link" href={moveMenuHref(m.path)}>{inner}</a>
         )}
@@ -2636,7 +2656,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // A ONE MOVE page that opens inside the Brain (lib/moveMenu.ts IN_BRAIN).
   // the example agent's New to Sort orb (lib/graph/move.ts) opens the same native view as the live one
   const rawPage = !ask && !tour ? inBrainPage(state.focusId) ?? (state.focusId === DEMO_NTS_NODE ? { label: "New to Sort", path: NTS_PATH } : null) : null;
-  const pagePanel = rawPage && (!(PANEL_FIRST.has(rawPage.path) || LEARN_PANEL_FIRST.has(rawPage.path)) || fullPage === rawPage.path) ? rawPage : null;
+  // The example agent's Drop-By Map, Referral Network... open on their side panel (lib/examples/move2.ts), not a sign-in page.
+  const pagePanel = rawPage && !(!live && M2_PATHS.has(rawPage.path)) && (!(PANEL_FIRST.has(rawPage.path) || LEARN_PANEL_FIRST.has(rawPage.path)) || fullPage === rawPage.path) ? rawPage : null;
   // A page opened for one person (the person panel's Refer / Post a need): its query rides on the frame's address.
   // Each opening starts behind the veil again, even for the same page.
   const panelPath = pagePanel?.path ?? null;
@@ -2784,8 +2805,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             <button type="button" className="pmenu-x" onClick={() => setMenuOpen(false)} aria-label="Close">×</button>
           </div>
           <ul>
-            {menuRows({ live: live || productTour, start: start && start.folded && !startReopen ? startMenuLine(start) : null, growth: agent.growth === true, siteHost: productTour ? "sarah-bennett.vip50homes.com" : siteHost, teamHosts: productTour ? ["summit-home.vip50homes.com"] : teamSites.map((t) => t.host), agentTeamHrefs: productTour ? [] : agentSites.map((t) => siteOpenHref(t.slug)), classicUrl: CLASSIC_DASHBOARD_URL }).map((r: MenuRow) => (
+            {menuRows({ live: live || productTour, start: start && start.folded && !startReopen ? startMenuLine(start) : null, growth: agent.growth === true, siteHost: productTour ? "sarah-bennett.vip50homes.com" : siteHost, teamHosts: productTour ? ["summit-home.vip50homes.com"] : teamSites.map((t) => t.host), agentTeamHrefs: productTour ? [] : agentSites.map((t) => siteOpenHref(t.slug)), classicUrl: CLASSIC_DASHBOARD_URL, products: childrenOf(ix, graph.rootId).filter((k) => k.type === "product").map((k) => ({ id: k.id, label: k.label, line: k.locked ? lockedLine(k) : k.secondaryLabel ?? "Open it on the map.", locked: k.locked })) }).map((r: MenuRow, i: number, all: MenuRow[]) => (
               <li key={r.key}>
+                {r.key.startsWith("product:") && !all[i - 1]?.key.startsWith("product:") ? <p className="pmenu-sec">Products</p> : null}
                 {r.action.kind === "signout" ? (
                   <form method="post" action="/auth/signout">
                     <button type="submit" className="pmenu-row">
@@ -2813,6 +2835,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                       else if (a.kind === "billing") void openBilling();
                       else if (a.kind === "addons") setAddonsOpen(true);
                       else if (a.kind === "site") void editSite(a.host, a.next);
+                      else if (a.kind === "orb") openOrb(a.id);
                     }}
                   >
                     <b>{r.label}</b>
@@ -2926,13 +2949,32 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   const open = openGroups.includes(g.key);
                   return (
                     <li key={g.key} className={`rail-group ${open ? "open" : ""}`}>
-                      <button className="rail-btn rail-group-btn" aria-expanded={open} onClick={() => toggleGroup(g.key)}>
+                      {/* A group head opens its group (walker 18 Oct): the orb comes to the middle with its panel; the caret
+                          only folds the list. */}
+                      <button
+                        className="rail-btn rail-group-btn"
+                        aria-expanded={open}
+                        onClick={() => {
+                          if (!gn) return toggleGroup(g.key);
+                          if (!open) toggleGroup(g.key);
+                          goTo(gn.id);
+                        }}
+                      >
                         <span className="rail-text">
                           <span>{g.label}</span>
                           {gn?.status && gn.secondaryLabel && <small>{gn.secondaryLabel}</small>}
                         </span>
-                        {gn?.status && <i className="rail-dot" style={{ background: hex(STATUS[gn.status].color) }} aria-label={STATUS[gn.status].label} />}
-                        <span className="rail-caret" aria-hidden>{open ? "▾" : "▸"}</span>
+                        {gn && <RowMark n={gn} need={needs.get(gn.id)} />}
+                        <span
+                          className="rail-caret"
+                          aria-hidden
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleGroup(g.key);
+                          }}
+                        >
+                          {open ? "▾" : "▸"}
+                        </span>
                       </button>
                       {open && (
                         <ul className="rail-sublist">
@@ -3373,7 +3415,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             focus.summary && !isMoveGroup(focus.id) && <p className="d-sum">{focus.summary}</p>
           )}
 
-          {isMoveGroup(focus.id) && !ask && <GroupPanel node={focus} ix={ix} today={localDay(new Date())} goTo={goTo} />}
+          {isMoveGroup(focus.id) && !ask && <GroupPanel node={focus} ix={ix} today={localDay(new Date())} goTo={goTo} demo={!live} events={eventsNow} learn={learn} />}
 
           {/* the demo's example lead: the lead card on screen only (there is no ONE MOVE contact behind it) */}
           {!live && focus.id.startsWith(`${LEADS_NODE}:`) && leadOf(newLeads, focus.contactId) && !ask ? (
@@ -3539,7 +3581,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
 
           {launchRefOf(focus.id) && focus.product === "marquee" && !focus.locked && !ask && (
             <LaunchPanel
-              key={focus.id}
               listingRef={launchRefOf(focus.id)!}
               launch={launches?.find((l) => l.listingRef === launchRefOf(focus.id)) ?? null}
               live={live}
@@ -3549,6 +3590,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                 goTo(movePageId(path));
               }}
             />
+          )}
+
+          {/^marquee:listing:/.test(focus.id) && launchRefOf(focus.id) && focus.product === "marquee" && !focus.locked && !ask && (
+            <ListingFitsSection listingId={launchRefOf(focus.id)!} live={live} address={focus.label} />
           )}
 
           {focus.decide && !focus.locked && !ask && (
@@ -3639,13 +3684,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               </span>
             </a>
           )}
+          {mqKeyOf(focus.id) && !tour && !ask ? (
+            <MarqueePanel tool={mqKeyOf(focus.id)!} today={todayIn()} example={!live || !!focus.secondaryLabel?.startsWith("Example")} onOpen={(deck, tool) => setMqOpen({ tool: tool ?? mqKeyOf(focus.id)!, deck, href: focus.href })} />
+          ) : null}
+          {/* Each Growth piece shows its example in the panel and opens its full view inside the Brain (Parry, 18 Oct);
+              the real place (studio, ONE MOVE, My Profile) stays as the secondary button. */}
+          {growthPiece && <GrowthPanel childKey={growthPiece.key} showOpen={!tour} onOpen={() => setGrowthOpen(growthPiece.key)} />}
           {growthPiece && !tour && (growthPiece.button ? (
-            <button className="pi-film pm-open" onClick={() => runGrowth(growthPiece.button!.action)}>
-              <span className="pi-play" aria-hidden="true">↗</span>
-              <span>
-                <b>{growthPiece.button.label}</b>
-                <span>{growthPiece.button.note}</span>
-              </span>
+            <button type="button" className="chip-btn gv-real" title={growthPiece.button.note} onClick={() => runGrowth(growthPiece.button!.action)}>
+              {realLabel(growthPiece.button.action.kind)} ↗
             </button>
           ) : null)}
           {focus.id === LIKELY_NODE && !tour && (
@@ -4023,6 +4070,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             </div>
           )}
 
+          {/* Showly and ONE Open tools: the example (or the agent's own rows) in the panel, and a full view inside the Brain (Parry, 18 Oct). */}
+          {!ask && !tour && SHOWLY_TOOL.test(focus.id) ? <ShowlyTools node={focus} kids={kids} live={live} /> : null}
+          {!ask && !tour && OPEN_TOOL.test(focus.id) ? <OpenTools node={focus} kids={kids} live={live} /> : null}
+          {!ask && !tour && !live && m2KeyOf(focus.id) ? <MoveTools node={focus} /> : null}
+
           {focus.locked && focus.id !== GROWTH_NODE && (
             <a className="btn" href={UPGRADE_URL}>
               Add with Complete
@@ -4142,6 +4194,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             </header>
             )}
             <div ref={frameBoxRef} className="page-panel-body">
+              {/* the example agent: ONE MOVE's answers from invented data, so the native view draws filled (lib/examples/move2.ts) */}
+              {!live && vipNative && nativeKind && EXAMPLE_NATIVE.has(nativeKind) ? <MoveExampleFetch /> : null}
               {vipNative && nativeKind === "audit" ? (
                 <TouchAudit
                   onUnavailable={vipUnavailable}
@@ -4181,7 +4235,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                 />
               ) : vipNative && nativeKind === "profile" ? (
                 <MyProfile
-                  demo={!live && !productTour}
+                  demo={!live}
                   gbpDemo={!live}
                   onOpenGbp={openGbp}
                   onUnavailable={vipUnavailable}
@@ -4213,6 +4267,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               ) : vipNative && nativeKind === "weekly" ? (
                 <WeeklyTracker
                   onUnavailable={vipUnavailable}
+                  example={live ? undefined : demoWeeklyRaw(todayIn())}
                   onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
@@ -4220,6 +4275,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               ) : vipNative && nativeKind === "daily" ? (
                 <DailyTracker
                   onUnavailable={vipUnavailable}
+                  example={live ? undefined : demoDailyRaw(todayIn())}
                   onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
@@ -4310,6 +4366,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           demo={!live}
           rezenConnected={rezenOn}
           onSaveGoal={saveGoal}
+          onClosingLogged={() => Promise.all([refreshLive(), loadGoalsPlan()])}
           onProfile={() => {
             setGoalsOpen(false);
             goTo(movePageId("/profile"));
@@ -4328,6 +4385,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           onClose={() => setGoalsOpen(false)}
         />
       ) : null}
+      {growthOpen ? <GrowthView start={growthOpen} keys={growthChildren(growthState).map((c) => c.key)} live={live} onClose={() => setGrowthOpen(null)} /> : null}
       {powerOpen ? (
         <PowerHourView calls={calls} session={session} live={live} onSession={savePower} onTick={(ref, on) => tickDay(`day:${ref}`, on)} onClose={() => setPowerOpen(false)} />
       ) : null}
@@ -4381,6 +4439,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       ) : null}
       {partnersOpen && partners ? <PartnersView state={partners} me={weekScore} today={todayIn()} demo={!live} onClose={() => setPartnersOpen(false)} onAct={partnerAct} /> : null}
       {habitsOpen && theHabits.length ? <HabitsView habits={theHabits} demo={!live} onClose={() => setHabitsOpen(false)} onTick={tickHabit} /> : null}
+      {mqOpen ? <MarqueeView tool={mqOpen.tool} deck={mqOpen.deck} href={mqOpen.href} today={todayIn()} onClose={() => setMqOpen(null)} /> : null}
       {refsOpen && refs ? <ReferralsView network={network} onNetwork={() => { setRefsOpen(false); goTo(movePageId("/referral-network")); }} data={refs} today={todayIn()} demo={!live} onClose={() => setRefsOpen(false)} onAsk={askReferral} onThank={thankReferral} onThanked={thankedReferral} onPerson={openReferralPerson} /> : null}
       {agentRead ? <PulseCoachView read={agentRead.read} who={agentRead.who} demo={!live} onClose={() => setAgentRead(null)} /> : null}
       {cmOpen && commitments && (

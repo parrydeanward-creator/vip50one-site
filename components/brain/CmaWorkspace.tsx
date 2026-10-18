@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import CmaParts from "./CmaParts.tsx";
 import {
   MIDPOINT_LABEL,
   NOTES_LINE,
@@ -325,6 +326,18 @@ export default function CmaWorkspace({
                   ) : null}
                   {msg ? <p className={msg.ok ? "cc-done" : "cc-err"} role="status">{msg.text}</p> : null}
                 </div>
+                <CmaParts
+                  d={d}
+                  cmaId={cmaId}
+                  demo={demo}
+                  sent={sent}
+                  low={low}
+                  high={high}
+                  onSaved={(next) => {
+                    setD(next);
+                    onChanged(next);
+                  }}
+                />
                 {d.cma.source ? <p className="cc-source">{d.cma.source}</p> : null}
                 {demo ? <p className="cc-source">Example agent. Nothing is sent.</p> : null}
               </section>

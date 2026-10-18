@@ -87,7 +87,9 @@ test("Marquee: six tools; examples when the new arrays are absent, real rows whe
   const ex = marqueeToolOrbs(null, TODAY);
   assert.deepEqual(ex.map((x) => x.label), ["Listings", "Calendar", "Posts waiting", "Seller reports", "Presentations", "Room cards"]);
   assert.ok(ex.every((x) => x.example));
-  assert.deepEqual(ex[3].rows.map((r) => `${r.label}: ${r.sub}`), ["Week 2: Example · Sent 13 Oct", "Week 3: Example · Waiting on your six answers"]);
+  // 18 Oct: the Seller reports example rows are the two reports its side panel shows (lib/examples/marquee.ts), so the
+  // orbs and the panel tell one story (was "Week 2" and "Week 3" with no home).
+  assert.deepEqual(ex[3].rows.map((r) => `${r.label}: ${r.sub}`), ["1482 Maple Ridge Dr: Example · Week 1 · ready to send to Laura", "310 Willow Bend Rd: Example · Week 3 · ready to send to Mark"]);
   assert.deepEqual(ex[4].rows.map((r) => `${r.label}: ${r.sub}`), ["Listing appointment: Example · 8 pages · ready", "Marketing packet: Example · 12 pages · approved"]);
   assert.equal(ex[5].rows[0].sub, "Example · 6 of 7 rooms written");
   const env = {
@@ -112,9 +114,11 @@ test("Marquee: six tools; examples when the new arrays are absent, real rows whe
 test("Showly: four tools; buyers by first name only, never a surname or email", () => {
   const ex = showlyToolOrbs(null, TODAY);
   assert.deepEqual(ex.map((x) => x.label), ["Tours", "Buyer answers", "Recaps", "Lender"]);
-  assert.equal(ex[0].rows[0].sub, "Example · 4 homes · Sat 10:00 · recap sent");
-  assert.equal(ex[2].rows[0].sub, "Example · Sent Sat · viewed 3 times · 2 of 4 homes answered");
-  assert.deepEqual([ex[3].rows[0].label, ex[3].rows[0].sub], ["Connect your loan officer", "Example · Letters for each home in minutes"]);
+  // Rewritten 18 Oct (deliberate change): the example rows now match the example the side panel and full view show
+  // (lib/examples/showly.ts: Dana's 5-home tour, 2 recaps ready to send, a connected loan officer).
+  assert.equal(ex[0].rows[0].sub, "Example · 5 homes · Sat 10:00 · recap ready");
+  assert.deepEqual(ex[2].rows.map((r) => r.sub), ["Example · Sat · 5 homes · ready to send", "Example · Thu · 3 homes · ready to send"]);
+  assert.deepEqual([ex[3].rows[0].label, ex[3].rows[0].sub], ["Priya", "Example · Connected · 1 letter ready, 1 waiting"]);
   const env = {
     stats: [{ key: "new_answers", value: 2 }, { key: "tours_this_week", value: 1 }, { key: "letters_back", value: 1 }],
     tours: [{ tour_id: "t1", buyer_first: "Dana Whitfield", homes: 4, when: "2026-10-17T16:00:00Z", sent: false, link: "https://showly.net/app?tour=t1" }, { tour_id: "t2", buyer_first: "lee@example.com", homes: 2, when: "2026-10-20T16:00:00Z", sent: false }],

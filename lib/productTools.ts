@@ -1,5 +1,6 @@
 import { goHref, productLink, type SignInProduct } from "./productSignIn.ts";
 import type { NodeStatus, Stat } from "./graph/types.ts";
+import { MQ_LISTINGS, MQ_REPORTS, MQ_ROOMS_FOR, MQ_SCHEDULED, dayName } from "./examples/marquee.ts";
 
 // VIP-SUMMARY §3ai (v1.80, 17 Oct; Parry, 16 Oct: "marquee, open and showly could go deeper and show more features and
 // what each tool actually does"). Opening Marquee, ONE Open or Showly shows its tools as child orbs, each with a filled
@@ -264,7 +265,7 @@ const OPEN_EXAMPLE: Record<(typeof OPEN_KEYS)[number], Record<string, unknown>> 
   open_houses: { items: [{ address: "123 Example Lane", phase: "prepare", visitors: 0, tasks_left: 6 }, { address: "45 Sample Court", phase: "follow_up", visitors: 14, tasks_left: 2 }] },
   visitors: { items: [{ name: "Sam R", address: "45 Sample Court", rating: 3, hot: true }, { name: "Lee T", address: "45 Sample Court", rating: 2, hot: false }] },
   questions: { items: [{ question: "How old is the roof?", room: "Kitchen", answered: false }] },
-  reports: { items: [{ address: "45 Sample Court", seller_report_sent: true, seller_recap_ready: true, buyer_reports_sent: 9 }] },
+  reports: { items: [{ address: "45 Sample Court", seller_report_sent: false, seller_recap_ready: true, buyer_reports_sent: 9 }] },
   scorecard: { open_houses: 2, sign_ins: 23, contacts: 19, appointments: 3, clients: 1 },
   safety: { active: true, buddy: "Your buddy gets a text if you do not check out on time" },
 };
@@ -295,9 +296,9 @@ export function marqueeToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] 
   const active = num(statOf(env, "active_listings")?.value);
 
   const listingsOrb = orb(p, "listings", "Listings", "Every listing's marketing in one place: live, under contract and recently closed, each with its campaign.", {
-    sub: listings ? (listings.length ? plural(listings.length, "home") : "No listings yet") : "1 home",
+    sub: listings ? (listings.length ? plural(listings.length, "home") : "No listings yet") : plural(MQ_LISTINGS.length, "home"),
     stats: active != null ? [{ label: "Active listings", value: String(active) }] : undefined,
-    rows: listings ? [] : exampleRows(p, "listings", [["123 Example Lane", "Live · 5 days on market"]]),
+    rows: listings ? [] : exampleRows(p, "listings", MQ_LISTINGS.map((l) => [l.street, `${l.status} · ${l.daysOnMarket == null ? "not on the market yet" : `${l.daysOnMarket} days on market`}`])),
     path: "/",
     example: !listings,
   });
@@ -314,15 +315,15 @@ export function marqueeToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] 
   }));
   const calendarOrb = orb(p, "calendar", "Calendar", "Every piece's posting day across your listings. Nothing posts unless you approved it and switched on scheduled posting.", {
     sub: posts ? (upcoming.length ? `${upcoming.length} scheduled` : "Nothing scheduled") : "3 scheduled",
-    rows: posts ? calRows : exampleRows(p, "calendar", [["123 Example Lane", "Instagram · Thu · Scheduled"], ["123 Example Lane", "Facebook · Fri · Scheduled"], ["123 Example Lane", "Instagram · Sat · Scheduled"]]),
+    rows: posts ? calRows : exampleRows(p, "calendar", MQ_SCHEDULED.map((c) => [c.listing, `${c.channel} · ${dayName(today, c.day)} · Scheduled`])),
     path: "/",
     example: !posts,
   });
 
   const postsOrb = orb(p, "posts", "Posts waiting", "The pieces Marquee built that wait for your approval. Nothing posts until you approve it.", {
-    sub: waiting != null ? (waiting ? `${waiting} to approve` : "Nothing waiting") : "5 to approve",
+    sub: waiting != null ? (waiting ? `${waiting} to approve` : "Nothing waiting") : "7 to approve",
     stats: waiting != null ? [{ label: "Waiting for approval", value: String(waiting) }] : undefined,
-    rows: waiting != null ? [] : exampleRows(p, "posts", [["5 pieces for 123 Example Lane", "Approve by Wed"]]),
+    rows: waiting != null ? [] : exampleRows(p, "posts", [["5 posts for 1482 Maple Ridge Dr", "First one posts tomorrow"], ["2 posts for 88 Aspen Ct", "Coming soon"]]),
     path: "/",
     example: waiting == null,
     kinds: ["approval"],
@@ -338,8 +339,8 @@ export function marqueeToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] 
   });
   const asked = repRows.filter((r) => r.status).length;
   const reportsOrb = orb(p, "reports", "Seller reports", "Every week: answer six questions, then Marquee sends your seller their report.", {
-    sub: reports ? (asked ? `${asked} waiting on you` : reports.length ? "Up to date" : "None yet") : "Week 3 waiting",
-    rows: reports ? repRows : exampleRows(p, "reports", [["Week 2", "Sent 13 Oct"], ["Week 3", "Waiting on your six answers"]]),
+    sub: reports ? (asked ? `${asked} waiting on you` : reports.length ? "Up to date" : "None yet") : plural(MQ_REPORTS.length, "report") + " to send",
+    rows: reports ? repRows : exampleRows(p, "reports", MQ_REPORTS.map((r) => [r.listing, `Week ${r.week} · ready to send to ${r.seller}`])),
     path: "/",
     example: !reports,
     kinds: ["report"],
@@ -374,7 +375,7 @@ export function marqueeToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] 
   });
   const roomsOrb = orb(p, "room_cards", "Room cards", "A card for each room of the home, written for the open house and the listing's room pages.", {
     sub: rooms ? (rooms.length ? plural(rooms.length, "home") : "None yet") : "6 of 7 written",
-    rows: rooms ? roomRows : exampleRows(p, "room_cards", [["123 Example Lane", "6 of 7 rooms written"]]),
+    rows: rooms ? roomRows : exampleRows(p, "room_cards", [[MQ_ROOMS_FOR, "6 of 7 rooms written"]]),
     path: "/",
     example: !rooms,
   });
@@ -411,9 +412,9 @@ export function showlyToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] {
     }];
   });
   const toursOrb = orb(p, "tours", "Tours", "One tour per showing day: capture each home with photos and a voice note, then build the recap and send it.", {
-    sub: tours ? (tours.length ? plural(tours.length, "tour") + " in 60 days" : "No tours yet") : "1 tour",
+    sub: tours ? (tours.length ? plural(tours.length, "tour") + " in 60 days" : "No tours yet") : "2 tours",
     stats: week != null ? [{ label: "Tours this week", value: String(week) }] : undefined,
-    rows: tours ? tourRows : exampleRows(p, "tours", [["Dana", "4 homes · Sat 10:00 · recap sent"]]),
+    rows: tours ? tourRows : exampleRows(p, "tours", [["Dana", "5 homes · Sat 10:00 · recap ready"]]),
     path: "/app",
     example: !tours,
   });
@@ -421,7 +422,7 @@ export function showlyToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] {
   const answersOrb = orb(p, "answers", "Buyer answers", "Your buyers answer Yes, Maybe or No on each home, with a note, the moment they open the recap.", {
     sub: answers != null ? (answers ? `${plural(answers, "home")} answered, 7 days` : "No new answers") : "2 Yes",
     stats: answers != null ? [{ label: "New answers, 7 days", value: String(answers) }] : undefined,
-    rows: answers != null ? [] : exampleRows(p, "answers", [["Dana", "Yes on 2 homes · Maybe on 1"]]),
+    rows: answers != null ? [] : exampleRows(p, "answers", [["Dana", "Yes on 2 homes · Maybe on 2 · No on 1"]]),
     path: "/app",
     example: answers == null,
     kinds: ["reaction"],
@@ -439,8 +440,8 @@ export function showlyToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] {
     }];
   });
   const recapsOrb = orb(p, "recaps", "Recaps", "The tour recap your buyer opens on their phone: every home, your notes for them, and Yes, Maybe or No.", {
-    sub: recaps ? (recaps.length ? plural(recaps.length, "recap") : "None sent yet") : "Viewed 3 times",
-    rows: recaps ? recapRows : exampleRows(p, "recaps", [["Dana", "Sent Sat · viewed 3 times · 2 of 4 homes answered"]]),
+    sub: recaps ? (recaps.length ? plural(recaps.length, "recap") : "None sent yet") : "2 ready to send",
+    rows: recaps ? recapRows : exampleRows(p, "recaps", [["Dana", "Sat · 5 homes · ready to send"], ["Marcus", "Thu · 3 homes · ready to send"]]),
     path: "/app",
     example: !recaps,
   });
@@ -449,12 +450,12 @@ export function showlyToolOrbs(env: LooseEnv | null, today: string): ToolOrb[] {
   const lo = lender ? str(lender.lo_name, 60) : null;
   const waitingLetters = lender ? num(lender.requests_waiting) : null;
   const lenderOrb = orb(p, "lender", "Lender", "Your loan officer on every recap: ask for a pre-approval letter for any home and see the moment it is ready. They never see your notes.", {
-    sub: connected === false ? "Not connected" : connected ? (lo ? `${lo} · connected` : "Connected") : back != null ? (back ? `${plural(back, "letter")} back, 14 days` : "No letters back") : "Not connected",
+    sub: connected === false ? "Not connected" : connected ? (lo ? `${lo} · connected` : "Connected") : back != null ? (back ? `${plural(back, "letter")} back, 14 days` : "No letters back") : "Priya · connected",
     stats: [
       back != null ? { label: "Letters back, 14 days", value: String(back) } : null,
       waitingLetters != null ? { label: "Requests waiting", value: String(waitingLetters) } : null,
     ].filter((x): x is Stat => !!x),
-    rows: lender || back != null ? (connected === false ? [{ id: `${toolId(p, "lender")}:connect`, label: "Connect your loan officer", sub: "Letters for each home in minutes", type: "feature" }] : []) : exampleRows(p, "lender", [["Connect your loan officer", "Letters for each home in minutes"]]),
+    rows: lender || back != null ? (connected === false ? [{ id: `${toolId(p, "lender")}:connect`, label: "Connect your loan officer", sub: "Letters for each home in minutes", type: "feature" }] : []) : exampleRows(p, "lender", [["Priya", "Connected · 1 letter ready, 1 waiting"]]),
     link: lender?.link,
     path: "/app",
     example: !lender && back == null,
