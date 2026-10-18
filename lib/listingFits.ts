@@ -22,7 +22,7 @@ export const DEMO_SUFFIX = "(Example: nothing was saved.)";
 export type FitFrom = "need" | "site_search";
 export interface FitPerson { contactId: string; firstName: string; why: string; from: FitFrom }
 export type FitReason = "not_linked" | "waiting_feed";
-export interface Fits { reason: FitReason | null; count: number; people: FitPerson[] }
+export interface Fits { reason: FitReason | null; count: number; people: FitPerson[]; words?: string }
 
 export const FROM_WORDS: Record<FitFrom, string> = { need: "your buyer need", site_search: "their saved search on your site" };
 
@@ -33,8 +33,10 @@ export const NOT_LINKED: Fits = { reason: "not_linked", count: 0, people: [] };
 export function readFits(raw: unknown): Fits {
   if (!raw || typeof raw !== "object") return NOT_LINKED;
   const r = raw as Record<string, unknown>;
-  if (r.ok !== true) return r.reason === "waiting_feed" ? { reason: "waiting_feed", count: 0, people: [] } : NOT_LINKED;
-  if (r.reason === "not_linked" || r.reason === "waiting_feed") return { reason: r.reason, count: 0, people: [] };
+  const w = str(r.words, 300);
+  const words = w ? { words: w } : {};
+  if (r.ok !== true) return r.reason === "waiting_feed" ? { reason: "waiting_feed", count: 0, people: [], ...words } : { ...NOT_LINKED, ...words };
+  if (r.reason === "not_linked" || r.reason === "waiting_feed") return { reason: r.reason, count: 0, people: [], ...words };
   const people: FitPerson[] = [];
   const seen = new Set<string>();
   for (const x of Array.isArray(r.people) ? r.people : []) {
@@ -54,8 +56,8 @@ export function readFits(raw: unknown): Fits {
 
 /** The count line, or the reason's words. */
 export function fitsLine(f: Fits): string {
-  if (f.reason === "not_linked") return NOT_LINKED_WORDS;
-  if (f.reason === "waiting_feed") return WAITING_FEED_WORDS;
+  if (f.reason === "not_linked") return f.words ?? NOT_LINKED_WORDS;
+  if (f.reason === "waiting_feed") return f.words ?? WAITING_FEED_WORDS;
   if (f.count <= 0) return NONE_WORDS;
   return f.count === 1 ? "1 of your people fits this home" : `${f.count} of your people fit this home`;
 }
@@ -64,7 +66,11 @@ export function fitsLine(f: Fits): string {
 export const canMakeCalls = (f: Fits) => f.reason === null && f.count > 0 && f.people.length > 0;
 
 /** The body for POST fits/call. */
-export const fitsCallBody = (listingId: string, contactIds: string[]) => ({ listing_id: listingId, contact_ids: contactIds });
+export const fitsCallBody = (listingId: string, contactIds: string[], address: string | null = null) => ({
+  listing_id: listingId,
+  contact_ids: contactIds,
+  ...(address && address.trim() ? { address: address.trim().slice(0, 200) } : {}),
+});
 
 export type CallAnswer = { ok: true; taskIds: string[] } | { ok: false; words: string };
 

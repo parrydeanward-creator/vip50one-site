@@ -19,6 +19,8 @@ test("routes", () => {
   assert.equal(fitsUrl("a b"), "https://move.vip50one.com/api/brain/listings/fits?listing_id=a%20b");
   assert.equal(fitsCallUrl, "https://move.vip50one.com/api/brain/listings/fits/call");
   assert.deepEqual(fitsCallBody("L1", ["a", "b"]), { listing_id: "L1", contact_ids: ["a", "b"] });
+  assert.deepEqual(fitsCallBody("L1", ["a"], " 88 Aspen Ct "), { listing_id: "L1", contact_ids: ["a"], address: "88 Aspen Ct" });
+  assert.deepEqual(fitsCallBody("L1", ["a"], ""), { listing_id: "L1", contact_ids: ["a"] });
 });
 
 test("unreadable, missing or failed answers read as not_linked", () => {
@@ -67,4 +69,10 @@ test("demo: Maple has two fits, Aspen none", () => {
   assert.deepEqual(m.people.map((p) => p.from), ["need", "site_search"]);
   assert.equal(demoFits("demo-aspen").count, 0);
   assert.equal(fitsLine(demoFits("demo-aspen")), "None of your people fit this home yet.");
+});
+
+test("GET words replace the plain reason words when present", () => {
+  assert.equal(fitsLine(readFits({ ok: false, reason: "not_linked", words: "Link your MLS in ONE MOVE." })), "Link your MLS in ONE MOVE.");
+  assert.equal(fitsLine(readFits({ ok: true, reason: "waiting_feed", words: "Feed starts Monday." })), "Feed starts Monday.");
+  assert.equal(fitsLine(readFits({ ok: false, reason: "not_linked", words: "  " })), "Matching starts when the MLS link is confirmed.".replace("the MLS link","your MLS link"));
 });

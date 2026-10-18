@@ -3540,7 +3540,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
 
           {launchRefOf(focus.id) && focus.product === "marquee" && !focus.locked && !ask && (
             <LaunchPanel
-              key={focus.id}
               listingRef={launchRefOf(focus.id)!}
               launch={launches?.find((l) => l.listingRef === launchRefOf(focus.id)) ?? null}
               live={live}
@@ -3553,7 +3552,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           )}
 
           {/^marquee:listing:/.test(focus.id) && launchRefOf(focus.id) && focus.product === "marquee" && !focus.locked && !ask && (
-            <ListingFitsSection key={focus.id} listingId={launchRefOf(focus.id)!} live={live} />
+            <ListingFitsSection listingId={launchRefOf(focus.id)!} live={live} address={focus.label} />
           )}
 
           {focus.decide && !focus.locked && !ask && (

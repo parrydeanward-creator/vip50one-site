@@ -23,7 +23,7 @@ import {
 
 // "Who of mine fits this home" (VIP-SUMMARY §3aj) in a listing orb's side panel. The agent's own people, from their
 // own Buyer Needs and their site visitors' saved searches. The button adds calls to today's tasks; nothing is sent.
-export default function ListingFitsSection({ listingId, live }: { listingId: string; live: boolean }) {
+export default function ListingFitsSection({ listingId, live, address = null }: { listingId: string; live: boolean; address?: string | null }) {
   const [fits, setFits] = useState<Fits | null>(null);
   const [off, setOff] = useState<Record<string, boolean>>({});
   const [state, setState] = useState<"idle" | "saving" | "done" | "failed">("idle");
@@ -63,7 +63,7 @@ export default function ListingFitsSection({ listingId, live }: { listingId: str
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(fitsCallBody(listingId, ticked.map((p) => p.contactId))),
+      body: JSON.stringify(fitsCallBody(listingId, ticked.map((p) => p.contactId), address)),
     }).catch(() => null);
     const j = r ? await r.json().catch(() => null) : null;
     const a = readCallAnswer(j, !!r?.ok);
