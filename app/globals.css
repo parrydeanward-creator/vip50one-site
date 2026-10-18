@@ -2881,3 +2881,6 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .tours-times { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 6px 0; }
 .tours-times label { display: grid; gap: 4px; font-size: 13px; color: var(--text-2); }
 .tours-times input { min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text); font: inherit; color-scheme: dark; }
+
+/* Phone menu: the Products section (every product orb, locked ones dimmed like the desktop rail). */
+.pmenu-sec { margin: 8px 4px 4px; color: var(--text-3); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; }

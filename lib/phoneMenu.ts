@@ -11,6 +11,7 @@ export type MenuAction =
   | { kind: "goTour" }
   | { kind: "billing" }
   | { kind: "addons" }
+  | { kind: "orb"; id: string }
   | { kind: "signout" };
 export interface MenuRow { key: string; label: string; line: string; action: MenuAction }
 
@@ -24,11 +25,15 @@ export interface MenuInput {
   /** Getting started's line while it is folded out of ONE YOU (GETTING-STARTED §4: done, or past the first 30 days);
    * null while it is on the map. The row reopens it. It replaced the team welcome's "Team setup" row (16 Oct). */
   start?: string | null;
+  /** Every product orb in the agent's package (and locked ones, shown as locked), so a phone map that draws only six
+   * orbs still reaches all of them (Parry, 18 Oct). Each opens exactly as a map tap does. */
+  products?: { id: string; label: string; line: string; locked?: boolean }[];
 }
 
 export function menuRows(m: MenuInput): MenuRow[] {
   if (!m.live) return [];
   const rows: MenuRow[] = [{ key: "profile", label: "My Profile", line: "Your photo and details, used by every product.", action: { kind: "profile" } }];
+  for (const p of m.products ?? []) rows.push({ key: `product:${p.id}`, label: p.label, line: p.line, action: { kind: "orb", id: p.id } });
   if (m.start) rows.push({ key: "start", label: "Getting started", line: m.start, action: { kind: "start" } });
   if (m.siteHost) rows.push({ key: "site", label: "My website", line: "Edit your site and see who visited.", action: { kind: "site" } });
   if (m.siteHost) rows.push({ key: "gbp", label: "Google Business Profile", line: "Reviews, posts and details on Google.", action: { kind: "gbp" } });

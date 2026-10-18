@@ -2797,8 +2797,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             <button type="button" className="pmenu-x" onClick={() => setMenuOpen(false)} aria-label="Close">×</button>
           </div>
           <ul>
-            {menuRows({ live: live || productTour, start: start && start.folded && !startReopen ? startMenuLine(start) : null, growth: agent.growth === true, siteHost: productTour ? "sarah-bennett.vip50homes.com" : siteHost, teamHosts: productTour ? ["summit-home.vip50homes.com"] : teamSites.map((t) => t.host), agentTeamHrefs: productTour ? [] : agentSites.map((t) => siteOpenHref(t.slug)), classicUrl: CLASSIC_DASHBOARD_URL }).map((r: MenuRow) => (
+            {menuRows({ live: live || productTour, start: start && start.folded && !startReopen ? startMenuLine(start) : null, growth: agent.growth === true, siteHost: productTour ? "sarah-bennett.vip50homes.com" : siteHost, teamHosts: productTour ? ["summit-home.vip50homes.com"] : teamSites.map((t) => t.host), agentTeamHrefs: productTour ? [] : agentSites.map((t) => siteOpenHref(t.slug)), classicUrl: CLASSIC_DASHBOARD_URL, products: childrenOf(ix, graph.rootId).filter((k) => k.type === "product").map((k) => ({ id: k.id, label: k.label, line: k.locked ? lockedLine(k) : k.secondaryLabel ?? "Open it on the map.", locked: k.locked })) }).map((r: MenuRow, i: number, all: MenuRow[]) => (
               <li key={r.key}>
+                {r.key.startsWith("product:") && !all[i - 1]?.key.startsWith("product:") ? <p className="pmenu-sec">Products</p> : null}
                 {r.action.kind === "signout" ? (
                   <form method="post" action="/auth/signout">
                     <button type="submit" className="pmenu-row">
@@ -2826,6 +2827,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                       else if (a.kind === "billing") void openBilling();
                       else if (a.kind === "addons") setAddonsOpen(true);
                       else if (a.kind === "site") void editSite(a.host, a.next);
+                      else if (a.kind === "orb") openOrb(a.id);
                     }}
                   >
                     <b>{r.label}</b>
