@@ -165,6 +165,9 @@ export function PulseModesSection() {
   const [note, setNote] = useState<string | null>(null);
   // ONE MOVE did not take the sign-in (401/403): say so instead of hiding the card.
   const [refused, setRefused] = useState(false);
+  // The row the last answer belongs to: its words show under that row, where the agent tapped (Parry, 18 Oct:
+  // "it does open window to turn on auto pilot. but then nothing" -- the line used to sit at the card's foot, out of view).
+  const [noteFor, setNoteFor] = useState<string | null>(null);
   useEffect(() => {
     fetch(pulseModesUrl, { credentials: "include", cache: "no-store" })
       .then((r) => {
@@ -184,13 +187,16 @@ export function PulseModesSection() {
   const set = async (worker: string, mode: Mode) => {
     setBusy(worker);
     setNote(null);
+    setNoteFor(worker);
     setConfirm(null);
     try {
       const r = await fetch(pulseModesUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(setBody(worker, mode)) });
       const j = await r.json().catch(() => null);
       const next = r.ok && (j as { ok?: boolean } | null)?.ok !== false ? readPulseModes(j) : null;
-      if (next) setM(next);
-      else if (isSignInRefusal(r.status)) setNote(SIGN_IN_LINE);
+      if (next) {
+        setM(next);
+        setNote(mode === "autopilot" ? "Saved: Autopilot is on." : "Saved.");
+      } else if (isSignInRefusal(r.status)) setNote(SIGN_IN_LINE);
       else setNote((j as { error?: string } | null)?.error || "That didn't save. Nothing was changed.");
     } catch {
       setNote("That didn't save. Nothing was changed.");
@@ -241,10 +247,12 @@ export function PulseModesSection() {
               <button type="button" className="chip-btn" onClick={() => void set(w.worker, "ask_me")}>No, Ask me</button>
             </div>
           ) : null}
+          {busy === w.worker ? <small className="pf-sub" role="status">Saving...</small> : null}
+          {note && noteFor === w.worker ? <p className={`pf-note${note.startsWith("Saved") ? "" : " bad"}`} role="status">{note}</p> : null}
         </div>
       ))}
       {m.handback ? <small className="pf-sub">{m.handback}</small> : null}
-      {note ? <p className="pf-note bad" role="status">{note}</p> : null}
+      {note && !noteFor ? <p className="pf-note bad" role="status">{note}</p> : null}
     </section>
   );
 }
