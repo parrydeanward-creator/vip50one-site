@@ -40,11 +40,13 @@ const openItem = async (T, orb, item) => {
 };
 // A ONE MOVE page: its menu down the left in folding groups (People, Trackers, Events, Outreach, Learn); the live items
 // (Looks Hot, New leads today ...) are on the right.
-const MOVE_GROUP = { Contacts: "People", "VIP Management": "People", "Touch Audit": "People", "Hot/Warm/Cold": "People", "Business Rolodex": "People", "Daily Tracker": "Trackers", "Weekly Tracker": "Trackers" };
+const MOVE_GROUP = { "Follow-ups": "People", Contacts: "People", "VIP Management": "People", "Touch Audit": "People", "Drop-By Map": "People", "Hot/Warm/Cold": "People", "Business Rolodex": "People", "Referral Network": "People", "Buyer Needs": "People", "Life Events": "People", Deals: "People", "New leads": "People", "Looks Hot": "People", "Likely to move": "People", "Daily Tracker": "Trackers", "Weekly Tracker": "Trackers" };
 const movePage = async (T, page, group = MOVE_GROUP[page]) => {
+  await backToBrain(T);
   await toProduct(T, "ONE MOVE");
-  if (group && !(await T.rail(`${group}▾`).count())) await T.click(T.rail(group));
-  await T.click(T.rail(page));
+  const item = () => T.p.locator(".rail button").filter({ hasText: new RegExp(`^\\s*${page.replace(/[/()]/g, "\\$&")}`) }).first();
+  if (group && !(await item().isVisible().catch(() => false))) await T.click(T.p.locator(".rail button").filter({ hasText: new RegExp(`^\\s*${group}`) }).first());
+  await T.click(item());
   await T.wait(900);
 };
 const moveLive = async (T, item) => {
@@ -135,9 +137,9 @@ export const CHAPTERS = [
       { say: "Your VIP touches are in it every day: the calls in your Power Hour, and one sitting for your texts, video texts and social touches.", do: async (T) => { await T.scrollPlan(420); await T.hover(T.text("Texts, video texts and social touches")); } },
       { say: "Look it over and tap Looks good. Your plan is set, and it goes to ONE GO on your phone.", do: async (T) => { await T.scrollPlan(-2000); await T.click(T.p.getByRole("button", { name: /^Looks good$/ })); await T.wait(1500); await closeOk(T); } },
       { say: "Through the day, tick each block done as you go. The Power Hour, done.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /^Mark done/ }).first()); await T.wait(1500); } },
-      { say: "The handwritten note, done. The count goes up, and the clock fills in.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /^Mark done/ }).first()); await T.wait(1200); await closeOk(T); await T.hover(".dayclock, svg").catch(() => {}); } },
-      { say: "Now say you miss a block. Rating Saturday's visitors was due at nine forty five, and the morning ran away.", do: async (T) => { await T.hover(T.text("Rate the 2 visitors from Saturday")); await T.advance(100); } },
-      { say: "Pulse moves it to the next open time by itself, and tells you. Your fixed appointments never move.", do: async (T) => { await T.waitText(/Moved Rate the 2 visitors/, 75000); await T.hover(T.text(/Moved Rate the 2 visitors/)); } },
+      { say: "And the next one, done. The count goes up, and the clock fills in.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /^Mark done/ }).first()); await T.wait(1200); await closeOk(T); await T.hover(".dayclock, svg").catch(() => {}); } },
+      { say: "Now say the morning runs away from you, and you miss a block.", do: async (T) => { await T.hover(T.text(/Rate the 2 visitors/)).catch(() => {}); await T.advance(100); } },
+      { say: "Pulse moves it to the next open time by itself, and tells you, right here. Your fixed appointments never move.", do: async (T) => { await T.waitText(/^Moved /, 30000).catch(() => {}); await T.hover(T.text(/^Moved /)).catch(() => {}); } },
       { say: "Your calls happen in the Power Hour. Here it is, from ONE YOU.", do: async (T) => { await T.click('[aria-label="Back to the Brain"]').catch(() => {}); await toProduct(T, "ONE YOU"); await T.click(T.rail("Power Hour")); } },
       { say: "Your best calls are lined up, most urgent first, each with why now: a birthday tomorrow, a thank you for a referral, a ninety day call.", do: async (T) => { await T.click(T.inside("Start a Power Hour")); await T.wait(1500); } },
       { say: "Pick how long, and start. The countdown runs while you call.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /^60 min$/ })); await T.click(T.p.getByRole("button", { name: /^Start Power Hour$/i })); await T.wait(1500); } },
@@ -170,30 +172,29 @@ export const CHAPTERS = [
   },
   {
     title: "ONE MOVE",
-    intro: "Chapter six. ONE MOVE: everyone you know, and everything you promised them.",
+    intro: "Chapter seven. ONE MOVE: everyone you know, and everything you promised them.",
     moments: [
-      { say: "Open ONE MOVE and its menu runs down the left, just like the classic screens. Its live items sit on the right.", do: async (T) => { await T.home(); await T.click(T.rail("ONE MOVE")); } },
-      { say: "Follow-ups are first: who is overdue and who is due today.", do: async (T) => { await T.click(T.inside("Follow-ups")); await T.wait(1200); } },
-      { say: "Contacts holds everyone, in groups. Click a group and the people in it gather round.", do: async (T) => { await movePage(T, "Contacts"); } },
-      { say: "Click a person and their whole story opens: family, favourites, your history together, and what Pulse suggests saying.", do: async (T) => { const t = T.text("Tom Miller"); if (await t.count()) await T.click(t); await T.wait(2000); } },
-      { say: "Say or type what happened, and Pulse turns it into the right notes and tasks. You keep what's right.", do: async (T) => { await T.scrollDrawer(600); } },
-      { say: "VIP Management shows your VIP-50 and VIP-100 in rings round you. Each face's ring is their touches this month, and a red glow means overdue.", do: async (T) => { await movePage(T, "VIP Management"); } },
-      { say: "Every VIP gets a call, a video text, a social touch, the newsletter and a mixer invite each month, and three face to face touches each quarter." },
-      { say: "The Touch Audit shows how fully your VIPs are touched this month, and who is missing what.", do: async (T) => { await movePage(T, "Touch Audit"); } },
+      { say: "Open ONE MOVE and its tools sit round it, with its menu down the left. People, Trackers, Events, Outreach and Learn each fold open.", do: async (T) => { await backToBrain(T); await toProduct(T, "ONE MOVE"); } },
+      { say: "Follow-ups come first: every promise you made, overdue, due today, and the next seven days.", do: async (T) => { await movePage(T, "Follow-ups"); } },
+      { say: "Call Rosa back, then log the touch. The task closes itself.", do: async (T) => { await T.click(T.p.getByRole("button", { name: /log the touch/i }).first()); await T.wait(1200); await closeOk(T); } },
+      { say: "People holds everyone you know. Contacts gathers them in groups round you.", do: async (T) => { await movePage(T, "Contacts"); } },
+      { say: "Click a group and its people gather round. Click a person and their whole story opens: family, favourites, your history, and what Pulse suggests saying.", do: async (T) => { const g = T.p.locator('.vr-svg [aria-label*=" people"]').first(); if (await g.count()) await T.click(g); await T.wait(1800); const pp = T.p.locator('.vr-svg [aria-label]').filter({ hasNotText: "" }).nth(1); const person = T.p.locator('.vr-svg g[aria-label]:not([aria-label*="people"]):not([aria-label*="back to"])').first(); if (await person.count()) await T.click(person); await T.wait(1800); } },
+      { say: "VIP Management shows your VIP-50 in the inner ring and your VIP-100 round it. Each face's ring is its touches this month.", do: async (T) => { await movePage(T, "VIP Management"); } },
+      { say: "Move someone up from the VIP one hundred in one tap, or swap them for someone in the VIP-50. Nobody is lost: they move to the outer ring.", do: async (T) => { const m = T.p.locator('[aria-label^="Move "][aria-label$="to your VIP-50"]').first(); if (await m.count()) { await T.click(m); await T.wait(1000); } const y = T.p.getByRole("button", { name: /^Yes, move them$/ }).first(); if (await y.count()) await T.click(y); await T.wait(1500); await closeOk(T); } },
+      { say: "Every VIP gets a call, a video text, a social touch, the newsletter and a mixer invite each month, and face to face, a note and a drop-by each quarter. The Touch Audit shows who is missing what.", do: async (T) => { await movePage(T, "Touch Audit"); } },
+      { say: "See it as a ring or as a grid of every VIP and every touch.", do: async (T) => { const g = T.p.getByRole("button", { name: /^Grid$/ }).first(); if (await g.count()) await T.click(g); await T.wait(1500); } },
       { say: "Hot, Warm and Cold sorts every piece of business coming: Hot within three months, Warm three to twelve, Cold beyond. Each pulses until you've worked it today.", do: async (T) => { await movePage(T, "Hot/Warm/Cold"); } },
-      { say: "New to sort holds new people waiting for a group, and Looks Hot asks you to decide on people Pulse thinks are ready.", do: async (T) => { await moveLive(T, "Looks Hot"); } },
-      { say: "Hot on your website shows people you know who came back to your site, looked hard at a home, or asked what theirs is worth.", do: async (T) => { await moveLive(T, "Hot on your website"); } },
-      { say: "New leads today pulse red until each one is reached.", do: async (T) => { await moveLive(T, "New leads today"); } },
-      { say: "Likely to move finds past clients who may be ready to buy or sell again.", do: async (T) => { await moveLive(T, "Likely to move"); } },
-      { say: "Life events catches the big moments, a new baby or a new job, so you can reach out at the right time.", do: async (T) => { await moveLive(T, "Life events"); } },
-      { say: "Deals tracks what's under contract and the dates that matter.", do: async (T) => { await moveLive(T, "Deals"); } },
-      { say: "Market Pulse drafts a market report for each of your VIPs. You check it and send it.", do: async (T) => { await moveLive(T, "Market Pulse"); } },
-      { say: "The Business Rolodex holds the businesses you recommend. Share one with every VIP-50 agent if you like; your notes always stay yours.", do: async (T) => { await movePage(T, "Business Rolodex"); } },
-      { say: "Your Trackers live here too: the Daily Tracker and the Weekly Tracker.", do: async (T) => { await movePage(T, "Daily Tracker"); } },
-      { say: "Tick a box and the points add up toward your weekly score.", do: async (T) => { await movePage(T, "Weekly Tracker"); } },
-      { say: "Events holds your calendar, your VIP events and the mixer. Outreach holds your newsletter, landing pages and action plans.", do: async (T) => { await toProduct(T, "ONE MOVE"); await T.click(T.rail("Events")); await T.wait(1200); await T.click(T.rail("Outreach")); await T.wait(800); } },
-      { say: "An action plan's texts and emails never go out on their own. They wait as ready tasks until you switch them on.", do: async (T) => { await moveLive(T, "Action Plans"); } },
-      { say: "And Learn holds the video library, VIP docs and The Vault.", do: async (T) => { await toProduct(T, "ONE MOVE"); await T.click(T.rail("Learn")); await T.wait(1200); } },
+      { say: "Opportunities gathers everything new that could become business. New to Sort holds new people waiting for a group.", do: async (T) => { await movePage(T, "Opportunities", null); await T.wait(600); const n = T.inside("New to Sort"); if (await n.count()) await T.click(n); await T.wait(1200); } },
+      { say: "Looks Hot puts people Pulse thinks are ready in front of you, including people you know who came back to your website. Move them to Hot, or Not yet.", do: async (T) => { await movePage(T, "Looks Hot"); const h = T.p.getByRole("button", { name: /^Move to Hot$/ }).first(); if (await h.count()) await T.click(h); await T.wait(1200); await closeOk(T); } },
+      { say: "New leads from your website, portals, ads and open houses stay red until you've reached each one.", do: async (T) => { await movePage(T, "New leads"); } },
+      { say: "Likely to move finds past clients who may be ready to buy or sell again, with the reasons.", do: async (T) => { await movePage(T, "Likely to move"); } },
+      { say: "Life events catches the big moments, a birthday, a new baby, a new job, with the touch Pulse suggests.", do: async (T) => { await movePage(T, "Life Events"); } },
+      { say: "Deals tracks every deal under contract and every REPC deadline, with the days left. Upload the signed REPC and Pulse fills in the dates for you to check.", do: async (T) => { await movePage(T, "Deals"); } },
+      { say: "The Business Rolodex holds the businesses you recommend. Share one with every VIP-50 agent if you like; your notes stay yours.", do: async (T) => { await movePage(T, "Business Rolodex"); } },
+      { say: "Your trackers live here too. Tick a box on the Daily Tracker and the points add up toward your weekly hundred.", do: async (T) => { await movePage(T, "Daily Tracker"); const box = T.p.locator('[aria-label$="points"], [aria-label$="point"]').first(); if (await box.count()) await T.click(box); await T.wait(1200); } },
+      { say: "Outreach holds your newsletter, market reports, action plans and landing pages, each with what it is doing now.", do: async (T) => { await backToBrain(T); await toProduct(T, "ONE MOVE"); await T.click(T.inside("Outreach")); await T.wait(1500); } },
+      { say: "An action plan's texts and emails never go out on their own. They wait as ready tasks until you switch them on.", do: async (T) => { const a = T.p.locator('[aria-label="Action Plans now"]').first(); if (await a.count()) await T.click(a); await T.wait(1500); } },
+      { say: "And Learn holds the video library, VIP docs and The Vault, searchable in one box.", do: async (T) => { await backToBrain(T); await toProduct(T, "ONE MOVE"); await T.click(T.inside("Learn")); await T.wait(1500); } },
     ],
   },
   {

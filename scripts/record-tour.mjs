@@ -78,7 +78,10 @@ const OVERLAY = () => {
   if (document.getElementById("tour-cursor")) return;
   const c = document.createElement("div");
   c.id = "tour-cursor";
-  c.style.cssText = "position:fixed;left:960px;top:540px;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;border:3px solid #f5c542;background:rgba(245,197,66,.25);box-shadow:0 0 18px rgba(245,197,66,.6);z-index:2147483647;pointer-events:none;transition:left 1.8s cubic-bezier(.3,.8,.3,1),top 1.8s cubic-bezier(.3,.8,.3,1),transform .45s";
+  // The pointer (Parry calls it the stylus): a large gold arrow with a dark edge, its tip on the spot, plus a ring
+  // that pulses under the tip on every press. Big enough to follow at a glance on a phone screen too.
+  c.style.cssText = "position:fixed;left:960px;top:540px;width:48px;height:48px;margin:0;z-index:2147483647;pointer-events:none;transform-origin:0 0;filter:drop-shadow(0 0 10px rgba(245,197,66,.85)) drop-shadow(0 2px 4px rgba(0,0,0,.8));transition:left 1.8s cubic-bezier(.3,.8,.3,1),top 1.8s cubic-bezier(.3,.8,.3,1),transform .45s";
+  c.innerHTML = '<span style="position:absolute;left:-22px;top:-22px;width:44px;height:44px;border-radius:50%;border:3px solid rgba(245,197,66,.9);background:rgba(245,197,66,.18)"></span><svg width="48" height="48" viewBox="0 0 24 24" style="position:absolute;left:0;top:0"><path d="M2 1.5 L2 19 L6.8 14.6 L10 22 L13.4 20.5 L10.2 13.3 L16.5 13.1 Z" fill="#f5c542" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg>';
   document.body.appendChild(c);
   const k = document.createElement("div");
   k.id = "tour-card";
@@ -98,7 +101,7 @@ const pressDot = async () => {
   await p.evaluate(() => {
     const c = document.getElementById("tour-cursor");
     if (!c) return;
-    c.style.transform = "scale(.7)";
+    c.style.transform = "scale(.8)";
     setTimeout(() => (c.style.transform = ""), 540);
   });
 };
