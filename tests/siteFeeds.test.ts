@@ -6,6 +6,7 @@ import {
   clientPageBody,
   demoPersonExtras,
   demoReferralLink,
+  improvementLine,
   myHomeWords,
   readPersonExtras,
   readReferralLink,
@@ -72,18 +73,38 @@ test("My Home: the label is drawn once and dates read plainly", () => {
   assert.equal(myHomeWords("signed in today"), "signed in today");
 });
 
+// Rewritten 18 Oct on purpose: my_home now carries improvements (vip50-web-crm#314); none reads as [].
 test("people/<id>: can_share_link and my_home, missing or wrong reads as off", () => {
-  assert.deepEqual(readPersonExtras({ can_share_link: true, my_home: { signed_in_at: null, words: "My Home: not signed in yet" } }), { canShareLink: true, myHome: { signedInAt: null, words: "not signed in yet" } });
+  assert.deepEqual(readPersonExtras({ can_share_link: true, my_home: { signed_in_at: null, words: "My Home: not signed in yet" } }), { canShareLink: true, myHome: { signedInAt: null, words: "not signed in yet", improvements: [] } });
   assert.deepEqual(readPersonExtras({ can_share_link: "yes", my_home: null }), { canShareLink: false, myHome: null });
   assert.deepEqual(readPersonExtras({ my_home: { words: "" } }), { canShareLink: false, myHome: null });
   assert.deepEqual(readPersonExtras(null), { canShareLink: false, myHome: null });
   const p = readPerson({ id: "11111111-2222-3333-4444-555555555555", name: "Sara Lee", sections: [], can_share_link: true, my_home: { signed_in_at: "2026-10-18T01:00:00Z", words: "My Home: signed in today" } })!;
   assert.equal(p.canShareLink, true);
-  assert.deepEqual(p.myHome, { signedInAt: "2026-10-18T01:00:00Z", words: "signed in today" });
+  assert.deepEqual(p.myHome, { signedInAt: "2026-10-18T01:00:00Z", words: "signed in today", improvements: [] });
 });
 
 test("the example agent: Sara is a past client on My Home, Jane a VIP, Linda neither", () => {
   assert.deepEqual(demoPersonExtras("demo-hr-sara").myHome?.words, "signed in, last on 12 Oct");
   assert.equal(demoPersonExtras("demo-hr-jane").canShareLink, true);
   assert.deepEqual(demoPersonExtras("demo-hr-linda"), { canShareLink: false, myHome: null });
+});
+
+test("my_home.improvements: shared rows as Classic's lines, at most 5, bad rows dropped", () => {
+  const x = readPersonExtras({
+    my_home: {
+      words: "My Home: signed in today",
+      improvements: [
+        { id: "a", what: "New roof", done_on: "2026-06-14", cost: 14500 },
+        { id: "b", what: "Fence", done_on: null, cost: null },
+        { id: "", what: "no id" },
+        ...Array.from({ length: 6 }, (_, k) => ({ id: `x${k}`, what: `Job ${k}` })),
+      ],
+    },
+  });
+  const imps = x.myHome?.improvements ?? [];
+  assert.equal(imps.length, 5);
+  assert.equal(improvementLine(imps[0]), "New roof (2026-06) · $14,500");
+  assert.equal(improvementLine(imps[1]), "Fence");
+  assert.deepEqual(readPersonExtras({ my_home: { words: "My Home: not signed in yet" } }).myHome?.improvements, []);
 });

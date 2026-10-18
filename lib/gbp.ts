@@ -28,6 +28,8 @@ export interface GbpData {
   posts: GbpPost[];
   mismatches: GbpMismatch[];
   metrics: GbpMetrics | null;
+  /** ONE MOVE's own words for the state, shown as given (the same on Classic /gbp); null falls back to stateWords. */
+  words?: string | null;
 }
 
 export const SAVING = "Saving...";
@@ -40,7 +42,7 @@ export const DONE_PUBLISH = "Published on Google.";
 export const DONE_FIX = "Fixed on Google.";
 
 const STATES: readonly GbpState[] = ["not_complete", "waiting_google", "not_connected", "connected"];
-const EMPTY: Omit<GbpData, "state"> = { location: null, reviews: [], posts: [], mismatches: [], metrics: null };
+const EMPTY: Omit<GbpData, "state"> = { location: null, reviews: [], posts: [], mismatches: [], metrics: null, words: null };
 
 /** The state line. `connected` names the location when it is known. */
 export function stateWords(state: GbpState, location?: string | null): string {
@@ -74,7 +76,8 @@ export function readGbp(raw: unknown, httpOk = true): GbpData {
   if (r.ok === false) return waitingGoogle();
   const state = STATES.find((s) => s === r.state);
   if (!state) return waitingGoogle();
-  if (state !== "connected") return { state, ...EMPTY, location: null };
+  const words = str(r.words, 300);
+  if (state !== "connected") return { state, ...EMPTY, location: null, words };
   const list = (v: unknown) => (Array.isArray(v) ? v : []).filter((x): x is Record<string, unknown> => !!x && typeof x === "object");
   const reviews: GbpReview[] = [];
   for (const x of list(r.reviews)) {
@@ -112,8 +115,12 @@ export function readGbp(raw: unknown, httpOk = true): GbpData {
     posts,
     mismatches,
     metrics: m && month ? { month, calls: num(m.calls), directions: num(m.directions), clicks: num(m.clicks), views: num(m.views), source: str(m.source, 120) ?? "Google" } : null,
+    words,
   };
 }
+
+/** The state line: ONE MOVE's words when it gave them, else the plain ones. */
+export const shownWords = (d: GbpData): string => d.words || stateWords(d.state, d.location);
 
 /** Newest first; a review with no date goes last. */
 export function sortReviews(rs: GbpReview[]): GbpReview[] {
