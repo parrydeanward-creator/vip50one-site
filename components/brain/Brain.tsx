@@ -170,7 +170,7 @@ import type { SceneNeed } from "./scene.ts";
 import { returnNote, withoutNotes } from "@/lib/googleReturn.ts";
 import { arrivalFor, type Arrival } from "@/lib/deepLink.ts";
 import { DEMO_PAGES, withTourPages } from "@/lib/examples/tourPages.ts";
-import { arrivalExact, landing } from "@/lib/deepLinkNode.ts";
+import { arrivalExact, landing, seedArrival } from "@/lib/deepLinkNode.ts";
 import { IN_BRAIN, MENU_ORB, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_TOP, inBrainPage, moveGroupsFor, withMoveCoach, moveEmbedHref, moveGroupId, moveMenuHref, movePageId, type MovePage, pageAddress, pageFromAddress, withTeamLeadsPage } from "@/lib/moveMenu.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
@@ -204,11 +204,18 @@ function denverHour(now = new Date()): number {
 // showing, for the recorded product tour. The recorder answers their data calls with invented example data.
 const TOUR_AGENT: BrainAgent = { ...DEMO_AGENT, growth: true, plan: "ONE Complete + ONE Growth", label: "Sarah Bennett, ONE Complete + ONE Growth" };
 
+/** How long an arrived-at orb is held as the focus while the routes answer (see arrivalHold). */
+const ARRIVAL_HOLD_MS = 10_000;
+
 export default function Brain({ graph: initialGraph, pkg = "complete", agent: agentIn = DEMO_AGENT, live = false, startPage = null, startOpen = null, productTour = false }: { graph: BusinessGraph; pkg?: string; agent?: BrainAgent; live?: boolean; startPage?: string | null; startOpen?: string | null; productTour?: boolean }) {
   const agent = productTour ? TOUR_AGENT : agentIn;
   // What the address asked for (/dashboard/<page>, ?open=<thing>; lib/deepLink.ts): it opens on arrival, ahead of the
   // morning fly-through, Meet Pulse and the morning note (Parry, 18 Oct: links "just open the dashboard").
   const [arrival] = useState(() => arrivalFor(startPage, startOpen));
+  // The arrived-at orb stays the focus while the Brain's routes answer: a rebuild can drop an orb for a moment (Deals
+  // and Life events before their data is in) and the map must not fall back to its parent for good (live check, 18 Oct).
+  const arrivalHold = useRef<{ id: string; until: number } | null>(null);
+  const [holdTick, setHoldTick] = useState(0);
   // Arriving on Team Leads means the agent is on a team: its orb is there before the team answer comes back.
   const teamLeadsHint = startPage === TEAM_LEADS_PATH;
   const hello = `${greeting()}, ${agent.firstName}.`;
@@ -268,7 +275,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const war30Ref = useRef<War30 | null>(null);
   const hubNow = (): HubInput => ({ lead: isTeamLead(warRef.current, onbRef.current, teamSitesRef.current) || !!peopleRef.current?.people.length, team: teamRef.current, war: warRef.current, onb: onbRef.current, removed: onbRemovedRef.current, now: Date.now(), people: peopleRef.current, war30: war30Ref.current });
   const admin = agent.admin === true;
-  const [graph, setGraph] = useState(() => withTeamLeadsPage(withMoveCoach(withPlanNode(productTour || (!live && arrival?.kind === "page") ? withExampleMoveTools(withDemoTrackers(withTourPages(initialGraph))) : live ? initialGraph : withDemoTrackers(withTourPages(initialGraph, DEMO_PAGES)), null), admin), teamLeadsHint));
+  // An arrival's orb is on the first map, so the server paints the asked-for place, never the whole map (lib/deepLinkNode.ts).
+  const [graph, setGraph] = useState(() => seedArrival(withTeamLeadsPage(withMoveCoach(withPlanNode(productTour || (!live && arrival?.kind === "page") ? withExampleMoveTools(withDemoTrackers(withTourPages(initialGraph))) : live ? initialGraph : withDemoTrackers(withTourPages(initialGraph, DEMO_PAGES)), null), admin), teamLeadsHint), arrival, { growth: agent.growth === true || pkg === "growth", exampleToday: live ? null : todayIn() }));
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
   // this, a refresh after logging a call changed nothing on screen.
@@ -367,7 +375,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [guide, setGuide] = useState(false); // What everything means
   const [addonsOpen, setAddonsOpen] = useState(false); // Add-ons (CHECKOUT §2)
   // Google Business Profile (GBP.md §5b): a full screen over the Brain, at /dashboard/google-profile.
-  const [gbpOpen, setGbpOpen] = useState(false);
+  // open from the first paint when the address names it (the server draws it, not the map under it)
+  const [gbpOpen, setGbpOpen] = useState(() => arrival?.kind === "gbp");
   const openGbp = useCallback(() => {
     setGbpOpen(true);
     if (window.location.pathname !== GBP_PATH) window.history.replaceState(null, "", GBP_PATH + window.location.search);
@@ -398,6 +407,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [state, setState] = useState(() => {
     const s = nav.start(graph.rootId);
     const want = arrival ? arrivalExact(arrival, (id) => graph.nodes.some((n) => n.id === id)) : null;
+    if (want) arrivalHold.current = { id: want, until: Date.now() + ARRIVAL_HOLD_MS };
     return want ? nav.go(s, want) : s;
   });
   const [phone, setPhone] = useState(false);
@@ -2130,6 +2140,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // opens the page itself. Moving to any other orb closes it again.
   const [fullPage, setFullPage] = useState<string | null>(null);
   const goTo = useCallback((id: string) => {
+    if (arrivalHold.current && arrivalHold.current.id !== id) arrivalHold.current = null; // the agent moved on
     setFullPage((p) => (p && movePageId(p) === id ? p : null));
     setHighlight(null);
     setAsk(null);
@@ -2139,8 +2150,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     setState((s) => nav.go(s, id));
   }, []);
   useEffect(() => {
-    if (focus.id !== state.focusId) goTo(focus.id);
-  }, [focus.id, state.focusId, goTo]);
+    if (focus.id === state.focusId) return;
+    const h = arrivalHold.current;
+    if (h && h.id === state.focusId && Date.now() < h.until) {
+      const t = setTimeout(() => setHoldTick((n) => n + 1), h.until - Date.now() + 50);
+      return () => clearTimeout(t);
+    }
+    goTo(focus.id);
+  }, [focus.id, state.focusId, goTo, holdTick]);
   // Getting started on the map (top of ONE YOU); from the menu it comes back and to the middle in the same render.
   useEffect(() => {
     startRef.current = start;
@@ -2252,6 +2269,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     const l = landing(a, (id) => ix.byId.has(id), (id) => !!ix.byId.get(id)?.locked, arrivalFinal);
     if (!l) return;
     pendingArrival.current = null;
+    if (l.exact) arrivalHold.current = { id: l.id, until: Date.now() + ARRIVAL_HOLD_MS };
     goTo(l.id);
     // an address names the page itself, so a panel-first page opens full
     if (l.exact && a.kind === "page") setFullPage(a.path);
