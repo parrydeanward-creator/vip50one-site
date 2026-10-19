@@ -482,6 +482,39 @@ export const defaultSettings = (): ReportSettings => ({
 });
 export const settingsUrl = `${homeReportUrl}/settings`;
 export const videoUrl = `${homeReportUrl}/video`;
+export const VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"] as const;
+export const VIDEO_MAX_BYTES = 100 * 1024 * 1024;
+export const VIDEO_TYPE_ERROR = "Use an MP4, MOV or WebM video";
+export const VIDEO_SIZE_ERROR = "That video is over 100 MB";
+/** Client-side check before the two-step upload: null when fine, else the words to show. */
+export function checkVideo(file: { type: string; size: number }): string | null {
+  if (!(VIDEO_TYPES as readonly string[]).includes(file.type.toLowerCase())) return VIDEO_TYPE_ERROR;
+  if (file.size > VIDEO_MAX_BYTES) return VIDEO_SIZE_ERROR;
+  return null;
+}
+/** Step 1 body: ask ONE MOVE for a signed upload address. */
+export const videoStartBody = (file: { type: string; size: number }) => ({ start: { type: file.type, size: file.size } });
+/** Step 3 body: tell ONE MOVE the file is uploaded. */
+export const videoDoneBody = (path: string) => ({ done: path });
+/** Read the step 1 reply; null when it lacks an upload address or path. */
+export function readVideoStart(j: unknown): { uploadUrl: string; path: string } | null {
+  const o = j as { upload_url?: unknown; path?: unknown } | null;
+  if (o && typeof o.upload_url === "string" && o.upload_url && typeof o.path === "string" && o.path) return { uploadUrl: o.upload_url, path: o.path };
+  return null;
+}
+export interface SavedVideo { url: string; month: string; type: string | null; size: number | null; addedAt: string | null }
+/** Read GET video; null when this month has none. */
+export function readVideo(j: unknown): SavedVideo | null {
+  const o = j as { url?: unknown; month?: unknown; type?: unknown; size?: unknown; added_at?: unknown } | null;
+  if (!o || typeof o.url !== "string" || !o.url) return null;
+  return {
+    url: o.url,
+    month: typeof o.month === "string" ? o.month : "",
+    type: typeof o.type === "string" ? o.type : null,
+    size: typeof o.size === "number" ? o.size : null,
+    addedAt: typeof o.added_at === "string" ? o.added_at : null,
+  };
+}
 /** Read ONE MOVE's settings reply; unknown or missing keys keep their defaults. Null when it is not settings. */
 export function readSettings(j: unknown): ReportSettings | null {
   if (!j || typeof j !== "object") return null;

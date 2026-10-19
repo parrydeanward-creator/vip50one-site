@@ -7,6 +7,12 @@ import {
   SAVING_SOON,
   SETTINGS_FIXED_NOTE,
   VIDEO_HINT,
+  checkVideo,
+  readVideo,
+  readVideoStart,
+  videoDoneBody,
+  videoStartBody,
+  type SavedVideo,
   defaultSettings,
   readSettings,
   settingsUrl,
@@ -26,6 +32,7 @@ export default function ReportSettings({ demo }: { demo: boolean }) {
   const [soon, setSoon] = useState(false);
   const [ready, setReady] = useState(demo);
   const [msg, setMsg] = useState<string | null>(null);
+  const [video, setVideo] = useState<SavedVideo | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -37,6 +44,12 @@ export default function ReportSettings({ demo }: { demo: boolean }) {
         if (!r.ok) return;
         const got = readSettings(await r.json().catch(() => null));
         if (got) { setS(got); setReady(true); }
+      })
+      .catch(() => {});
+    fetch(videoUrl, { credentials: "include", cache: "no-store" })
+      .then(async (r) => {
+        if (off || !r.ok) return;
+        setVideo(readVideo(await r.json().catch(() => null)));
       })
       .catch(() => {});
     return () => { off = true; };
@@ -55,13 +68,34 @@ export default function ReportSettings({ demo }: { demo: boolean }) {
 
   const upload = async (file: File | undefined) => {
     if (!file) return;
+    const bad = checkVideo(file);
+    if (bad) return setMsg(bad);
     if (demo) return setMsg("Example only. Nothing was uploaded.");
-    const fd = new FormData();
-    fd.append("video", file);
+    setMsg("Uploading...");
+    const json = { "Content-Type": "application/json" };
     try {
-      const r = await fetch(videoUrl, { method: "POST", credentials: "include", body: fd });
-      if (r.ok) { setSoon(false); setMsg("Saved as this month's video."); }
-      else setSoon(true);
+      const a = await fetch(videoUrl, { method: "POST", credentials: "include", headers: json, body: JSON.stringify(videoStartBody(file)) });
+      const start = a.ok ? readVideoStart(await a.json().catch(() => null)) : null;
+      if (!start) throw new Error("start");
+      const put = await fetch(start.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      if (!put.ok) throw new Error("put");
+      const done = await fetch(videoUrl, { method: "POST", credentials: "include", headers: json, body: JSON.stringify(videoDoneBody(start.path)) });
+      if (!done.ok) throw new Error("done");
+      setSoon(false);
+      setMsg("Saved as this month's video.");
+      const g = await fetch(videoUrl, { credentials: "include", cache: "no-store" }).catch(() => null);
+      if (g?.ok) setVideo(readVideo(await g.json().catch(() => null)));
+    } catch {
+      setMsg(null);
+      setSoon(true);
+    }
+  };
+
+  const remove = async () => {
+    if (demo || !window.confirm("Remove this month's video?")) return;
+    try {
+      const r = await fetch(videoUrl, { method: "DELETE", credentials: "include" });
+      if (r.ok) { setVideo(null); setMsg(null); setSoon(false); } else setSoon(true);
     } catch {
       setSoon(true);
     }
@@ -89,6 +123,13 @@ export default function ReportSettings({ demo }: { demo: boolean }) {
         </div>
         <p>{VIDEO_HINT}</p>
         {msg ? <p role="status">{msg}</p> : null}
+        {video ? (
+          <div>
+            <p>This month&apos;s video is saved</p>
+            <video src={video.url} controls preload="metadata" style={{ maxWidth: "100%", maxHeight: 220 }} />
+            <div className="mrs-btns"><button type="button" className="chip-btn" onClick={() => void remove()}>Remove</button></div>
+          </div>
+        ) : null}
       </div>
       <div>
         <h3>Sections</h3>

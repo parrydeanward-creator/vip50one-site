@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  VIDEO_MAX_BYTES,
+  checkVideo,
+  readVideo,
+  readVideoStart,
+  videoDoneBody,
+  videoStartBody,
   DEFAULT_DAY,
   bulkBody,
   bulkButton,
@@ -334,4 +340,22 @@ test("report settings: every section on and the postcard off by default", () => 
   assert.ok(src.includes("POSTCARD_LABEL") && src.includes("SETTINGS_FIXED_NOTE") && src.includes("VIDEO_HINT"));
   // A live agent sees the card only once ONE MOVE's settings route answers (Parry, 18 Oct).
   assert.ok(/useState\(demo\)/.test(src) && src.includes("if (!ready) return null;"));
+});
+
+test("report video: type and size check, two-step bodies, replies", () => {
+  assert.equal(checkVideo({ type: "video/mp4", size: 5e6 }), null);
+  assert.equal(checkVideo({ type: "video/quicktime", size: VIDEO_MAX_BYTES }), null);
+  assert.equal(checkVideo({ type: "video/webm", size: 1 }), null);
+  assert.equal(checkVideo({ type: "video/avi", size: 1 }), "Use an MP4, MOV or WebM video");
+  assert.equal(checkVideo({ type: "", size: 1 }), "Use an MP4, MOV or WebM video");
+  assert.equal(checkVideo({ type: "video/mp4", size: VIDEO_MAX_BYTES + 1 }), "That video is over 100 MB");
+  assert.deepEqual(videoStartBody({ type: "video/mp4", size: 12 }), { start: { type: "video/mp4", size: 12 } });
+  assert.deepEqual(videoDoneBody("a/b.mp4"), { done: "a/b.mp4" });
+  assert.deepEqual(readVideoStart({ upload_url: "https://s/x", path: "a/b.mp4" }), { uploadUrl: "https://s/x", path: "a/b.mp4" });
+  assert.equal(readVideoStart({ path: "a" }), null);
+  assert.equal(readVideoStart(null), null);
+  assert.equal(readVideo({ url: null, month: "2026-10" }), null);
+  assert.equal(readVideo({ url: "https://v/1", month: "2026-10", type: "video/mp4", size: 3, added_at: "t" })?.url, "https://v/1");
+  const src = readFileSync(new URL("../components/brain/ReportSettings.tsx", import.meta.url), "utf8");
+  assert.ok(!src.includes("FormData") && src.includes('preload="metadata"') && src.includes('capture", "user"') && src.includes('accept="video/*"'));
 });
