@@ -174,6 +174,30 @@ export function makeExampleStore(today: string): ExampleStore {
   return { today, people, today_hwc: { hot: false, warm: false, cold: false }, rolodex: exampleRolodex(), next: 500 };
 }
 
+/**
+ * The Weekly Review's example agent as an example store, so its names open a real example contact and a tick changes
+ * the review (lib/review.ts demoRoster: same people, same boxes, same last touches). Nothing leaves the browser.
+ */
+export function makeReviewDemoStore(today: string, roster: { vip50: { id: string; name: string; month?: Record<string, boolean> | null; last_touch_on?: string | null }[] }): ExampleStore {
+  const s = makeExampleStore(today);
+  const base = s.people.slice(0, roster.vip50.length);
+  roster.vip50.forEach((v, k) => {
+    const p = base[k];
+    const [first, ...rest] = v.name.split(" ");
+    p.id = v.id;
+    p.first = first;
+    p.last = rest.join(" ");
+    p.tier = "vip50";
+    p.email = `${first.toLowerCase()}.${p.last.toLowerCase()}@example.com`;
+    p.month = { ...(v.month ?? {}) };
+    p.quarter = {};
+    p.pulse = null;
+    p.ago = v.last_touch_on ? Math.max(0, Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${v.last_touch_on}T12:00:00Z`)) / 86_400_000)) : 0;
+  });
+  s.people = base;
+  return s;
+}
+
 const fullName = (p: ExPerson) => `${p.first} ${p.last}`;
 const live = (s: ExampleStore) => s.people.filter((p) => !p.deleted);
 const urgencyOf = (ago: number) => (ago > 30 ? "overdue" : ago > 21 ? "due_soon" : "ok");
@@ -316,6 +340,9 @@ function rosterBody(s: ExampleStore) {
   };
 }
 
+/** The roster as ONE MOVE's vips route would answer it from this store (the review's example refetch). */
+export const exampleRoster = (s: ExampleStore) => rosterBody(s);
+
 function hwcBody(s: ExampleStore) {
   const ps = live(s).filter((p) => p.cls);
   return {
@@ -456,6 +483,26 @@ export function exampleMoveAnswer(s: ExampleStore, method: string, url: string, 
     return ok(personBody(s, p));
   }
 
+  // One contact's card (the Brain's contact panel: boxes, last touch, phone) and the touches it logs
+  if (path === "contact" && get) {
+    const p = byId(u.searchParams.get("id"));
+    if (!p) return { status: 404, body: { error: "That contact isn't there any more." } };
+    return ok({
+      id: p.id,
+      name: fullName(p),
+      first_name: p.first,
+      phone: p.phone,
+      email: p.email,
+      tier: p.tier === "sphere" ? "none" : p.tier,
+      source_label: p.source ? SOURCE_LABEL[p.source] : null,
+      last_touch: p.ago < 3650 ? { kind: p.ago === 0 ? "touch" : "call", on: addDays(s.today, -p.ago) } : null,
+      month: p.month,
+      quarter: p.quarter,
+      open_tasks: [],
+      offers: [],
+    });
+  }
+
   // VIP Management and Touch Audit (§3d, §3f)
   if (path === "vips" && get) return ok(rosterBody(s));
   if (path === "vip/tier" && method === "POST") {
@@ -476,7 +523,9 @@ export function exampleMoveAnswer(s: ExampleStore, method: string, url: string, 
     const p = byId(b.contact_id);
     const kind = String(b.kind ?? "");
     if (!p) return { status: 400, body: { ok: false, error: "That didn't save. Nothing was changed." } };
-    if (kind in p.month || ["call", "video_text", "social"].includes(kind)) p.month[kind] = true;
+    if (kind === "text") p.month.call = true; // a logged text ticks the call box, as ONE MOVE does
+    else if (kind === "email") p.ago = 0;
+    else if (kind in p.month || ["call", "video_text", "social"].includes(kind)) p.month[kind] = true;
     else p.quarter[kind] = true;
     p.ago = 0;
     if (p.pulse && /touch|call|video/i.test(p.pulse.reason)) p.pulse = null;

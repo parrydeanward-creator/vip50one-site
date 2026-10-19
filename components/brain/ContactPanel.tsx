@@ -48,7 +48,14 @@ const askFor = (kind: TouchKind): Ask => ({ kind, question: LOG_QUESTION[kind], 
 // whether to log it (as ONE MOVE's action bar does, so a misdial never
 // counts). Logging runs ONE MOVE's own logTouchEverywhere.
 // The contact card, inside a boundary: if one value is ever wrong, this card says so and the page stays up.
-export default function ContactPanel(props: { contactId: string; taskId?: string; onLogged: () => void } & LeadProps) {
+/** A touch the agent came to do (Weekly Review): the card opens with that touch's action ready. */
+export interface TouchGoal {
+  key: string;
+  label: string;
+  onPage?: (path: string) => void; // newsletter and mixer invite go out from their own ONE MOVE screens
+}
+
+export default function ContactPanel(props: { contactId: string; taskId?: string; onLogged: () => void; touch?: TouchGoal } & LeadProps) {
   return (
     <PanelBoundary key={props.contactId} label="This contact">
       <ContactCard {...props} />
@@ -56,7 +63,7 @@ export default function ContactPanel(props: { contactId: string; taskId?: string
   );
 }
 
-function ContactCard({ contactId, taskId, onLogged, lead, agentFirst, onLeadOutcome }: { contactId: string; taskId?: string; onLogged: () => void } & LeadProps) {
+function ContactCard({ contactId, taskId, onLogged, lead, agentFirst, onLeadOutcome, touch }: { contactId: string; taskId?: string; onLogged: () => void; touch?: TouchGoal } & LeadProps) {
   const [card, setCard] = useState<ContactCard | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [ask, setAsk] = useState<Ask | null>(null);
@@ -181,6 +188,23 @@ function ContactCard({ contactId, taskId, onLogged, lead, agentFirst, onLeadOutc
           <span className="cc-btn off" aria-disabled="true">Email</span>
         )}
       </div>
+
+      {touch && leadMode === "none" && !card.month?.[touch.key] ? (
+        <div className="cc-touch" role="group" aria-label={`${touch.label} for ${first}`}>
+          <p>{first} needs a {touch.label.toLowerCase()} this month.</p>
+          {touch.key === "call" ? (
+            tel ? <button type="button" className="cc-btn" onClick={() => setPrep(true)}>Call {first} now</button> : <span className="cc-btn off" aria-disabled="true">No phone number</span>
+          ) : touch.key === "video_text" ? (
+            tel ? <a className="cc-btn" href={`sms:${tel}`} onClick={() => setAsk({ kind: "video_text", question: LOG_QUESTION.text.replace("text", "video text"), label: "Video text" })}>Open Messages</a> : <span className="cc-btn off" aria-disabled="true">No phone number</span>
+          ) : touch.key === "social" ? (
+            <button type="button" className="cc-btn" onClick={() => setAsk({ kind: "social", question: "Log a social touch", label: "Social" })}>Log a social touch</button>
+          ) : touch.key === "newsletter" || touch.key === "mixer" ? (
+            <button type="button" className="cc-btn" disabled={!touch.onPage} onClick={() => touch.onPage?.(touch.key === "newsletter" ? "/newsletter" : "/mixer")}>
+              {touch.key === "newsletter" ? "Open the newsletter" : "Open mixer invites"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {prep && (
         <CallPrepCard

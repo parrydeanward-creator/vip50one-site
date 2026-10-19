@@ -50,13 +50,49 @@ export interface Card {
   line: string; // one line under it
   level: Level; // red now / yellow today / still green (null and good) — the pulse rule
   good: boolean;
-  rows: { text: string; sub?: string }[]; // the side panel
+  rows: Row[]; // the side panel
+  /** What the agent does from this card (Parry, 19 Oct: "everything we do must have action available"): never a number alone. */
+  action: Action;
 }
+
+/** What an action does: open an existing ONE MOVE page or Brain view, work through a list of people, or open one contact. */
+export type Do =
+  | { kind: "page"; path: string }
+  | { kind: "view"; view: "goals" | "commitments" | "wins" }
+  | { kind: "queue"; list: string; label: string } // "untouched", or a monthly touch key (call, video_text, ...)
+  | { kind: "contact"; id: string; name: string };
+export interface Action {
+  label: string;
+  do: Do;
+}
+
+/** A person the review names: the roster's own id (ONE MOVE contact), so the name can open that contact. */
+export interface ContactRef {
+  id: string;
+  name: string;
+}
+
+/** One line in a card's side panel. A row about a person carries `contact`, and its name opens that contact. */
+export interface Row {
+  text: string;
+  sub?: string;
+  contact?: string;
+  /** The person's name, for the contact's heading when `contact` opens. */
+  name?: string;
+  /** A monthly touch row: its key, and the VIP-50 who still need it this month (oldest touch first). */
+  touch?: string;
+  people?: ContactRef[];
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ref = (p: VipPerson): ContactRef => ({ id: p.id, name: p.name });
 
 export interface Review {
   cards: Card[];
   next: string[]; // three things for next week (or the rest of this one), facts only
   nextTitle: string; // "Three things for the rest of this week" Mon-Thu, "... for next week" Fri-Sun
+  /** The people each line of `next` names (same order), so the agent can open them and act. */
+  nextPeople: ContactRef[][];
 }
 
 /** Monday to Thursday the three things are for the rest of this week; Friday to Sunday, for next week (Parry, 16 Oct,
@@ -92,6 +128,7 @@ const ONE_OF: Record<string, string> = { Closings: "Closing", Referrals: "Referr
 export function review(i: ReviewIn): Review {
   const cards: Card[] = [];
   const next: string[] = [];
+  const nextPeople: ContactRef[][] = [];
   const late = lateInWeek(i.today);
 
   // The weekly score against the minimum (daily + weekly tracker points; Parry, 30 Sep).
@@ -106,6 +143,7 @@ export function review(i: ReviewIn): Review {
       line: gap ? `${gap} short of ${minimum}` : `Above the ${minimum} minimum`,
       level: gap ? "today" : null,
       good: !gap,
+      action: { label: "Open today's tracker", do: { kind: "page", path: "/daily" } },
       rows: [
         { text: `${score} points this week`, sub: `The minimum is ${minimum}: daily tracker points plus the weekly bonus boxes.` },
         gap ? { text: `${gap} to go`, sub: "Each daily box and weekly bonus box counts toward it." } : { text: "Minimum reached", sub: "Everything above it is extra." },
@@ -131,7 +169,10 @@ export function review(i: ReviewIn): Review {
       line: `${done} of ${possible} touches this month${behind.length ? `. Behind the month: ${behind.map((t) => t.label).join(", ")}` : ", every touch keeping pace"}`,
       level: behind.length ? "today" : null,
       good: !behind.length,
+      action: behind.length ? { label: `Work through ${behind[0].label.toLowerCase()}`, do: { kind: "queue", list: behind[0].key, label: behind[0].label } } : { label: "Open Touch Audit", do: { kind: "page", path: "/contacts/audit" } },
       rows: month.map((t) => ({
+        touch: t.key,
+        people: [...t.missing].sort(byOldest).map(ref),
         text: `${t.label}: ${t.done} of ${t.total}`,
         sub: t.total && t.done / t.total < share ? `Behind: ${Math.round(share * 100)}% of the month has gone` : "Keeping pace",
       })),
@@ -145,13 +186,19 @@ export function review(i: ReviewIn): Review {
       line: none.length ? `VIP-50 with no touch this month` : "Every VIP-50 touched this month",
       level: none.length && share > 0.5 ? "now" : none.length ? "today" : null,
       good: !none.length,
-      rows: none.map((p) => ({ text: p.name, sub: p.last_touch_on ? `Last touch ${p.last_touch_on}` : "No touch on record" })),
+      action: none.length ? { label: "Work through them", do: { kind: "queue", list: "untouched", label: "Not reached" } } : { label: "Open VIP Management", do: { kind: "page", path: "/contacts/vip" } },
+      rows: none.map((p) => ({ text: p.name, contact: p.id, name: p.name, sub: p.last_touch_on ? `Last touch ${p.last_touch_on}` : "No touch on record" })),
     });
-    if (none.length) next.push(`Reach the ${none.length} VIP-50 you haven't touched this month, starting with ${names(none)}.`);
+    if (none.length) {
+      next.push(`Reach the ${none.length} VIP-50 you haven't touched this month, starting with ${names(none)}.`);
+      nextPeople[next.length - 1] = none.slice(0, 3).map(ref);
+    }
     const weakest = behind[0];
     if (weakest && next.length < 3) {
       const left = weakest.missing.length;
-      next.push(`${weakest.label}: ${left} of your VIP-50 still need one this month${left ? `, such as ${names([...weakest.missing].sort(byOldest), 2)}` : ""}.`);
+      const sample = [...weakest.missing].sort(byOldest);
+      next.push(`${weakest.label}: ${left} of your VIP-50 still need one this month${left ? `, such as ${names(sample, 2)}` : ""}.`);
+      nextPeople[next.length - 1] = sample.slice(0, 2).map(ref);
     }
   }
 
@@ -176,6 +223,7 @@ export function review(i: ReviewIn): Review {
       line: n ? `${when}: ${shown!.kept} kept, ${shown!.partly} partly, ${shown!.missed} missed` : "No week checked in yet",
       level: shown && shown.missed > shown.kept ? "today" : null,
       good: !!n && shown!.missed === 0,
+      action: { label: !items.length ? "Set this week's commitments" : checked.length < items.length ? "Check in" : "Open commitments", do: { kind: "view", view: "commitments" } },
       rows: [
         rate != null ? { text: `You keep ${Math.round(rate * 100)}% of your commitments`, sub: "Over the last 8 weeks." } : { text: "No keep rate yet", sub: "It starts after your first check-in." },
         c.streak ? { text: `${c.streak}-week streak`, sub: "Weeks in a row you checked in." } : { text: "No streak yet" },
@@ -197,6 +245,7 @@ export function review(i: ReviewIn): Review {
       line: behind.length ? behind.map((g) => g.label).join(", ") : "Every goal is on pace",
       level: behind.length ? "today" : null,
       good: !behind.length,
+      action: { label: "Open Goals", do: { kind: "view", view: "goals" } },
       rows: i.goals.map((g) => ({ text: `${g.label}: ${g.line}`, sub: g.pace ?? undefined })),
     });
     if (behind[0] && next.length < 3) next.push(`${behind[0].label} is behind pace (${behind[0].line}).`);
@@ -222,6 +271,7 @@ export function review(i: ReviewIn): Review {
       line: mine.length ? `This week: ${[...by].map(([t, n]) => `${n} ${(n === 1 ? ONE_OF[t] ?? t : t).toLowerCase()}`).join(", ")}` : "None this week yet",
       level: null,
       good: mine.length > 0,
+      action: { label: "See your Wins", do: { kind: "view", view: "wins" } },
       rows: [
         ...(mine.length ? mine.slice(0, 8).map((w) => ({ text: w.title, sub: w.detail ?? undefined })) : [{ text: "Log a closing or a referral in ONE MOVE and it shows here." }]),
         ...(imported.length
@@ -235,6 +285,7 @@ export function review(i: ReviewIn): Review {
   if (i.pulse) {
     const p = i.pulse;
     const open = unseen(p);
+    const first = p.handbacks.find((h) => !h.seen && h.contactId && UUID.test(h.contactId));
     cards.push({
       key: "pulse",
       title: "Pulse did this",
@@ -243,19 +294,25 @@ export function review(i: ReviewIn): Review {
       line: reportLine(p),
       level: open ? "today" : null,
       good: !open,
+      action: first ? { label: `Answer ${first.contact}`, do: { kind: "contact", id: first.contactId!, name: first.contact } } : { label: "Open Contacts", do: { kind: "page", path: "/contacts" } },
       rows: [
         { text: p.summary },
-        ...p.handbacks.slice(0, 5).map((h) => ({ text: `Handed back: ${h.contact}, ${h.about.toLowerCase()}`, sub: h.excerpt ? `"${h.excerpt}"` : undefined })),
+        ...p.handbacks.slice(0, 5).map((h): Row => ({ text: `Handed back: ${h.contact}, ${h.about.toLowerCase()}`, sub: h.excerpt ? `"${h.excerpt}"` : undefined, ...(h.contactId && UUID.test(h.contactId) ? { contact: h.contactId, name: h.contact } : {}) })),
         ...p.held.map((h) => ({ text: `Held back: ${h.words}`, sub: `${h.count} ${h.count === 1 ? "send" : "sends"}` })),
         ...p.autopilot.slice(0, 5).map((a) => ({ text: `Sent: ${a.contact} (${a.worker})`, sub: a.what ?? undefined })),
         ...(p.touches ? [{ text: p.touches }] : []),
       ],
     });
-    if (open && next.length < 3) next.push(`Answer what Pulse handed back: ${p.handbacks.filter((h) => !h.seen).map((h) => h.contact).slice(0, 3).join(", ")}.`);
+    if (open && next.length < 3) {
+      const unopened = p.handbacks.filter((h) => !h.seen).slice(0, 3);
+      next.push(`Answer what Pulse handed back: ${unopened.map((h) => h.contact).join(", ")}.`);
+      nextPeople[next.length - 1] = unopened.filter((h) => h.contactId && UUID.test(h.contactId)).map((h) => ({ id: h.contactId!, name: h.contact }));
+    }
     if (p.held.some((h) => /brokerage address/i.test(h.words)) && next.length < 3) next.push("Add your brokerage address in My Profile so your marketing emails can go out.");
   }
   if (!next.length) next.push(`Keep the same rhythm ${late ? "next week" : "for the rest of the week"}: every number above is on track.`);
-  return { cards, next: next.slice(0, 3), nextTitle: nextTitle(i.today) };
+  const shown = next.slice(0, 3);
+  return { cards, next: shown, nextTitle: nextTitle(i.today), nextPeople: shown.map((_, k) => nextPeople[k] ?? []) };
 }
 
 /** ONE YOU's Weekly Review orb: pulses with the worst level among its cards. */
@@ -304,6 +361,8 @@ export function demoRoster(): VipRoster {
  * read), then the review's own; each carries the commitment it would become on the agent's tap. */
 export interface Thing {
   text: string;
+  /** People this line names; each opens that contact. */
+  people?: ContactRef[];
   why?: string;
   draft: Draft;
   focus: boolean;
@@ -312,11 +371,11 @@ export interface Thing {
 export function nextThings(r: Review, focus: (Draft & { why: string }) | null): Thing[] {
   const out: Thing[] = [];
   if (focus) out.push({ text: focus.text, why: focus.why, draft: { text: focus.text.slice(0, TEXT_MAX), kind: focus.kind, target: focus.target }, focus: true });
-  for (const t of r.next) {
+  for (const [k, t] of r.next.entries()) {
     if (out.length >= 3) break;
     // "Keep the same rhythm" is not a commitment to add once there is a focus
     if (focus && /^Keep the same rhythm/.test(t)) continue;
-    out.push({ text: t, draft: { text: t.replace(/\.$/, "").slice(0, TEXT_MAX), kind: "yes_no", target: null }, focus: false });
+    out.push({ text: t, people: r.nextPeople?.[k] ?? [], draft: { text: t.replace(/\.$/, "").slice(0, TEXT_MAX), kind: "yes_no", target: null }, focus: false });
   }
   return out.slice(0, 3);
 }

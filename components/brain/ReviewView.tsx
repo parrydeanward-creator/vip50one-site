@@ -5,7 +5,10 @@ import PulseRing, { PULSE_COLOR } from "./PulseRing.tsx";
 import PulseMark from "./PulseMark.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import OrbWords, { orbR, useOrbPhone } from "./OrbWords.tsx";
-import { nextThings, type Card, type Review, type ReviewKey, type Thing } from "@/lib/review.ts";
+import ContactPanel from "./ContactPanel.tsx";
+import MoveExampleFetch from "./views/MoveExampleFetch.tsx";
+import type { ExampleStore } from "@/lib/examples/move2.ts";
+import { nextThings, type ContactRef, type Do, type Card, type Review, type ReviewKey, type Thing } from "@/lib/review.ts";
 import type { Read as PulseRead, ReadKey } from "@/lib/pulseCoach.ts";
 
 // Weekly Review in ONE YOU: the week's score in the middle, its parts round it (VIP touches, who you haven't
@@ -38,6 +41,9 @@ export default function ReviewView({
   demo,
   onClose,
   onCommit,
+  onChanged,
+  onAction,
+  demoStore,
 }: {
   review: Review;
   read?: PulseRead | null;
@@ -45,6 +51,12 @@ export default function ReviewView({
   demo: boolean;
   onClose: () => void;
   onCommit?: (t: Thing) => Promise<{ ok: boolean; text: string }>;
+  /** A touch was logged or a box ticked on a contact opened here: the Brain refetches the roster, so the review follows. */
+  onChanged?: () => void;
+  /** A card's action that leaves the review: an existing ONE MOVE page, or the Goals, Commitments or Wins view. */
+  onAction?: (d: Extract<Do, { kind: "page" | "view" }>) => void;
+  /** The example agent: the example ONE MOVE that answers the contact panel (nothing leaves the browser). */
+  demoStore?: ExampleStore | null;
 }) {
   const cam = useSvgCamera(SIZE);
   const phone = useOrbPhone();
@@ -53,6 +65,25 @@ export default function ReviewView({
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const [pick, setPick] = useState<ReviewKey | null>(null);
+  // A name in the review opens that contact in the side panel, with its boxes and Call / Text / Email (Parry, 19 Oct:
+  // "click the name and have it open that contact so they can do something about it"). Back returns to the review.
+  type Who = ContactRef & { touch?: string };
+  const [who, setWho] = useState<Who | null>(null);
+  // Work through a list: "Not reached", or the VIP-50 who still need one monthly touch. It steps to the next person who
+  // still needs it; whoever was touched has already left the list (the roster is read again after a touch).
+  const [queue, setQueue] = useState<{ list: string; label: string; seen: string[] } | null>(null);
+  const [touchPick, setTouchPick] = useState<string | null>(null);
+  const whoRef = useRef(who);
+  whoRef.current = who;
+  const onChangedRef = useRef(onChanged);
+  onChangedRef.current = onChanged;
+  const backFromContact = () => {
+    setWho(null);
+    setQueue(null);
+    onChangedRef.current?.(); // a tick or a logged call may still be on its way; the review refetches either way
+  };
+  const backRef = useRef(backFromContact);
+  backRef.current = backFromContact;
   const [readPick, setReadPick] = useState<ReadKey | null>(null);
   const [made, setMade] = useState<Record<number, { ok: boolean; text: string }>>({});
   const [busy, setBusy] = useState<number | null>(null);
@@ -71,14 +102,39 @@ export default function ReviewView({
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.stopPropagation();
-      onCloseRef.current();
+      if (whoRef.current) backRef.current();
+      else onCloseRef.current();
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
+  const peopleFor = (list: string): ContactRef[] =>
+    list === "untouched"
+      ? review.cards.find((c) => c.key === "untouched")?.rows.filter((r) => r.contact).map((r) => ({ id: r.contact!, name: r.name ?? r.text })) ?? []
+      : review.cards.find((c) => c.key === "touches")?.rows.find((r) => r.touch === list)?.people ?? [];
+  const startQueue = (list: string, label: string) => {
+    const first = peopleFor(list)[0];
+    if (!first) return;
+    setQueue({ list, label, seen: [first.id] });
+    setWho({ ...first, touch: list === "untouched" ? undefined : list });
+  };
+  const queueLeft = queue ? peopleFor(queue.list).filter((c) => !queue.seen.includes(c.id)) : [];
+  const stepNext = () => {
+    if (!queue) return;
+    const nxt = queueLeft[0];
+    if (!nxt) return backFromContact();
+    setQueue({ ...queue, seen: [...queue.seen, nxt.id] });
+    setWho({ ...nxt, touch: queue.list === "untouched" ? undefined : queue.list });
+  };
+  const run = (d: Do) => {
+    if (d.kind === "queue") startQueue(d.list, d.label);
+    else if (d.kind === "contact") setWho({ id: d.id, name: d.name });
+    else onAction?.(d);
+  };
   const open = (k: ReviewKey | null) => {
     setPick(k);
+    setTouchPick(null);
     setReadPick(null);
     cam.reset();
   };
@@ -91,7 +147,14 @@ export default function ReviewView({
     },
   });
 
+  const nameOf = (c: ContactRef, label = c.name) => (
+    <button type="button" className="ta-name rv-name" onClick={() => setWho(touchPick ? { ...c, touch: touchPick } : c)} aria-label={`Open ${c.name}`}>
+      {label}
+    </button>
+  );
+  const touchLabel = (key: string) => review.cards.find((c) => c.key === "touches")?.rows.find((r) => r.touch === key)?.text.split(":")[0] ?? key;
   const sel = review.cards.find((c) => c.key === pick) ?? null;
+  const touchRow = sel?.key === "touches" ? sel.rows.find((r) => r.touch === touchPick) ?? null : null;
   // The one picked sits in the middle; the rest, and the Week orb, go round it.
   // The score is the middle (or the Week orb when a part is picked), so it is never a ring orb as well.
   const round = review.cards.filter((c) => c.key !== "score" && c.key !== sel?.key);
@@ -166,7 +229,31 @@ export default function ReviewView({
           <div className="d-head">
             <span className="chip" style={{ color: GOLD, borderColor: GOLD }}>ONE YOU</span>
           </div>
-          {readSel ? (
+          {who ? (
+            <>
+              {demoStore ? <MoveExampleFetch store={demoStore} /> : null}
+              <h1 className="d-title" id="rv-title">{who.name}</h1>
+              {queue ? (
+                <p className="d-sub" role="status">
+                  {queue.label}: {queueLeft.length ? `${queueLeft.length} more after ${who.name.split(" ")[0]}` : "this is the last one"}
+                </p>
+              ) : null}
+              <div className="rv-step">
+                {queue ? (
+                  <button type="button" className="rv-commit" onClick={stepNext}>
+                    {queueLeft.length ? `Next: ${queueLeft[0].name}` : "Done, back to the review"}
+                  </button>
+                ) : null}
+                <button type="button" className="vr-classic" onClick={backFromContact}>Back to Weekly Review</button>
+              </div>
+              <ContactPanel
+                key={who.id}
+                contactId={who.id}
+                touch={who.touch ? { key: who.touch, label: touchLabel(who.touch), onPage: (path) => onAction?.({ kind: "page", path }) } : undefined}
+                onLogged={() => onChangedRef.current?.()}
+              />
+            </>
+          ) : readSel ? (
             <>
               <h1 className="d-title" id="rv-title">{readSel.title}</h1>
               <p className="d-sub">{readSel.line}</p>
@@ -183,6 +270,25 @@ export default function ReviewView({
               </ul>
               <button className="vr-classic" onClick={() => setReadPick(null)}>Whole review</button>
             </>
+          ) : sel && touchRow ? (
+            <>
+              <h1 className="d-title" id="rv-title">{touchLabel(touchRow.touch!)}</h1>
+              <p className="d-sub">{touchRow.people?.length ? `${touchRow.people.length} of your VIP-50 still need one this month` : "Every VIP-50 has this one this month. Well done."}</p>
+              {touchRow.people?.length ? (
+                <>
+                  <ul className="pm-list pm-compact">
+                    {touchRow.people.map((c) => (
+                      <li key={c.id}>
+                        <i className="pm-dot" style={{ background: ringColor(sel) }} aria-hidden="true" />
+                        <span className="pm-body"><b>{nameOf({ ...c })}</b></span>
+                      </li>
+                    ))}
+                  </ul>
+                  <button className="rv-commit rv-act" onClick={() => startQueue(touchRow.touch!, touchLabel(touchRow.touch!))}>Work through them</button>
+                </>
+              ) : null}
+              <button className="vr-classic" onClick={() => setTouchPick(null)}>Back to VIP touches</button>
+            </>
           ) : sel ? (
             <>
               <h1 className="d-title" id="rv-title">{sel.title}</h1>
@@ -193,15 +299,25 @@ export default function ReviewView({
                     <li key={k}>
                       <i className="pm-dot" style={{ background: ringColor(sel) }} aria-hidden="true" />
                       <span className="pm-body">
-                        <b>{r.text}</b>
+                        <b>
+                          {r.contact ? nameOf({ id: r.contact, name: r.name ?? r.text }, r.text) : r.touch ? (
+                            <button type="button" className="ta-name rv-name" onClick={() => setTouchPick(r.touch!)} aria-label={`Who still needs ${touchLabel(r.touch)}`}>{r.text}</button>
+                          ) : r.text}
+                        </b>
                         {r.sub ? <small>{r.sub}</small> : null}
                       </span>
+                      {r.touch && r.people?.length ? (
+                        <span className="pm-acts">
+                          <button className="rv-commit" onClick={() => startQueue(r.touch!, touchLabel(r.touch!))}>Work through them</button>
+                        </span>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
               ) : (
                 <p className="pm-empty">Nothing here this week.</p>
               )}
+              <button className="rv-commit rv-act" onClick={() => run(sel.action.do)}>{sel.action.label}</button>
               <button className="vr-classic" onClick={() => open(null)}>Whole week</button>
             </>
           ) : (
@@ -221,6 +337,7 @@ export default function ReviewView({
                       <small>{c.line}</small>
                     </span>
                     <span className="pm-acts">
+                      <button className="rv-commit" onClick={() => run(c.action.do)}>{c.action.label}</button>
                       <button onClick={() => open(c.key)} aria-label={`Open ${c.title}`}>→</button>
                     </span>
                   </li>
@@ -261,6 +378,7 @@ export default function ReviewView({
                     <span className="pm-time">{t.focus ? "Focus" : k + 1}</span>
                     <span className="pm-body">
                       <b>{t.text}</b>
+                      {t.people?.length ? <small className="rv-people">Open: {t.people.map((c, j) => <span key={c.id}>{j ? ", " : ""}{nameOf(c)}</span>)}</small> : null}
                       {t.why ? <small>{t.why}</small> : null}
                       {made[k] ? <small className={made[k].ok ? "rv-made" : "rv-made bad"} role="status">{made[k].text}</small> : null}
                     </span>
