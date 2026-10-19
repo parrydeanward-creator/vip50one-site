@@ -2558,6 +2558,9 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
   .phone-tools small { font-size: 14px; }
   .d-list.go-inside { display: none; }
 }
+/* ONE YOU in groups (Parry, 19 Oct): each group's row, then its tools set in under it, on the phone and desktop alike. */
+.you-group + .you-group, ul + .you-group { margin-top: 10px; }
+.d-list .you-group-kids { margin-top: 6px; padding-left: 16px; border-left: 1px solid var(--line); margin-left: 8px; }
 /* 3.1.9 Back to today / See tomorrow's plan in the Day Clock panel */
 .dc-back-today { margin: 4px 0 12px; }
 

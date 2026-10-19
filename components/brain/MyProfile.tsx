@@ -52,6 +52,8 @@ export default function MyProfile({
   demo = false,
   gbpDemo = demo,
   onOpenGbp,
+  askAi,
+  onOpenAskAi,
 }: {
   onUnavailable: () => void;
   onChanged: () => void;
@@ -63,6 +65,10 @@ export default function MyProfile({
   gbpDemo?: boolean;
   /** Opens the Google Business Profile screen over the Brain. */
   onOpenGbp?: () => void;
+  /** Ask AI about you's card (lib/aiCheck.ts askAiCard; Parry, 19 Oct: off ONE YOU, onto My Profile). */
+  askAi?: { title: string; line: string; due: boolean };
+  /** Opens the Ask AI about you view over the Brain, as the orb did. */
+  onOpenAskAi?: () => void;
 }) {
   const [saved, setSaved] = useState<Profile | null>(null);
   const [draft, setDraft] = useState<Profile | null>(null);
@@ -313,6 +319,17 @@ export default function MyProfile({
         <TimeOffSection demo={demo} />
         <ToursSection demo={demo} />
         <GbpProfileCard demo={gbpDemo} onOpen={onOpenGbp} />
+        {askAi && onOpenAskAi ? (
+          <section className="pf-card" aria-label={askAi.title}>
+            <h2>{askAi.title}</h2>
+            <small className="pf-sub">{askAi.line}</small>
+            <div className="pf-btns">
+              <button type="button" className={`chip-btn${askAi.due ? " primary" : ""}`} onClick={onOpenAskAi}>
+                Open
+              </button>
+            </div>
+          </section>
+        ) : null}
       </div>
 
       {/* The same sections as Classic's My Profile (vip50-web-crm#253): Connections (reZEN first), Badges, Settings, Pulse. */}

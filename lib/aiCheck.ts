@@ -1,9 +1,8 @@
-import type { GraphEdge, GraphNode } from "./graph/types.ts";
-
 // "Ask AI about you" (PULSE-ROADMAP, Scout item 54, 12 Oct): once a month the agent checks whether AI answer engines
 // name them. ONE never automates ChatGPT or any assistant (against their terms): each button opens the engine with
 // the question already filled in, and the agent ticks "named" or "not named". Results stay in this browser for now.
 
+/** The old orb id: no orb now (lib/youGroups.ts drops any graph that still carries one). */
 export const ASK_AI_NODE = "go-ask-ai";
 export type Engine = "chatgpt" | "perplexity" | "google";
 export type Answer = "named" | "not_named";
@@ -69,24 +68,13 @@ export const WHAT_HELPS: string[] = [
   "The same name, brokerage and phone everywhere you are listed.",
 ];
 
-/** The orb under ONE YOU: no pulse; a gold dot until this month's check is done. */
-export function withAskAiNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] }>(g: G, r: Results | null): G {
-  const parent = g.nodes.find((n) => n.id === "go");
-  const nodes = g.nodes.filter((n) => n.id !== ASK_AI_NODE);
-  const edges = g.edges.filter((e) => e.target !== ASK_AI_NODE);
-  if (!parent || parent.locked || !r) return { ...g, nodes, edges };
-  const done = tally(r).asked > 0;
-  nodes.push({
-    id: ASK_AI_NODE,
-    type: "feature",
-    label: "Ask AI about you",
-    secondaryLabel: tallyLine(r),
-    parentId: "go",
-    product: "go",
-    importance: done ? 0.45 : 0.6,
-    status: done ? "healthy" : "opportunity",
-    summary: "Once a month: do ChatGPT, Perplexity and Google name you? Three questions, one tap each; you mark what they say.",
-  });
-  edges.push({ id: `go>${ASK_AI_NODE}`, source: "go", target: ASK_AI_NODE, relationshipType: "belongs_to", strength: 1 });
-  return { ...g, nodes, edges };
+/** Ask AI about you's card on My Profile (Parry, 19 Oct: off the ONE YOU map, onto My Profile). It opens the same
+ * Ask AI about you view the orb opened; `due` while this month's check is not done yet. No pulse. */
+export function askAiCard(r: Results | null): { title: string; line: string; due: boolean } {
+  const asked = r ? tally(r).asked : 0;
+  return {
+    title: "Ask AI about you",
+    line: `Once a month: do ChatGPT, Perplexity and Google name you? ${r ? tallyLine(r) : "Not checked yet this month"}.`,
+    due: asked === 0,
+  };
 }
