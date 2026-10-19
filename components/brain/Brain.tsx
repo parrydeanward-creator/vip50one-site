@@ -91,6 +91,7 @@ import { ASSUME_DEFAULT, START as INCOME_START, goalFacts, incomeKey, incomeMap,
 import GoalsPanel from "./GoalsPanel.tsx";
 import { REVIEW_NODE, demoRoster, goalsFromGraph, lateInWeek, review as buildReview, withReviewNode, type Review, type Thing } from "@/lib/review.ts";
 import { CHALLENGE_NODE, GOALS_NODE, SCORE_NODE, goalsThree, withoutRetired } from "@/lib/oneYou.ts";
+import { groupOneYou, isYouGroup } from "@/lib/youGroups.ts";
 import ScoreboardPanel from "./ScoreboardPanel.tsx";
 import ChallengePanel from "./ChallengePanel.tsx";
 import { challengeUrl, readChallenge, withChallengeNode, type LiveChallenge } from "@/lib/challenge.ts";
@@ -107,7 +108,7 @@ import AskAiView from "./AskAiView.tsx";
 import MorningPulse from "./MorningPulse.tsx";
 import { OFFER_KEY as MP_OFFER_KEY, buildMorningPulse, demoEvening, demoMorning, eveningUrl as mpEveningUrl, morningUrl as mpMorningUrl, orbFor as mpOrbFor, readEvening as readMpEvening, readMorning as readMpMorning, type Beat as MpBeat, type BeatTool as MpTool } from "@/lib/morningPulse.ts";
 import { readTeamSites, type TeamSite, readAgentTeamSites, siteOpenHref, type AgentTeamSite } from "@/lib/siteEdit.ts";
-import { ASK_AI_NODE, monthOf, readResults, resultKey, withAskAiNode, type Answer as AiAnswer, type Engine as AiEngine, type Results as AiResults } from "@/lib/aiCheck.ts";
+import { askAiCard, monthOf, readResults, resultKey, type Answer as AiAnswer, type Engine as AiEngine, type Results as AiResults } from "@/lib/aiCheck.ts";
 import { LIKELY_NODE, callBody as likelyCallBody, callUrl as likelyCallUrl, demoMoveLikely, emptyMoveLikely, moveLikelyUrl, notUsefulUrl, pastClientsUrl, readMoveLikely, readPastClientsAnswer, withMoveLikelyNode, withoutPerson, type MoveLikely, type PastClient, type Person as LikelyPerson, type RouteReason } from "@/lib/moveLikely.ts";
 import { OPP_LABEL, OPP_NODE, PEOPLE_MENU_PARTS, withOpportunities } from "@/lib/opportunities.ts";
 import { readRoute } from "@/lib/routeFirst.ts";
@@ -254,7 +255,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const likelyRef = useRef<MoveLikely | null>(null);
   // Likely to move's one honest reason and ONE MOVE's past clients 5+ years (lib/moveLikely.ts), for the rebuild.
   const likelyOptsRef = useRef<{ mlsMissing: boolean | null; pastClients: PastClient[] | null; routeReason: RouteReason | null }>({ mlsMissing: null, pastClients: null, routeReason: null });
-  const aiRef = useRef<AiResults | null>(null);
   const timeOffRef = useRef<TimeOffState | null>(null);
   const teamRef = useRef<Team | null>(null);
   // ONE MOVE's follow-ups route (lib/followUps.ts): Overdue, Today and Next 7 days, once it answers.
@@ -277,7 +277,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const hubNow = (): HubInput => ({ lead: isTeamLead(warRef.current, onbRef.current, teamSitesRef.current) || !!peopleRef.current?.people.length, team: teamRef.current, war: warRef.current, onb: onbRef.current, removed: onbRemovedRef.current, now: Date.now(), people: peopleRef.current, war30: war30Ref.current });
   const admin = agent.admin === true;
   // An arrival's orb is on the first map, so the server paints the asked-for place, never the whole map (lib/deepLinkNode.ts).
-  const [graph, setGraph] = useState(() => seedArrival(withTeamLeadsPage(withMoveCoach(withPlanNode(productTour || (!live && arrival?.kind === "page") ? withExampleMoveTools(withDemoTrackers(withTourPages(initialGraph))) : live ? initialGraph : withDemoTrackers(withTourPages(initialGraph, DEMO_PAGES)), null), admin), teamLeadsHint), arrival, { growth: agent.growth === true || pkg === "growth", exampleToday: live ? null : todayIn() }));
+  // ONE YOU in groups (lib/youGroups.ts; Parry, 19 Oct): every graph set here is grouped last, after its builders.
+  const [graph, setGraphRaw] = useState(() => groupOneYou(seedArrival(withTeamLeadsPage(withMoveCoach(withPlanNode(productTour || (!live && arrival?.kind === "page") ? withExampleMoveTools(withDemoTrackers(withTourPages(initialGraph))) : live ? initialGraph : withDemoTrackers(withTourPages(initialGraph, DEMO_PAGES)), null), admin), teamLeadsHint), arrival, { growth: agent.growth === true || pkg === "growth", exampleToday: live ? null : todayIn() })));
+  const setGraph = useCallback((u: BusinessGraph | ((g: BusinessGraph) => BusinessGraph)) => setGraphRaw((g) => groupOneYou(typeof u === "function" ? u(g) : u)), []);
   const lastPath = useRef<string[]>([]); // the focused node's ancestors, nearest last
   // Fresh numbers from the server replace the graph. Without
   // this, a refresh after logging a call changed nothing on screen.
@@ -287,7 +289,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const swapGraph = useCallback((fresh: BusinessGraph) => {
     followSumRef.current = summaryFollowOf(fresh, todayIn());
     // Opportunities last (lib/opportunities.ts; Parry, 17 Oct): its four parts move inside it, whatever built them.
-    const next = withOpportunities(withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage((withAskAiNode(withMoveCoach(withMoveLikelyNode(withLearnNodes(withPlanNodes(withEventsNodes(withOutreachNodes(withDealsNode(withLifeUpcomingNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), outreachRef.current), eventsRef.current), plansRef.current), learnRef.current), likelyRef.current, likelyOptsRef.current), admin), aiRef.current)), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn(), followSumRef.current), ntsRef.current), looksRef.current));
+    const next = groupOneYou(withOpportunities(withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage(((withMoveCoach(withMoveLikelyNode(withLearnNodes(withPlanNodes(withEventsNodes(withOutreachNodes(withDealsNode(withLifeUpcomingNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), outreachRef.current), eventsRef.current), plansRef.current), learnRef.current), likelyRef.current, likelyOptsRef.current), admin))), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn(), followSumRef.current), ntsRef.current), looksRef.current)));
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -999,10 +1001,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       setAskAi({});
     }
   }, [askMonth]);
-  useEffect(() => {
-    aiRef.current = askAi;
-    setGraph((g) => withAskAiNode(g, askAi));
-  }, [askAi]);
   const markAi = (q: string, e: AiEngine, a: AiAnswer | null) =>
     setAskAi((r) => {
       const next = { ...(r ?? {}) };
@@ -2435,7 +2433,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     if (id === LIFE_NODE) return setLifeOpen(true);
     if (id === DEALS_NODE) return setDealsOpen("list");
     if (id === LIKELY_NODE) return setLikelyOpen(true);
-    if (id === ASK_AI_NODE) return setAiOpen(true);
     // The Team orb's Leaderboard and War room come to the middle with their side panel (orbs hard rule); the full
     // screens open from the panel.
     if (id === REVIEW_CALLS_NODE) return setRcOpen(true);
@@ -2596,6 +2593,32 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // My Profile belongs to all of ONE, not ONE MOVE (walker 14 Oct, Parry approved): "ONE / My Profile".
   const crumbPath = focus.id === movePageId("/profile") && path.length > 2 ? [path[0], path[path.length - 1]] : path;
   const kids = childrenOf(ix, focus.id);
+  // ONE YOU's tools in one list, grouped as the map is (Parry, 19 Oct): Today, This week, Goals and Coaching, each group's
+  // tools under it, the same on a phone and on the desktop. A row opens its tool as tapping its orb does.
+  const youRow = (k: GraphNode) => (
+    <li key={k.id}>
+      <button onClick={() => openOrb(k.id)}>
+        <i style={{ background: hex(PRODUCT_COLOR[k.product]) }} />
+        <span>
+          <b>{k.label}</b>
+          {k.locked ? <small>{lockedLine(k)}</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
+        </span>
+        <RowMark n={k} need={needs.get(k.id)} />
+      </button>
+    </li>
+  );
+  const youTools =
+    focus.id === "go" ? (
+      <>
+        {kids.filter((k) => !isYouGroup(k.id)).length > 0 && <ul>{kids.filter((k) => !isYouGroup(k.id)).map(youRow)}</ul>}
+        {kids.filter((k) => isYouGroup(k.id)).map((grp) => (
+          <div key={grp.id} className="you-group">
+            <ul>{youRow(grp)}</ul>
+            <ul className="you-group-kids" aria-label={grp.label}>{childrenOf(ix, grp.id).map(youRow)}</ul>
+          </div>
+        ))}
+      </>
+    ) : null;
   const related = (ix.links.get(focus.id) ?? [])
     .map((e) => ix.byId.get(e.source === focus.id ? e.target : e.source))
     .filter((n): n is GraphNode => !!n);
@@ -3383,20 +3406,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           {focus.id === "go" && kids.length > 0 && !ask && (
             <div className="d-list phone-tools">
               <h2>Your ONE YOU tools</h2>
-              <ul>
-                {kids.map((k) => (
-                  <li key={k.id}>
-                    <button onClick={() => openOrb(k.id)}>
-                      <i style={{ background: hex(PRODUCT_COLOR[k.product]) }} />
-                      <span>
-                        <b>{k.label}</b>
-                        {k.locked ? <small>{lockedLine(k)}</small> : k.secondaryLabel && <small>{k.secondaryLabel}</small>}
-                      </span>
-                      <RowMark n={k} need={needs.get(k.id)} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              {youTools}
             </div>
           )}
           {focus.type === "core" && note ? (
@@ -3661,15 +3671,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               <span>
                 <b>Open the Team screen</b>
                 <span>The week's leaderboard. Show it full screen on the office TV.</span>
-              </span>
-            </button>
-          )}
-          {focus.id === ASK_AI_NODE && askAi && !tour && (
-            <button className="pi-film pm-open" onClick={() => setAiOpen(true)}>
-              <span className="pi-play" aria-hidden="true">?</span>
-              <span>
-                <b>Open Ask AI about you</b>
-                <span>Do ChatGPT, Perplexity and Google name you? Three questions, one tap each.</span>
               </span>
             </button>
           )}
@@ -4139,10 +4140,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           {kids.length > 0 && !isMoveGroup(focus.id) && !isFollowUpsOrb(focus.id) && !isLooksHotOrb(focus.id) && focus.id !== GOALS_NODE && focus.id !== SCORE_NODE && focus.id !== CHALLENGE_NODE && focus.id !== TEAM_HUB && focus.id !== ONB_NODE && (
             <div className={`d-list inside ${railCount > childrenOf(ix, focus.id).length - 1 && !moveQuiet ? "" : "keep"}${focus.id === "go" ? " go-inside" : ""}`}>
               <h2>{focus.type === "core" ? "Your products" : "Inside"}</h2>
+              {focus.id === "go" ? youTools : (
               <ul>
                 {kids.map((k) => (
                   <li key={k.id}>
-                    <button onClick={() => goTo(k.id)}>
+                    {/* inside a ONE YOU group a row opens its tool exactly as tapping the orb does */}
+                    <button onClick={() => (isYouGroup(focus.id) ? openOrb(k.id) : goTo(k.id))}>
                       <i style={{ background: hex(PRODUCT_COLOR[k.product]) }} />
                       <span>
                         <b>{k.label}</b>
@@ -4153,6 +4156,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   </li>
                 ))}
               </ul>
+              )}
             </div>
           )}
 
@@ -4240,6 +4244,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
+                  askAi={askAi ? askAiCard(askAi) : undefined}
+                  onOpenAskAi={() => setAiOpen(true)}
                 />
               ) : vipNative && nativeKind === "homereports" ? (
                 <HomeReports

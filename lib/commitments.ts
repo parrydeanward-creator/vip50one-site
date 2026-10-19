@@ -223,7 +223,8 @@ export function withWeekNode<G extends { nodes: GraphNode[]; edges: GraphEdge[] 
   nodes.push({
     id: WEEK_NODE,
     type: "feature",
-    label: "This week",
+    // inside ONE YOU's "This week" group (Parry, 19 Oct), so the tool itself is Commitments
+    label: "Commitments",
     secondaryLabel: dueWords(c.due) ?? (dailyLeft ? dailyWords(d!) : items.length ? `${on} of ${items.length} commitments on track` : "No commitments yet"),
     parentId: "go",
     product: "go",

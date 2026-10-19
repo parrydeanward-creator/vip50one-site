@@ -13,6 +13,9 @@ const ID = {
   goals: "go-goals", // lib/oneYou.ts GOALS_NODE
   team: "one-team", // lib/teamHub.ts TEAM_HUB
   growth: "growth", // lib/growthOrb.ts GROWTH_NODE
+  today: "you-today", // lib/youGroups.ts TODAY_GROUP
+  week: "you-week", // lib/youGroups.ts WEEK_GROUP
+  coaching: "you-coaching", // lib/youGroups.ts COACHING_GROUP
 } as const;
 
 /** What an address names. `page`: an in-Brain ONE MOVE page (opens full). `orb`: Brain orbs, best first. */
@@ -64,6 +67,10 @@ export function openTarget(name: string): Arrival | null {
   if (n === "getting-started") return { kind: "orb", ids: [ID.start], label: "Getting started", fallback: ["go"], missing: "Getting started is done." };
   if (n === ID.growth || n.startsWith(`${ID.growth}:`)) return { kind: "orb", ids: n === ID.growth ? [ID.growth] : [name.trim(), ID.growth], label: "ONE Growth", fallback: [], missing: notOn("ONE Growth") };
   if (n === "team") return { kind: "orb", ids: [ID.team], label: "Team", fallback: ["go"], missing: "Team is for team leads." };
+  // ONE YOU's groups (Parry, 19 Oct); Goals keeps landing on the Goals tool itself, inside its group
+  if (n === "today") return { kind: "orb", ids: [ID.today], label: "Today", fallback: ["go"], missing: notOn("Today") };
+  if (n === "this-week") return { kind: "orb", ids: [ID.week], label: "This week", fallback: ["go"], missing: notOn("This week") };
+  if (n === "coaching") return { kind: "orb", ids: [ID.coaching], label: "Coaching", fallback: ["go"], missing: "Coaching is for coaches." };
   if (n === "goals") return { kind: "orb", ids: [ID.goals], label: "Goals", fallback: ["go"], missing: notOn("Goals") };
   if (n === "google-profile") return page(GBP_ADDRESS);
   const p = PRODUCTS[n];
