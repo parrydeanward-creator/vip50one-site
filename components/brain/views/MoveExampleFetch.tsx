@@ -15,6 +15,8 @@ import "@/app/move2-views.css";
 let store: ExampleStore | null = null;
 let depth = 0;
 let original: typeof fetch | null = null;
+// A screen may bring its own example store (the Weekly Review's); then the calls are answered from it, not the shared one.
+let given: ExampleStore | null = null;
 
 function exampleFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -24,25 +26,27 @@ function exampleFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Res
     body = typeof init?.body === "string" ? JSON.parse(init.body) : null;
   } catch {}
   store ??= makeExampleStore(todayIn());
-  const a = exampleMoveAnswer(store, method, url, body);
+  const a = exampleMoveAnswer(given ?? store, method, url, body);
   if (!a) return (original ?? fetch)(input, init);
   // a beat, as a real answer would take, so a tick or a save is seen to happen
   return new Promise((res) => setTimeout(() => res(new Response(JSON.stringify(a.body), { status: a.status, headers: { "Content-Type": "application/json" } })), 120));
 }
 
-export default function MoveExampleFetch() {
+export default function MoveExampleFetch({ store: own }: { store?: ExampleStore | null } = {}) {
   useLayoutEffect(() => {
+    if (own) given = own;
     if (depth++ === 0) {
       original = window.fetch;
       window.fetch = exampleFetch as typeof fetch;
     }
     return () => {
+      if (own && given === own) given = null;
       if (--depth === 0 && original) {
         if (window.fetch === (exampleFetch as typeof fetch)) window.fetch = original;
         original = null;
       }
     };
-  }, []);
+  }, [own]);
   return (
     <p className="m2-exbar" role="note">
       <span className="pso-ex">Example</span>

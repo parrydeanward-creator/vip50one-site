@@ -89,6 +89,7 @@ import { POWER_NODE, lineUp, newSession, powerKey, readSession, withPowerNode, t
 import { goalsPlanUrl, goalsShown, readGoalsPlan, type GoalsPlan } from "@/lib/goalsPlan.ts";
 import { ASSUME_DEFAULT, START as INCOME_START, goalFacts, incomeKey, incomeMap, readAssume, type Assume, type GoalKey } from "@/lib/goals.ts";
 import GoalsPanel from "./GoalsPanel.tsx";
+import { exampleRoster, makeReviewDemoStore } from "@/lib/examples/move2.ts";
 import { REVIEW_NODE, demoRoster, goalsFromGraph, lateInWeek, review as buildReview, withReviewNode, type Review, type Thing } from "@/lib/review.ts";
 import { CHALLENGE_NODE, GOALS_NODE, SCORE_NODE, goalsThree, withoutRetired } from "@/lib/oneYou.ts";
 import { groupOneYou, isYouGroup } from "@/lib/youGroups.ts";
@@ -550,6 +551,26 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [habitsOpen, setHabitsOpen] = useState(false);
   const [roster, setRoster] = useState<VipRoster | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  // The example agent's Weekly Review: demoRoster's people as an example ONE MOVE store, so a name opens a contact and a
+  // tick on it changes the review (nothing leaves the browser).
+  const reviewDemoStore = useMemo(() => (live ? null : makeReviewDemoStore(todayIn(), demoRoster())), [live]);
+  // A contact opened from the Weekly Review was changed: the roster is read again, so "Not reached" and the counts follow;
+  // the live numbers (the ONE YOU pulse) are read again too.
+  const refreshRoster = useCallback(() => {
+    if (!live) {
+      const r = reviewDemoStore ? readRoster(exampleRoster(reviewDemoStore)) : null;
+      if (r) setRoster(r);
+      return;
+    }
+    fetch(vipsUrl, { credentials: "include", cache: "no-store" })
+      .then((x) => (x.ok ? x.json() : null))
+      .then((j) => {
+        const r = j ? readRoster(j) : null;
+        if (r) setRoster(r);
+      })
+      .catch(() => {});
+    void refreshLive();
+  }, [live, reviewDemoStore, refreshLive]);
   useEffect(() => {
     if (!live) {
       setWeekScore({ score: 82, minimum: 100 });
@@ -2148,6 +2169,17 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     setDayMap(false);
     setState((s) => nav.go(s, id));
   }, []);
+  const reviewAct = useCallback(
+    (d: { kind: "page"; path: string } | { kind: "view"; view: "goals" | "commitments" | "wins" }) => {
+      if (d.kind === "page") {
+        setReviewOpen(false);
+        goTo(movePageId(d.path));
+      } else if (d.view === "goals") setGoalsOpen(true);
+      else if (d.view === "commitments") setCmOpen(true);
+      else setWinsOpen(true);
+    },
+    [goTo],
+  );
   useEffect(() => {
     if (focus.id === state.focusId) return;
     const h = arrivalHold.current;
@@ -4373,7 +4405,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
         />
       )}
       {goTour && <SignalsFilm film={GO_TOUR_FILM} onClose={() => setGoTour(false)} onEnded={() => markFilm("b")} />}
-      {reviewOpen && theReview ? <ReviewView review={theReview} read={thePulseRead} week={weekScore} demo={!live} onClose={() => setReviewOpen(false)} onCommit={commitThing} /> : null}
+      {reviewOpen && theReview ? <ReviewView review={theReview} read={thePulseRead} week={weekScore} demo={!live} onClose={() => setReviewOpen(false)} onCommit={commitThing} onChanged={refreshRoster} onAction={reviewAct} demoStore={reviewDemoStore} /> : null}
       {goalsOpen ? (
         <GoalsView
           three={theGoals}

@@ -2641,6 +2641,12 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 .d-away .link { padding: 0; text-decoration: underline; }
 .gv-who { margin: 10px 0 4px; }
 .gv-person { padding: 0; font-size: inherit; text-decoration: underline; }
+.rv-name { text-decoration: underline; text-decoration-color: rgba(212, 175, 55, 0.5); text-underline-offset: 3px; font-weight: 600; }
+.rv-people .rv-name { padding: 0; font-size: inherit; color: var(--gold-2); }
+.rv-step { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.rv-act { margin: 10px 8px 0 0; }
+.cc-touch { margin: 12px 0; padding: 10px 12px; border: 1px solid rgba(212, 175, 55, 0.45); border-radius: 10px; display: grid; gap: 8px; }
+.cc-touch p { margin: 0; }
 .rv-commit { white-space: nowrap; color: var(--gold-2) !important; border-color: rgba(212, 175, 55, 0.45) !important; font-size: 12px; }
 .rv-made { color: var(--gold-2) !important; }
 .rv-made.bad { color: #ffb36b !important; }

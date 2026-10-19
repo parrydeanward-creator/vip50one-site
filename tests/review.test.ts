@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { REVIEW_NODE, demoRoster, goalsFromGraph, monthShare, review, withReviewNode } from "../lib/review.ts";
+import { REVIEW_NODE, demoRoster, goalsFromGraph, monthShare, nextThings, review, withReviewNode } from "../lib/review.ts";
 import { demoCommitments } from "../lib/commitments.ts";
 import { titleHue } from "../lib/schedule.ts";
 
@@ -187,4 +187,121 @@ test("the Weekly Review's Wins number reads ONE MOVE's week (`?week=this`) when 
   assert.equal(review({ today: "2026-10-15", week: null, roster: null, commitments: null, goals: [], weekWins: live }).cards.find((x) => x.key === "wins")?.big, "2");
   // Without it, the year's list still counts (the demo, or ONE MOVE not answering the week).
   assert.equal(review({ today: "2026-10-15", week: { score: 80, minimum: 100 }, roster: null, commitments: null, goals: [], wins: yearOnly }).cards.find((x) => x.key === "wins")?.big, "1");
+});
+
+// Parry, 19 Oct: "under not reached the user needs to be able to click the name and have it open that contact ... all checks
+// need to apply once done."
+test("Not reached rows carry the contact id, so the name opens that contact", () => {
+  const roster = demoRoster();
+  const u = review({ today, week: null, roster, commitments: null, goals: [] }).cards.find((c) => c.key === "untouched")!;
+  assert.equal(u.rows.length, 3);
+  for (const row of u.rows) {
+    const p = roster.vip50.find((x) => x.id === row.contact)!;
+    assert.ok(p, `row ${row.text} has a contact id from the roster`);
+    assert.equal(p.name, row.text);
+    assert.equal(row.name, p.name);
+  }
+});
+
+test("the next-step lines name their people with contact ids", () => {
+  const roster = demoRoster();
+  const r = review({ today, week: null, roster, commitments: null, goals: [] });
+  assert.equal(r.nextPeople.length, r.next.length);
+  assert.deepEqual(r.nextPeople[0].map((c) => c.name), ["Jen Alvarez", "Marcus Lee", "Amy Chen"]);
+  assert.ok(r.nextPeople[0].every((c) => roster.vip50.some((p) => p.id === c.id)));
+  // the weakest touch's sample of people is carried too
+  assert.ok(r.nextPeople[1].length > 0);
+  const things = nextThings(r, null);
+  assert.deepEqual(things[0].people, r.nextPeople[0]);
+});
+
+test("after a month box is ticked on the contact, the person leaves Not reached and the counts drop", () => {
+  const roster = demoRoster();
+  const at = (rs: typeof roster) => review({ today, week: null, roster: rs, commitments: null, goals: [] });
+  const before = at(roster);
+  const un = before.cards.find((c) => c.key === "untouched")!;
+  const t0 = before.cards.find((c) => c.key === "touches")!;
+  const jen = un.rows[0].contact!;
+  // ONE MOVE's roster, read again after the tick
+  const ticked = { ...roster, vip50: roster.vip50.map((p) => (p.id === jen ? { ...p, month: { ...(p.month ?? {}), call: true }, last_touch_on: today } : p)) };
+  const after = at(ticked);
+  const un2 = after.cards.find((c) => c.key === "untouched")!;
+  assert.equal(un2.big, "2");
+  assert.ok(!un2.rows.some((r) => r.contact === jen));
+  assert.match(after.next[0], /^Reach the 2 VIP-50/);
+  assert.ok(!after.nextPeople[0].some((c) => c.id === jen));
+  const t1 = after.cards.find((c) => c.key === "touches")!;
+  assert.equal(Number(t1.big), Number(t0.big) + 1);
+  // the Weekly Review orb's count follows
+  const g = { nodes: [{ id: "go", type: "product", label: "ONE YOU", locked: false } as unknown as import("../lib/graph/types.ts").GraphNode], edges: [] };
+  assert.ok(withReviewNode(g, after).nodes.some((n) => n.id === REVIEW_NODE));
+});
+
+test("the example agent: a tick on the example contact is answered by the store and the review drops the person", async () => {
+  const { makeReviewDemoStore, exampleMoveAnswer, exampleRoster } = await import("../lib/examples/move2.ts");
+  const { readRoster } = await import("../lib/vips.ts");
+  const { MOVE_URL } = await import("../lib/host.ts");
+  const store = makeReviewDemoStore(today, demoRoster());
+  const first = review({ today, week: null, roster: readRoster(exampleRoster(store)), commitments: null, goals: [] });
+  const jen = first.cards.find((c) => c.key === "untouched")!.rows[0];
+  assert.equal(first.cards.find((c) => c.key === "untouched")!.big, "3");
+  const card = exampleMoveAnswer(store, "GET", `${MOVE_URL}/api/brain/contact?id=${jen.contact}`, null)!;
+  assert.equal(card.status, 200);
+  assert.equal((card.body as { name: string }).name, jen.text);
+  const logged = exampleMoveAnswer(store, "POST", `${MOVE_URL}/api/brain/touch`, { contact_id: jen.contact, kind: "call" })!;
+  assert.deepEqual(logged.body, { ok: true });
+  const next = review({ today, week: null, roster: readRoster(exampleRoster(store)), commitments: null, goals: [] });
+  assert.equal(next.cards.find((c) => c.key === "untouched")!.big, "2");
+});
+
+// Parry, 19 Oct: "everything we do must have action available."
+test("every card has an action, never a number alone", () => {
+  const c = demoCommitments(today);
+  const r = review({
+    today,
+    week: { score: 50, minimum: 100 },
+    roster: demoRoster(),
+    commitments: c,
+    goals: [{ label: "GCI", line: "$1 of $9", behind: true }],
+    pulse: { sent: 2, summary: "s", handbacks: [{ id: "h", contactId: "00000000-0000-4000-8000-000000000003", contact: "Amy Chen", worker: "Concierge", about: "Wants a showing", excerpt: null, at: "", seen: false }], held: [], autopilot: [], touches: null } as never,
+    wins: [{ kind: "closing", title: "Closed", detail: null, date: today } as never],
+  });
+  assert.ok(r.cards.length >= 5);
+  for (const card of r.cards) {
+    assert.ok(card.action.label.length > 0, `${card.key} has an action label`);
+    assert.ok(card.action.do && card.action.do.kind, `${card.key} has something to do`);
+  }
+  const act = (k: string) => r.cards.find((x) => x.key === k)!.action;
+  assert.deepEqual(act("score").do, { kind: "page", path: "/daily" });
+  assert.deepEqual(act("goals").do, { kind: "view", view: "goals" });
+  assert.equal(act("commitments").do.kind, "view");
+  assert.deepEqual(act("untouched").do, { kind: "queue", list: "untouched", label: "Not reached" });
+  assert.equal(act("touches").do.kind, "queue");
+  assert.deepEqual(act("pulse").do, { kind: "contact", id: "00000000-0000-4000-8000-000000000003", name: "Amy Chen" });
+});
+
+test("a green week still gives every card an action", () => {
+  const full = { ...demoRoster() };
+  full.vip50 = full.vip50.map((p) => ({ ...p, month: { call: true, video_text: true, social: true, newsletter: true, mixer: true } }));
+  const r = review({ today, week: { score: 120, minimum: 100 }, roster: full, commitments: null, goals: [] });
+  for (const card of r.cards) assert.ok(card.action.label && card.action.do, card.key);
+  assert.deepEqual(r.cards.find((x) => x.key === "untouched")!.action.do, { kind: "page", path: "/contacts/vip" });
+  assert.deepEqual(r.cards.find((x) => x.key === "touches")!.action.do, { kind: "page", path: "/contacts/audit" });
+});
+
+test("every touch row lists the VIP-50 who still need it, oldest touch first, with ids", () => {
+  const roster = demoRoster();
+  const t = review({ today, week: null, roster, commitments: null, goals: [] }).cards.find((c) => c.key === "touches")!;
+  assert.deepEqual(t.rows.map((r) => r.touch), ["call", "video_text", "social", "newsletter", "mixer"]);
+  const mixer = t.rows.find((r) => r.touch === "mixer")!;
+  assert.equal(mixer.people!.length, 12); // nobody has had a mixer invite
+  const call = t.rows.find((r) => r.touch === "call")!;
+  assert.equal(call.people!.length, roster.vip50.filter((p) => !p.month?.call).length);
+  assert.ok(call.people!.every((c) => roster.vip50.some((p) => p.id === c.id && p.name === c.name)));
+  // after a call is logged for the first person, they leave that list only
+  const who = call.people![0].id;
+  const ticked = { ...roster, vip50: roster.vip50.map((p) => (p.id === who ? { ...p, month: { ...(p.month ?? {}), call: true } } : p)) };
+  const t2 = review({ today, week: null, roster: ticked, commitments: null, goals: [] }).cards.find((c) => c.key === "touches")!;
+  assert.ok(!t2.rows.find((r) => r.touch === "call")!.people!.some((c) => c.id === who));
+  assert.equal(t2.rows.find((r) => r.touch === "mixer")!.people!.length, 12);
 });
