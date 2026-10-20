@@ -91,3 +91,32 @@ test("answer layout: ONE in the centre, the answer around it, no overlaps", () =
       assert.ok(Math.hypot(p.x - q.x, p.y - q.y) >= p.r + q.r, `${p.id} overlaps ${q.id}`);
     }
 });
+
+// Parry, 20 Oct: "take me to the calendar" answered "I can't open the calendar from here. I'm read-only".
+test("navTargetOf: 'take me to X' opens the place called X; anything else is a question for Pulse", async () => {
+  const { navTargetOf } = await import("../lib/ask.ts");
+  const g = {
+    rootId: "one",
+    nodes: [
+      { id: "one", type: "root", label: "ONE", product: "go", importance: 1 },
+      { id: "move-g-events", type: "category", label: "Events", parentId: "move", product: "move", importance: 0.8 },
+      { id: "move-p-calendar", type: "feature", label: "Calendar", parentId: "move-g-events", product: "move", importance: 0.8 },
+      { id: "go-power", type: "feature", label: "Power Hour", parentId: "go", product: "go", importance: 1 },
+      { id: "go-review", type: "feature", label: "Weekly Review", parentId: "go", product: "go", importance: 1 },
+      { id: "p-jen", type: "person", label: "Jen Alvarez", parentId: "move", product: "move", importance: 0.5 },
+      { id: "locked", type: "feature", label: "Marquee", product: "marquee", importance: 1, locked: true },
+    ],
+    edges: [],
+  };
+  const gx = indexGraph(g as never);
+  assert.equal(navTargetOf("take me to the calendar", gx), "move-p-calendar");
+  assert.equal(navTargetOf("Hey Pulse, open my calendar please", gx), "move-p-calendar");
+  assert.equal(navTargetOf("go to Power Hour", gx), "go-power");
+  assert.equal(navTargetOf("show me the weekly review page", gx), "go-review");
+  assert.equal(navTargetOf("where is Events?", gx), "move-g-events");
+  assert.equal(navTargetOf("take me to Jen Alvarez", gx), "p-jen");
+  assert.equal(navTargetOf("open the power", gx), "go-power", "one place starts that way");
+  assert.equal(navTargetOf("take me to Marquee", gx), null, "a locked product is not opened");
+  assert.equal(navTargetOf("who should I call today?", gx), null);
+  assert.equal(navTargetOf("take me to the moon", gx), null);
+});

@@ -132,6 +132,31 @@ export function describeGraph(ix: GraphIndex): string {
   return lines.join("\n");
 }
 
+// ---- "take me to ..." ------------------------------------------------------
+// Parry, 20 Oct: asked "take me to the calendar", Pulse answered that it was read-only and couldn't open it, while the
+// Brain showed "Go to Calendar" right under it. Going somewhere on the map is the Brain's job, not Pulse's: when the
+// question asks to go to, open or show a place that has an orb or page of that name, the Brain opens it straight away.
+const NAV = /^\s*(?:hey\s+)?(?:pulse[,\s]+)?(?:please\s+|can you\s+|could you\s+)?(?:take me to|go to|open( up)?|show me|bring up|pull up|navigate to|where(?: is|'s))\s+(?:the\s+|my\s+)?(.+?)\s*(?:page|orb|screen|tool|tab)?\s*(?:please)?[?.!]*\s*$/i;
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/** The map id to open for a "take me to X" question, or null when it is not one or nothing on the map is called X. */
+export function navTargetOf(question: string, ix: GraphIndex): string | null {
+  const m = question.match(NAV);
+  if (!m) return null;
+  const want = norm(m[2]);
+  if (want.length < 3) return null;
+  const nodes = ix.graph.nodes.filter((n) => !n.locked && n.label && n.id !== ix.graph.rootId);
+  const rank = (n: GraphNode) => (n.type === "person" ? 1 : 0) - n.importance / 10;
+  const exact = nodes.filter((n) => norm(n.label) === want).sort((a, b) => rank(a) - rank(b));
+  if (exact.length) return exact[0].id;
+  // "the power hour tool", "my weekly review": a name that starts the same way, if exactly one place has it
+  const near = nodes.filter((n) => {
+    const l = norm(n.label);
+    return l.length >= 4 && (l.startsWith(want) || want.startsWith(l));
+  });
+  return near.length === 1 ? near[0].id : null;
+}
+
 // ---- rules fallback --------------------------------------------------------
 
 type Intent = "attention" | "call" | "neglect" | "tracking" | "search";

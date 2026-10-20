@@ -33,7 +33,7 @@ import { UPGRADE_URL } from "@/lib/products.ts";
 import type { BrainScene } from "./scene.ts";
 import Icon from "./Icon.tsx";
 import { iconFor, iconForText } from "@/lib/brain/icons.ts";
-import { LIVE_SUGGESTED, SUGGESTED, answerSet, factsFor, type AskAnswer } from "@/lib/ask.ts";
+import { LIVE_SUGGESTED, SUGGESTED, answerSet, factsFor, navTargetOf, type AskAnswer } from "@/lib/ask.ts";
 import { changesSince, firstVisitToday, groupChanges, morningTop, orbsToPing, sinceLabel, visitAnchor } from "@/lib/morning.ts";
 import type { ChangeNote, DatedNote } from "@/lib/graph/types.ts";
 import { DEMO_SIGNALS, applySignal, lightFrom, usable, type Signal } from "@/lib/signals.ts";
@@ -2333,6 +2333,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
         setClockOpen(true);
         return;
       }
+      // "Take me to the calendar": a place on the map opens straight away (lib/ask.ts navTargetOf)
+      const place = navTargetOf(question, ix);
+      if (place) {
+        setAskOpen(false);
+        setAsk(null);
+        goToNode(place);
+        return;
+      }
       setTour(null);
       setWhen(0);
       setAskText(question);
@@ -2355,7 +2363,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
         setAsking(false);
       }
     },
-    [asking, pkg],
+    [asking, pkg, ix, goToNode],
   );
   // Zoom about the middle of the clear band, then keep the orbs clear of the Pulse bar (ONE YOU stays clickable).
   const zoom = (f: number) => {
