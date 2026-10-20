@@ -8,7 +8,7 @@ import { toldBusy, type Answers, type Told } from "@/lib/overview.ts";
 import { addDays, slide } from "@/lib/assist.ts";
 import { floor5 } from "@/lib/dayView.ts";
 import { nextWorkingDay, readWeek, weekTemplateUrl, worksOn, type Week } from "@/lib/workDay.ts";
-import { buildDay, customItem, customKey, customsOn, DAY_OVER_WHY, dayPutBody, dayUrl, denverNow, readDay, toMin, tomorrowPlan, type Block, type Busy, type Custom, type DayPlan } from "@/lib/schedule.ts";
+import { withoutTaskCopies, buildDay, customItem, customKey, customsOn, DAY_OVER_WHY, dayPutBody, dayUrl, denverNow, readDay, toMin, tomorrowPlan, type Block, type Busy, type Custom, type DayPlan } from "@/lib/schedule.ts";
 
 // The day as Pulse plans it (VIP-SUMMARY §3o), shared by the Day Clock and the Brain's Next line and
 // chimes. ONE MOVE's day route first; until it answers, the Brain builds the day itself from what is
@@ -151,15 +151,20 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
     const hm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
     return { start: hm(s), end: hm(e) };
   }, [baseHours, told]);
+  // A calendar block that is one of today's own tasks is not "busy": Plan my day places that task itself. ONE MOVE's
+  // calendar "Touches" step copies each VIP touch onto the calendar (13 back to back from 9:00 on 20 Oct, over the
+  // Morning Brief); treated as busy, the clock showed them twice, unlabelled, and planned the same touches again
+  // (Parry, 20 Oct: "why are there multiple items stacked into the same time slot").
+  const taskTitles = useMemo(() => today.map((d) => d.what), [today]);
   const busy = useMemo(() => {
-    const cal = move ? move.busy : live ? [] : told?.items.length ? [] : DEMO_BUSY;
+    const cal = withoutTaskCopies(move ? move.busy : live ? [] : told?.items.length ? [] : DEMO_BUSY, taskTitles);
     if (!told?.items.length) return cal;
     // what this browser holds of the told day wins over ONE MOVE's saved copy of it (the same blocks), so
     // nothing shows twice; another device's told day still shows from ONE MOVE
     const fromMove = cal.filter((b) => b.source !== "fixed" && b.source !== "travel");
     const mine = toldBusy(told.items, told.answers, hours.start);
     return [...fromMove.filter((b) => !told.items.some((t) => t.start === b.start)), ...mine].sort((a, b) => toMin(a.start) - toMin(b.start));
-  }, [move, live, told, hours.start]);
+  }, [move, live, told, hours.start, taskTitles]);
   const isDone = useCallback((b: Block) => b.done || (b.refs.length > 0 && b.refs.every((r) => doneRefs.has(r))), [doneRefs]);
 
   const plan = useMemo<DayPlan>(() => {
