@@ -264,7 +264,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const followSumRef = useRef<SummaryFollow | null>(null);
   const warRef = useRef<WarRoom | null>(null);
   const rcRef = useRef(false);
-  // ONE YOU's Power Hour orb: today's calls lined up.
+  // ONE YOU's Power Hour orb: today's VIP touches lined up, then what is behind pace.
   const powerRef = useRef<{ calls: Call[]; session: PowerSession | null } | null>(null);
   const challengeRef = useRef<LiveChallenge | null>(null);
   // Getting started (GETTING-STARTED.md): the orb at the top of ONE YOU; reopened from the menu once folded.
@@ -1576,10 +1576,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     },
     [live, coached],
   );
-  // Power Hour: today's calls, most urgent first, then the VIP-50 with no call this month.
+  // Power Hour: today's VIP touches, most urgent first, then the VIP-50 touches behind pace for the month.
   const [powerOpen, setPowerOpen] = useState(false);
   const [growthOpen, setGrowthOpen] = useState<string | null>(null); // a Growth piece's full view, by its key
-  const callsKey = JSON.stringify(lineUp(graph.today ?? [], roster));
+  const callsKey = JSON.stringify(lineUp(graph.today ?? [], roster, todayIn()));
   const calls = useMemo(() => JSON.parse(callsKey) as Call[], [callsKey]);
   const [power, setPower] = useState<PowerSession | null>(null);
   useEffect(() => {
@@ -3675,7 +3675,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               <span className="pi-play" aria-hidden="true">☎</span>
               <span>
                 <b>Start a Power Hour</b>
-                <span>Your top calls lined up with Call Prep, a countdown, then what got done.</span>
+                <span>Today's VIP touches, then anything behind for the month: calls, video texts and social, with a countdown and what got done.</span>
               </span>
             </button>
           )}
@@ -4437,7 +4437,33 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       ) : null}
       {growthOpen ? <GrowthView start={growthOpen} keys={growthChildren(growthState).map((c) => c.key)} live={live} onClose={() => setGrowthOpen(null)} /> : null}
       {powerOpen ? (
-        <PowerHourView calls={calls} session={session} live={live} onSession={savePower} onTick={(ref, on) => tickDay(`day:${ref}`, on)} onClose={() => setPowerOpen(false)} />
+        <PowerHourView
+          calls={calls}
+          session={session}
+          live={live}
+          onSession={savePower}
+          onTick={(ref, on) => tickDay(`day:${ref}`, on)}
+          onClose={() => setPowerOpen(false)}
+          contactCard={(contactId, name) => (
+            <PersonPanel
+              key={contactId}
+              contactId={contactId}
+              title={name}
+              agentFirst={agent.firstName}
+              onLeadOutcome={leadOutcome}
+              onChanged={refreshLive}
+              openContacts={() => {
+                setPowerOpen(false);
+                goTo(movePageId("/contacts"));
+              }}
+              onOpenPage={(path, query) => {
+                setPowerOpen(false);
+                setPageQuery({ path, query });
+                goTo(movePageId(path));
+              }}
+            />
+          )}
+        />
       ) : null}
       {forecastOpen && shownGoals.forecast ? (
         <ForecastView

@@ -431,7 +431,7 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
           {!ahead && <TellPulse day={day} live={live} initial={tellText} onNote={setNote} />}
 
           <p className="d-sum">
-            Pulse plans round your appointments and drives: calls in a Power Hour when people pick up, texts and notes in one sitting each, never more than 85% of your free time.
+            Pulse plans round your appointments and drives: your VIP touches (calls, then texts and social) in a Power Hour when people pick up, notes in one sitting, never more than 85% of your free time.
           </p>
 
           {ahead ? null : approvedAt ? (
