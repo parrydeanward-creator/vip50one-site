@@ -94,10 +94,10 @@ export function lineUp(today: DayItem[], roster: VipRoster | null, date: string,
     .filter((x): x is { d: DayItem; kind: TouchKind } => !!x.kind)
     .sort((a, b) => rank(a.d) - rank(b.d) || TOUCH_ORDER[a.kind] - TOUCH_ORDER[b.kind]);
   for (const { d, kind } of due) {
-    const what = d.what.replace(SOCIAL_HEAD, "");
+    const what = d.what.replace(SOCIAL_HEAD, "").replace(/^\s*send\s+/i, "");
     // "Call Jen Alvarez. Her birthday is tomorrow." -> the name, and the reason in the item's own words
-    const [head, ...rest] = what.split(/\.\s+|\s+[—–-]\s+/);
-    const name = nameFromTitle(head) || head;
+    const [head, ...rest] = what.split(/\.\s+|,\s+|\s+[—–-]\s+/);
+    const name = (nameFromTitle(head) || head).replace(/\.+$/, "");
     const said = rest.join(". ").trim().replace(/\.$/, "");
     const who = d.contactId ?? name.toLowerCase();
     const key = `${who}:${kind}`;

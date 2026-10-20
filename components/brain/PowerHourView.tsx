@@ -107,7 +107,8 @@ export default function PowerHourView({
     setPick(c.id);
     if (!session.results[c.id]) onSession(bringUp(session, c.id));
     cam.reset();
-    setTimeout(() => document.getElementById(`ph-row-${c.id}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
+    // the drawer goes to their card (the call, its buttons and the contact), not to the list row
+    setTimeout(() => document.getElementById("ph-call")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   };
   const tap = (go: () => void) => ({
     onClick: go,
@@ -253,7 +254,7 @@ export default function PowerHourView({
           )}
 
           {sel && !finished && (
-            <div className="ph-call">
+            <div className="ph-call" id="ph-call">
               <h2>{`${TOUCH_WORD[sel.kind]}: ${sel.name}`}{!session.results[sel.id] && sel.id === nowCall?.id ? " (now)" : ""}</h2>
               <p className="d-sum">{sel.why}</p>
               {session.results[sel.id] ? (
@@ -308,12 +309,12 @@ export default function PowerHourView({
                 return (
                   <li key={c.id} id={`ph-row-${c.id}`} className={`${res ? "is-done" : ""}${sel?.id === c.id ? " picked" : ""}`}>
                     <i className="pm-dot" style={{ background: ringFor(c) }} aria-hidden="true" />
-                    <span className="pm-body ph-name" role="button" tabIndex={0} aria-label={`Open ${c.name}'s contact card`} {...tap(() => choose(c))}>
+                    <span className="pm-body ph-name" role="button" tabIndex={0} aria-label={`Open the contact card: ${c.name}`} {...tap(() => choose(c))}>
                       <b>{`${TOUCH_WORD[c.kind]}: ${c.name}`}</b>
                       <small>{res ? outcomeWord(c.kind, res) : c.why}</small>
                     </span>
                     <span className="pm-acts">
-                      <button onClick={() => choose(c)} aria-label={`Open ${c.name}'s contact card`}>→</button>
+                      <button onClick={() => choose(c)} aria-label={`Open the contact card: ${c.name}`}>→</button>
                     </span>
                   </li>
                 );

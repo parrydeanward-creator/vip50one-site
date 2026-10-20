@@ -350,3 +350,13 @@ test("3.1.9 tomorrow's plan: what moves to tomorrow, planned with the same rules
   const tight = tomorrowPlan([it("x", { kind: "other", title: "Write the CMA", minutes: 45 }), it("y", { kind: "other", title: "Update the listing", minutes: 30 })], { start: "08:00", end: "09:00" });
   assert.match(tight.later[0].why, /^Tomorrow is full/);
 });
+
+test("19 Oct: a short leftover joins the Power Hour before it, never a five-minute Power Hour of its own", () => {
+  const calls = Array.from({ length: 6 }, (_, k) => it(`c${k}`, { kind: "call", minutes: 10 }));
+  const g = batches([...calls, it("t1", { kind: "text", minutes: 5 })], [540, 660]).filter((x) => x.kind === "power_hour");
+  assert.equal(g.length, 1);
+  assert.equal(g[0].minutes, 65);
+  assert.equal(g[0].title, "Power Hour: 6 calls, 1 text or social touch");
+  const long = batches([...calls, it("t1", { kind: "text", minutes: 20 })], [540, 660]).filter((x) => x.kind === "power_hour");
+  assert.equal(long.length, 2, "a longer leftover still gets its own block");
+});

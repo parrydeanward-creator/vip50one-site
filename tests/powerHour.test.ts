@@ -123,3 +123,14 @@ test("lineUp: the name without the sentence, the reason in the item's own words,
   assert.equal(calls[0].why, "A special day: Her birthday is tomorrow");
   assert.equal(calls.filter((c) => c.kind === "call" && c.name === "Jen Alvarez").length, 1, "her call not again from the VIP-50");
 });
+
+test("lineUp: names read cleanly (no trailing full stop, no leading Send)", () => {
+  const c = lineUp([item(11, "Video text the Millers.", { kind: "text", urgency: "today" }), item(12, "Send 2 video texts to your VIP-50.", { kind: "text", urgency: "today", contactId: undefined })], null, DAY);
+  assert.deepEqual(c.map((x) => x.name), ["the Millers", "2 video texts to your VIP-50"]);
+});
+
+test("lineUp: a reason after a comma is the reason, not part of the name", () => {
+  const c = lineUp([item(13, "Call Kim Reyes, Saturday's open house visitor.", { urgency: "today" })], null, DAY);
+  assert.equal(c[0].name, "Kim Reyes");
+  assert.equal(c[0].why, "Due today: Saturday's open house visitor");
+});

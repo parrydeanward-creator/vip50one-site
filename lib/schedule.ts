@@ -49,6 +49,7 @@ export const FULL_WHY = "Today is full: this keeps the day doable.";
 export const DAY_OVER_WHY = "The day is over: this moves to tomorrow.";
 export const MAX_SHARE = 0.85; // never plan more than this share of the free time
 const POWER_MAX = 60;
+const POWER_TAIL = 15; // a leftover this short joins the Power Hour before it
 
 export const toMin = (t: string) => {
   const [h, m] = t.split(":").map(Number);
@@ -103,8 +104,9 @@ interface Group {
 /** Batch the work the way a top agent does it. */
 export function batches(items: PlanItem[], bestCalls: [number, number]): Group[] {
   const groups: Group[] = [];
-  const calls = items.filter(inPower).sort((a, b) => rank(a) - rank(b) || Number(!isCall(a)) - Number(!isCall(b)));
-  // Power Hours of up to 60 minutes, most urgent first, calls before texts
+  // Power Hours of up to 60 minutes: the calls, most urgent first, then the texts and social touches, most urgent
+  // first, so a single overdue text never ends up as a five-minute "Power Hour" of its own
+  const calls = items.filter(inPower).sort((a, b) => Number(!isCall(a)) - Number(!isCall(b)) || rank(a) - rank(b));
   let cur: PlanItem[] = [];
   const flush = () => {
     if (!cur.length) return;
@@ -124,6 +126,15 @@ export function batches(items: PlanItem[], bestCalls: [number, number]): Group[]
   for (const c of calls) {
     if (cur.reduce((t, p) => t + p.minutes, 0) + c.minutes > POWER_MAX) flush();
     cur.push(c);
+  }
+  // a short leftover (one text, a quick call) joins the hour before it rather than being a "Power Hour" of its own
+  const leftover = cur.reduce((t, p) => t + p.minutes, 0);
+  const prev = groups[groups.length - 1]; // only Power Hours are in the list so far
+  if (cur.length && prev?.kind === "power_hour" && leftover <= POWER_TAIL && prev.minutes + leftover <= POWER_MAX + POWER_TAIL) {
+    prev.items.push(...cur);
+    prev.minutes += leftover;
+    prev.title = powerTitle(prev.items);
+    cur = [];
   }
   flush();
   const take = (pred: (p: PlanItem) => boolean) => items.filter((p) => !inPower(p) && pred(p));
