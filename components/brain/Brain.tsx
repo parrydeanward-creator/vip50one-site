@@ -2707,8 +2707,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   }
   // No "Why?" or "Show me" (Parry, 6 Oct: "they really dont show you anything... the why button just
   // repeats what it says above").
-  if (!ask && !moveQuiet && focus.href && !focus.locked) orbActions.push({ label: `Open in ${productName(focus.product)} ↗`, href: productLink(focus.href) });
-  else if (!ask && !moveQuiet && productHref && focus.type !== "core" && !focus.locked && !isMoveGroup(focus.id)) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
+  // No "Open in ONE GO" either (Parry, 20 Oct: "remove the open in go button"): ONE GO is the phone app, and an orb
+  // with a person behind it opens their full card in the panel.
+  const goQuiet = focus.product === "go";
+  if (!ask && !moveQuiet && !goQuiet && focus.href && !focus.locked) orbActions.push({ label: `Open in ${productName(focus.product)} ↗`, href: productLink(focus.href) });
+  else if (!ask && !moveQuiet && !goQuiet && productHref && focus.type !== "core" && !focus.locked && !isMoveGroup(focus.id)) orbActions.push({ label: `Open ${productName(focus.product)} ↗`, href: productHref });
   if (!ask && focus.locked) orbActions.push(focus.id === GROWTH_NODE ? { label: GROWTH_JOIN_BUTTON.label, href: GROWTH_JOIN_BUTTON.action.kind === "join" ? GROWTH_JOIN_BUTTON.action.href : UPGRADE_URL } : { label: "Add with Complete", href: UPGRADE_URL });
   const again = !ask && !focus.locked ? hostAgainHref(focus.id) : undefined;
   if (again) orbActions.push({ label: "Host it again ↗", href: again });
