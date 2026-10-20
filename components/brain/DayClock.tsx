@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { blockNumbers, whoLine } from "@/lib/dayLabels.ts";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import { chimeOn, setChime, unlockChime } from "@/lib/chime.ts";
 import { blockHue, busyArcLabel, busyHue, clock12, dayUrl, hm, HUE, nextLine, readBlock, shortWords as short, toMin, toTime, type Block, type Busy, type Hue } from "@/lib/schedule.ts";
@@ -53,7 +54,7 @@ const fits = (label: string, a1: number, a2: number, r: number) => (a2 - a1) * r
 const BLOCK_SHORT: Partial<Record<Block["kind"], string>> = { power_hour: "Power Hour", texts: "Texts", notes: "Notes", approvals: "Approvals" };
 const REPEAT_WORD = { none: "today only", weekdays: "every weekday", daily: "every day" } as const;
 
-export default function DayClock({ day, live, tellText, tomorrow = [], onClose, onTick, onClassic, dated, vipsNoVideo, commitments }: { day: Day; live: boolean; tellText?: string; tomorrow?: TomorrowItem[]; onClose: () => void; onTick: (refs: string[], done: boolean) => void; onClassic: () => void; dated?: DatedNote[]; vipsNoVideo?: number; commitments?: Commitments | null }) {
+export default function DayClock({ day, live, tellText, tomorrow = [], onClose, onTick, onClassic, dated, vipsNoVideo, commitments, titles }: { day: Day; live: boolean; tellText?: string; tomorrow?: TomorrowItem[]; onClose: () => void; onTick: (refs: string[], done: boolean) => void; onClassic: () => void; dated?: DatedNote[]; vipsNoVideo?: number; commitments?: Commitments | null; /** The day's work by id, to say who each block is for (lib/dayLabels.ts). */ titles?: ReadonlyMap<string, string> }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -155,6 +156,9 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
   const doneN = blocks.filter((b) => b.done).length;
   const free = Math.max(0, plan.freeMin - plan.plannedMin);
   const picked = blocks.find((b) => b.id === pick);
+  // Labels (Parry, 20 Oct): every block has a name on its arc or a number that matches its row, and says who it is for.
+  const nums = blockNumbers(blocks);
+  const who = (b: Block) => (titles ? whoLine(b.refs, titles) : "");
   const hues = [...new Set<Hue>([...blocks.map((b) => blockHue(b.kind)), ...taken.map(busyHue)])];
   // Every orb (Parry, 6 Oct, hard rule): the block tapped comes to the middle and opens in the side panel.
   const choose = (b: (typeof blocks)[number]) => {
@@ -300,8 +304,13 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
                               <textPath href={`#${id}`} startOffset="50%" textAnchor="middle">{label}</textPath>
                             </text>
                           </>
+                        ) : b.done ? (
+                          <text className="dc-icon" x={m.x} y={m.y} dy="0.36em" textAnchor="middle">✓</text>
                         ) : (
-                          <text className="dc-icon" x={m.x} y={m.y} dy="0.36em" textAnchor="middle">{b.done ? "✓" : KIND_MARK[b.kind]}</text>
+                          <g className="dc-num" pointerEvents="none" aria-hidden="true">
+                            <circle cx={m.x} cy={m.y} r={15} />
+                            <text x={m.x} y={m.y} dy="0.36em" textAnchor="middle">{nums.get(b.id) ?? KIND_MARK[b.kind]}</text>
+                          </g>
                         )}
                       </g>
                     );
@@ -323,11 +332,23 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
             })()}
 
             <circle cx={C} cy={C} r={CORE} fill="url(#dc-core)" stroke="#ffd86a" strokeWidth={3} />
-            <text className="dc-core-big" x={C} y={C - 22} textAnchor="middle">{hm(plan.plannedMin)}</text>
-            <text className="dc-core-small" x={C} y={C + 10} textAnchor="middle">OF WORK</text>
-            <text className="dc-core-free" x={C} y={C + 44} textAnchor="middle">{`${hm(free)} free · ${doneN}/${blocks.length} done`}</text>
-            <text className="dc-core-now" x={C} y={C + 74} textAnchor="middle">{ahead ? "TOMORROW" : clock12(now)}</text>
-            <text className="dc-ring-tag" x={C} y={C + 106} textAnchor="middle">AM INSIDE · PM OUTSIDE</text>
+            {picked ? (
+              <foreignObject x={C - CORE * 0.78} y={C - CORE * 0.62} width={CORE * 1.56} height={CORE * 1.24} pointerEvents="none">
+                <div className="dc-core-pick">
+                  <b>{`${nums.get(picked.id) ?? ""}. ${picked.title}`}</b>
+                  <span>{range(picked.start, picked.end)}{picked.done ? " · done" : ""}</span>
+                  {who(picked) ? <small>{who(picked)}</small> : <small>{picked.why}</small>}
+                </div>
+              </foreignObject>
+            ) : (
+              <>
+                <text className="dc-core-big" x={C} y={C - 22} textAnchor="middle">{hm(plan.plannedMin)}</text>
+                <text className="dc-core-small" x={C} y={C + 10} textAnchor="middle">OF WORK</text>
+                <text className="dc-core-free" x={C} y={C + 44} textAnchor="middle">{`${hm(free)} free · ${doneN}/${blocks.length} done`}</text>
+                <text className="dc-core-now" x={C} y={C + 74} textAnchor="middle">{ahead ? "TOMORROW" : clock12(now)}</text>
+                <text className="dc-ring-tag" x={C} y={C + 106} textAnchor="middle">{blocks.length ? "TAP A BLOCK · AM INSIDE · PM OUTSIDE" : "AM INSIDE · PM OUTSIDE"}</text>
+              </>
+            )}
           </svg>
 
           {(picked || note) && (
@@ -387,6 +408,54 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
           </p>
           {line && <p className="pi-today pi-lvl-today dc-next">{line}</p>}
           {day.moved && !ahead && <p className="dc-moved" role="status">{day.moved}</p>}
+
+          <h2>{ahead ? "Tomorrow, in order" : "Today, in order"}</h2>
+          {hues.length > 1 && (
+            <ul className="dc-legend dc-key" aria-label="What the colours mean">
+              {hues.map((h) => (
+                <li key={h}>
+                  <i style={{ background: HUE[h].color }} aria-hidden="true" />
+                  {HUE[h].word}
+                </li>
+              ))}
+            </ul>
+          )}
+          {rows.length ? (
+            <ol className="pm-list pm-compact dc-list">
+              {rows.map((r, i) =>
+                r.busy ? (
+                  <li key={`b${i}`} className="dc-row-busy">
+                    <span className="pm-time">{clock12(r.busy.start)}</span>
+                    <i className="pm-dot" style={{ background: HUE[busyHue(r.busy)].color }} aria-hidden="true" />
+                    <span className="pm-body">
+                      <b>{r.busy.title ?? BUSY_WORD[r.busy.source]}</b>
+                      <small>
+                        {range(r.busy.start, r.busy.end)} · {r.busy.source === "travel" ? "Drive time Pulse added" : r.busy.source === "fixed" ? "You told Pulse" : `${BUSY_WORD[r.busy.source]} · Pulse keeps 10 minutes clear either side`}
+                      </small>
+                    </span>
+                  </li>
+                ) : r.block ? (
+                  <li key={r.block.id} id={`dc-row-${r.block.id}`} className={`${r.block.done ? "is-done" : ""}${pick === r.block.id ? " picked" : ""}`}>
+                    <span className="pm-time">{clock12(r.block.start)}</span>
+                    <i className="pm-dot dc-num-dot" style={{ background: HUE[blockHue(r.block.kind)].color }} aria-hidden="true">{nums.get(r.block.id)}</i>
+                    <span className="pm-body dc-row-tap" role="button" tabIndex={0} onClick={() => choose(r.block!)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(r.block!); } }}>
+                      <b>{r.block.title}</b>
+                      <small>{range(r.block.start, r.block.end)} · {who(r.block) || r.block.why}</small>
+                    </span>
+                    {!ahead && <span className="pm-acts">
+                      <button className={`pm-tick${r.block.done ? " on" : ""}`} aria-pressed={r.block.done} onClick={() => tick(r.block!)} aria-label={r.block.done ? `Done: ${r.block.title}. Tap to undo.` : `Mark done: ${r.block.title}`}>✓</button>
+                      {r.block.refs.some((x) => customIds.has(x)) && (
+                        <button onClick={() => day.removeBlock(r.block!.refs[0].replace(/^blk:/, ""))} aria-label={`Remove the block: ${r.block.title}`}>×</button>
+                      )}
+                    </span>}
+                  </li>
+                ) : null,
+              )}
+            </ol>
+          ) : (
+            <p className="pm-empty">{ahead ? "Nothing moves to tomorrow. Pulse plans tomorrow in the morning from what is due." : "Nothing to plan yet. A good day to call a VIP you haven't talked to in a while."}</p>
+          )}
+
 
           {cards.length > 0 && (
             <section className="as-cards" aria-label="Pulse, your assistant">
@@ -484,53 +553,6 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
             </div>
           )}
           </>)}
-
-          <h2>{ahead ? "Tomorrow's plan" : "The plan"}</h2>
-          {hues.length > 1 && (
-            <ul className="dc-legend" aria-label="What the colours mean">
-              {hues.map((h) => (
-                <li key={h}>
-                  <i style={{ background: HUE[h].color }} aria-hidden="true" />
-                  {HUE[h].word}
-                </li>
-              ))}
-            </ul>
-          )}
-          {rows.length ? (
-            <ol className="pm-list pm-compact dc-list">
-              {rows.map((r, i) =>
-                r.busy ? (
-                  <li key={`b${i}`} className="dc-row-busy">
-                    <span className="pm-time">{clock12(r.busy.start)}</span>
-                    <i className="pm-dot" style={{ background: HUE[busyHue(r.busy)].color }} aria-hidden="true" />
-                    <span className="pm-body">
-                      <b>{r.busy.title ?? BUSY_WORD[r.busy.source]}</b>
-                      <small>
-                        {range(r.busy.start, r.busy.end)} · {r.busy.source === "travel" ? "Drive time Pulse added" : r.busy.source === "fixed" ? "You told Pulse" : `${BUSY_WORD[r.busy.source]} · Pulse keeps 10 minutes clear either side`}
-                      </small>
-                    </span>
-                  </li>
-                ) : r.block ? (
-                  <li key={r.block.id} id={`dc-row-${r.block.id}`} className={`${r.block.done ? "is-done" : ""}${pick === r.block.id ? " picked" : ""}`}>
-                    <span className="pm-time">{clock12(r.block.start)}</span>
-                    <i className="pm-dot" style={{ background: HUE[blockHue(r.block.kind)].color }} aria-hidden="true" />
-                    <span className="pm-body">
-                      <b>{r.block.title}</b>
-                      <small>{range(r.block.start, r.block.end)} · {r.block.why}</small>
-                    </span>
-                    {!ahead && <span className="pm-acts">
-                      <button className={`pm-tick${r.block.done ? " on" : ""}`} aria-pressed={r.block.done} onClick={() => tick(r.block!)} aria-label={r.block.done ? `Done: ${r.block.title}. Tap to undo.` : `Mark done: ${r.block.title}`}>✓</button>
-                      {r.block.refs.some((x) => customIds.has(x)) && (
-                        <button onClick={() => day.removeBlock(r.block!.refs[0].replace(/^blk:/, ""))} aria-label={`Remove the block: ${r.block.title}`}>×</button>
-                      )}
-                    </span>}
-                  </li>
-                ) : null,
-              )}
-            </ol>
-          ) : (
-            <p className="pm-empty">{ahead ? "Nothing moves to tomorrow. Pulse plans tomorrow in the morning from what is due." : "Nothing to plan yet. A good day to call a VIP you haven't talked to in a while."}</p>
-          )}
 
           {/* the one "moves to tomorrow" list every screen counts (audit 3.1.2); tomorrow's view: what does not fit tomorrow */}
           {(ahead ? plan.later : tomorrow).length > 0 && (
