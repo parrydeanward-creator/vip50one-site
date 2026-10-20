@@ -1,6 +1,7 @@
 import type { GraphEdge, GraphNode } from "./graph/types.ts";
 import type { DailyDay } from "./daily.ts";
 import type { History } from "./pulseCoach.ts";
+import { MOVE_URL } from "./host.ts";
 
 // The Habits ring (Parry, 7 Oct: "love the habits ring"). The "you" boxes of the Daily Tracker (made bed,
 // affirmations, gratitude, exercise, macros, reading) as a ring that fills each morning. The boxes and their points
@@ -14,6 +15,8 @@ export interface HabitToday {
   key: string;
   label: string;
   done: boolean;
+  /** One of the agent's own habits (Parry, 19-20 Oct): no points, can be renamed and removed. */
+  own?: boolean;
   /** Days ticked this week so far (Monday on), from Pulse Coach's history; null when not known. */
   week: number | null;
 }
@@ -25,12 +28,18 @@ export function habitsToday(day: DailyDay | null, history: History | null, today
   const monday = mondayOf(today);
   const thisWeek = history?.weeks.find((w) => w.start === monday) ?? null;
   return sec.boxes.map((b) => {
+    if (isOwnHabit(b.key)) return { key: b.key, label: b.label, done: b.done, own: true, week: b.week ?? (b.done ? 1 : 0) };
     const counted = thisWeek && b.key in thisWeek.habits ? (thisWeek.habits as Record<string, number>)[b.key] : null;
     // history may not have caught today's tick yet: never show fewer days than today's box implies
     const week = counted == null ? null : Math.max(counted, b.done ? 1 : 0);
     return { key: b.key, label: b.label, done: b.done, week };
   });
 }
+
+/** The agent's own habits come from ONE MOVE keyed own_<id>, at most 4, 0 points (lib/own-habits.ts there). */
+export const isOwnHabit = (key: string) => /^own_[0-9a-f]{32}$/.test(key);
+export const OWN_HABITS_MAX = 4;
+export const habitsUrl = `${MOVE_URL}/api/brain/habits`;
 
 export const doneCount = (h: HabitToday[]) => h.filter((x) => x.done).length;
 

@@ -9,6 +9,8 @@ export interface DailyBox {
   label: string;
   points: number;
   done: boolean;
+  /** One of the agent's own habits (no points; ONE MOVE key own_<id>): days ticked this week. */
+  week?: number;
 }
 export interface DailySection {
   key: string;
@@ -40,7 +42,10 @@ export function readDaily(raw: unknown): DailyDay | null {
     const boxes = (s.boxes as unknown[])
       .filter((b): b is Record<string, unknown> => !!b && typeof b === "object")
       .filter((b) => typeof b.key === "string" && KEY.test(b.key) && typeof b.label === "string")
-      .map((b) => ({ key: b.key as string, label: b.label as string, points: typeof b.points === "number" && b.points >= 0 ? b.points : 1, done: b.done === true }));
+      .map((b) => ({
+        key: b.key as string, label: b.label as string, points: typeof b.points === "number" && b.points >= 0 ? b.points : 1, done: b.done === true,
+        ...(typeof b.week === "number" && b.week >= 0 ? { week: b.week } : {}),
+      }));
     if (boxes.length) sections.push({ key: s.key, label: s.label, boxes });
   }
   if (!sections.length) return null;

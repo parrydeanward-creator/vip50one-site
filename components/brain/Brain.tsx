@@ -122,7 +122,7 @@ import { DATES_STAT, demoUpcoming, readUpcoming, taskBody as lifeTaskBody, taskU
 import { readScoreboard, scoreboardUrl, type ScoreboardLive } from "@/lib/scoreboard.ts";
 import { demoWins, readWeekWins, readWins, total as winsTotal, weekWinsUrl, winsUrl, type WeekWinsLive, type Wins } from "@/lib/wins.ts";
 import { demoPartners, partnersActionUrl, partnersUrl, readPartners, unseenNudges, withAllSeen, type PartnersState } from "@/lib/partners.ts";
-import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, mondayOf, type HabitToday } from "@/lib/habits.ts";
+import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, mondayOf, habitsUrl, type HabitToday } from "@/lib/habits.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
 import { REFERRALS_NODE, applyThank, applyThanked, askUrl, demoReferrals, thankUrl, thankedUrl, readThanked, thankCount, withReferralCount, yearLine, type ThankKind, readReferrals, referralsUrl, withReferralsNode, type Referrals, demoNetwork, networkUrl, readNetwork, type NetworkCounts } from "@/lib/referrals.ts";
 import { COACH_NODE, coachedUrl, demoCoached, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
@@ -799,6 +799,25 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       }
     },
     [habitsDay, live],
+  );
+  // The agent's own habits (Parry, 20 Oct: "there is no way for the user to actually add a habit"): add, rename or
+  // remove through ONE MOVE, which answers today's Daily Tracker with them in it.
+  const ownHabit = useCallback(
+    async (edit: { add?: string; key?: string; name?: string; remove?: boolean }): Promise<string | null> => {
+      if (!live) return "Sign in to add habits of your own. This is the example agent.";
+      const body = edit.add != null ? { name: edit.add } : edit.remove ? { key: edit.key, remove: true } : { key: edit.key, name: edit.name };
+      try {
+        const r = await fetch(habitsUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        const j = await r.json().catch(() => null);
+        const next = r.ok ? readDaily(j) : null;
+        if (!next) return (j as { error?: string } | null)?.error || "That didn't save. Nothing was changed.";
+        setHabitsDay(next);
+        return null;
+      } catch {
+        return "That didn't save. Nothing was changed.";
+      }
+    },
+    [live],
   );
   const openHabits = useCallback(() => {
     setHabitsOpen(true);
@@ -4539,7 +4558,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
         />
       ) : null}
       {partnersOpen && partners ? <PartnersView state={partners} me={weekScore} today={todayIn()} demo={!live} onClose={() => setPartnersOpen(false)} onAct={partnerAct} /> : null}
-      {habitsOpen && theHabits.length ? <HabitsView habits={theHabits} demo={!live} onClose={() => setHabitsOpen(false)} onTick={tickHabit} /> : null}
+      {habitsOpen && theHabits.length ? <HabitsView habits={theHabits} demo={!live} onClose={() => setHabitsOpen(false)} onTick={tickHabit} onOwn={ownHabit} /> : null}
       {mqOpen ? <MarqueeView tool={mqOpen.tool} deck={mqOpen.deck} href={mqOpen.href} today={todayIn()} onClose={() => setMqOpen(null)} /> : null}
       {refsOpen && refs ? <ReferralsView network={network} onNetwork={() => { setRefsOpen(false); goTo(movePageId("/referral-network")); }} data={refs} today={todayIn()} demo={!live} onClose={() => setRefsOpen(false)} onAsk={askReferral} onThank={thankReferral} onThanked={thankedReferral} onPerson={openReferralPerson} /> : null}
       {agentRead ? <PulseCoachView read={agentRead.read} who={agentRead.who} demo={!live} onClose={() => setAgentRead(null)} /> : null}

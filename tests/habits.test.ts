@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
-import { HABITS_NODE, demoHabitsDay, doneCount, habitsLine, habitsToday, mondayOf, withHabitsNode } from "../lib/habits.ts";
+import { HABITS_NODE, demoHabitsDay, doneCount, habitsLine, habitsToday, isOwnHabit, mondayOf, withHabitsNode } from "../lib/habits.ts";
 import { demoHistory } from "../lib/pulseCoach.ts";
-import { withTick } from "../lib/daily.ts";
+import { readDaily, withTick } from "../lib/daily.ts";
 
 const today = "2026-10-08"; // a Thursday
 
@@ -44,4 +44,20 @@ test("habitsLine and the orb: yellow until every habit is ticked, then green", (
   assert.equal(withHabitsNode(base, ha).nodes.find((n) => n.id === HABITS_NODE)!.status, "healthy");
   assert.equal(withHabitsNode(base, []).nodes.length, 1);
   assert.equal(withHabitsNode({ ...base, nodes: [{ ...base.nodes[0], locked: true }] }, h).nodes.length, 1);
+});
+
+test("the agent's own habits come after the six, no points, with their week days", () => {
+  const key = "own_387668ce86eb489abe5cd4908a37a22e";
+  const day = readDaily({
+    date: "2026-10-20", score: 0, max: 100, week: null,
+    sections: [{ key: "habits", label: "Daily Habits", boxes: [
+      { key: "made_bed", label: "Made bed", points: 1, done: false },
+      { key, label: "Drink water", points: 0, done: true, week: 3 },
+    ] }],
+  });
+  const h = habitsToday(day, null, "2026-10-20");
+  assert.equal(h.length, 2);
+  assert.deepEqual(h[1], { key, label: "Drink water", done: true, own: true, week: 3 });
+  assert.equal(isOwnHabit(key), true);
+  assert.equal(isOwnHabit("made_bed"), false);
 });
