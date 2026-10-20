@@ -1894,6 +1894,7 @@ a.link { display: block; text-decoration: none; }
 .ph-start .pm-send { flex-basis: 100%; margin-top: 6px; }
 .ph-call { margin: 16px 0 4px; padding: 14px; border: 1px solid rgba(245, 197, 66, 0.35); border-radius: 12px; }
 .ph-call h2 { margin-top: 0; }
+.ph-contact { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(245, 197, 66, 0.2); }
 .ph-outcomes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 
 /* Day Clock: blocks that moved, and Pulse as a personal assistant (§3o.6, §3o.13) */

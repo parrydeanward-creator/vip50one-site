@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import PulseRing, { PULSE_COLOR } from "./PulseRing.tsx";
 import CallPrepCard from "./CallPrepCard.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
@@ -35,6 +35,7 @@ export default function PowerHourView({
   onSession,
   onTick,
   onClose,
+  contactCard,
 }: {
   calls: Call[];
   session: Session;
@@ -42,6 +43,8 @@ export default function PowerHourView({
   onSession: (s: Session) => void;
   onTick: (ref: string, done: boolean) => void;
   onClose: () => void;
+  /** The person's full contact card (the Brain's PersonPanel), shown under the call when a name is picked. */
+  contactCard?: (contactId: string, name: string) => ReactNode;
 }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -89,6 +92,9 @@ export default function PowerHourView({
   };
   const seats = others.map((c, k) => ({ c, ...seatAt(k) }));
 
+  // Tap a name, its orb or its arrow: that person comes to the middle and their full contact card opens in the
+  // side panel (Parry, 19 Oct: "when you click a name it should open that contact in the right column with full
+  // info"). Tapping the open one again closes it.
   const choose = (c: Call) => {
     if (sel?.id === c.id && pick) {
       setPick(null);
@@ -264,6 +270,13 @@ export default function PowerHourView({
                   </div>
                 </>
               )}
+              {pick === sel.id ? (
+                sel.contactId && live && contactCard ? (
+                  <div className="ph-contact">{contactCard(sel.contactId, sel.name)}</div>
+                ) : (
+                  <p className="pm-empty">{live ? `${sel.name} isn't linked to a contact yet, so there is no card to open.` : `Example agent: ${sel.name}'s full contact card opens here.`}</p>
+                )
+              ) : null}
             </div>
           )}
 

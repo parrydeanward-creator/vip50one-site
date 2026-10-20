@@ -4437,7 +4437,33 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       ) : null}
       {growthOpen ? <GrowthView start={growthOpen} keys={growthChildren(growthState).map((c) => c.key)} live={live} onClose={() => setGrowthOpen(null)} /> : null}
       {powerOpen ? (
-        <PowerHourView calls={calls} session={session} live={live} onSession={savePower} onTick={(ref, on) => tickDay(`day:${ref}`, on)} onClose={() => setPowerOpen(false)} />
+        <PowerHourView
+          calls={calls}
+          session={session}
+          live={live}
+          onSession={savePower}
+          onTick={(ref, on) => tickDay(`day:${ref}`, on)}
+          onClose={() => setPowerOpen(false)}
+          contactCard={(contactId, name) => (
+            <PersonPanel
+              key={contactId}
+              contactId={contactId}
+              title={name}
+              agentFirst={agent.firstName}
+              onLeadOutcome={leadOutcome}
+              onChanged={refreshLive}
+              openContacts={() => {
+                setPowerOpen(false);
+                goTo(movePageId("/contacts"));
+              }}
+              onOpenPage={(path, query) => {
+                setPowerOpen(false);
+                setPageQuery({ path, query });
+                goTo(movePageId(path));
+              }}
+            />
+          )}
+        />
       ) : null}
       {forecastOpen && shownGoals.forecast ? (
         <ForecastView
