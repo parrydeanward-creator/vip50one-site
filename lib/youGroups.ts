@@ -1,6 +1,6 @@
 import type { GraphEdge, GraphNode } from "./graph/types.ts";
 import { needsOf } from "./needs.ts";
-import { PLAN_NODE } from "./plan.ts";
+import { CALENDAR_NODE, PLAN_NODE } from "./plan.ts";
 import { POWER_NODE } from "./powerHour.ts";
 import { HABITS_NODE } from "./habits.ts";
 import { WEEK_NODE } from "./commitments.ts";
@@ -45,9 +45,9 @@ export const YOU_GROUPS: readonly YouGroup[] = [
     key: "today",
     id: TODAY_GROUP,
     label: "Today",
-    kids: [PLAN_NODE, POWER_NODE, "go-today", HABITS_NODE, ...HWC_IDS],
+    kids: [PLAN_NODE, CALENDAR_NODE, POWER_NODE, "go-today", HABITS_NODE, ...HWC_IDS],
     importance: 1.1,
-    summary: "Your day: Plan my day, Power Hour, today's VIP touches, your habits and Hot/Warm/Cold.",
+    summary: "Your day: Plan my day, your Calendar, Power Hour, today's VIP touches, your habits and Hot/Warm/Cold.",
   },
   {
     key: "week",

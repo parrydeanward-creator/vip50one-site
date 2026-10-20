@@ -4,7 +4,7 @@ import { COACHING_GROUP, GOALS_GROUP, HWC_IDS, TODAY_GROUP, WEEK_GROUP, YOU_GROU
 import { demoGraph, oneYouView } from "../lib/graph/demo.ts";
 import { pathTo, indexGraph } from "../lib/graph/model.ts";
 import { needsOf } from "../lib/needs.ts";
-import { PLAN_NODE, withPlanNode } from "../lib/plan.ts";
+import { CALENDAR_NODE, PLAN_NODE, withPlanNode } from "../lib/plan.ts";
 import { POWER_NODE, lineUp, withPowerNode } from "../lib/powerHour.ts";
 import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode } from "../lib/habits.ts";
 import { WEEK_NODE, demoCommitments, withWeekNode } from "../lib/commitments.ts";
@@ -49,7 +49,8 @@ const kidsOf = (g: BusinessGraph, id: string) => g.nodes.filter((n) => n.parentI
 test("ONE YOU shows Today, This week and Goals, plus Coaching for a coach", () => {
   const g = groupOneYou(built());
   assert.deepEqual(kidsOf(g, "go").sort(), [COACHING_GROUP, GOALS_GROUP, TODAY_GROUP, WEEK_GROUP].sort());
-  assert.deepEqual(new Set(kidsOf(g, TODAY_GROUP)), new Set([PLAN_NODE, POWER_NODE, "go-today", HABITS_NODE, "move-9"]));
+  // 20 Oct: the Calendar sits in Today beside Plan my day (Parry: "a better, more accessible way to reach the calendar")
+  assert.deepEqual(new Set(kidsOf(g, TODAY_GROUP)), new Set([PLAN_NODE, CALENDAR_NODE, POWER_NODE, "go-today", HABITS_NODE, "move-9"]));
   assert.deepEqual(new Set(kidsOf(g, WEEK_GROUP)), new Set([WEEK_NODE, REVIEW_NODE, SCORE_NODE]));
   assert.deepEqual(new Set(kidsOf(g, GOALS_GROUP)), new Set([GOALS_NODE, REFERRALS_NODE, CHALLENGE_NODE]));
   assert.deepEqual(new Set(kidsOf(g, COACHING_GROUP)), new Set([COACH_NODE, REVIEW_CALLS_NODE]));

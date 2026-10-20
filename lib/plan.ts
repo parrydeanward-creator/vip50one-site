@@ -265,6 +265,9 @@ export function orbMark(p: PlanItem): string {
 // ---- the plan on the map (Parry, 6 Oct: "why is the go orb not changing") ----
 
 export const PLAN_NODE = "go-plan";
+/** The Calendar on ONE YOU, beside Plan my day (Parry, 20 Oct: "There needs to be a better, more accessible way to reach
+ * the calendar ... It's one of the major tools in our system"). Tapping it opens ONE MOVE's Calendar in the Brain. */
+export const CALENDAR_NODE = "go-calendar";
 
 // One plan state for every screen (Parry, 16 Oct, Plan my day audit 3.1.3: the ONE YOU card said "Pulse planned today
 // round your calendar ... tap Looks good" while the orb said "Not planned yet"). Approved: the agent tapped Looks good (or
@@ -316,5 +319,18 @@ export function withPlanNode<G extends { nodes: import("./graph/types.ts").Graph
           : { ...base, label: "Plan my day", secondaryLabel: "Not planned yet", status: "attention", summary: "Put today in your order and send it to ONE GO on your phone." },
   );
   edges.push({ id: `go>${PLAN_NODE}`, source: "go", target: PLAN_NODE, relationshipType: "belongs_to", strength: 1 });
+  if (!nodes.some((n) => n.id === CALENDAR_NODE)) {
+    nodes.push({
+      id: CALENDAR_NODE,
+      type: "feature",
+      parentId: "go",
+      product: "go",
+      importance: 1.04,
+      label: "Calendar",
+      secondaryLabel: "Your week, every appointment",
+      summary: "Your calendar: appointments, events and your day's plan. Tap to open it.",
+    });
+    edges.push({ id: `go>${CALENDAR_NODE}`, source: "go", target: CALENDAR_NODE, relationshipType: "belongs_to", strength: 1 });
+  }
   return { ...g, nodes, edges };
 }

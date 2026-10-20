@@ -169,3 +169,18 @@ test("follow the pulse: a lit part lights its group, even when the part holds ch
   assert.equal(need?.count, 1);
   assert.equal(need?.level, "today");
 });
+
+// Parry, 20 Oct: every calendar item said "All day"; ONE MOVE sends full timestamps, and only "09:30" was read.
+test("readEvents: the clock time from ONE MOVE's timestamps, not All day", async () => {
+  const { readEvents } = await import("../lib/outreach.ts");
+  const e = readEvents({
+    calendar_next7: [
+      { id: "a", title: "Morning Brief", date: "2026-10-23", start_time: "2026-10-23T09:00:00+00:00", end_time: "2026-10-23T09:30:00+00:00" },
+      { id: "b", title: "Q&A", date: "2026-10-23", start_time: "2026-10-23 10:00:00+00", end_time: null },
+      { id: "c", title: "Old style", date: "2026-10-23", start_time: "09:30", end_time: "10:00" },
+      { id: "d", title: "Birthday", date: "2026-10-24", start_time: null, end_time: null },
+    ],
+    vip_event: {}, mixer: {},
+  })!;
+  assert.deepEqual(e.calendar.map((x) => [x.title, x.start, x.end]), [["Morning Brief", "09:00", "09:30"], ["Old style", "09:30", "10:00"], ["Q&A", "10:00", null], ["Birthday", null, null]]);
+});
