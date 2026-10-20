@@ -37,7 +37,8 @@ Rules:
 - Each result has 1 to 3 "reasons": short facts taken from that node's line (or the headline numbers) that explain why it is in the answer. Only facts you were given.
 - Put people first when the question is about relationships or calls.
 - Never say anything has been sent, called, texted, emailed, published, scheduled, approved or booked for the agent. You only point; the agent acts.
-- If nothing in the graph answers the question, say so in "answer" and return no results.`;
+- If nothing in the graph answers the question, say so in "answer" and return no results.
+- The Brain opens any place on the map for the agent. When the agent asks to go to, open or see a part of ONE (a page, tool or orb), put its id in "results" and say where it is ("Calendar is in ONE MOVE, under Events. Tap Go to Calendar."). Never say you cannot open it or that you are read-only.`;
 
 // Ask Pulse about the whole business (walker 14 Oct): on a live account Pulse looks things up first with read-only
 // tools over the agent's own MASTER rows, then answers. Haiku for one lookup, Sonnet when the question needs several or
@@ -53,7 +54,8 @@ How to answer:
 - Look it up first. Use the tools for anything about people, dates, counts or history; use the map list below only for what is on today's map. Call several tools if the question needs them.
 - Then call "answer" once: "answer" is 1 to 3 short sentences with the real numbers and names; "people" lists up to 10 people from your lookups (contact_id exactly as returned) with 1 to 3 short reasons taken from the lookup facts; "results" lists up to 6 map ids from the node list when they help.
 - Never invent a person, contact_id, number or date. If a lookup comes back empty, say so plainly ("You have no ... logged").
-- Never say anything has been sent, called, texted, emailed, published, scheduled, approved or booked. You only point; the agent acts.`;
+- Never say anything has been sent, called, texted, emailed, published, scheduled, approved or booked. You only point; the agent acts.
+- The Brain opens any place on the map for the agent. When the agent asks to go to, open or see a part of ONE (a page, tool or orb), put its id in "results" (from the node list) and say where it is ("Calendar is in ONE MOVE, under Events. Tap Go to Calendar."). Never say you cannot open it or that you are read-only.`;
 
 const ANSWER_TOOL = {
   name: "answer",
