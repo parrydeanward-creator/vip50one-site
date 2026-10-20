@@ -38,7 +38,7 @@ test("pulseRead on the example agent: the slipping face-to-faces lead, with one 
 });
 
 test("pulseRead: a best week is named, and nothing slipping means no focus beyond the score", () => {
-  const flat = (start: string, score: number) => ({ start, score, minimum: 100, counts: { call: 20, video_text: 8, text: 5, social: 5, handwritten_note: 2, face_to_face: 3, drop_by: 1, newsletter: 1, mixer: 1 }, habits: { made_bed: 6, affirmations: 6, gratitudes: 6, exercise: 5, positive_reading: 4 }, hwc: { hot: 4, warm: 4, cold: 4 } });
+  const flat = (start: string, score: number) => ({ start, score, minimum: 100, counts: { call: 20, video_text: 8, text: 5, social: 5, handwritten_note: 2, face_to_face: 3, drop_by: 1, newsletter: 1, mixer: 1 }, habits: { made_bed: 6, affirmations: 6, gratitudes: 6, exercise: 5, tracked_macros: 5, positive_reading: 4 }, hwc: { hot: 4, warm: 4, cold: 4 } });
   const h: History = { weeks: [flat("2026-08-31", 120), flat("2026-09-07", 101), flat("2026-09-14", 104), flat("2026-09-21", 103), flat("2026-09-28", 125)], weekdays: [] };
   const r = pulseRead(h, null, today)!;
   assert.equal(r.headline, "Best week in 5 weeks");
