@@ -4556,6 +4556,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           vipsNoVideo={roster ? roster.vip50.filter((p) => !p.month?.video_text).length : undefined}
           commitments={commitments}
           titles={dayTitles}
+          onOpenCalendar={(d) => {
+            setClockOpen(false);
+            setPageQuery({ path: "/calendar", query: `date=${d}` });
+            openCalendar();
+          }}
           onClose={() => {
             setClockOpen(false);
             setTellText(undefined);
