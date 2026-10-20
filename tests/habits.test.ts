@@ -20,11 +20,11 @@ test("habitsToday: the Daily Tracker's habits section, with this week's days whe
   assert.equal(doneCount(h0), 3);
   assert.ok(h0.every((x) => x.week == null));
   const hist = demoHistory(today);
-  hist.weeks.push({ ...hist.weeks[hist.weeks.length - 1], start: "2026-10-05", habits: { made_bed: 3, affirmations: 0, gratitudes: 2, exercise: 1, positive_reading: 0 } });
+  hist.weeks.push({ ...hist.weeks[hist.weeks.length - 1], start: "2026-10-05", habits: { made_bed: 3, affirmations: 0, gratitudes: 2, exercise: 1, tracked_macros: 2, positive_reading: 0 } });
   const h = habitsToday(day, hist, today);
   assert.equal(h.find((x) => x.key === "made_bed")!.week, 3);
   assert.equal(h.find((x) => x.key === "affirmations")!.week, 1); // ticked today, history not caught up: at least 1
-  assert.equal(h.find((x) => x.key === "tracked_macros")!.week, null); // not in the history
+  assert.equal(h.find((x) => x.key === "tracked_macros")!.week, 2); // the sixth habit counts too (was left out of the history)
   assert.deepEqual(habitsToday(null, hist, today), []);
   assert.deepEqual(habitsToday({ ...day, sections: [{ key: "calls", label: "Calls", boxes: [] }] }, null, today), []);
 });

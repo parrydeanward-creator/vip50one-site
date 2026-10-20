@@ -12,7 +12,7 @@ export const nextCommitKey = "one.cm.next"; // the focus the agent chose, first 
 
 export const TOUCHES = ["call", "video_text", "text", "social", "handwritten_note", "face_to_face", "drop_by", "newsletter", "mixer"] as const;
 export type Touch = (typeof TOUCHES)[number];
-export const HABITS = ["made_bed", "affirmations", "gratitudes", "exercise", "positive_reading"] as const;
+export const HABITS = ["made_bed", "affirmations", "gratitudes", "exercise", "tracked_macros", "positive_reading"] as const;
 export type Habit = (typeof HABITS)[number];
 
 export interface Week {
@@ -39,7 +39,7 @@ const TOUCH_WORD: Record<Touch, [string, string]> = {
   newsletter: ["newsletter", "newsletters"],
   mixer: ["mixer invite", "mixer invites"],
 };
-const HABIT_WORD: Record<Habit, string> = { made_bed: "Made bed", affirmations: "Affirmations", gratitudes: "Gratitude", exercise: "Exercise", positive_reading: "Reading" };
+const HABIT_WORD: Record<Habit, string> = { made_bed: "Made bed", affirmations: "Affirmations", gratitudes: "Gratitude", exercise: "Exercise", tracked_macros: "Macros", positive_reading: "Reading" };
 const WORDS: Record<number, string> = { 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven" };
 const DAY = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 // The touches a commitment can count (§3n): the focus becomes one of these.
@@ -239,7 +239,7 @@ export function demoHistory(today: string, seed = 0): History {
     score: n([96, 104, 110, 98, 112, 105, 118, 92][i]),
     minimum: 100,
     counts: { call: n([18, 20, 22, 19, 24, 21, 25, 17][i]), video_text: [8, 9, 7, 10, 9, 11, 12, 9][i], text: 6, social: [5, 4, 6, 5, 6, 5, 7, 4][i], handwritten_note: [2, 3, 2, 2, 3, 1, 2, 1][i], face_to_face: f2f[i], drop_by: [1, 1, 2, 1, 1, 0, 1, 0][i], newsletter: 1, mixer: i % 2 },
-    habits: { made_bed: 6, affirmations: 4, gratitudes: 5, exercise: [4, 3, 4, 3, 2, 3, 2, 2][i], positive_reading: [3, 2, 3, 2, 2, 1, 2, 1][i] },
+    habits: { made_bed: 6, affirmations: 4, gratitudes: 5, exercise: [4, 3, 4, 3, 2, 3, 2, 2][i], tracked_macros: [3, 3, 2, 3, 2, 2, 1, 2][i], positive_reading: [3, 2, 3, 2, 2, 1, 2, 1][i] },
     hwc: { hot: 4, warm: 3, cold: 2 },
   }));
   return { weeks, weekdays: [{ dow: 1, avg: 24 }, { dow: 2, avg: 27 }, { dow: 3, avg: 22 }, { dow: 4, avg: 19 }, { dow: 5, avg: 11 }, { dow: 6, avg: 5 }, { dow: 7, avg: 3 }] };
