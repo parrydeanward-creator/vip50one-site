@@ -1535,6 +1535,11 @@ a.link { display: block; text-decoration: none; }
 .pc-value { all: unset; cursor: pointer; color: #eef1f8; font-size: 14px; overflow-wrap: anywhere; white-space: pre-wrap; }
 .pc-value:hover, .pc-value:focus-visible { color: #fff; text-decoration: underline dotted rgba(245, 197, 66, 0.7); }
 .pc-value.ro { cursor: default; text-decoration: none; }
+.pc-tick-row { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pc-tick { cursor: pointer; border: 1px solid rgba(245, 197, 66, 0.55); background: transparent; color: #f5c542; border-radius: 999px; padding: 4px 14px; font-size: 13px; font-weight: 600; min-height: 32px; }
+.pc-tick:hover, .pc-tick:focus-visible { background: rgba(245, 197, 66, 0.12); }
+.pc-tick.on { background: #2f9e6a; border-color: #2f9e6a; color: #fff; }
+.pc-tick:disabled { opacity: 0.6; cursor: wait; }
 .pc-field.gap .pc-value em { color: #f5c542; font-style: normal; font-size: 13px; }
 .pc-time { list-style: none; margin: 0; padding: 0 14px 12px; }
 .pc-time li { display: grid; grid-template-columns: 88px 1fr; gap: 2px 10px; padding: 7px 0; border-top: 1px solid rgba(255, 255, 255, 0.05); font-size: 13px; }

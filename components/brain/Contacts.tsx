@@ -212,6 +212,23 @@ export default function Contacts({
     onChanged();
   };
 
+  // The month's touches tick with one tap (Parry, 20 Oct): ONE MOVE logs the touch everywhere when one turns on
+  // (task, tracker, timeline). A quarterly touch's tap stamps today.
+  const quickSave = async (f: Field, value: string | null) => {
+    if (!person || busy) return;
+    setBusy(true);
+    const r = await post(personUrl(person.id), { fields: { [f.key]: value } });
+    setBusy(false);
+    const next = r.ok ? readPerson(r.body) : null;
+    if (!r.ok) return setNote(errorOf(r.body, "That didn't save. Nothing was changed."));
+    setEdit(null);
+    if (next) setPerson(next);
+    else openPerson(person.id);
+    setNote(value ? `${f.label} ticked. It counts everywhere.` : `${f.label} cleared.`);
+    loadGroups();
+    onChanged();
+  };
+
   const addPerson = async () => {
     if (!adding || busy) return;
     if (!adding.first_name.trim()) return setNote("The first name is required.");
@@ -787,6 +804,7 @@ export default function Contacts({
                 setEdit={setEdit}
                 busy={busy}
                 onSave={saveField}
+                onQuick={quickSave}
               />
             ))}
             {/* HOME-REPORT §4.1 (16 Oct): the monthly report on this person's home, on the card in both Classic and the Brain */}
@@ -918,6 +936,7 @@ function SectionCard({
   setEdit,
   busy,
   onSave,
+  onQuick,
 }: {
   s: Section;
   open: boolean;
@@ -926,6 +945,7 @@ function SectionCard({
   setEdit: (e: { key: string; text: string } | null) => void;
   busy: boolean;
   onSave: (f: Field) => void;
+  onQuick: (f: Field, value: string | null) => void;
 }) {
   const col = sectionColor(s.key);
   const gaps = gapsIn(s);
@@ -973,6 +993,8 @@ function SectionCard({
                         <button type="button" className="chip-btn" onClick={() => setEdit(null)}>Cancel</button>
                       </span>
                     </form>
+                  ) : s.key === "touches" && f.editable && (f.type === "choice" || f.type === "date") ? (
+                    <TouchTick f={f} shown={shown} busy={busy} onQuick={onQuick} onEdit={() => setEdit({ key: f.key, text: editText(f) })} />
                   ) : f.editable ? (
                     <button className="pc-value" onClick={() => setEdit({ key: f.key, text: editText(f) })} aria-label={`${f.label}: ${shown ?? "empty"}. Edit`}>
                       {shown ?? <em>Add</em>}
@@ -987,6 +1009,33 @@ function SectionCard({
         </dl>
       )}
     </section>
+  );
+}
+
+/** One of the month's touches: a tap ticks it (or clears it). A quarterly touch shows its date and ticks for today;
+ *  its date can still be changed. */
+function TouchTick({ f, shown, busy, onQuick, onEdit }: {
+  f: Field; shown: string | null; busy: boolean; onQuick: (f: Field, value: string | null) => void; onEdit: () => void;
+}) {
+  const on = f.type === "choice" ? f.value === "Yes" : !!f.value;
+  const today = new Date();
+  const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  return (
+    <span className="pc-tick-row">
+      <button
+        type="button"
+        className={`pc-tick${on ? " on" : ""}`}
+        disabled={busy}
+        aria-pressed={on}
+        aria-label={on ? `${f.label}: done. Tap to clear` : `${f.label}: not done. Tap to tick`}
+        onClick={() => onQuick(f, on ? (f.type === "choice" ? "No" : null) : (f.type === "choice" ? "Yes" : ymd))}
+      >
+        {on ? "✓ Done" : "Tick"}
+      </button>
+      {f.type === "date" && on && shown ? (
+        <button type="button" className="pc-value" onClick={onEdit} aria-label={`${f.label} date: ${shown}. Change`}>{shown}</button>
+      ) : null}
+    </span>
   );
 }
 
