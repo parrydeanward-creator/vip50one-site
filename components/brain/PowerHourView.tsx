@@ -6,7 +6,7 @@ import CallPrepCard from "./CallPrepCard.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import { touchUrl } from "@/lib/contact.ts";
 import { chimeOn, playChime } from "@/lib/chime.ts";
-import { LENGTHS, LOGGED, OUTCOME_WORD, bringUp, current, mmss, remaining, wrap, type Call, type Outcome, type Session } from "@/lib/powerHour.ts";
+import { LENGTHS, LOGGED, OUTCOMES, TOUCH_WORD, bringUp, current, mmss, outcomeWord, remaining, touchesLine, wrap, type Call, type Outcome, type Session, type TouchKind } from "@/lib/powerHour.ts";
 
 // Power Hour in ONE YOU (PULSE-ROADMAP "ONE YOU"; Parry approved, 6 Oct). The call now sits in the middle with
 // the countdown round it; the rest of the line-up goes round them. Tap anyone and they come to the middle with
@@ -20,6 +20,10 @@ const RING = 330;
 const R = 54;
 const GOLD = "#f5c542";
 const GREEN = "#3fbf7f";
+// what each kind of touch is logged as in ONE MOVE (/api/brain/touch): the task, the month box and the Daily Tracker slot
+const LOG_KIND: Record<TouchKind, string> = { call: "call", video_text: "video_text", text: "text", social: "social" };
+const DETAIL: Record<Outcome, string> = { talked: "talked", message: "left a message", no_answer: "no answer", sent: "done", skipped: "skipped" };
+const MARK: Record<TouchKind, string> = { call: "☎", video_text: "▶", text: "✉", social: "♥" };
 const initials = (n: string) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
 
 function arc(cx: number, cy: number, r: number, share: number): string {
@@ -119,18 +123,20 @@ export default function PowerHourView({
     setBusy(true);
     let msg: string | null = null;
     if (LOGGED.includes(o)) {
-      if (!live) msg = `${OUTCOME_WORD[o]}: in your account this logs the call in ONE MOVE and ticks the box.`;
-      else if (!c.contactId) msg = `${OUTCOME_WORD[o]}. ${c.name} isn't linked to a contact, so log it in ONE MOVE.`;
+      const word = outcomeWord(c.kind, o);
+      if (!live) msg = `${word}: in your account this logs the ${TOUCH_WORD[c.kind].toLowerCase()} in ONE MOVE and ticks its boxes.`;
+      else if (!c.contactId) msg = `${word}. ${c.name} isn't linked to a contact, so log it in ONE MOVE.`;
       else {
         try {
           const r = await fetch(touchUrl, {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contact_id: c.contactId, kind: "call", detail: o === "talked" ? "Power Hour: talked" : "Power Hour: left a message", ...(o === "talked" && c.taskId ? { task_id: c.taskId } : {}) }),
+            // a call closes its task only when they talked; a text or social touch closes it when done
+            body: JSON.stringify({ contact_id: c.contactId, kind: LOG_KIND[c.kind], detail: `Power Hour: ${DETAIL[o]}`, ...((o === "talked" || o === "sent") && c.taskId ? { task_id: c.taskId } : {}) }),
           });
           const j = await r.json().catch(() => ({}));
-          msg = r.ok && j.ok ? `Call logged for ${c.name}.` : `Not logged: ${j.error ?? "ONE MOVE didn't take it"}. Try again from their card.`;
+          msg = r.ok && j.ok ? `${TOUCH_WORD[c.kind]} logged for ${c.name}: its boxes are ticked.` : `Not logged: ${j.error ?? "ONE MOVE didn't take it"}. Try again from their card.`;
           if (!(r.ok && j.ok)) {
             setNote(msg);
             setBusy(false);
@@ -182,7 +188,7 @@ export default function PowerHourView({
             ))}
 
             {sel ? (
-              <g className="pm-orb picked" aria-label={`${sel.name}, in the middle. ${sel.why}`}>
+              <g className="pm-orb picked" aria-label={`${TOUCH_WORD[sel.kind]}: ${sel.name}, in the middle. ${sel.why}`}>
                 {!session.results[sel.id] && sel.level ? <PulseRing r={CORE} level={sel.level} x={C} y={C} /> : null}
                 <circle cx={C} cy={C} r={CORE} fill="url(#ph-glass)" stroke={ringFor(sel)} strokeWidth={3} />
                 <path d={arc(C, C, CORE + 14, share)} fill="none" stroke={timeUp ? PULSE_COLOR.now : GOLD} strokeWidth={8} strokeLinecap="round" />
@@ -191,20 +197,21 @@ export default function PowerHourView({
                 <text className="dt-score-sub" x={C} y={C + 56} textAnchor="middle" fontSize={22}>{left == null ? `${session.minutes}:00` : mmss(left)}</text>
               </g>
             ) : (
-              <g aria-label="No calls lined up">
+              <g aria-label="Nothing lined up">
                 <circle cx={C} cy={C} r={CORE} fill="url(#ph-glass)" stroke="#ffd86a" strokeWidth={3} />
                 <text className="dt-score" x={C} y={C - 4} textAnchor="middle">☎</text>
-                <text className="dt-score-sub" x={C} y={C + 28} textAnchor="middle">NO CALLS TODAY</text>
+                <text className="dt-score-sub" x={C} y={C + 28} textAnchor="middle">ALL CAUGHT UP</text>
               </g>
             )}
 
             {seats.map(({ c, x, y }) => {
               const res = session.results[c.id];
               return (
-                <g key={c.id} data-tap className={`pm-orb pm-plan${res ? " is-done" : ""}`} role="button" tabIndex={0} aria-label={`${c.name}: ${res ? OUTCOME_WORD[res] : c.why}`} {...tap(() => choose(c))}>
+                <g key={c.id} data-tap className={`pm-orb pm-plan${res ? " is-done" : ""}`} role="button" tabIndex={0} aria-label={`${TOUCH_WORD[c.kind]}: ${c.name}: ${res ? outcomeWord(c.kind, res) : c.why}`} {...tap(() => choose(c))}>
                   {!res && c.level ? <PulseRing r={R} level={c.level} x={x} y={y} /> : null}
                   <circle className="pm-disc" cx={x} cy={y} r={R} fill="url(#ph-glass)" stroke={ringFor(c)} strokeWidth={2.5} opacity={res ? 0.75 : 1} />
                   <text className="pm-mark" x={x} y={y} dy="0.36em" textAnchor="middle" fontSize={22}>{res ? (LOGGED.includes(res) ? "✓" : "–") : initials(c.name)}</text>
+                  {!res ? <text className="pm-time-l" x={x + R * 0.72} y={y - R * 0.72} textAnchor="middle" fontSize={20} aria-hidden="true">{MARK[c.kind]}</text> : null}
                   <text className="pm-name-l" x={x} y={y + R + 22} textAnchor="middle">{c.name.split(/\s+/)[0]}</text>
                 </g>
               );
@@ -230,7 +237,7 @@ export default function PowerHourView({
           </div>
           <h1 className="d-title" id="ph-title">Power Hour</h1>
           <p className="d-sub">
-            {session.startedAt == null ? `${calls.length} ${calls.length === 1 ? "call" : "calls"} lined up, most urgent first` : timeUp ? "Time is up" : `${mmss(left!)} left · ${w.left} to call`}
+            {session.startedAt == null ? `${touchesLine(calls)}: today's first, then what is behind` : timeUp ? "Time is up" : `${mmss(left!)} left · ${w.left} to do`}
           </p>
 
           {session.startedAt == null && calls.length > 0 && (
@@ -247,24 +254,28 @@ export default function PowerHourView({
 
           {sel && !finished && (
             <div className="ph-call">
-              <h2>{session.results[sel.id] ? sel.name : sel.id === nowCall?.id ? `Now: ${sel.name}` : sel.name}</h2>
+              <h2>{`${TOUCH_WORD[sel.kind]}: ${sel.name}`}{!session.results[sel.id] && sel.id === nowCall?.id ? " (now)" : ""}</h2>
               <p className="d-sum">{sel.why}</p>
               {session.results[sel.id] ? (
                 <p>
-                  {OUTCOME_WORD[session.results[sel.id]!]}.{" "}
-                  <button className="vr-btn" onClick={() => undo(sel)}>Call again</button>
+                  {outcomeWord(sel.kind, session.results[sel.id]!)}.{" "}
+                  <button className="vr-btn" onClick={() => undo(sel)}>Undo</button>
                 </p>
               ) : (
                 <>
-                  {live && sel.contactId ? (
-                    <button className="pi-btn" onClick={() => setPrep(sel)}>Call Prep, then call</button>
+                  {sel.kind === "call" ? (
+                    live && sel.contactId ? (
+                      <button className="pi-btn" onClick={() => setPrep(sel)}>Call Prep, then call</button>
+                    ) : (
+                      <p className="pm-empty">{live ? "Not linked to a contact yet: call from your phone, then say how it went." : "Example agent: Call Prep opens here, then the call."}</p>
+                    )
                   ) : (
-                    <p className="pm-empty">{live ? "Not linked to a contact yet: call from your phone, then say how it went." : "Example agent: Call Prep opens here, then the call."}</p>
+                    <p className="pm-empty">{sel.kind === "social" ? "Like, comment or message them where they post, then tap Done." : "Send it from your phone (Text on their card below), then tap Sent."}</p>
                   )}
-                  <div className="ph-outcomes" role="group" aria-label={`How the call with ${sel.name} went`}>
-                    {(Object.keys(OUTCOME_WORD) as Outcome[]).map((o) => (
-                      <button key={o} className={`chip-btn${o === "talked" ? " primary" : ""}`} disabled={busy} onClick={() => outcome(sel, o)}>
-                        {OUTCOME_WORD[o]}
+                  <div className="ph-outcomes" role="group" aria-label={`How the ${TOUCH_WORD[sel.kind].toLowerCase()} with ${sel.name} went`}>
+                    {OUTCOMES[sel.kind].map((o) => (
+                      <button key={o} className={`chip-btn${o === "talked" || o === "sent" ? " primary" : ""}`} disabled={busy} onClick={() => outcome(sel, o)}>
+                        {outcomeWord(sel.kind, o)}
                       </button>
                     ))}
                   </div>
@@ -285,6 +296,7 @@ export default function PowerHourView({
               <h2>{finished ? "What got done" : "So far"}</h2>
               <p className="pi-today pi-lvl-today dc-next">{w.line}</p>
               {finished && w.talked > 0 && <p className="d-sum">Each conversation counts toward this week on your Income Map.</p>}
+              {finished && w.left === 0 && <p className="d-sum">Everything due today and everything behind is done. You are current.</p>}
             </>
           )}
 
@@ -296,19 +308,19 @@ export default function PowerHourView({
                 return (
                   <li key={c.id} id={`ph-row-${c.id}`} className={`${res ? "is-done" : ""}${sel?.id === c.id ? " picked" : ""}`}>
                     <i className="pm-dot" style={{ background: ringFor(c) }} aria-hidden="true" />
-                    <span className="pm-body">
-                      <b>{c.name}</b>
-                      <small>{res ? OUTCOME_WORD[res] : c.why}</small>
+                    <span className="pm-body ph-name" role="button" tabIndex={0} aria-label={`Open ${c.name}'s contact card`} {...tap(() => choose(c))}>
+                      <b>{`${TOUCH_WORD[c.kind]}: ${c.name}`}</b>
+                      <small>{res ? outcomeWord(c.kind, res) : c.why}</small>
                     </span>
                     <span className="pm-acts">
-                      <button onClick={() => choose(c)} aria-label={`Open ${c.name}`}>→</button>
+                      <button onClick={() => choose(c)} aria-label={`Open ${c.name}'s contact card`}>→</button>
                     </span>
                   </li>
                 );
               })}
             </ol>
           ) : (
-            <p className="pm-empty">No calls due and every VIP-50 has had a call this month.</p>
+            <p className="pm-empty">Nothing due today and nothing behind: every VIP-50 has had their call, video text and social touch this month.</p>
           )}
           <p className="pm-promise">{live ? "" : "Example agent. "}You make every call. Pulse never dials, texts or sends anything for you.</p>
         </aside>

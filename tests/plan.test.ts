@@ -223,7 +223,8 @@ test("every one of the day's VIP touches is in the plan, beyond the 15 (Parry, 1
   assert.equal(suggest([d("later", { vip: true, urgency: "soon" }), ...overdue]).some((p) => p.ref === "later"), false);
 });
 
-test("the day's VIP touches land in the Power Hour and the texts block; social touches sit with the texts", async () => {
+// Rewritten 19 Oct (Parry: the Power Hour holds "all of today's touches"): was "the Power Hour and the texts block".
+test("every VIP touch of the day lands in the Power Hour: calls first, then video texts and social touches", async () => {
   const { buildDay } = await import("../lib/schedule.ts");
   const { dayKind } = await import("../lib/live.ts");
   assert.equal(dayKind({ id: "x", kind: "vip_touch", title: "Social media touch — Ryan", urgency: "today" } as never), "text");
@@ -236,12 +237,13 @@ test("the day's VIP touches land in the Power Hour and the texts block; social t
   ]);
   const out = buildDay({ hours: { start: "08:00", end: "17:30" }, busy: [], items });
   const ph = out.blocks.find((b) => b.kind === "power_hour")!;
-  assert.deepEqual(ph.refs.sort(), ["c1", "c2"]);
-  const tx = out.blocks.find((b) => b.kind === "texts")!;
-  assert.equal(tx.title, "Texts, video texts and social touches (2)");
+  assert.deepEqual(ph.refs.slice(0, 2).sort(), ["c1", "c2"], "calls first");
+  assert.deepEqual(ph.refs.slice().sort(), ["c1", "c2", "s1", "t1"]);
+  assert.equal(ph.title, "Power Hour: 2 calls, 2 texts and social touches");
+  assert.equal(out.blocks.some((b) => b.kind === "texts"), false, "no separate texts block");
 });
 
-test("the example agent's day is a full day: appointments, a Power Hour, texts and every VIP touch", async () => {
+test("the example agent's day is a full day: appointments, a Power Hour with the texts in it, and every VIP touch", async () => {
   const { demoGraph } = await import("../lib/graph/demo.ts");
   const { buildDay } = await import("../lib/schedule.ts");
   const today = demoGraph("complete").today!;
@@ -251,5 +253,5 @@ test("the example agent's day is a full day: appointments, a Power Hour, texts a
   const planned = new Set(out.blocks.flatMap((b) => b.refs));
   for (const v of vip) assert.ok(planned.has(v.ref ?? v.id.replace(/^day:/, "")), v.what);
   assert.ok(out.blocks.some((b) => b.kind === "power_hour" && b.refs.length >= 3));
-  assert.ok(out.blocks.some((b) => b.kind === "texts"));
+  assert.ok(!out.blocks.some((b) => b.kind === "texts"), "texts sit in the Power Hour now (Parry, 19 Oct)");
 });

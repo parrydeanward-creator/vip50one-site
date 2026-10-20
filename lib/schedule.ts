@@ -79,6 +79,14 @@ export function freeGaps(hours: DayInput["hours"], busy: Busy[], notBefore?: str
 
 const rank = (p: PlanItem) => (p.urgency === "alert" ? 0 : p.special ? 1 : p.urgency === "today" ? 2 : 3);
 const isCall = (p: PlanItem) => p.kind === "call" || p.kind === "follow_up";
+// The Power Hour holds every VIP touch: calls first, then texts, video texts and social touches (Parry, 19 Oct:
+// "all of today's touches"; it replaces the 16 Oct separate texts block).
+const inPower = (p: PlanItem) => isCall(p) || p.kind === "text";
+const powerTitle = (items: PlanItem[]) => {
+  const c = items.filter(isCall).length, t = items.length - c;
+  const bits = [c && `${c} ${c === 1 ? "call" : "calls"}`, t && `${t} ${t === 1 ? "text or social touch" : "texts and social touches"}`].filter(Boolean);
+  return `Power Hour: ${bits.join(", ")}`;
+};
 const IN_PERSON = /\b(coffee|lunch|face-to-face|drop-?by|meet)\b/i;
 
 interface Group {
@@ -95,8 +103,8 @@ interface Group {
 /** Batch the work the way a top agent does it. */
 export function batches(items: PlanItem[], bestCalls: [number, number]): Group[] {
   const groups: Group[] = [];
-  const calls = items.filter(isCall).sort((a, b) => rank(a) - rank(b));
-  // Power Hours of up to 60 minutes, most urgent calls first
+  const calls = items.filter(inPower).sort((a, b) => rank(a) - rank(b) || Number(!isCall(a)) - Number(!isCall(b)));
+  // Power Hours of up to 60 minutes, most urgent first, calls before texts
   let cur: PlanItem[] = [];
   const flush = () => {
     if (!cur.length) return;
@@ -104,7 +112,7 @@ export function batches(items: PlanItem[], bestCalls: [number, number]): Group[]
     const late = cur.filter((p) => p.urgency === "alert").length;
     groups.push({
       kind: "power_hour",
-      title: `Power Hour: ${cur.length} ${cur.length === 1 ? "call" : "calls"}`,
+      title: powerTitle(cur),
       items: cur,
       minutes: m,
       rank: Math.min(...cur.map(rank)),
@@ -118,10 +126,7 @@ export function batches(items: PlanItem[], bestCalls: [number, number]): Group[]
     cur.push(c);
   }
   flush();
-  const take = (pred: (p: PlanItem) => boolean) => items.filter((p) => !isCall(p) && pred(p));
-  const texts = take((p) => p.kind === "text");
-  const social = texts.some((p) => /social/i.test(p.title));
-  if (texts.length) groups.push({ kind: "texts", title: `${social ? "Texts, video texts and social touches" : "Texts and video texts"} (${texts.length})`, items: texts, minutes: Math.max(15, texts.reduce((t, p) => t + p.minutes, 0)), rank: Math.min(...texts.map(rank)), why: "One sitting for every text, so none slip." });
+  const take = (pred: (p: PlanItem) => boolean) => items.filter((p) => !inPower(p) && pred(p));
   const notes = take((p) => p.kind === "note");
   if (notes.length) groups.push({ kind: "notes", title: `Handwritten notes (${notes.length})`, items: notes, minutes: notes.reduce((t, p) => t + p.minutes, 0), rank: Math.min(...notes.map(rank)), why: "Done together, out in today's mail." });
   const approvals = take((p) => p.kind === "approval");

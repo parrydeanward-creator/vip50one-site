@@ -35,7 +35,7 @@ function built(o: { coach?: boolean; calls?: boolean; growth?: boolean; base?: B
   g = withWeekNode(g, demoCommitments(TODAY), 10);
   g = withCoachNode(g, o.coach === false ? null : demoCoached(TODAY), 10);
   g = withReviewNode(g, { cards: [{ level: "now" }, { level: "today" }] } as never);
-  g = withPowerNode(g, lineUp(g.today ?? [], null), null);
+  g = withPowerNode(g, lineUp(g.today ?? [], null, TODAY), null);
   g = withReferralsNode(g, demoReferrals(TODAY), TODAY);
   g = withHabitsNode(g, habitsToday(demoHabitsDay(TODAY), null, TODAY));
   g = withReviewCallsNode(g, o.calls !== false);

@@ -21,10 +21,13 @@ test("calls batch into Power Hours of up to 60 minutes, overdue first", () => {
   assert.match(g[0].why, /overdue/);
 });
 
-test("texts, notes and approvals each get one block", () => {
+// Rewritten 19 Oct (Parry: "all of today's touches" in the Power Hour): texts were their own block before.
+test("notes and approvals each get one block; texts go in the Power Hour", () => {
   const g = batches([it("t1", { kind: "text" }), it("t2", { kind: "text" }), it("n1", { kind: "note", minutes: 5 }), it("a1", { kind: "approval", minutes: 15 })], [540, 660]);
-  assert.deepEqual(g.map((x) => x.kind).sort(), ["approvals", "notes", "texts"]);
-  assert.equal(g.find((x) => x.kind === "texts")!.minutes, 20);
+  assert.deepEqual(g.map((x) => x.kind).sort(), ["approvals", "notes", "power_hour"]);
+  const ph = g.find((x) => x.kind === "power_hour")!;
+  assert.deepEqual(ph.items.map((x) => x.ref ?? x.title).length, 2);
+  assert.equal(ph.title, "Power Hour: 2 texts and social touches");
 });
 
 test("the day: Power Hour in the calling window, around the listing appointment, fixed lunch kept", () => {
@@ -339,7 +342,8 @@ test("3.1.9 tomorrow's plan: what moves to tomorrow, planned with the same rules
   const { tomorrowPlan } = await import("../lib/schedule.ts");
   const p = tomorrowPlan([it("a", { at: "09:00" }), it("b"), it("t", { kind: "text" })], hours, [{ start: "10:00", end: "11:00", title: "Listing appointment", source: "listing_appointment" }]);
   assert.equal(p.later.length, 0);
-  assert.deepEqual(p.blocks.map((b) => b.kind).sort(), ["power_hour", "texts"], "a carried time is not kept: it is planned again");
+  // 19 Oct: the text sits in the Power Hour now (was a separate "texts" block)
+  assert.deepEqual(p.blocks.map((b) => b.kind).sort(), ["power_hour"], "a carried time is not kept: it is planned again");
   assert.ok(p.blocks.every((b) => toMin(b.start) >= toMin(hours.start)), "planned from the start of the day, not from now");
   assert.ok(p.blocks.every((b) => !b.done));
   assert.ok(p.blocks.every((b) => !/\btoday\b/i.test(b.why)), "its reasons speak of tomorrow, never \"Due today.\"");
