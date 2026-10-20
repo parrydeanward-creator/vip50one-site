@@ -6,7 +6,7 @@ import CallPrepCard from "./CallPrepCard.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import { touchUrl } from "@/lib/contact.ts";
 import { chimeOn, playChime } from "@/lib/chime.ts";
-import { LENGTHS, LOGGED, OUTCOMES, TOUCH_WORD, bringUp, current, mmss, outcomeWord, remaining, touchesLine, wrap, type Call, type Outcome, type Session, type TouchKind } from "@/lib/powerHour.ts";
+import { LENGTHS, LOGGED, OUTCOMES, TOUCH_WORD, bringUp, current, mmss, outcomeWord, remaining, shown, touchesLine, wrap, type Call, type Outcome, type Session, type TouchKind } from "@/lib/powerHour.ts";
 
 // Power Hour in ONE YOU (PULSE-ROADMAP "ONE YOU"; Parry approved, 6 Oct). The call now sits in the middle with
 // the countdown round it; the rest of the line-up goes round them. Tap anyone and they come to the middle with
@@ -21,9 +21,9 @@ const R = 54;
 const GOLD = "#f5c542";
 const GREEN = "#3fbf7f";
 // what each kind of touch is logged as in ONE MOVE (/api/brain/touch): the task, the month box and the Daily Tracker slot
-const LOG_KIND: Record<TouchKind, string> = { call: "call", video_text: "video_text", text: "text", social: "social" };
+const LOG_KIND: Record<TouchKind, string> = { call: "call", video_text: "video_text", text: "text", social: "social", note: "handwritten_note" };
 const DETAIL: Record<Outcome, string> = { talked: "talked", message: "left a message", no_answer: "no answer", sent: "done", skipped: "skipped" };
-const MARK: Record<TouchKind, string> = { call: "☎", video_text: "▶", text: "✉", social: "♥" };
+const MARK: Record<TouchKind, string> = { call: "☎", video_text: "▶", text: "✉", social: "♥", note: "✎" };
 const initials = (n: string) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
 
 function arc(cx: number, cy: number, r: number, share: number): string {
@@ -33,7 +33,7 @@ function arc(cx: number, cy: number, r: number, share: number): string {
 }
 
 export default function PowerHourView({
-  calls,
+  calls: all,
   session,
   live,
   onSession,
@@ -75,6 +75,9 @@ export default function PowerHourView({
     };
   }, []);
 
+  // Today's VIP touches; the behind-pace ones join only once every one of today's is done
+  const calls = shown(all, session);
+  const extra = calls.some((c) => c.behind);
   const left = remaining(session, now);
   const timeUp = left === 0;
   // one chime when the hour is up, if the agent keeps chimes on (the Day Clock's switch)
@@ -213,7 +216,7 @@ export default function PowerHourView({
                   <circle className="pm-disc" cx={x} cy={y} r={R} fill="url(#ph-glass)" stroke={ringFor(c)} strokeWidth={2.5} opacity={res ? 0.75 : 1} />
                   <text className="pm-mark" x={x} y={y} dy="0.36em" textAnchor="middle" fontSize={22}>{res ? (LOGGED.includes(res) ? "✓" : "–") : initials(c.name)}</text>
                   {!res ? <text className="pm-time-l" x={x + R * 0.72} y={y - R * 0.72} textAnchor="middle" fontSize={20} aria-hidden="true">{MARK[c.kind]}</text> : null}
-                  <text className="pm-name-l" x={x} y={y + R + 22} textAnchor="middle">{c.name.split(/\s+/)[0]}</text>
+                  <text className="pm-name-l" x={x} y={y + R + 22} textAnchor="middle">{c.name.replace(/^the\s+/i, "").split(/\s+/)[0]}</text>
                 </g>
               );
             })}
@@ -238,7 +241,7 @@ export default function PowerHourView({
           </div>
           <h1 className="d-title" id="ph-title">Power Hour</h1>
           <p className="d-sub">
-            {session.startedAt == null ? `${touchesLine(calls)}: today's first, then what is behind` : timeUp ? "Time is up" : `${mmss(left!)} left · ${w.left} to do`}
+            {session.startedAt == null ? `Today's VIP touches: ${touchesLine(calls)}` : timeUp ? "Time is up" : `${mmss(left!)} left · ${w.left} to do`}
           </p>
 
           {session.startedAt == null && calls.length > 0 && (
@@ -271,7 +274,7 @@ export default function PowerHourView({
                       <p className="pm-empty">{live ? "Not linked to a contact yet: call from your phone, then say how it went." : "Example agent: Call Prep opens here, then the call."}</p>
                     )
                   ) : (
-                    <p className="pm-empty">{sel.kind === "social" ? "Like, comment or message them where they post, then tap Done." : "Send it from your phone (Text on their card below), then tap Sent."}</p>
+                    <p className="pm-empty">{sel.kind === "social" ? "Like, comment or message them where they post, then tap Done." : sel.kind === "note" ? "Write it and put it in the mail, then tap Done." : "Send it from your phone (Text on their card below), then tap Sent."}</p>
                   )}
                   <div className="ph-outcomes" role="group" aria-label={`How the ${TOUCH_WORD[sel.kind].toLowerCase()} with ${sel.name} went`}>
                     {OUTCOMES[sel.kind].map((o) => (
@@ -297,11 +300,11 @@ export default function PowerHourView({
               <h2>{finished ? "What got done" : "So far"}</h2>
               <p className="pi-today pi-lvl-today dc-next">{w.line}</p>
               {finished && w.talked > 0 && <p className="d-sum">Each conversation counts toward this week on your Income Map.</p>}
-              {finished && w.left === 0 && <p className="d-sum">Everything due today and everything behind is done. You are current.</p>}
+              {finished && w.left === 0 && <p className="d-sum">{extra ? "Today's touches and the ones behind are done. You are current." : "Every VIP touch for today is done."}</p>}
             </>
           )}
 
-          <h2>The line-up</h2>
+          <h2>{extra ? "Today's VIP touches, then the ones behind" : "Today's VIP touches"}</h2>
           {calls.length ? (
             <ol className="pm-list pm-compact">
               {calls.map((c) => {
@@ -321,7 +324,7 @@ export default function PowerHourView({
               })}
             </ol>
           ) : (
-            <p className="pm-empty">Nothing due today and nothing behind: every VIP-50 has had their call, video text and social touch this month.</p>
+            <p className="pm-empty">No VIP touches for today, and nothing behind for the month.</p>
           )}
           <p className="pm-promise">{live ? "" : "Example agent. "}You make every call. Pulse never dials, texts or sends anything for you.</p>
         </aside>

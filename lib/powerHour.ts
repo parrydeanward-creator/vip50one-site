@@ -3,25 +3,24 @@ import type { DayItem } from "./day.ts";
 import { nameFromTitle } from "./contact.ts";
 import type { VipPerson, VipRoster } from "./vips.ts";
 
-// Power Hour in ONE YOU (PULSE-ROADMAP "ONE YOU"; Parry approved, 6 Oct). Reshaped 19 Oct (Parry: "the power hour
-// should follow the auto daily tasks or 3 calls, 3 video texts, 3 social interaction etc instead of just creating a
-// list of people to call ... focus on what the user already has to accomplish to stay current in the vip-50 system";
-// "all of today's touches"; then "anything that is behind schedule, touches or daily items that are not done. dont
-// overwhelm so set a max"). The line-up is today's VIP touch tasks first (calls, then video texts, texts, social),
-// most urgent first, then the VIP-50 touches behind for the month, longest unheard first, at most MAX_ITEMS in all.
-// Each done touch is logged in ONE MOVE as its own kind, which ticks the task, the contact's month box and the
-// Daily Tracker slot. Nothing here dials, texts or sends anything for the agent.
+// Power Hour in ONE YOU (PULSE-ROADMAP "ONE YOU"; Parry approved, 6 Oct). Reshaped 19 Oct, Parry: "every day the
+// system generates very specific people to call, text, social touch, send a letter etc..it is created in the tasks in
+// today's vip touches...that is what I am talking about ... this helps the user focus for one hour to accomplish thier
+// touches". So the line-up is exactly Today's VIP touches (ONE GO's generated tasks, `go:task:` refs): calls, then
+// video texts, texts, social touches and handwritten notes, most urgent first. Once every one of them is done, the
+// VIP-50 touches behind the month's pace follow ("anything that is behind schedule ... dont overwhelm so set a max"),
+// at most MAX_BEHIND. Each done touch is logged in ONE MOVE as its own kind, which ticks the task, the contact's month
+// box and the Daily Tracker slot. Nothing here dials, texts or sends anything for the agent.
 
 export const POWER_NODE = "go-power";
-export const MAX_ITEMS = 12; // about five minutes a touch in an hour
-/** @deprecated the line-up holds every kind of touch now; kept for older imports. */
-export const MAX_CALLS = MAX_ITEMS;
+/** The behind-pace touches offered once today's are done: a few, never a second day's work. */
+export const MAX_BEHIND = 5;
 export const LENGTHS = [30, 45, 60] as const;
 export const powerKey = (date: string) => `one.power.${date}`;
 
-export type TouchKind = "call" | "video_text" | "text" | "social";
-export const TOUCH_WORD: Record<TouchKind, string> = { call: "Call", video_text: "Video text", text: "Text", social: "Social touch" };
-const TOUCH_ORDER: Record<TouchKind, number> = { call: 0, video_text: 1, text: 2, social: 3 };
+export type TouchKind = "call" | "video_text" | "text" | "social" | "note";
+export const TOUCH_WORD: Record<TouchKind, string> = { call: "Call", video_text: "Video text", text: "Text", social: "Social touch", note: "Handwritten note" };
+const TOUCH_ORDER: Record<TouchKind, number> = { call: 0, video_text: 1, text: 2, social: 3, note: 4 };
 /** The VIP-50 monthly boxes the "behind" part checks, in the order they are offered. */
 const MONTHLY: readonly ("call" | "video_text" | "social")[] = ["call", "video_text", "social"];
 const BEHIND_WORD: Record<(typeof MONTHLY)[number], string> = { call: "no call", video_text: "no video text", social: "no social touch" };
@@ -35,9 +34,10 @@ export const OUTCOMES: Record<TouchKind, readonly Outcome[]> = {
   video_text: ["sent", "skipped"],
   text: ["sent", "skipped"],
   social: ["sent", "skipped"],
+  note: ["sent", "skipped"],
 };
 /** The word on the done button for a kind ("Sent" for a text, "Done" for a social touch). */
-export const outcomeWord = (kind: TouchKind, o: Outcome) => (o === "sent" ? (kind === "social" ? "Done" : "Sent") : OUTCOME_WORD[o]);
+export const outcomeWord = (kind: TouchKind, o: Outcome) => (o === "sent" ? (kind === "video_text" || kind === "text" ? "Sent" : "Done") : OUTCOME_WORD[o]);
 
 export interface Call {
   id: string; // unique in the line-up: contact + kind, or the day item ref
@@ -61,9 +61,13 @@ export interface Session {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const callish = (d: DayItem) => d.kind === "call" || (d.kind === "follow_up" && /^\s*call\b/i.test(d.what));
+/** One of Today's VIP touches: a task ONE GO generated for today (live), or a VIP touch in the example day. */
+export const isVipTouch = (d: DayItem) => (d.ref ? d.ref.startsWith("go:task:") : !!d.vip);
+
 /** The kind of touch a day item is, or null when it is not a touch the Power Hour works. */
 export function touchOf(d: DayItem): TouchKind | null {
   if (callish(d)) return "call";
+  if (d.kind === "note") return "note";
   if (d.kind !== "text") return null;
   if (/video/i.test(d.what)) return "video_text";
   if (/social/i.test(d.what)) return "social";
@@ -85,20 +89,25 @@ export function behindCount(total: number, done: number, date: string): number {
   return Math.max(0, Math.floor((total * d) / days) - done);
 }
 
-/** Today's touches, then what is behind pace for the month, most urgent first, at most `max`, each person once per kind. */
-export function lineUp(today: DayItem[], roster: VipRoster | null, date: string, max = MAX_ITEMS): Call[] {
+/**
+ * Today's VIP touches, most urgent first, each person once per kind; then (marked `behind`, shown once today's are all
+ * done) up to `maxBehind` VIP-50 touches behind the month's pace.
+ */
+export function lineUp(today: DayItem[], roster: VipRoster | null, date: string, maxBehind = MAX_BEHIND): Call[] {
   const out: Call[] = [];
   const seen = new Set<string>();
   const due = today
+    .filter(isVipTouch)
     .map((d) => ({ d, kind: touchOf(d) }))
     .filter((x): x is { d: DayItem; kind: TouchKind } => !!x.kind)
     .sort((a, b) => rank(a.d) - rank(b.d) || TOUCH_ORDER[a.kind] - TOUCH_ORDER[b.kind]);
   for (const { d, kind } of due) {
-    const what = d.what.replace(SOCIAL_HEAD, "").replace(/^\s*send\s+/i, "");
+    const what = d.what.replace(SOCIAL_HEAD, "").replace(/^\s*(?:send|write|mail)\s+/i, "").replace(/\s+a handwritten note\b.*$/i, "").replace(/^\s*handwritten note(?: to| for)?\s*[—–:-]?\s*/i, "");
     // "Call Jen Alvarez. Her birthday is tomorrow." -> the name, and the reason in the item's own words
-    const [head, ...rest] = what.split(/\.\s+|,\s+|\s+[—–-]\s+/);
+    // "Call Nina Brooks (VIP-100, 90-day call)." -> the bracket is the reason
+    const [head, ...rest] = what.replace(/\s*\(([^)]*)\)/, ". $1").split(/\.\s+|,\s+|\s+[—–-]\s+/);
     const name = (nameFromTitle(head) || head).replace(/\.+$/, "");
-    const said = rest.join(". ").trim().replace(/\.$/, "");
+    const said = rest.map((x) => x.trim().replace(/\.$/, "")).filter(Boolean).join(" · ");
     const who = d.contactId ?? name.toLowerCase();
     const key = `${who}:${kind}`;
     if (seen.has(key)) continue;
@@ -120,6 +129,8 @@ export function lineUp(today: DayItem[], roster: VipRoster | null, date: string,
   // Behind pace for the month: per touch (calls first), only as many VIP-50s as the month's pace says are late, the
   // longest unheard first (Parry, 19 Oct: "anything that is behind schedule ... dont overwhelm so set a max").
   const vips = [...(roster?.vip50 ?? [])].sort(byOldest);
+  const firstBehind = out.length;
+  const max = firstBehind + maxBehind;
   for (const kind of MONTHLY) {
     const missing = vips.filter((p) => !p.month?.[kind]);
     let late = behindCount(vips.length, vips.length - missing.length, date);
@@ -145,10 +156,16 @@ export function lineUp(today: DayItem[], roster: VipRoster | null, date: string,
   return out.slice(0, max);
 }
 
+/** What the Power Hour shows now: today's VIP touches, and the behind-pace ones only once today's all have a result. */
+export function shown(calls: Call[], s: Session): Call[] {
+  const todays = calls.filter((c) => !c.behind);
+  return todays.every((c) => s.results[c.id]) ? calls : todays;
+}
+
 /** "5 calls, 3 video texts, 2 social touches" for a set of touches. */
 export function touchesLine(calls: Call[]): string {
   const n = (k: TouchKind) => calls.filter((c) => c.kind === k).length;
-  const word: Record<TouchKind, [string, string]> = { call: ["call", "calls"], video_text: ["video text", "video texts"], text: ["text", "texts"], social: ["social touch", "social touches"] };
+  const word: Record<TouchKind, [string, string]> = { call: ["call", "calls"], video_text: ["video text", "video texts"], text: ["text", "texts"], social: ["social touch", "social touches"], note: ["handwritten note", "handwritten notes"] };
   const bits = (Object.keys(word) as TouchKind[]).filter((k) => n(k)).map((k) => `${n(k)} ${word[k][n(k) === 1 ? 0 : 1]}`);
   return bits.join(", ") || "Nothing lined up";
 }
@@ -227,7 +244,7 @@ export function withPowerNode<G extends { nodes: GraphNode[]; edges: GraphEdge[]
   const nodes = g.nodes.filter((n) => n.id !== POWER_NODE);
   const edges = g.edges.filter((e) => e.target !== POWER_NODE);
   if (!go || go.locked || !calls) return { ...g, nodes, edges };
-  const open = calls.filter((c) => !s?.results[c.id]);
+  const open = shown(calls, s ?? newSession("", calls)).filter((c) => !s?.results[c.id]);
   const w = s ? wrap(calls, s) : null;
   const now = open.filter((c) => c.level === "now").length;
   const today = open.filter((c) => c.level === "today").length;

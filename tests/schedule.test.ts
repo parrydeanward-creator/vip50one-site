@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { batches, blockHue, buildDay, busyHue, categoryHue, readDay, freeGaps, HUE, nextLine, readBlock, toMin } from "../lib/schedule.ts";
 import type { PlanItem } from "../lib/plan.ts";
 
-const it = (ref: string, x: Partial<PlanItem> = {}): PlanItem => ({ ref, product: "move", kind: "call", title: `Call ${ref}`, contactId: null, link: null, minutes: 10, done: false, urgency: "today", ...x });
+// one of the day's VIP touches unless the test says otherwise (19 Oct: only those go in the Power Hour)
+const it = (ref: string, x: Partial<PlanItem> = {}): PlanItem => ({ ref, product: "move", kind: "call", title: `Call ${ref}`, contactId: null, link: null, minutes: 10, done: false, urgency: "today", vip: true, ...x });
 const hours = { start: "08:00", end: "17:00" };
 
 test("free time: working hours minus appointments, with 10 minutes either side, and never the past", () => {
@@ -22,12 +23,12 @@ test("calls batch into Power Hours of up to 60 minutes, overdue first", () => {
 });
 
 // Rewritten 19 Oct (Parry: "all of today's touches" in the Power Hour): texts were their own block before.
-test("notes and approvals each get one block; texts go in the Power Hour", () => {
+test("approvals get one block; texts and notes go in the Power Hour", () => {
   const g = batches([it("t1", { kind: "text" }), it("t2", { kind: "text" }), it("n1", { kind: "note", minutes: 5 }), it("a1", { kind: "approval", minutes: 15 })], [540, 660]);
-  assert.deepEqual(g.map((x) => x.kind).sort(), ["approvals", "notes", "power_hour"]);
+  assert.deepEqual(g.map((x) => x.kind).sort(), ["approvals", "power_hour"]);
   const ph = g.find((x) => x.kind === "power_hour")!;
-  assert.deepEqual(ph.items.map((x) => x.ref ?? x.title).length, 2);
-  assert.equal(ph.title, "Power Hour: 2 texts and social touches");
+  assert.equal(ph.items.length, 3);
+  assert.equal(ph.title, "Power Hour: 2 texts and social touches, 1 note");
 });
 
 test("the day: Power Hour in the calling window, around the listing appointment, fixed lunch kept", () => {
@@ -359,4 +360,13 @@ test("19 Oct: a short leftover joins the Power Hour before it, never a five-minu
   assert.equal(g[0].title, "Power Hour: 6 calls, 1 text or social touch");
   const long = batches([...calls, it("t1", { kind: "text", minutes: 20 })], [540, 660]).filter((x) => x.kind === "power_hour");
   assert.equal(long.length, 2, "a longer leftover still gets its own block");
+});
+
+test("19 Oct: only Today's VIP touches go in the Power Hour; any other call is a task of its own", () => {
+  const g = batches([it("go:task:a"), it("move:fu", { vip: undefined, kind: "follow_up", title: "Call the Millers back" }), it("go:task:n", { kind: "note" })], [540, 660]);
+  const ph = g.find((x) => x.kind === "power_hour")!;
+  assert.deepEqual(ph.items.map((x) => x.ref), ["go:task:a", "go:task:n"]);
+  assert.equal(ph.title, "Power Hour: 1 call, 1 note");
+  assert.ok(g.some((x) => x.kind === "task" && x.items[0].ref === "move:fu"));
+  assert.ok(!g.some((x) => x.kind === "notes"), "notes sit in the Power Hour now");
 });

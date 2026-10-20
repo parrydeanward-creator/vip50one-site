@@ -80,12 +80,20 @@ export function freeGaps(hours: DayInput["hours"], busy: Busy[], notBefore?: str
 
 const rank = (p: PlanItem) => (p.urgency === "alert" ? 0 : p.special ? 1 : p.urgency === "today" ? 2 : 3);
 const isCall = (p: PlanItem) => p.kind === "call" || p.kind === "follow_up";
-// The Power Hour holds every VIP touch: calls first, then texts, video texts and social touches (Parry, 19 Oct:
-// "all of today's touches"; it replaces the 16 Oct separate texts block).
-const inPower = (p: PlanItem) => isCall(p) || p.kind === "text";
+// The Power Hour holds the day's touches: calls first, then texts, video texts, social touches and handwritten notes
+// (Parry, 19 Oct: "very specific people to call, text, social touch, send a letter ... focus for one hour to accomplish
+// thier touches"; it replaces the 16 Oct separate texts and notes blocks).
+// Only Today's VIP touches (ONE GO's generated tasks, or the example day's VIP touches) go in it; any other call is a
+// task of its own, as the Power Hour tool shows only those touches.
+const vipTouch = (p: PlanItem) => p.ref.startsWith("go:task:") || (!!p.vip && !p.ref.includes(":"));
+const inPower = (p: PlanItem) => vipTouch(p) && (isCall(p) || p.kind === "text" || p.kind === "note");
 const powerTitle = (items: PlanItem[]) => {
-  const c = items.filter(isCall).length, t = items.length - c;
-  const bits = [c && `${c} ${c === 1 ? "call" : "calls"}`, t && `${t} ${t === 1 ? "text or social touch" : "texts and social touches"}`].filter(Boolean);
+  const c = items.filter(isCall).length, n = items.filter((p) => p.kind === "note").length, t = items.length - c - n;
+  const bits = [
+    c && `${c} ${c === 1 ? "call" : "calls"}`,
+    t && `${t} ${t === 1 ? "text or social touch" : "texts and social touches"}`,
+    n && `${n} ${n === 1 ? "note" : "notes"}`,
+  ].filter(Boolean);
   return `Power Hour: ${bits.join(", ")}`;
 };
 const IN_PERSON = /\b(coffee|lunch|face-to-face|drop-?by|meet)\b/i;
@@ -138,11 +146,9 @@ export function batches(items: PlanItem[], bestCalls: [number, number]): Group[]
   }
   flush();
   const take = (pred: (p: PlanItem) => boolean) => items.filter((p) => !inPower(p) && pred(p));
-  const notes = take((p) => p.kind === "note");
-  if (notes.length) groups.push({ kind: "notes", title: `Handwritten notes (${notes.length})`, items: notes, minutes: notes.reduce((t, p) => t + p.minutes, 0), rank: Math.min(...notes.map(rank)), why: "Done together, out in today's mail." });
   const approvals = take((p) => p.kind === "approval");
   if (approvals.length) groups.push({ kind: "approvals", title: `Approvals (${approvals.length})`, items: approvals, minutes: approvals.reduce((t, p) => t + p.minutes, 0), rank: Math.min(...approvals.map(rank)), why: "Before posting time, so nothing waits on you.", before: toMin("12:00") });
-  for (const p of take((x) => x.kind !== "text" && x.kind !== "note" && x.kind !== "approval")) {
+  for (const p of take((x) => x.kind !== "approval")) {
     const inPerson = p.kind === "meeting" || IN_PERSON.test(p.title);
     groups.push({ kind: inPerson ? "in_person" : "task", title: p.title.replace(/[.]$/, ""), items: [p], minutes: p.minutes + (inPerson ? 30 : 0), rank: rank(p), why: inPerson ? "With 15 minutes' drive each way." : p.urgency === "alert" ? "Overdue: done today, it stops pulsing." : "Due today." });
   }
