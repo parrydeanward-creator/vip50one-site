@@ -3496,7 +3496,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             />
           ) : null}
 
-          {(focus.contactId || focus.taskId) && focus.product === "move" && !focus.locked && !ask && (live || !focus.id.startsWith(`${LEADS_NODE}:`)) && (
+          {/* A person's card: ONE MOVE's people and tasks, and ONE GO's VIP touches with a person behind them (Parry, 20 Oct:
+              "it's only bringing up their name in the side panel box. It should open their full panel"). */}
+          {(focus.contactId || focus.taskId) && (focus.product === "move" || (focus.product === "go" && !!focus.contactId && live)) && !focus.locked && !ask && (live || !focus.id.startsWith(`${LEADS_NODE}:`)) && (
             <PersonPanel
               key={focus.id}
               contactId={focus.contactId}
