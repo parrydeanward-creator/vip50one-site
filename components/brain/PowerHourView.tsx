@@ -101,12 +101,8 @@ export default function PowerHourView({
 
   // Tap a name, its orb or its arrow: that person comes to the middle and their full contact card opens in the
   // side panel (Parry, 19 Oct: "when you click a name it should open that contact in the right column with full
-  // info"). Tapping the open one again closes it.
+  // info"), and the drawer scrolls to it.
   const choose = (c: Call) => {
-    if (sel?.id === c.id && pick) {
-      setPick(null);
-      return cam.reset();
-    }
     setPick(c.id);
     if (!session.results[c.id]) onSession(bringUp(session, c.id));
     cam.reset();
@@ -285,12 +281,12 @@ export default function PowerHourView({
                   </div>
                 </>
               )}
-              {pick === sel.id ? (
-                sel.contactId && live && contactCard ? (
-                  <div className="ph-contact">{contactCard(sel.contactId, sel.name)}</div>
-                ) : (
-                  <p className="pm-empty">{live ? `${sel.name} isn't linked to a contact yet, so there is no card to open.` : `Example agent: ${sel.name}'s full contact card opens here.`}</p>
-                )
+              {/* The person's full card always sits under their touch, the one Pulse puts first included (Parry,
+                  20 Oct: "power hour needs to open the full card when a contact is clicked"). */}
+              {sel.contactId && live && contactCard ? (
+                <div className="ph-contact" key={sel.id}>{contactCard(sel.contactId, sel.name)}</div>
+              ) : pick === sel.id ? (
+                <p className="pm-empty">{live ? `${sel.name} isn't linked to a contact yet, so there is no card to open.` : `Example agent: ${sel.name}'s full contact card opens here.`}</p>
               ) : null}
             </div>
           )}
