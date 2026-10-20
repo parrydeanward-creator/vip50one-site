@@ -2932,3 +2932,9 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .dc-row-tap { cursor: pointer; }
 .dc-row-tap:focus-visible { outline: 2px solid rgba(245, 197, 66, 0.6); outline-offset: 2px; border-radius: 6px; }
 .dc-key { margin-top: 2px; }
+/* calendar items on the Day Clock can be tapped (Parry, 20 Oct) */
+.dc-busy { cursor: pointer; }
+.dc-busy.picked path:first-child { stroke-opacity: 1; filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.75)); }
+.dc-busy .dc-num text { fill: #14100a; }
+.dc-busy:focus, .dc-block:focus { outline: none; }
+.dc-busy:focus-visible path:first-child, .dc-block:focus-visible path:first-child { stroke-opacity: 1; filter: drop-shadow(0 0 6px rgba(255, 233, 168, 0.9)); }

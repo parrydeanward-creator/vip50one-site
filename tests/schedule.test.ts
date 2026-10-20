@@ -380,3 +380,15 @@ test("20 Oct: the day's drop-bys are one run on the clock, named", () => {
   assert.equal(run[0].items.length, 3);
   assert.ok(g.some((x) => x.title === "Write the CMA"));
 });
+
+test("20 Oct: a calendar copy of one of today's tasks is not busy time (Plan my day places the task itself)", async () => {
+  const { withoutTaskCopies } = await import("../lib/schedule.ts");
+  const busy = [
+    { start: "09:00", end: "09:15", title: "Call Brent", source: "time_block" as const },
+    { start: "09:00", end: "09:30", title: "Morning Brief", source: "calendar" as const },
+    { start: "10:00", end: "11:00", title: "Call Brent", source: "calendar" as const },
+    { start: "13:00", end: "14:00", title: "Gym", source: "time_block" as const },
+  ];
+  const left = withoutTaskCopies(busy, ["Call Brent", "Video text Becky"]);
+  assert.deepEqual(left.map((b) => `${b.start} ${b.title}`), ["09:00 Morning Brief", "10:00 Call Brent", "13:00 Gym"]);
+});

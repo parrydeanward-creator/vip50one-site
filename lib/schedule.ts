@@ -489,3 +489,14 @@ export function busyHue(b: Pick<Busy, "source" | "title"> & { category?: string 
   if (c) return c;
   return titleHue(b.title) ?? (b.source === "fixed" || b.source === "one_event" ? "meeting" : "busy");
 }
+
+const normTitle = (s: string | null | undefined) => (s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+/**
+ * The calendar's busy times without copies of today's own tasks (Parry, 20 Oct): ONE MOVE's calendar "Touches" step
+ * puts each VIP touch on the calendar as a block; Plan my day places those tasks itself, so a copy is neither busy time
+ * nor drawn a second time.
+ */
+export function withoutTaskCopies(busy: readonly Busy[], taskTitles: readonly string[]): Busy[] {
+  const titles = new Set(taskTitles.map(normTitle).filter(Boolean));
+  return busy.filter((b) => !(b.source === "time_block" && b.title && titles.has(normTitle(b.title))));
+}

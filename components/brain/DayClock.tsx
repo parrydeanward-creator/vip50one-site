@@ -156,12 +156,19 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
   const doneN = blocks.filter((b) => b.done).length;
   const free = Math.max(0, plan.freeMin - plan.plannedMin);
   const picked = blocks.find((b) => b.id === pick);
-  // Labels (Parry, 20 Oct): every block has a name on its arc or a number that matches its row, and says who it is for.
-  const nums = blockNumbers(blocks);
+  // A calendar item (an appointment, a meeting) can be tapped too (Parry, 20 Oct: "I cant even click them").
+  const busyId = (i: number) => `busy:${i}`;
+  const pickedBusy = pick?.startsWith("busy:") ? taken[Number(pick.slice(5))] ?? null : null;
+  // Labels (Parry, 20 Oct): everything on the clock has its name on the arc or a number that matches its row in
+  // "Today, in order", one count for appointments and plan blocks alike (drives are not numbered).
+  const nums = blockNumbers([
+    ...blocks.map((b) => ({ id: b.id, start: b.start })),
+    ...taken.flatMap((b, i) => (b.source === "travel" ? [] : [{ id: busyId(i), start: b.start }])),
+  ]);
   const who = (b: Block) => (titles ? whoLine(b.refs, titles) : "");
   const hues = [...new Set<Hue>([...blocks.map((b) => blockHue(b.kind)), ...taken.map(busyHue)])];
   // Every orb (Parry, 6 Oct, hard rule): the block tapped comes to the middle and opens in the side panel.
-  const choose = (b: (typeof blocks)[number]) => {
+  const choose = (b: { id: string; start: string; end: string }) => {
     if (pick === b.id) {
       setPick(null);
       return cam.reset();
@@ -255,18 +262,40 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
                 const r = ringR(x.pm);
                 const label = busyLabel(b);
                 const id = `dc-tb-${i}-${j}`;
+                const m = polar((x.a1 + x.a2) / 2, r);
+                const bid = busyId(i);
+                const pickIt = () => choose({ id: bid, start: b.start, end: b.end });
                 return (
-                  <g key={id} className={`dc-busy${b.source === "travel" ? " dc-drive" : ""}${b.source === "fixed" ? " dc-told" : ""}`} style={{ "--hue": HUE[busyHue(b)].color } as React.CSSProperties}>
+                  <g
+                    key={id}
+                    data-tap
+                    className={`dc-busy${b.source === "travel" ? " dc-drive" : ""}${b.source === "fixed" ? " dc-told" : ""}${pick === bid ? " picked" : ""}`}
+                    style={{ "--hue": HUE[busyHue(b)].color } as React.CSSProperties}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${range(b.start, b.end)}: ${b.title ?? BUSY_WORD[b.source]}`}
+                    onClick={pickIt}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter" && e.key !== " ") return;
+                      e.preventDefault();
+                      pickIt();
+                    }}
+                  >
                     <path d={arc(x.a1 + 0.003, x.a2 - 0.003, r)} strokeWidth={b.source === "travel" ? W * 0.42 : W} />
                     <desc>{`${range(b.start, b.end)} ${b.title ?? BUSY_WORD[b.source]}`}</desc>
-                    {fits(label, x.a1, x.a2, r) && (
+                    {fits(label, x.a1, x.a2, r) ? (
                       <>
                         <path id={id} d={textArc(x.a1, x.a2, r)} fill="none" stroke="none" />
                         <text dy="0.35em" pointerEvents="none">
                           <textPath href={`#${id}`} startOffset="50%" textAnchor="middle">{label}</textPath>
                         </text>
                       </>
-                    )}
+                    ) : b.source !== "travel" && j === 0 ? (
+                      <g className="dc-num" pointerEvents="none" aria-hidden="true">
+                        <circle cx={m.x} cy={m.y} r={15} />
+                        <text x={m.x} y={m.y} dy="0.36em" textAnchor="middle">{nums.get(bid)}</text>
+                      </g>
+                    ) : null}
                   </g>
                 );
               }),
@@ -332,7 +361,15 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
             })()}
 
             <circle cx={C} cy={C} r={CORE} fill="url(#dc-core)" stroke="#ffd86a" strokeWidth={3} />
-            {picked ? (
+            {pickedBusy ? (
+              <foreignObject x={C - CORE * 0.78} y={C - CORE * 0.62} width={CORE * 1.56} height={CORE * 1.24} pointerEvents="none">
+                <div className="dc-core-pick">
+                  <b>{`${nums.get(pick!) ? `${nums.get(pick!)}. ` : ""}${pickedBusy.title ?? BUSY_WORD[pickedBusy.source]}`}</b>
+                  <span>{range(pickedBusy.start, pickedBusy.end)}</span>
+                  <small>{pickedBusy.source === "travel" ? "Drive time Pulse added" : pickedBusy.source === "fixed" ? "You told Pulse" : `${BUSY_WORD[pickedBusy.source]} on your calendar`}</small>
+                </div>
+              </foreignObject>
+            ) : picked ? (
               <foreignObject x={C - CORE * 0.78} y={C - CORE * 0.62} width={CORE * 1.56} height={CORE * 1.24} pointerEvents="none">
                 <div className="dc-core-pick">
                   <b>{`${nums.get(picked.id) ?? ""}. ${picked.title}`}</b>
@@ -424,10 +461,10 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
             <ol className="pm-list pm-compact dc-list">
               {rows.map((r, i) =>
                 r.busy ? (
-                  <li key={`b${i}`} className="dc-row-busy">
+                  <li key={`b${i}`} id={`dc-row-${busyId(taken.indexOf(r.busy))}`} className={`dc-row-busy${pick === busyId(taken.indexOf(r.busy)) ? " picked" : ""}`}>
                     <span className="pm-time">{clock12(r.busy.start)}</span>
-                    <i className="pm-dot" style={{ background: HUE[busyHue(r.busy)].color }} aria-hidden="true" />
-                    <span className="pm-body">
+                    <i className={`pm-dot${r.busy.source === "travel" ? "" : " dc-num-dot"}`} style={{ background: HUE[busyHue(r.busy)].color }} aria-hidden="true">{r.busy.source === "travel" ? null : nums.get(busyId(taken.indexOf(r.busy)))}</i>
+                    <span className="pm-body dc-row-tap" role="button" tabIndex={0} onClick={() => choose({ id: busyId(taken.indexOf(r.busy!)), start: r.busy!.start, end: r.busy!.end })} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose({ id: busyId(taken.indexOf(r.busy!)), start: r.busy!.start, end: r.busy!.end }); } }}>
                       <b>{r.busy.title ?? BUSY_WORD[r.busy.source]}</b>
                       <small>
                         {range(r.busy.start, r.busy.end)} · {r.busy.source === "travel" ? "Drive time Pulse added" : r.busy.source === "fixed" ? "You told Pulse" : `${BUSY_WORD[r.busy.source]} · Pulse keeps 10 minutes clear either side`}
