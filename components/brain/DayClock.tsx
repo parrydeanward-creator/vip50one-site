@@ -54,7 +54,7 @@ const fits = (label: string, a1: number, a2: number, r: number) => (a2 - a1) * r
 const BLOCK_SHORT: Partial<Record<Block["kind"], string>> = { power_hour: "Power Hour", texts: "Texts", notes: "Notes", approvals: "Approvals" };
 const REPEAT_WORD = { none: "today only", weekdays: "every weekday", daily: "every day" } as const;
 
-export default function DayClock({ day, live, tellText, tomorrow = [], onClose, onTick, onClassic, dated, vipsNoVideo, commitments, titles }: { day: Day; live: boolean; tellText?: string; tomorrow?: TomorrowItem[]; onClose: () => void; onTick: (refs: string[], done: boolean) => void; onClassic: () => void; dated?: DatedNote[]; vipsNoVideo?: number; commitments?: Commitments | null; /** The day's work by id, to say who each block is for (lib/dayLabels.ts). */ titles?: ReadonlyMap<string, string> }) {
+export default function DayClock({ day, live, tellText, tomorrow = [], onClose, onTick, onClassic, dated, vipsNoVideo, commitments, titles, onOpenCalendar }: { day: Day; live: boolean; tellText?: string; tomorrow?: TomorrowItem[]; onClose: () => void; onTick: (refs: string[], done: boolean) => void; onClassic: () => void; dated?: DatedNote[]; vipsNoVideo?: number; commitments?: Commitments | null; /** The day's work by id, to say who each block is for (lib/dayLabels.ts). */ titles?: ReadonlyMap<string, string>; /** Open ONE MOVE's Calendar on a day (a saved note's appointment). */ onOpenCalendar?: (date: string) => void }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -75,6 +75,24 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
       setAnswered(JSON.parse(localStorage.getItem(assistKey) ?? "{}") ?? {});
     } catch {}
   }, [assistKey]);
+  // Notes saved today stay in sight (Parry, 20 Oct: "I saved a note in plan your day and have no idea where it went"):
+  // each says which appointment it was filed on, with the way to it.
+  type Saved = { key: string; title: string; start: string; date: string; text: string; where: "calendar" | "here" };
+  const savedKey = `one.notes.${day.date}`;
+  const [saved, setSaved] = useState<Saved[]>([]);
+  useEffect(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(savedKey) ?? "[]");
+      setSaved(Array.isArray(v) ? v : []);
+    } catch {}
+  }, [savedKey]);
+  const keep = (n: Saved) => {
+    const next = [...saved.filter((x) => x.key !== n.key), n];
+    setSaved(next);
+    try {
+      localStorage.setItem(savedKey, JSON.stringify(next));
+    } catch {}
+  };
   const remember = (key: string, note: string) => {
     const next = { ...answered, [key]: note };
     setAnswered(next);
@@ -144,11 +162,17 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
     const text = (howText[c.key] ?? "").trim();
     if (!text) return;
     remember(c.key, text);
-    if (!live || !c.appt) return setNote(live ? "Saved." : "Saved. Example agent: in your account it is filed on the appointment.");
+    const base = { key: c.key, title: c.appt?.title ?? c.title, start: c.appt?.start ?? "", date: day.date, text };
+    if (!live || !c.appt) {
+      keep({ ...base, where: "here" });
+      return setNote(live ? "Saved." : "Saved. Example agent: in your account it is filed on the appointment.");
+    }
     try {
       const r = await fetch(`${dayUrl}/note`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: day.date, start: c.appt.start, title: c.appt.title, note: text }) });
-      setNote(r.ok ? "Saved on the appointment in ONE MOVE." : "Kept on this computer. ONE MOVE didn't take it this time.");
+      keep({ ...base, where: r.ok ? "calendar" : "here" });
+      setNote(r.ok ? `Saved on ${c.appt.title} in your calendar. It is under "Notes you saved today" below.` : "Kept on this computer. ONE MOVE didn't take it this time.");
     } catch {
+      keep({ ...base, where: "here" });
       setNote("Kept on this computer. ONE couldn't reach ONE MOVE.");
     }
   };
@@ -531,6 +555,27 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
                 </div>
               ))}
               <p className="pm-promise">Pulse only changes your own plan, and shows you first. It never contacts anyone.</p>
+            </section>
+          )}
+
+          {!ahead && saved.length > 0 && (
+            <section className="as-saved" aria-label="Notes you saved today">
+              <h2>Notes you saved today</h2>
+              <ul className="pm-list pm-compact">
+                {saved.map((n) => (
+                  <li key={n.key}>
+                    <span className="pm-body">
+                      <b>{n.title}{n.start ? ` · ${clock12(n.start)}` : ""}</b>
+                      <small>&ldquo;{n.text}&rdquo; · {n.where === "calendar" ? "filed on the appointment in your calendar" : "kept on this computer"}</small>
+                    </span>
+                    {n.where === "calendar" && onOpenCalendar && (
+                      <span className="pm-acts">
+                        <button className="chip-btn" onClick={() => onOpenCalendar(n.date)} aria-label={`Open ${n.title} in your calendar`}>Open in calendar</button>
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
 
