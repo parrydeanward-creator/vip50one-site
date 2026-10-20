@@ -3275,11 +3275,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             <button onClick={goBack} disabled={!ask && focus.id === graph.rootId} aria-label="Back" data-tip="Back">
               ←
             </button>
-            <button className="zoom-btn" onClick={() => zoom(0.8)} aria-label="Zoom out" data-tip="Zoom out">
-              −
-            </button>
+            {/* + before −, as on every other map view (Day Clock, Weekly Review, Power Hour ...): same spot, same order. */}
             <button className="zoom-btn" onClick={() => zoom(1.25)} aria-label="Zoom in" data-tip="Zoom in">
               +
+            </button>
+            <button className="zoom-btn" onClick={() => zoom(0.8)} aria-label="Zoom out" data-tip="Zoom out">
+              −
             </button>
             <button onClick={goHome} aria-label="Centre on ONE" data-tip="Centre">
               ◎
