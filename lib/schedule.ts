@@ -97,6 +97,7 @@ const powerTitle = (items: PlanItem[]) => {
   return `Power Hour: ${bits.join(", ")}`;
 };
 const IN_PERSON = /\b(coffee|lunch|face-to-face|drop-?by|meet)\b/i;
+const DROP_BY = /^\s*drop[- ]?by\s+/i;
 
 interface Group {
   kind: BlockKind;
@@ -148,7 +149,21 @@ export function batches(items: PlanItem[], bestCalls: [number, number]): Group[]
   const take = (pred: (p: PlanItem) => boolean) => items.filter((p) => !inPower(p) && pred(p));
   const approvals = take((p) => p.kind === "approval");
   if (approvals.length) groups.push({ kind: "approvals", title: `Approvals (${approvals.length})`, items: approvals, minutes: approvals.reduce((t, p) => t + p.minutes, 0), rank: Math.min(...approvals.map(rank)), why: "Before posting time, so nothing waits on you.", before: toMin("12:00") });
-  for (const p of take((x) => x.kind !== "approval")) {
+  // Drop-bys go as one run, one stop after another with 15 minutes between (as ONE MOVE's day builder does), so the
+  // clock shows one "Drop-bys: Alex, Wesley, Chris" block, not three loose ones (Parry, 20 Oct, clock labels).
+  const dropBys = take((x) => DROP_BY.test(x.title));
+  if (dropBys.length) {
+    const names = dropBys.map((p) => p.title.replace(DROP_BY, "").replace(/[.]$/, "").trim()).filter(Boolean);
+    groups.push({
+      kind: "in_person",
+      title: dropBys.length === 1 ? dropBys[0].title.replace(/[.]$/, "") : `Drop-bys: ${names.join(", ")}`,
+      items: dropBys,
+      minutes: dropBys.reduce((t, p) => t + p.minutes, 0) + 15 * (dropBys.length - 1) + 30,
+      rank: Math.min(...dropBys.map(rank)),
+      why: dropBys.length === 1 ? "With 15 minutes' drive each way." : "One run, with drive time between stops.",
+    });
+  }
+  for (const p of take((x) => x.kind !== "approval" && !DROP_BY.test(x.title))) {
     const inPerson = p.kind === "meeting" || IN_PERSON.test(p.title);
     groups.push({ kind: inPerson ? "in_person" : "task", title: p.title.replace(/[.]$/, ""), items: [p], minutes: p.minutes + (inPerson ? 30 : 0), rank: rank(p), why: inPerson ? "With 15 minutes' drive each way." : p.urgency === "alert" ? "Overdue: done today, it stops pulsing." : "Due today." });
   }

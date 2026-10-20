@@ -370,3 +370,13 @@ test("19 Oct: only Today's VIP touches go in the Power Hour; any other call is a
   assert.ok(g.some((x) => x.kind === "task" && x.items[0].ref === "move:fu"));
   assert.ok(!g.some((x) => x.kind === "notes"), "notes sit in the Power Hour now");
 });
+
+test("20 Oct: the day's drop-bys are one run on the clock, named", () => {
+  const g = batches([it("d1", { kind: "other", title: "Drop by Alex" }), it("d2", { kind: "other", title: "Drop by Wesley" }), it("d3", { kind: "other", title: "Drop by Chris" }), it("x", { kind: "other", title: "Write the CMA" })], [540, 660]);
+  const run = g.filter((x) => /Drop/.test(x.title));
+  assert.equal(run.length, 1);
+  assert.equal(run[0].title, "Drop-bys: Alex, Wesley, Chris");
+  assert.equal(run[0].kind, "in_person");
+  assert.equal(run[0].items.length, 3);
+  assert.ok(g.some((x) => x.title === "Write the CMA"));
+});

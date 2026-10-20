@@ -1796,6 +1796,12 @@ a.link { display: block; text-decoration: none; }
 .dc-block.picked path { stroke: #fff3cc; }
 .dc-block.now path { stroke: #ffd86a; filter: drop-shadow(0 0 10px rgba(255, 216, 106, 0.8)); animation: dc-glow 2.4s ease-in-out infinite; }
 .dc-icon { fill: #14100a; font-size: 18px; font-weight: 700; pointer-events: none; }
+.dc-num circle { fill: #ffffff; stroke: rgba(0, 0, 0, 0.35); stroke-width: 1.5; }
+.dc-num text { fill: #14100a; font-size: 17px; font-weight: 700; }
+.dc-core-pick { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; color: #fff; font-family: inherit; }
+.dc-core-pick b { font-size: 22px; line-height: 1.2; }
+.dc-core-pick span { font-size: 16px; color: #ffe9a8; }
+.dc-core-pick small { font-size: 14px; line-height: 1.35; color: rgba(255, 255, 255, 0.75); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .dc-label { fill: #ffe9a8; font-size: 13px; font-weight: 600; pointer-events: none; }
 .dc-hand line { stroke: #fff; stroke-width: 3; stroke-linecap: round; }
 .dc-hand circle { fill: #ffd86a; stroke: #fff; stroke-width: 2; }
@@ -2921,3 +2927,8 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .cc-improvements .imp-photos { display: flex; gap: 6px; margin: 2px 0 6px; list-style: none; padding: 0; }
 .cc-improvements .imp-photos li { list-style: none; }
 .cc-improvements .imp-photo { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(160, 175, 210, 0.35); display: block; background: rgba(11, 18, 38, 0.8); }
+/* Day Clock labels (Parry, 20 Oct): numbered rows that match the clock, tappable */
+.dc-num-dot { width: 20px !important; height: 20px !important; border-radius: 50%; display: inline-flex !important; align-items: center; justify-content: center; font-style: normal; font-size: 11px; font-weight: 700; color: #14100a; flex: none; }
+.dc-row-tap { cursor: pointer; }
+.dc-row-tap:focus-visible { outline: 2px solid rgba(245, 197, 66, 0.6); outline-offset: 2px; border-radius: 6px; }
+.dc-key { margin-top: 2px; }

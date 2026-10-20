@@ -1604,6 +1604,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const doneRefs = useMemo(() => new Set([...dayDone].map((id) => id.replace(/^day:/, ""))), [dayDone]);
   // the week's commitments become today's work (§3o.7)
   const commitWork = useMemo(() => commitmentWork(commitments, todayIn()), [commitments]);
+  // The day's work by id, so the Day Clock can say who each block is for (lib/dayLabels.ts, Parry 20 Oct).
+  const dayTitles = useMemo(
+    () => new Map<string, string>([...(graph.today ?? []).map((d) => [d.ref ?? d.id.replace(/^day:/, ""), d.what] as [string, string]), ...(planned?.items ?? []).map((p) => [p.ref, p.title] as [string, string])]),
+    [graph.today, planned],
+  );
   const theDay = useDay({ today: graph.today ?? [], planned, live, doneRefs, onPlan: setPlanned, extra: commitWork });
   // One plan state (Parry, 16 Oct, Plan my day audit 3.1.3): the Plan my day orb and the ONE YOU card say the same thing.
   const thePlanState = planState({ approvedAt: theDay.approvedAt, sent: planned, blocks: theDay.plan.blocks.length, over: !!theDay.now && toMin(theDay.now) >= toMin(theDay.hours.end), off: theDay.dayOff });
@@ -4550,6 +4555,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           dated={graph.dated}
           vipsNoVideo={roster ? roster.vip50.filter((p) => !p.month?.video_text).length : undefined}
           commitments={commitments}
+          titles={dayTitles}
           onClose={() => {
             setClockOpen(false);
             setTellText(undefined);
