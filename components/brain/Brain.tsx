@@ -128,7 +128,7 @@ import { REFERRALS_NODE, applyThank, applyThanked, askUrl, demoReferrals, thankU
 import { COACH_NODE, coachedUrl, demoCoached, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
 import { WEEK_NODE, commitWay, commitmentsUrl, demoCommitments, queueBody, queueDraft, queueUrl, readCommitments, readQueueAnswer, readQueued, withWeekNode, type Commitments } from "@/lib/commitments.ts";
 import { nextCommitKey } from "@/lib/pulseCoach.ts";
-import { PLAN_NODE, planKey, planState, planUrl, readPlan, timed, withPlanNode, type Plan, type PlanState } from "@/lib/plan.ts";
+import { CALENDAR_NODE, PLAN_NODE, planKey, planState, planUrl, readPlan, timed, withPlanNode, type Plan, type PlanState } from "@/lib/plan.ts";
 import { hwcUrl, readHwc, todayIn, type HwcClass } from "@/lib/hwc.ts";
 import { readSignals, signalsUrl, type WebSignal } from "@/lib/webSignals.ts";
 import { readSiteAlerts, withAdsAlertNode, type SiteAlert } from "@/lib/siteAlerts.ts";
@@ -2446,6 +2446,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     setFullPage(path);
     goTo(movePageId(path));
   };
+  // The Calendar, from the ONE YOU orb or the header button: ONE MOVE's Calendar inside the Brain.
+  const openCalendar = () => {
+    if (!live) return setSiteNote("Example agent: signed in, this opens your Calendar.");
+    if (!ix.byId.has(movePageId("/calendar"))) return void window.open(moveMenuHref("/calendar"), "_blank", "noopener");
+    setAsk(null);
+    openMovePage("/calendar");
+  };
   const openOrb = (id: string) => {
     drag.current.moved = false;
     clickNode(id);
@@ -2456,6 +2463,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     if (ask && id.startsWith(ASK_PERSON)) return openPerson(id.slice(ASK_PERSON.length));
     if (ask) return id === graph.rootId ? goHome() : goTo(id);
     if (id === PLAN_NODE) return setClockOpen(true);
+    if (id === CALENDAR_NODE) return openCalendar();
     if (id === WEEK_NODE) return setCmOpen(true);
     if (id === COACH_NODE) return setCoachOpen(true);
     if (id === REVIEW_NODE) return setReviewOpen(true);
@@ -2825,6 +2833,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             {next}
           </button>
         )}
+        <button className="cal-btn" onClick={openCalendar} title="Your calendar" aria-label="Open your calendar">
+          Calendar
+        </button>
         {live && (
           <nav className="dash-switch" aria-label="Dashboard version">
             <span aria-current="page">ONE Brain</span>
@@ -3550,10 +3561,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               outreach={outreach}
               events={eventsNow}
               live={live}
-              onOpenPage={(path) => {
+              onOpenPage={(path, query) => {
                 // the example agent opens only what the Brain draws itself (Market Reports); nothing reaches ONE MOVE
                 if (!live && path !== HOME_REPORTS_PATH) return setSiteNote(`Example agent: signed in, this opens ${partOf(focus.id)!.label} in ONE MOVE.`);
-                if (!ix.byId.has(movePageId(path))) return void window.open(moveMenuHref(path), "_blank", "noopener");
+                if (!ix.byId.has(movePageId(path))) return void window.open(moveMenuHref(path) + (query ? `?${query}` : ""), "_blank", "noopener");
+                setPageQuery(query ? { path, query } : null);
                 openMovePage(path);
               }}
               onBulk={() => {

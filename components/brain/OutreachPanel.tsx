@@ -40,8 +40,8 @@ export default function OutreachPanel({
   outreach: Outreach | null;
   events: EventsNow | null;
   live: boolean;
-  /** The ONE MOVE page inside the Brain (the open helper). */
-  onOpenPage: (path: string) => void;
+  /** The ONE MOVE page inside the Brain (the open helper); `query` is passed to the page (e.g. "date=2026-10-23"). */
+  onOpenPage: (path: string, query?: string) => void;
   /** Market Reports opened on "Set up Market Reports for all your VIPs". */
   onBulk: () => void;
   onOpenPerson?: (contactId: string) => void;
@@ -98,6 +98,10 @@ export default function OutreachPanel({
     const days = events ? byDay(events.calendar) : [];
     return (
       <section className="d-list" aria-label="Calendar, next 7 days">
+        {/* The calendar itself first, never only a link at the bottom (Parry, 20 Oct) */}
+        <div className="op-acts op-top">
+          <button type="button" className="chip-btn primary" onClick={() => onOpenPage(part.path)} aria-label="Open your calendar in ONE MOVE">Open Calendar</button>
+        </div>
         <h2>Next 7 days</h2>
         {events ? <p className="hr-line">{calendarLine(events.calendar.length)}</p> : waiting}
         {days.map(([d, items]) => (
@@ -106,8 +110,11 @@ export default function OutreachPanel({
             <ul className="op-list">
               {items.map((it) => (
                 <li key={it.id}>
-                  <span>{it.title}</span>
-                  <small>{it.start ? `${timeWords(it.start)}${it.end ? ` to ${timeWords(it.end)}` : ""}` : "All day"}</small>
+                  {/* Every item does something (PROTOCOL rule 12): it opens the calendar on its day */}
+                  <button type="button" className="op-item" onClick={() => onOpenPage(part.path, `date=${it.date}`)} aria-label={`${it.title}: open it in your calendar`}>
+                    <span>{it.title}</span>
+                    <small>{it.start ? `${timeWords(it.start)}${it.end ? ` to ${timeWords(it.end)}` : ""}` : "All day"}</small>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -115,7 +122,6 @@ export default function OutreachPanel({
         ))}
         {events && !events.calendar.length ? <p className="hr-sub">Appointments, open houses and events you add in ONE MOVE or ONE GO land here.</p> : null}
         {example}
-        <div className="op-acts">{open("Open Calendar")}</div>
       </section>
     );
   }

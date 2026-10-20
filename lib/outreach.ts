@@ -80,7 +80,9 @@ const obj = (v: unknown): Record<string, unknown> | null => (v && typeof v === "
 const count = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v) : null);
 const str = (v: unknown, max = 200): string | null => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
 const ymd = (v: unknown): string | null => str(v, 40)?.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
-const hhmm = (v: unknown): string | null => str(v, 20)?.match(/^\d{2}:\d{2}/)?.[0] ?? null;
+// "09:30", or ONE MOVE's calendar timestamps ("2026-10-20T09:00:00+00:00"), which keep the agent's clock time after the
+// date (stored as if UTC). Before this only "09:30" was read, so every real appointment showed "All day" (Parry, 20 Oct).
+const hhmm = (v: unknown): string | null => str(v, 40)?.match(/^(?:\d{4}-\d{2}-\d{2}[T ])?(\d{2}:\d{2})/)?.[1] ?? null;
 
 /** GET /api/brain/outreach, checked; null when it is not one. */
 export function readOutreach(j: unknown): Outreach | null {
