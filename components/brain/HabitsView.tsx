@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import PulseRing from "./PulseRing.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
-import { doneCount, habitsLine, type HabitToday } from "@/lib/habits.ts";
+import { doneCount, habitsLine, OWN_HABITS_MAX, type HabitToday } from "@/lib/habits.ts";
 
 // The Habits ring in ONE YOU (Parry, 7 Oct: "love the habits ring"). The morning's "you" boxes as one ring in the
 // middle, a segment per habit, filling as each is ticked; each habit an orb round it. Tap a habit and it comes to
@@ -25,7 +25,13 @@ function seg(cx: number, cy: number, r: number, from: number, to: number): strin
   return `M ${p(from)} A ${r} ${r} 0 ${to - from > Math.PI ? 1 : 0} 1 ${p(to)}`;
 }
 
-export default function HabitsView({ habits, demo, onClose, onTick }: { habits: HabitToday[]; demo: boolean; onClose: () => void; onTick: (key: string, done: boolean) => Promise<string | null> }) {
+type OwnEdit = { add?: string; key?: string; name?: string; remove?: boolean };
+
+export default function HabitsView({ habits, demo, onClose, onTick, onOwn }: {
+  habits: HabitToday[]; demo: boolean; onClose: () => void; onTick: (key: string, done: boolean) => Promise<string | null>;
+  /** Add, rename or remove one of the agent's own habits (no points); answers an error line or null. */
+  onOwn: (edit: OwnEdit) => Promise<string | null>;
+}) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
@@ -33,6 +39,18 @@ export default function HabitsView({ habits, demo, onClose, onTick }: { habits: 
   const [pick, setPick] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [adding, setAdding] = useState("");
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const ownCount = habits.filter((h) => h.own).length;
+  const own = async (edit: OwnEdit, after?: () => void) => {
+    if (busy) return;
+    setBusy("own");
+    setNote(null);
+    const err = await onOwn(edit);
+    setBusy(null);
+    if (err) setNote(err);
+    else after?.();
+  };
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -155,12 +173,25 @@ export default function HabitsView({ habits, demo, onClose, onTick }: { habits: 
           {sel ? (
             <>
               <h1 className="d-title" id="hb-title">{sel.label}</h1>
-              <p className="d-sub">{sel.done ? "Done today" : "Not yet today"}{sel.week != null ? ` · ${sel.week} of 7 days this week` : ""}</p>
+              <p className="d-sub">{sel.done ? "Done today" : "Not yet today"}{sel.week != null ? ` · ${sel.week} of 7 days this week` : ""}{sel.own ? " · Your own habit, no points" : ""}</p>
               <div className="decide-btns">
                 <button type="button" className={`chip-btn${sel.done ? "" : " primary"}`} disabled={busy === sel.key} onClick={() => toggle(sel)}>
                   {busy === sel.key ? "Saving…" : sel.done ? "Untick" : "Done today"}
                 </button>
+                {sel.own && renaming == null ? (
+                  <>
+                    <button type="button" className="chip-btn" disabled={!!busy} onClick={() => setRenaming(sel.label)}>Rename</button>
+                    <button type="button" className="chip-btn" disabled={!!busy} onClick={() => own({ key: sel.key, remove: true }, () => open(null))}>Remove</button>
+                  </>
+                ) : null}
               </div>
+              {sel.own && renaming != null ? (
+                <form className="hb-add" onSubmit={(e) => { e.preventDefault(); void own({ key: sel.key, name: renaming }, () => setRenaming(null)); }}>
+                  <input autoFocus value={renaming} maxLength={40} aria-label="New name for this habit" onChange={(e) => setRenaming(e.target.value)} />
+                  <button type="submit" className="chip-btn primary" disabled={!!busy || !renaming.trim()}>{busy === "own" ? "Saving…" : "Save"}</button>
+                  <button type="button" className="chip-btn" onClick={() => setRenaming(null)}>Cancel</button>
+                </form>
+              ) : null}
               {note ? <p className="pm-empty">{note}</p> : null}
               <button className="vr-classic" onClick={() => open(null)}>All your habits</button>
             </>
@@ -174,7 +205,7 @@ export default function HabitsView({ habits, demo, onClose, onTick }: { habits: 
                     <i className="pm-dot" style={{ background: h.done ? GREEN : GOLD }} aria-hidden="true" />
                     <span className="pm-body">
                       <b>{h.label}</b>
-                      <small>{h.done ? "Done today" : "Not yet today"}{h.week != null ? ` · ${h.week} of 7 this week` : ""}</small>
+                      <small>{h.done ? "Done today" : "Not yet today"}{h.week != null ? ` · ${h.week} of 7 this week` : ""}{h.own ? " · no points" : ""}</small>
                     </span>
                     <span className="pm-acts">
                       <button onClick={() => toggle(h)} disabled={busy === h.key} aria-label={h.done ? `Untick ${h.label}` : `${h.label} done today`}>
@@ -185,6 +216,14 @@ export default function HabitsView({ habits, demo, onClose, onTick }: { habits: 
                   </li>
                 ))}
               </ul>
+              {/* Your own habits (Parry, 19-20 Oct): up to 4 beside the six, no points; the six always stay. */}
+              {ownCount < OWN_HABITS_MAX ? (
+                <form className="hb-add" onSubmit={(e) => { e.preventDefault(); void own({ add: adding }, () => setAdding("")); }}>
+                  <input value={adding} maxLength={40} placeholder="Add a habit of your own" aria-label="Add a habit of your own" onChange={(e) => setAdding(e.target.value)} />
+                  <button type="submit" className="chip-btn primary" disabled={!!busy || !adding.trim()}>{busy === "own" ? "Adding…" : "Add"}</button>
+                </form>
+              ) : <p className="pm-empty">You have {OWN_HABITS_MAX} habits of your own. Open one to rename or remove it.</p>}
+              <p className="pm-empty">Your own habits count their days but earn no points. The six VIP-50 habits always stay.</p>
               {note ? <p className="pm-empty">{note}</p> : null}
             </>
           )}

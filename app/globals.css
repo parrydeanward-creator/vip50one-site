@@ -2943,3 +2943,7 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .dc-busy .dc-num text { fill: #14100a; }
 .dc-busy:focus, .dc-block:focus { outline: none; }
 .dc-busy:focus-visible path:first-child, .dc-block:focus-visible path:first-child { stroke-opacity: 1; filter: drop-shadow(0 0 6px rgba(255, 233, 168, 0.9)); }
+/* The agent's own habits: add / rename (Habits ring drawer). */
+.hb-add { display: flex; gap: 8px; align-items: center; margin: 12px 0 4px; flex-wrap: wrap; }
+.hb-add input { flex: 1 1 160px; min-width: 0; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(245, 197, 66, 0.4); border-radius: 10px; color: #eef1f8; padding: 8px 10px; font-size: 14px; }
+.hb-add input:focus { outline: none; border-color: #f5c542; }
