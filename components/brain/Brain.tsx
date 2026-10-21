@@ -104,6 +104,8 @@ import GoalsView from "./GoalsView.tsx";
 import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
 import { REVIEW_CALLS_NODE, agentsUrl, demoAgents, readAgents, withReviewCallsNode, type ReviewAgent } from "@/lib/reviewCalls.ts";
 import { TEAM_LEADS_PATH, WAR_NODE, demoWarRoom, teamDealsUrl, leadsUrl, logUrl, readWarRoom, type WarRoom } from "@/lib/warroom.ts";
+import BrokerView from "./BrokerView.tsx";
+import { BROKER_NODE, brokerSummaryLine, brokerUrl, demoBroker, readBroker, withBrokerNode, type Broker } from "@/lib/broker.ts";
 import { TEAM_NODE, demoTeam, readTeam, teamUrl, type Scope as TeamScope, type Team } from "@/lib/team.ts";
 import { awayLine, demoTimeOff, readTimeOff, timeOffUrl, withAwayLabel, type TimeOffState } from "@/lib/timeOff.ts";
 import { demoPulseReport, pulseReportUrl, readPulseReport, type PulseReport } from "@/lib/pulseReport.ts";
@@ -255,6 +257,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const habitsRef = useRef<HabitToday[] | null>(null);
   const lifeRef = useRef<UpcomingList | null>(null);
   const dealsRef = useRef<Deal[] | null>(null);
+  const brokerRef = useRef<Broker | null>(null);
   const outreachRef = useRef<Outreach | null>(null);
   const eventsRef = useRef<EventsNow | null>(null);
   // Action Plans drawn natively and Learn's parts (lib/actionPlans.ts, lib/learn.ts; walker 0245)
@@ -297,7 +300,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const swapGraph = useCallback((fresh: BusinessGraph) => {
     followSumRef.current = summaryFollowOf(fresh, todayIn());
     // Opportunities last (lib/opportunities.ts; Parry, 17 Oct): its four parts move inside it, whatever built them.
-    const next = groupOneYou(withOpportunities(withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage(((withMoveCoach(withMoveLikelyNode(withLearnNodes(withPlanNodes(withEventsNodes(withOutreachNodes(withDealsNode(withLifeUpcomingNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), outreachRef.current), eventsRef.current), plansRef.current), learnRef.current), likelyRef.current, likelyOptsRef.current), admin))), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn(), followSumRef.current), ntsRef.current), looksRef.current)));
+    const next = withBrokerNode(groupOneYou(withOpportunities(withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage(((withMoveCoach(withMoveLikelyNode(withLearnNodes(withPlanNodes(withEventsNodes(withOutreachNodes(withDealsNode(withLifeUpcomingNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), outreachRef.current), eventsRef.current), plansRef.current), learnRef.current), likelyRef.current, likelyOptsRef.current), admin))), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn(), followSumRef.current), ntsRef.current), looksRef.current))), brokerRef.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -1239,6 +1242,21 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       return productTour ? withExampleMoveTools(next) : next;
     });
   }, [outreach, eventsNow, plans, learn, productTour]);
+  // The broker's view (§3ao): from ONE MOVE once it answers; a 403 (not a broker or office manager) or a 404 (not built
+  // yet) draws no Broker orb. The example brokerage in the demo.
+  const [broker, setBroker] = useState<Broker | null>(null);
+  const [brokerOpen, setBrokerOpen] = useState(false);
+  useEffect(() => {
+    if (!live) return setBroker(demoBroker(mondayOf(todayIn()), Date.now()));
+    fetch(brokerUrl(), { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setBroker(j ? readBroker(j) : null))
+      .catch(() => {});
+  }, [live]);
+  useEffect(() => {
+    brokerRef.current = broker;
+    setGraph((g) => withBrokerNode(g, broker));
+  }, [broker]);
   // Deals under contract (§3z): from ONE MOVE once it answers (404 until then: no orb), the example agent's in the demo.
   const [deals, setDeals] = useState<Deal[] | null>(null);
   const [dealsOpen, setDealsOpen] = useState<false | "list" | "add">(false);
@@ -2604,6 +2622,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     if (id === HABITS_NODE) return openHabits();
     if (id === LIFE_NODE) return setLifeOpen(true);
     if (id === DEALS_NODE) return setDealsOpen("list");
+    if (id === BROKER_NODE) return setBrokerOpen(true);
     if (id === LIKELY_NODE) return setLikelyOpen(true);
     // The Team orb's Leaderboard and War room come to the middle with their side panel (orbs hard rule); the full
     // screens open from the panel.
@@ -2655,6 +2674,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
         needs: topIds.map((id) => ix.byId.get(id)).filter((n): n is NonNullable<typeof n> => !!n).map((n) => ({ label: n.label, why: factsFor(ix, n.id)[0] ?? n.secondaryLabel ?? null })),
       },
       approved: thePlanState === "approved",
+      broker: brokerSummaryLine(broker),
     });
     mpStarting.current = false;
     setMp({ beats, example: !live });
@@ -3888,6 +3908,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               </span>
             </button>
           )}
+          {focus.id === BROKER_NODE && broker && !tour && (
+            <button className="pi-film pm-open" onClick={() => setBrokerOpen(true)}>
+              <span className="pi-play" aria-hidden="true">B</span>
+              <span>
+                <b>Open the Broker view</b>
+                <span>Offices with their agents, who has gone quiet and who needs a word, each team's war room. Seats {broker.brokerage.seatsUsed} of {broker.brokerage.seatsIncluded}.</span>
+              </span>
+            </button>
+          )}
           {focus.id === DEALS_NODE && deals && !tour && (
             <>
               <button className="pi-film pm-open" onClick={() => setDealsOpen("list")}>
@@ -4665,6 +4694,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           onClose={() => setLikelyOpen(false)}
         />
       ) : null}
+      {brokerOpen && broker ? <BrokerView broker={broker} demo={!live} now={Date.now()} onClose={() => setBrokerOpen(false)} /> : null}
       {dealsOpen && deals ? <DealsView deals={deals} today={todayIn()} demo={!live} onStatus={setDealStatus} onClientPage={setDealClientPage} onClose={() => setDealsOpen(false)} onAdded={dealAdded} startAdding={dealsOpen === "add"} /> : null}
       {lifeOpen && life ? <LifeUpcomingView data={life} demo={!live} onTask={lifeTask} onClose={() => setLifeOpen(false)} /> : null}
       {winsOpen && wins ? (

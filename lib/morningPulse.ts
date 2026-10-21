@@ -188,6 +188,8 @@ export interface ScriptInput {
   known: Known;
   /** The plan is already approved today (Looks good was tapped). */
   approved?: boolean;
+  /** One line about the brokerage (lib/broker.ts brokerSummaryLine), for a broker or office manager (§3ao). */
+  broker?: string | null;
 }
 
 const msFor = (words: string) => Math.max(2600, Math.round(words.split(/\s+/).length * 400));
@@ -327,6 +329,7 @@ export function buildMorningPulse(input: ScriptInput): Beat[] {
       );
     }
   }
+  if (input.broker) out.push(beat({ id: "broker", part: "ready", kicker: "Your brokerage", words: input.broker, product: "ONE MOVE" }));
   const n = input.known.planCount;
   out.push(
     beat({
