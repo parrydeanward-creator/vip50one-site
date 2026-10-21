@@ -127,6 +127,9 @@ export const GOAL_WORD: Record<GoalKey, string> = { closings_goal: "Closings", r
 export interface GoalChange {
   goals: Partial<Record<GoalKey, number>>;
   startsOn: string | null; // the goal year start, used only when the agent has no goals row yet
+  /** The agent chose when their goal year starts (Parry, 21 Oct: "we need a way for each agent to choose when their
+   *  year starts"): startsOn is saved on their row. */
+  setStart?: boolean;
   assumptions: Assume | null; // the Income Map's own numbers (agent_goals.income_assumptions)
 }
 
@@ -153,9 +156,10 @@ export function goalChange(j: unknown): GoalChange | { error: string } {
     goals[k] = v;
   }
   const assumptions = r.income_assumptions && typeof r.income_assumptions === "object" ? readAssume(r.income_assumptions) : null;
-  if (!Object.keys(goals).length && !assumptions) return { error: "Nothing to change." };
   const startsOn = isDay(r.starts_on) ? r.starts_on.slice(0, 10) : null;
-  return { goals, startsOn, assumptions };
+  const setStart = r.set_start === true && !!startsOn;
+  if (!Object.keys(goals).length && !assumptions && !setStart) return { error: "Nothing to change." };
+  return { goals, startsOn, assumptions, ...(setStart ? { setStart: true } : {}) };
 }
 
 /** MASTER's answer when agent_goals.income_assumptions does not exist yet (another bot adds it): the Income Map then
@@ -402,4 +406,21 @@ export function addGoals(add: (n: Omit<GraphNode, "importance"> & { importance?:
       goal: g,
     });
   });
+}
+
+/**
+ * The goal year start for a month and day (the agent picks "July 1"): the latest one on or before today, so the year
+ * running now counts (MASTER uses the newest start on or before today). Null for a day that does not exist.
+ */
+export function yearStartFor(month: number, day: number, today: string): string | null {
+  if (!Number.isInteger(month) || !Number.isInteger(day) || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const y = Number(today.slice(0, 4));
+  const iso = (yr: number) => `${yr}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const ok = (yr: number) => {
+    const d = new Date(`${iso(yr)}T12:00:00Z`);
+    return d.getUTCMonth() + 1 === month && d.getUTCDate() === day;
+  };
+  if (!ok(2024)) return null; // a leap year: Feb 29 is allowed, Feb 30 never
+  for (const yr of [y, y - 1, y - 2, y - 3, y - 4]) if (ok(yr) && iso(yr) <= today) return iso(yr);
+  return null;
 }

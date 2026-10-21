@@ -89,7 +89,7 @@ import { commitmentWork } from "@/lib/assist.ts";
 import { demoHistory, historyUrl, pulseRead, readHistory, type History, type Read as PulseRead } from "@/lib/pulseCoach.ts";
 import { POWER_NODE, lineUp, newSession, powerKey, readSession, withPowerNode, type Call, type Session as PowerSession } from "@/lib/powerHour.ts";
 import { goalsPlanUrl, goalsShown, readGoalsPlan, type GoalsPlan } from "@/lib/goalsPlan.ts";
-import { ASSUME_DEFAULT, START as INCOME_START, goalFacts, incomeKey, incomeMap, readAssume, type Assume, type GoalKey } from "@/lib/goals.ts";
+import { ASSUME_DEFAULT, START as INCOME_START, goalFacts, incomeKey, incomeMap, readAssume, yearStartFor, type Assume, type GoalKey } from "@/lib/goals.ts";
 import GoalsPanel from "./GoalsPanel.tsx";
 import { exampleRoster, makeReviewDemoStore } from "@/lib/examples/move2.ts";
 import { REVIEW_NODE, demoRoster, goalsFromGraph, lateInWeek, review as buildReview, withReviewNode, type Review, type Thing } from "@/lib/review.ts";
@@ -665,6 +665,24 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       return null;
     },
     [live, refreshLive, graph.nodes, loadGoalsPlan],
+  );
+  // The agent's goal year start (Parry, 21 Oct): the latest such day on or before today, saved on their goals row.
+  const setGoalStart = useCallback(
+    async (month: number, day: number): Promise<string | null> => {
+      if (!live) return "Example agent: goals are not saved.";
+      const start = yearStartFor(month, day, todayIn());
+      if (!start) return "That day doesn't exist. Pick another.";
+      try {
+        const r = await fetch("/api/goals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ starts_on: start, set_start: true }) });
+        const j = await r.json().catch(() => null);
+        if (!r.ok) return typeof j?.error === "string" ? j.error : "That didn't save. Try again.";
+      } catch {
+        return "That didn't save. Check your connection and try again.";
+      }
+      await Promise.all([refreshLive(), loadGoalsPlan()]);
+      return null;
+    },
+    [live, refreshLive, loadGoalsPlan],
   );
   // Referral Scoreboard data (declared here: the goals below count its referrals).
   const [refs, setRefs] = useState<Referrals | null>(null);
@@ -3943,6 +3961,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               onProfile={() => goTo(movePageId("/profile"))}
               onReferrals={() => (refs ? setRefsOpen(true) : goTo(REFERRALS_NODE))}
               onReferralLogged={loadRefs}
+              onSetStart={setGoalStart}
             />
           )}
 
@@ -4474,6 +4493,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           demo={!live}
           rezenConnected={rezenOn}
           onSaveGoal={saveGoal}
+          onSetStart={setGoalStart}
           onClosingLogged={() => Promise.all([refreshLive(), loadGoalsPlan()])}
           onProfile={() => {
             setGoalsOpen(false);

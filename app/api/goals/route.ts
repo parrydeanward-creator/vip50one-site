@@ -54,6 +54,13 @@ export async function POST(req: Request) {
     if (err) return Response.json({ error: "That didn't save. Try again." }, { status: 502, headers: noStore });
     goalsSaved = true;
   }
+  // The agent's own goal year start (Parry, 21 Oct): on their row, or a new row from that day.
+  if (change.setStart && change.startsOn) {
+    if (change.startsOn > todayIn()) return Response.json({ error: "Your goal year has to start on or before today." }, { status: 400, headers: noStore });
+    const err = await save(me, { starts_on: change.startsOn }, change.startsOn);
+    if (err) return Response.json({ error: "That didn't save. Try again." }, { status: 502, headers: noStore });
+    goalsSaved = true;
+  }
   let assumptionsSaved: boolean | null = null;
   if (change.assumptions) {
     const err = await save(me, { income_assumptions: change.assumptions }, change.startsOn);

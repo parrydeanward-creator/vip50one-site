@@ -23,6 +23,7 @@ export default function GoalsPanel({
   onProfile,
   onReferrals,
   onReferralLogged,
+  onSetStart,
 }: {
   goals: GoalFacts[];
   today: string;
@@ -38,8 +39,12 @@ export default function GoalsPanel({
   onReferrals?: () => void;
   /** After a referral is logged here: reload the counts. */
   onReferralLogged?: () => void;
+  /** The agent chooses when their goal year starts (month and day); answers an error line or null. */
+  onSetStart?: (month: number, day: number) => Promise<string | null>;
 }) {
   const [editing, setEditing] = useState<GoalKey | null>(null);
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const shortDay = (iso: string) => { const d = new Date(`${iso}T12:00:00Z`); return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`; };
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
@@ -63,8 +68,53 @@ export default function GoalsPanel({
   };
 
   const sources = !editOnly && (!only || only !== "referrals_goal");
+  // The goal year, and when it starts (Parry, 21 Oct: "we need a way for each agent to choose when their year starts").
+  const year = goals.find((g) => g.from && g.to);
+  const [yearEdit, setYearEdit] = useState<{ m: number; d: number } | null>(null);
+  const saveStart = async () => {
+    if (!yearEdit || !onSetStart) return;
+    if (demo) return setNote({ ok: false, text: "Example agent: goals are not saved." });
+    setBusy(true);
+    const err = await onSetStart(yearEdit.m, yearEdit.d);
+    setBusy(false);
+    if (err) return setNote({ ok: false, text: err });
+    setYearEdit(null);
+    setNote({ ok: true, text: `Your goal year now starts on ${MONTHS[yearEdit.m - 1]} ${yearEdit.d}.` });
+  };
   return (
     <div className="gl-panel">
+      {!editOnly && onSetStart ? (
+        <div className="gl-year">
+          {yearEdit ? (
+            <form className="gl-edit" onSubmit={(e) => { e.preventDefault(); void saveStart(); }}>
+              <label>
+                <span>Your goal year starts on</span>
+                <span className="gl-md">
+                  <select value={yearEdit.m} onChange={(e) => setYearEdit({ ...yearEdit, m: Number(e.target.value) })} aria-label="Month">
+                    {MONTHS.map((mo, i) => <option key={mo} value={i + 1}>{mo}</option>)}
+                  </select>
+                  <input inputMode="numeric" value={yearEdit.d} maxLength={2} aria-label="Day"
+                    onChange={(e) => setYearEdit({ ...yearEdit, d: Number(e.target.value.replace(/\D/g, "")) || 0 })} />
+                </span>
+              </label>
+              <small className="gl-src">Real agents: your cap year starts on your anniversary with Real.</small>
+              <span className="gl-acts">
+                <button type="submit" className="vr-btn" disabled={busy}>{busy ? "Saving" : "Save"}</button>
+                <button type="button" className="vr-btn" onClick={() => setYearEdit(null)} disabled={busy}>Cancel</button>
+              </span>
+            </form>
+          ) : (
+            <p className="gl-src">
+              {year ? `Goal year: ${shortDay(year.from!)} to ${shortDay(year.to!)}. ` : "Your goal year starts the day you set your goals. "}
+              <button className="link" onClick={() => {
+                const f = year?.from ? new Date(`${year.from}T12:00:00Z`) : null;
+                setYearEdit({ m: f ? f.getUTCMonth() + 1 : 1, d: f ? f.getUTCDate() : 1 });
+                setNote(null);
+              }}>Change when it starts</button>
+            </p>
+          )}
+        </div>
+      ) : null}
       <ul className="gl-list">
         {shown.map((g) => {
           const f = (n: number) => fmtGoal(g.key, n);

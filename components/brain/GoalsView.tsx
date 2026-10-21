@@ -23,6 +23,7 @@ export default function GoalsView({
   demo,
   rezenConnected,
   onSaveGoal,
+  onSetStart,
   onClosingLogged,
   onProfile,
   onReferrals,
@@ -39,6 +40,8 @@ export default function GoalsView({
   demo: boolean;
   rezenConnected: boolean | null;
   onSaveGoal: (key: GoalKey, value: number) => Promise<string | null>;
+  /** Choose when the goal year starts (month, day). */
+  onSetStart?: (month: number, day: number) => Promise<string | null>;
   /** Reads the closed count again after a closing found in the MLS is logged. */
   onClosingLogged: () => Promise<unknown> | void;
   onProfile: () => void;
@@ -87,7 +90,7 @@ export default function GoalsView({
             {`Referrals: ${referralsLine} →`}
           </button>
         ) : null}
-        <GoalsPanel goals={goals} today={today} demo={demo} rezenConnected={rezenConnected} onSave={onSaveGoal} onProfile={onProfile} onReferrals={onReferrals} />
+        <GoalsPanel goals={goals} today={today} demo={demo} rezenConnected={rezenConnected} onSave={onSaveGoal} onProfile={onProfile} onReferrals={onReferrals} onSetStart={onSetStart} />
         <ClosingsFoundCard demo={demo} onLogged={onClosingLogged} />
 
         <h2 className="wr-h">2. Likely next 3 months</h2>
