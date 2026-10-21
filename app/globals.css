@@ -2957,3 +2957,6 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .lr-hits { list-style: none; margin: 0; padding: 0; border: 1px solid rgba(245, 197, 66, 0.25); border-radius: 10px; overflow: hidden; }
 .lr-hits button { all: unset; display: block; width: 100%; box-sizing: border-box; padding: 8px 10px; cursor: pointer; color: #eef1f8; font-size: 14px; }
 .lr-hits button:hover, .lr-hits button:focus-visible { background: rgba(245, 197, 66, 0.12); }
+/* Team deals from reZEN (Team hub). */
+.tr-sec { margin-top: 18px; }
+.tr-sec h3 { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #f5c542; margin: 14px 0 6px; }
