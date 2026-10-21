@@ -2960,3 +2960,8 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 /* Team deals from reZEN (Team hub). */
 .tr-sec { margin-top: 18px; }
 .tr-sec h3 { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #f5c542; margin: 14px 0 6px; }
+/* Goal year start (Goals panel). */
+.gl-year { margin-bottom: 10px; }
+.gl-md { display: inline-flex; gap: 8px; }
+.gl-md select, .gl-md input { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(245, 197, 66, 0.4); border-radius: 10px; color: #eef1f8; padding: 6px 8px; font-size: 14px; }
+.gl-md input { width: 3.5em; }

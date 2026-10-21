@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
-import { ASSUME_DEFAULT, INCOME_NODE, demoGoals, goalPace, incomeMap, perWeekWords, readAssume, yearShare, type GoalFacts } from "../lib/goals.ts";
+import { ASSUME_DEFAULT, INCOME_NODE, demoGoals, goalPace, incomeMap, perWeekWords, readAssume, yearShare, yearStartFor, type GoalFacts } from "../lib/goals.ts";
 
 const year = { from: "2026-01-01", to: "2027-01-01" };
 const g = (key: GoalFacts["key"], value: number | null, max: number | null, pace: number | null = null): GoalFacts => ({ key, label: key, value, max, pace, ...year });
@@ -157,4 +157,18 @@ test("missingColumn: MASTER without agent_goals.income_assumptions yet (audit 3.
   assert.equal(missingColumn({ code: "PGRST204", message: "Could not find the 'income_assumptions' column" }), true);
   assert.equal(missingColumn({ code: "42501", message: "permission denied" }), false);
   assert.equal(missingColumn(null), false);
+});
+
+test("yearStartFor: the latest start on or before today; impossible days refused", () => {
+  assert.equal(yearStartFor(7, 1, "2026-10-21"), "2026-07-01");
+  assert.equal(yearStartFor(12, 1, "2026-10-21"), "2025-12-01");
+  assert.equal(yearStartFor(10, 21, "2026-10-21"), "2026-10-21");
+  assert.equal(yearStartFor(2, 29, "2026-10-21"), "2024-02-29");
+  assert.equal(yearStartFor(2, 30, "2026-10-21"), null);
+  assert.equal(yearStartFor(13, 1, "2026-10-21"), null);
+});
+
+test("goalChange: the goal year start on its own", () => {
+  assert.deepEqual(goalChange({ starts_on: "2026-07-01", set_start: true }), { goals: {}, startsOn: "2026-07-01", assumptions: null, setStart: true });
+  assert.deepEqual(goalChange({ starts_on: "2026-07-01" }), { error: "Nothing to change." });
 });
