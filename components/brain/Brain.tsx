@@ -42,7 +42,7 @@ import { clock, completedBy, duration, isEvening, planDay, recap, type DayItem, 
 import { localDay } from "@/lib/morning.ts";
 import PulseMark from "./PulseMark.tsx";
 import PulseIntro from "./PulseIntro.tsx";
-import SignalsFilm, { GO_TOUR_FILM } from "./SignalsFilm.tsx";
+import SignalsFilm, { GO_TOUR_FILM, ONE_TOUR_FILM } from "./SignalsFilm.tsx";
 import PlanMyDay from "./PlanMyDay.tsx";
 import DayClock from "./DayClock.tsx";
 import { useDay } from "./useDay.ts";
@@ -404,6 +404,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [mp, setMp] = useState<{ beats: MpBeat[]; example: boolean } | null>(null);
   const [mpOffer, setMpOffer] = useState(false); // the once-a-day offer on the morning note
   const [goTour, setGoTour] = useState(false); // the ONE GO phone tour (Film B)
+  const [oneTour, setOneTour] = useState(false); // the ONE desktop tour (Film A)
   useEffect(() => {
     if (!live) return;
     if (arrival) return; // a link to a page opens that page; Meet Pulse waits for a plain visit
@@ -3030,6 +3031,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                       else if (a.kind === "start") reopenStart();
                       else if (a.kind === "help") setGuide(true);
                       else if (a.kind === "goTour") setGoTour(true);
+                      else if (a.kind === "oneTour") setOneTour(true);
                       else if (a.kind === "billing") void openBilling();
                       else if (a.kind === "addons") setAddonsOpen(true);
                       else if (a.kind === "site") void editSite(a.host, a.next);
@@ -4566,6 +4568,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           onClose={() => setMp(null)}
         />
       )}
+      {oneTour && <SignalsFilm film={ONE_TOUR_FILM} onClose={() => setOneTour(false)} />}
       {goTour && <SignalsFilm film={GO_TOUR_FILM} onClose={() => setGoTour(false)} onEnded={() => markFilm("b")} />}
       {reviewOpen && theReview ? <ReviewView review={theReview} read={thePulseRead} week={weekScore} demo={!live} onClose={() => setReviewOpen(false)} onCommit={commitThing} onChanged={refreshRoster} onAction={reviewAct} demoStore={reviewDemoStore} /> : null}
       {goalsOpen ? (
