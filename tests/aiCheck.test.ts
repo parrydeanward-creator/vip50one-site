@@ -35,3 +35,45 @@ test("Ask AI about you is a My Profile card, not an orb", () => {
   const g = { nodes: [{ id: "go", type: "product", label: "ONE YOU", parentId: "one", product: "go", importance: 1 }, { id: ASK_AI_NODE, type: "feature", label: "Ask AI about you", parentId: "go", product: "go", importance: 1 }] as GraphNode[], edges: [] };
   assert.equal(groupOneYou(g).nodes.some((n) => n.id === ASK_AI_NODE), false);
 });
+
+// Parry/ONE MOVE (vip50-web-crm#326): the check is kept in MASTER; the Brain reads and writes it through the route.
+import { aiCheckBody, aiCheckUrl, cardFor, readAiCheck } from "../lib/aiCheck.ts";
+
+test("the route is ONE MOVE's ai-check", () => {
+  assert.equal(aiCheckUrl, "https://move.vip50one.com/api/brain/ai-check");
+});
+
+test("reads the route's answer", () => {
+  const c = readAiCheck({
+    month: "2026-10",
+    results: { "who:chatgpt": "named", "best:google": "not_named", "bad:key": "named", "who:google": "maybe" },
+    area: "Draper, Utah",
+    name: "Sarah Bennett",
+    last_month: { "who:chatgpt": "not_named" },
+    card: { title: "Ask AI about you", line: "Named in 1 of 2 answers.", due: false },
+  })!;
+  assert.equal(c.month, "2026-10");
+  assert.deepEqual(c.results, { "who:chatgpt": "named", "best:google": "not_named" });
+  assert.equal(c.area, "Draper, Utah");
+  assert.equal(c.name, "Sarah Bennett");
+  assert.deepEqual(c.lastMonth, { "who:chatgpt": "not_named" });
+  assert.deepEqual(c.card, { title: "Ask AI about you", line: "Named in 1 of 2 answers.", due: false });
+  // the card line comes from the route
+  assert.equal(cardFor(c, c.results).line, "Named in 1 of 2 answers.");
+  // no card from the route: the local wording
+  const bare = readAiCheck({ month: "2026-10", results: {} })!;
+  assert.equal(bare.card, null);
+  assert.equal(bare.lastMonth, null);
+  assert.equal(cardFor(bare, {}).due, true);
+  assert.equal(readAiCheck(null), null);
+  assert.equal(readAiCheck({ results: {} }), null);
+  assert.equal(readAiCheck({ month: "2026-10" }), null);
+});
+
+test("the POST body: one mark, a clear, or the area", () => {
+  assert.deepEqual(aiCheckBody({ mark: { key: "who:chatgpt", answer: "named" } }), { results: { "who:chatgpt": "named" } });
+  assert.deepEqual(aiCheckBody({ mark: { key: "best:google", answer: null } }), { results: { "best:google": null } });
+  assert.deepEqual(aiCheckBody({ area: "Draper, Utah" }), { area: "Draper, Utah" });
+  assert.deepEqual(aiCheckBody({ mark: { key: "who:bing", answer: "named" } }), {});
+  assert.equal(JSON.stringify(aiCheckBody({ mark: { key: "who:chatgpt", answer: null } })), '{"results":{"who:chatgpt":null}}');
+});

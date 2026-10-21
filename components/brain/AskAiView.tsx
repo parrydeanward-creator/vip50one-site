@@ -16,11 +16,12 @@ const GOLD = "#f5c542";
 const GREEN = "#3fbf7f";
 const GREY = "#8089a2";
 
-export default function AskAiView({ name, area, results, demo, onArea, onMark, onClose }: {
+export default function AskAiView({ name, area, results, demo, deviceOnly = false, onArea, onMark, onClose }: {
   name: string;
   area: string;
   results: Results;
   demo: boolean;
+  deviceOnly?: boolean; // the route did not answer: the marks are kept on this device only
   onArea: (a: string) => void;
   onMark: (q: string, e: Engine, a: Answer | null) => void;
   onClose: () => void;
@@ -151,7 +152,8 @@ export default function AskAiView({ name, area, results, demo, onArea, onMark, o
               <ul className="pm-list pm-compact">{WHAT_HELPS.map((w) => <li key={w}><span className="pm-body">{w}</span></li>)}</ul>
             </>
           )}
-          <p className="pm-promise">{demo ? "Example agent. " : ""}ONE never asks these for you: each button opens the engine with the question filled in, and only you press Enter. Your marks stay in this browser.</p>
+          <p className="pm-promise">{demo ? "Example agent. " : ""}ONE never asks these for you: each button opens the engine with the question filled in, and only you press Enter. {demo || deviceOnly ? "Your marks stay in this browser." : "Your marks are saved in ONE."}</p>
+          {deviceOnly ? <p className="pm-promise" role="status">Saved on this device only</p> : null}
         </aside>
       </div>
     </div>

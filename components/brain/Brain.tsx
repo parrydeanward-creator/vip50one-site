@@ -108,10 +108,11 @@ import { TEAM_NODE, demoTeam, readTeam, teamUrl, type Scope as TeamScope, type T
 import { awayLine, demoTimeOff, readTimeOff, timeOffUrl, withAwayLabel, type TimeOffState } from "@/lib/timeOff.ts";
 import { demoPulseReport, pulseReportUrl, readPulseReport, type PulseReport } from "@/lib/pulseReport.ts";
 import AskAiView from "./AskAiView.tsx";
+import ContactLinkView from "./ContactLinkView.tsx";
 import MorningPulse from "./MorningPulse.tsx";
 import { OFFER_KEY as MP_OFFER_KEY, buildMorningPulse, demoEvening, demoMorning, eveningUrl as mpEveningUrl, morningUrl as mpMorningUrl, orbFor as mpOrbFor, readEvening as readMpEvening, readMorning as readMpMorning, type Beat as MpBeat, type BeatTool as MpTool } from "@/lib/morningPulse.ts";
 import { readTeamSites, type TeamSite, readAgentTeamSites, siteOpenHref, type AgentTeamSite } from "@/lib/siteEdit.ts";
-import { askAiCard, monthOf, readResults, resultKey, type Answer as AiAnswer, type Engine as AiEngine, type Results as AiResults } from "@/lib/aiCheck.ts";
+import { aiCheckBody, aiCheckUrl, cardFor, monthOf, readAiCheck, readResults, resultKey, type AiCheck, type Answer as AiAnswer, type Engine as AiEngine, type Results as AiResults } from "@/lib/aiCheck.ts";
 import { LIKELY_NODE, callBody as likelyCallBody, callUrl as likelyCallUrl, demoMoveLikely, emptyMoveLikely, moveLikelyUrl, notUsefulUrl, pastClientsUrl, readMoveLikely, readPastClientsAnswer, withMoveLikelyNode, withoutPerson, type MoveLikely, type PastClient, type Person as LikelyPerson, type RouteReason } from "@/lib/moveLikely.ts";
 import { OPP_LABEL, OPP_NODE, PEOPLE_MENU_PARTS, withOpportunities } from "@/lib/opportunities.ts";
 import { readRoute } from "@/lib/routeFirst.ts";
@@ -212,11 +213,13 @@ const TOUR_AGENT: BrainAgent = { ...DEMO_AGENT, growth: true, plan: "ONE Complet
 /** How long an arrived-at orb is held as the focus while the routes answer (see arrivalHold). */
 const ARRIVAL_HOLD_MS = 10_000;
 
-export default function Brain({ graph: initialGraph, pkg = "complete", agent: agentIn = DEMO_AGENT, live = false, startPage = null, startOpen = null, productTour = false }: { graph: BusinessGraph; pkg?: string; agent?: BrainAgent; live?: boolean; startPage?: string | null; startOpen?: string | null; productTour?: boolean }) {
+export default function Brain({ graph: initialGraph, pkg = "complete", agent: agentIn = DEMO_AGENT, live = false, startPage = null, startOpen = null, startContact = null, productTour = false }: { graph: BusinessGraph; pkg?: string; agent?: BrainAgent; live?: boolean; startPage?: string | null; startOpen?: string | null; startContact?: string | null; productTour?: boolean }) {
   const agent = productTour ? TOUR_AGENT : agentIn;
   // What the address asked for (/dashboard/<page>, ?open=<thing>; lib/deepLink.ts): it opens on arrival, ahead of the
   // morning fly-through, Meet Pulse and the morning note (Parry, 18 Oct: links "just open the dashboard").
-  const [arrival] = useState(() => arrivalFor(startPage, startOpen));
+  const [arrival] = useState(() => arrivalFor(startPage, startOpen, startContact));
+  // /dashboard/contacts/<uuid> (or ?contact=<uuid>): that one contact is open in the side panel; Back returns to Contacts.
+  const [linkContact, setLinkContact] = useState<string | null>(() => (arrival && arrival.kind !== "gbp" ? arrival.contact ?? null : null));
   // The arrived-at orb stays the focus while the Brain's routes answer: a rebuild can drop an orb for a moment (Deals
   // and Life events before their data is in) and the map must not fall back to its parent for good (live check, 18 Oct).
   const arrivalHold = useRef<{ id: string; until: number } | null>(null);
@@ -1049,12 +1052,16 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     setSiteNote(typeof j?.error === "string" ? j.error : "Your website could not be opened just now. Please try again.");
   }, []);
   // Likely to move (§3ab): from ONE MOVE once it answers (404 until then: no orb), the example agent's past clients in the demo.
-  // Ask AI about you (Scout 54): this month's marks and the agent's area, kept in this browser only.
+  // Ask AI about you (Scout 54): this month's marks and the agent's area, kept in MASTER through ONE MOVE's
+  // /api/brain/ai-check (vip50-web-crm#326). This browser holds them only for the example agent, or when that route
+  // does not answer ("Saved on this device only").
   const [askAi, setAskAi] = useState<AiResults | null>(null);
   const [askArea, setAskArea] = useState("");
+  const [askCheck, setAskCheck] = useState<AiCheck | null>(null);
+  const [askDevice, setAskDevice] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const askMonth = monthOf(todayIn());
-  useEffect(() => {
+  const readDevice = useCallback(() => {
     try {
       setAskAi(readResults(JSON.parse(localStorage.getItem(`ask-ai:${askMonth}`) ?? "{}")));
       setAskArea(localStorage.getItem("ask-ai:area") ?? "");
@@ -1062,21 +1069,67 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       setAskAi({});
     }
   }, [askMonth]);
-  const markAi = (q: string, e: AiEngine, a: AiAnswer | null) =>
-    setAskAi((r) => {
-      const next = { ...(r ?? {}) };
-      if (a) next[resultKey(q, e)] = a;
-      else delete next[resultKey(q, e)];
-      try {
-        localStorage.setItem(`ask-ai:${askMonth}`, JSON.stringify(next));
-      } catch {}
-      return next;
-    });
+  const takeCheck = useCallback((c: AiCheck) => {
+    setAskCheck(c);
+    setAskAi(c.results);
+    setAskArea(c.area);
+    setAskDevice(false);
+  }, []);
+  useEffect(() => {
+    if (!live) return readDevice();
+    let gone = false;
+    fetch(aiCheckUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (gone) return;
+        const c = j ? readAiCheck(j) : null;
+        if (c) takeCheck(c);
+        else {
+          setAskDevice(true);
+          readDevice();
+        }
+      })
+      .catch(() => {
+        if (gone) return;
+        setAskDevice(true);
+        readDevice();
+      });
+    return () => {
+      gone = true;
+    };
+  }, [live, readDevice, takeCheck]);
+  const keepDevice = (next: AiResults, area?: string) => {
+    try {
+      localStorage.setItem(`ask-ai:${askMonth}`, JSON.stringify(next));
+      if (area != null) localStorage.setItem("ask-ai:area", area);
+    } catch {}
+  };
+  // A change goes to the route; if it does not take, the device copy keeps it and the view says so.
+  const saveAi = async (change: Parameters<typeof aiCheckBody>[0], next: AiResults, area?: string) => {
+    if (!live || askDevice) return keepDevice(next, area);
+    const ok = await fetch(aiCheckUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(aiCheckBody(change)) })
+      .then(async (r) => {
+        if (!r.ok) return false;
+        const c = readAiCheck(await r.json().catch(() => null));
+        if (c) takeCheck(c);
+        return true;
+      })
+      .catch(() => false);
+    if (!ok) {
+      setAskDevice(true);
+      keepDevice(next, area);
+    }
+  };
+  const markAi = (q: string, e: AiEngine, a: AiAnswer | null) => {
+    const next = { ...(askAi ?? {}) };
+    if (a) next[resultKey(q, e)] = a;
+    else delete next[resultKey(q, e)];
+    setAskAi(next);
+    void saveAi({ mark: { key: resultKey(q, e), answer: a } }, next);
+  };
   const saveArea = (a: string) => {
     setAskArea(a);
-    try {
-      localStorage.setItem("ask-ai:area", a);
-    } catch {}
+    void saveAi({ area: a }, askAi ?? {}, a);
   };
   useEffect(() => {
     if (!live) return setLikely(demoMoveLikely());
@@ -2329,8 +2382,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [arrivalFinal, setArrivalFinal] = useState(false);
   useEffect(() => {
     const u = new URL(window.location.href);
-    if (u.searchParams.has("open")) {
+    if (u.searchParams.has("open") || u.searchParams.has("contact")) {
       u.searchParams.delete("open");
+      u.searchParams.delete("contact");
       window.history.replaceState(null, "", u.toString());
     }
     if (!pendingArrival.current) return;
@@ -4354,7 +4408,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
-                  askAi={askAi ? askAiCard(askAi) : undefined}
+                  askAi={askAi ? cardFor(askCheck, askAi) : undefined}
                   onOpenAskAi={() => setAiOpen(true)}
                 />
               ) : vipNative && nativeKind === "homereports" ? (
@@ -4556,7 +4610,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       {rcOpen && rcAgents ? <ReviewCallsView agents={rcAgents} demo={!live} onClose={() => setRcOpen(false)} onSearch={loadRcAgents} /> : null}
       {warOpen && war ? <WarRoomView room={war} demo={!live} onClose={() => setWarOpen(false)} onTeamLeads={() => { setWarOpen(false); goTo(movePageId(TEAM_LEADS_PATH)); }} /> : null}
       {teamOpen && team ? <TeamView team={team} demo={!live && !productTour} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} canAdd={teamSites.length > 0 || productTour} /> : null}
-      {aiOpen && askAi ? <AskAiView name={live ? agent.label.split(",")[0] : "Sarah Bennett"} area={askArea} results={askAi} demo={!live} onArea={saveArea} onMark={markAi} onClose={() => setAiOpen(false)} /> : null}
+      {linkContact ? <ContactLinkView id={linkContact} demo={!live} onBack={() => setLinkContact(null)} onChanged={refreshRoster} /> : null}
+      {aiOpen && askAi ? <AskAiView name={live ? askCheck?.name || agent.label.split(",")[0] : "Sarah Bennett"} area={askArea} results={askAi} demo={!live} deviceOnly={live && askDevice} onArea={saveArea} onMark={markAi} onClose={() => setAiOpen(false)} /> : null}
       {likelyOpen ? (
         <MoveLikelyView
           data={likely ?? emptyMoveLikely()}

@@ -1,5 +1,5 @@
 import { pageFromAddress } from "./moveMenu.ts";
-import { isArrivalPath, openTarget } from "./deepLink.ts";
+import { arrivalFor, contactIdOf, isArrivalPath, openTarget } from "./deepLink.ts";
 
 // Where a signed-in agent lands (audit stage 1, Parry 14 Oct: "fix all of the above issues. even the new onnes").
 // - Land where they last were: the Brain keeps its last page in a cookie; sign-in goes back there.
@@ -27,13 +27,21 @@ export function appTarget(to: string | null | undefined): string {
   const path = to.split(/[?#]/)[0].replace(/\/+$/, "") || "/";
   // ?open=<thing> survives signing in (lib/deepLink.ts), only for a name it knows; any other query is dropped
   let open = "";
+  let contact = "";
   try {
-    const o = new URLSearchParams(to.split("#")[0].split("?")[1] ?? "").get("open");
+    const q = new URLSearchParams(to.split("#")[0].split("?")[1] ?? "");
+    const c = contactIdOf(q.get("contact"));
+    if (c) contact = `?contact=${c}`;
+    const o = q.get("open");
     if (o && o.length <= 120 && openTarget(o)) open = `?open=${encodeURIComponent(o)}`;
   } catch {}
-  if (path === "/dashboard" || path === "/") return `/dashboard${open}`;
+  if (path === "/dashboard" || path === "/") return `/dashboard${contact || open}`;
   const inner = path.startsWith("/dashboard/") ? path.slice("/dashboard".length) : path;
-  return isArrivalPath(inner) && !inner.includes("..") ? `/dashboard${inner}${open}` : `/dashboard${open}`;
+  if (inner.includes("..") || !isArrivalPath(inner)) return `/dashboard${open}`;
+  // /contacts/<uuid> keeps the contact; /contacts/<anything else> is the Contacts page (lib/deepLink.ts)
+  const a = arrivalFor(inner, null);
+  const kept = a && a.kind !== "gbp" && a.contact ? `/contacts/${a.contact}` : a && a.kind === "page" && inner.startsWith("/contacts/") ? a.path : inner;
+  return `/dashboard${kept}${open}`;
 }
 
 /** After sign-in: an asked-for place on this site (Brain or the reactivate page), else the last place, else the Brain. */

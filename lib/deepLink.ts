@@ -21,8 +21,14 @@ const ID = {
 /** What an address names. `page`: an in-Brain ONE MOVE page (opens full). `orb`: Brain orbs, best first. */
 export type Arrival =
   | { kind: "gbp"; label: string }
-  | { kind: "page"; path: string; label: string; alt: string[]; fallback: string[]; missing: string }
-  | { kind: "orb"; ids: string[]; label: string; fallback: string[]; missing: string };
+  | { kind: "page"; path: string; label: string; alt: string[]; fallback: string[]; missing: string; contact?: string }
+  | { kind: "orb"; ids: string[]; label: string; fallback: string[]; missing: string; contact?: string };
+
+/** A contact id in an address: MASTER's contact UUID (the `contact_id` lead_in returns; ONE MOVE's /contacts/<id>). Nothing else. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const contactIdOf = (v: string | null | undefined): string | null => (v && UUID.test(v.trim()) ? v.trim().toLowerCase() : null);
+/** The Brain address of one contact (other products link here; Parry, 19 Oct). */
+export const contactAddress = (id: string) => `/dashboard/contacts/${id.toLowerCase()}`;
 
 const PRODUCTS: Record<string, [string, string]> = {
   youone: ["go", "ONE YOU"],
@@ -82,8 +88,16 @@ export function openTarget(name: string): Arrival | null {
  * What /dashboard<path> and ?open=<name> name, the address first; null for the Brain itself. `path` is the part after
  * /dashboard ("/profile"), or null.
  */
-export function arrivalFor(path: string | null | undefined, open: string | null | undefined): Arrival | null {
+export function arrivalFor(path: string | null | undefined, open: string | null | undefined, contact?: string | null): Arrival | null {
   const p = path ? path.replace(/\/+$/, "") : "";
+  // One named person (/dashboard/contacts/<uuid>, or ?contact=<uuid> on /dashboard): the Contacts place with that contact
+  // open. Any other id lands on Contacts itself.
+  const m = /^\/contacts\/(.+)$/.exec(p);
+  const cid = m ? contactIdOf(m[1]) : p === "" || p === "/dashboard" ? contactIdOf(contact) : null;
+  if (cid || (m && !page(p))) {
+    const c = page("/contacts");
+    return c && cid && c.kind !== "gbp" ? { ...c, contact: cid } : c;
+  }
   if (p && p !== "/dashboard") {
     const a = page(p) ?? (/^\/[a-z0-9-]+$/.test(p) ? openTarget(p.slice(1)) : null);
     if (a) return a;
