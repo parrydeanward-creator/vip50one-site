@@ -2300,6 +2300,8 @@ button.sp-cta:disabled { opacity: 0.6; cursor: default; }
 /* A stats row that opens an orb (ONE MOVE's birthdays line opens Life events) */
 .row.row-open { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .row.row-open:hover, .row.row-open:focus-visible { border-color: var(--gold-2); }
+.hero-open { display: block; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 12px; }
+.hero-open:hover, .hero-open:focus-visible { outline: 1px solid var(--gold-2); outline-offset: 2px; }
 .heat-homes { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
 .heat-homes li { display: flex; gap: 10px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 12px; }
 .heat-homes img, .heat-nophoto { width: 64px; height: 48px; border-radius: 8px; object-fit: cover; flex: none; display: grid; place-items: center; background: rgba(255, 255, 255, 0.05); color: var(--text-3); font-size: 22px; }

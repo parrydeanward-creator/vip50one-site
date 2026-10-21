@@ -27,3 +27,12 @@ export function readBadges(j: unknown): Badges | null {
 
 /** 0-100 for a progress bar. */
 export const pct = (count: number | null, target: number | null) => (!target ? 0 : Math.max(0, Math.min(100, Math.round(((count ?? 0) / target) * 100))));
+
+/** The ONE MOVE page where a weekly badge is worked on (rule 12: a badge tile always has a way in). Unknown: the Scoreboard. */
+export function badgePath(name: string): string {
+  const t = name.toLowerCase();
+  if (t.includes("task")) return "/tasks";
+  if (t.includes("consistency") || t.includes("momentum")) return "/daily";
+  if (t.includes("touch") || t.includes("social") || t.includes("note") || t.includes("relationship")) return "/contacts/vip";
+  return "/achievements";
+}

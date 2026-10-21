@@ -31,6 +31,7 @@ export default function GoalsView({
   onPerson,
   onForecast,
   onIncomeMap,
+  onPage,
   onClose,
 }: {
   three: GoalsThree;
@@ -51,6 +52,8 @@ export default function GoalsView({
   onPerson: (contactId: string) => void;
   onForecast?: () => void;
   onIncomeMap?: () => void;
+  /** A ONE MOVE page inside the Brain: Deals behind the closed count, the VIP-50 and Touch Audit behind the weekly numbers. */
+  onPage?: (path: string) => void;
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -84,7 +87,15 @@ export default function GoalsView({
         </div>
 
         <h2 className="wr-h">1. Closed so far</h2>
-        <p className="fc-tip">{three.closed.line}</p>
+        <p className="fc-tip">
+          {three.closed.line}
+          {onPage ? (
+            <>
+              {" "}
+              <button className="link" data-act="goals-closed" onClick={() => onPage("/deals")}>Open your Deals</button>
+            </>
+          ) : null}
+        </p>
         {referralsLine ? (
           <button className="link gl-refs" onClick={onReferrals} aria-label={`Open Referrals: ${referralsLine}`}>
             {`Referrals: ${referralsLine} →`}
@@ -156,6 +167,7 @@ export default function GoalsView({
                   <b>Real conversations a week</b>
                   <small>A call that connects, a coffee, a drop-by that turns into a talk.</small>
                 </span>
+                {onPage ? <span className="pm-acts"><button data-act="goals-week-row" onClick={() => onPage("/contacts/vip")} aria-label="Open your VIP-50 to start a conversation">→</button></span> : null}
               </li>
               <li>
                 <span className="pm-time">{three.weekly.touches}</span>
@@ -163,6 +175,7 @@ export default function GoalsView({
                   <b>VIP touches a week</b>
                   <small>Calls, video texts, social, newsletters, mixer invites, face-to-faces, notes and drop-bys.</small>
                 </span>
+                {onPage ? <span className="pm-acts"><button data-act="goals-week-row" onClick={() => onPage("/contacts/audit")} aria-label="Open the Touch Audit to see who needs a touch">→</button></span> : null}
               </li>
               <li>
                 <span className="pm-time">{three.weekly.closingsLeft}</span>
@@ -170,6 +183,7 @@ export default function GoalsView({
                   <b>Closings to go</b>
                   <small>{`To reach ${money(map.goal)} in the ${map.weeksLeft} weeks left of your goal year, at ${money(map.avgGci.value)} GCI each.`}</small>
                 </span>
+                {onIncomeMap ? <span className="pm-acts"><button data-act="goals-week-row" onClick={onIncomeMap} aria-label="Open the numbers behind it">→</button></span> : null}
               </li>
             </ul>
             {onIncomeMap ? (

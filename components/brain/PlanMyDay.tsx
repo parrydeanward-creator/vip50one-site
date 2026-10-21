@@ -43,6 +43,7 @@ export default function PlanMyDay({
   live,
   onClose,
   onGo,
+  onPage,
   onSaved,
   onTick,
 }: {
@@ -51,6 +52,8 @@ export default function PlanMyDay({
   live: boolean;
   onClose: () => void;
   onGo: (nodeId: string) => void;
+  /** A ONE MOVE page inside the Brain (the Daily Tracker behind "points still needed"). */
+  onPage?: (path: string) => void;
   onSaved: (plan: Plan) => void;
   onTick?: (ref: string, done: boolean) => void;
 }) {
@@ -415,7 +418,17 @@ export default function PlanMyDay({
             {lastEnd ? ` · done by ${lastEnd}` : ""}
           </p>
           <p className="d-sum">Drag the orbs round the ring into your order. Drag one off to take it off. Pull one in from Pulse suggests, then send it to your phone.</p>
-          {left != null && <p className={`pi-today ${left > 0 ? "pi-lvl-today" : ""}`}>{left > 0 ? `${left} points still needed for 100 this week` : "100 points reached this week"}</p>}
+          {left != null && (
+            <p className={`pi-today ${left > 0 ? "pi-lvl-today" : ""}`}>
+              {left > 0 ? `${left} points still needed for 100 this week` : "100 points reached this week"}
+              {onPage ? (
+                <>
+                  {" "}
+                  <button type="button" className="link" data-act="plan-points" onClick={() => onPage("/daily")}>Open the Daily Tracker</button>
+                </>
+              ) : null}
+            </p>
+          )}
 
           <label className="pm-start">
             Start at <input type="time" value={start} onChange={(e) => e.target.value && setStart(e.target.value)} />
@@ -480,6 +493,7 @@ export default function PlanMyDay({
                   </span>
                   <span className="pm-acts">
                     <button onClick={() => add(x.ref)} disabled={items.length >= cap} aria-label={`Add to the plan: ${x.title}`}>+</button>
+                    {x.nodeId && <button onClick={() => onGo(x.nodeId!)} data-act="suggest-open" aria-label={`Show on the map: ${x.title}`}>→</button>}
                   </span>
                 </li>
               ))}

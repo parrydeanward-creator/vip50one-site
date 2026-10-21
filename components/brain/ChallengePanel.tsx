@@ -97,6 +97,13 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
       </>
     ) : null;
 
+  // Rule 12 (Parry, 19 Oct): every row opens the challenge page in ONE MOVE, where the day is scored.
+  const go = (what: string) =>
+    tour ? null : (
+      <span className="pm-acts">
+        <button onClick={() => onOpenPage(url)} data-act="challenge-row" aria-label={`Open the 90-Day Challenge: ${what}`}>→</button>
+      </span>
+    );
   return (
     <div className="ch-panel">
       <p className="d-sum">
@@ -159,6 +166,7 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
               <b>{day ? `Day ${day.day} of ${day.of}` : "Starting"}</b>
               <small>{on && on.status !== "active" ? `Status: ${on.status}` : day ? `${Math.max(0, day.of - day.day)} days to go` : "Day 1 begins on your start date."}</small>
             </span>
+            {go("your day")}
           </li>
           <li>
             <span className="pm-time">Today</span>
@@ -166,6 +174,7 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
               <b>{today ?? COMING}</b>
               <small>Out of 100: five arenas, 20 points each, 5 a box.</small>
             </span>
+            {go("today's score")}
           </li>
           <li>
             <span className="pm-time">Streak</span>
@@ -173,6 +182,7 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
               <b>{logged ?? COMING}</b>
               <small>Days in a row you scored your arenas.</small>
             </span>
+            {go("your streak")}
           </li>
           {on?.results && on.results.daysScored ? (
             <li>
@@ -181,6 +191,7 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
                 <b>{resultsLine(on.results)}</b>
                 <small>{`Across your ${on.of} days so far: the days with points, and the average on those days.`}</small>
               </span>
+              {go("your results")}
             </li>
           ) : null}
         </ul>
@@ -205,6 +216,7 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
                   <b>{`${lv.label}: ${lv.points} / 20`}</b>
                   <small>{`${lv.done} of ${lv.of} done today · ${a.items.join(" · ")}`}</small>
                 </span>
+                {go(lv.label)}
               </li>
             );
           const n = byId(ARENA_NODE[a.key]);
@@ -216,6 +228,7 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
                 <b>{`${a.name}${got ? `: ${got}` : started && live && !data ? `: ${COMING.toLowerCase()}` : " · 20 points"}`}</b>
                 <small>{a.items.join(" · ")}</small>
               </span>
+              {go(a.name)}
             </li>
           );
         })}
@@ -232,6 +245,7 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
                   <b>Your identity statement</b>
                   <small>{on.identity}</small>
                 </span>
+                {go("your identity statement")}
               </li>
             ) : null}
             {on.enemy.length ? (
@@ -241,6 +255,7 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
                   <b>The enemy</b>
                   <small>{on.enemy.join(" · ")}</small>
                 </span>
+                {go("the enemy")}
               </li>
             ) : null}
           </ul>
@@ -256,6 +271,7 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
               <b>{d.title}</b>
               <small>{d.title === "The sealed letter" && fin ? "Yours to open now: your 90 days are done." : d.title === "The sealed letter" && started ? `Sealed until Day ${day?.of ?? on?.of ?? 90}.` : d.line}</small>
             </span>
+            {go(d.title)}
           </li>
         ))}
       </ul>
@@ -269,6 +285,7 @@ export default function ChallengePanel({ node, nodes, live, tour, data, onOpenPa
         <div className="as-card ch-group">
           <b>{groupLine(on.group)}</b>
           {on.group.names.length ? <span>{on.group.names.join(", ")}</span> : null}
+          {!tour ? <button type="button" className="link" data-act="challenge-row" onClick={() => onOpenPage(url)}>Open your group</button> : null}
         </div>
       ) : null}
       <p className="d-sum">{CHALLENGE.end}</p>

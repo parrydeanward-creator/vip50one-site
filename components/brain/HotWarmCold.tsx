@@ -655,7 +655,15 @@ export default function HotWarmCold({
             </div>
             <h1 className="d-title">{only ? CLASS_OF[only].label : "Hot / Warm / Cold"}</h1>
             <p className="d-sub">
-              {CLASSES.map((c) => `${data.people.filter((p) => p.cls === c.key).length} ${c.label.toLowerCase()}`).join(" · ")}
+              {CLASSES.map((c, k) => (
+                <span key={c.key}>
+                  {k ? " · " : ""}
+                  {/* each count opens the people behind it (rule 12) */}
+                  <button type="button" className="link hw-count" data-act="hwc-count" aria-label={`${data.people.filter((p) => p.cls === c.key).length} ${c.label.toLowerCase()}: show them`} onClick={() => setOnly(c.key)}>
+                    {`${data.people.filter((p) => p.cls === c.key).length} ${c.label.toLowerCase()}`}
+                  </button>
+                </span>
+              ))}
             </p>
             <div className="ta-log">
               <button className="chip-btn primary" onClick={() => { setNote(null); setPick(null); setAdding(blankPerson(only ?? "hot")); }}>+ Add a person</button>

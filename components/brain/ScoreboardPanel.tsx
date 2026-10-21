@@ -6,7 +6,7 @@ import { badgesUrl, readBadges, type Badges } from "@/lib/badges.ts";
 import { partnerLine, type PartnersState } from "@/lib/partners.ts";
 import { GROUP_TITLE, groupOf, weekWinsFrom, winHome, type WeekWinsLive, type WinHome, type Wins } from "@/lib/wins.ts";
 import { COMING, leaderRows } from "@/lib/oneYou.ts";
-import { missionDot, missionLine, scoreWeeks, streakXpLines, weeklyScoreLines, type ScoreboardLive, type ScoreWeek } from "@/lib/scoreboard.ts";
+import { missionDot, missionLine, missionPath, scoreWeeks, streakXpLines, weeklyScoreLines, type ScoreboardLive, type ScoreWeek } from "@/lib/scoreboard.ts";
 import type { Team } from "@/lib/team.ts";
 
 // The Scoreboard in ONE YOU (Parry, 16 Oct: "yes on combining into Scoreboard"; walker 2026-10-16-1905 to -1938). One
@@ -20,6 +20,15 @@ type Act = { action: "respond" | "end" | "nudge"; pairId: string; accept?: boole
 
 const kidsOf = (nodes: GraphNode[], id: string) => nodes.filter((n) => n.parentId === id);
 const statOf = (n: GraphNode, label: string) => n.stats?.find((s) => s.label === label)?.value ?? null;
+
+/** The row's own way in: a → button naming where it goes. */
+function Go({ label, onClick, act }: { label: string; onClick: () => void; act: string }) {
+  return (
+    <span className="pm-acts">
+      <button onClick={onClick} aria-label={label} data-act={act}>→</button>
+    </span>
+  );
+}
 
 function Coming({ what }: { what: string }) {
   return (
@@ -45,6 +54,7 @@ export default function ScoreboardPanel({
   onOpenWins,
   onOpenTeam,
   onWhere,
+  onPage,
 }: {
   node: GraphNode;
   nodes: GraphNode[];
@@ -65,6 +75,9 @@ export default function ScoreboardPanel({
   onOpenWins: () => void;
   onOpenTeam?: () => void;
   onWhere: (w: WinHome) => void;
+  /** Opens a ONE MOVE page inside the Brain (Daily Tracker, Weekly Tracker, VIP-50...): every row goes somewhere (Parry,
+   *  19 Oct, rule 12: "everything we do must have action available"). */
+  onPage?: (path: string) => void;
 }) {
   const [badges, setBadges] = useState<Badges | null>(null);
   const [busy, setBusy] = useState(false);
@@ -114,6 +127,7 @@ export default function ScoreboardPanel({
                   <b>{m.title}</b>
                   <small>{`${m.status} · ${m.progressLabel}${m.earns ? ` · ${m.earns}` : ""}`}</small>
                 </span>
+                {onPage && missionPath(m.title) ? <Go act="mission" label={`Open ${m.title}`} onClick={() => onPage(missionPath(m.title)!)} /> : null}
               </li>
             ))}
           </ul>
@@ -127,6 +141,7 @@ export default function ScoreboardPanel({
                 <b>{m.label}</b>
                 {m.secondaryLabel ? <small>{m.secondaryLabel}</small> : null}
               </span>
+              {onPage && missionPath(m.label) ? <Go act="mission" label={`Open ${m.label}`} onClick={() => onPage(missionPath(m.label)!)} /> : null}
             </li>
           ))}
         </ul>
@@ -145,6 +160,7 @@ export default function ScoreboardPanel({
                   <b>{r.name}</b>
                   <small>{`${r.score} this week`}</small>
                 </span>
+                {onOpenTeam ? <Go act="leader" label={`Open the leaderboard: ${r.name}`} onClick={onOpenTeam} /> : null}
               </li>
             ))}
           </ol>
@@ -175,6 +191,7 @@ export default function ScoreboardPanel({
                     <b>{p.name}</b>
                     <small>{`${partnerLine(p)} · ${p.streak ? `${p.streak}-week streak` : "no streak yet"} · ${p.tickedToday ? "ticked today" : "not ticked today"}`}</small>
                   </span>
+                  <Go act="partner" label={`Open ${p.name}: last 4 weeks, and send a nudge`} onClick={onOpenPartners} />
                 </li>
               ))}
               {partners.invitesIn.map((i) => (
@@ -215,6 +232,7 @@ export default function ScoreboardPanel({
                 <b>{b.name}</b>
                 <small>{b.earned ? "Earned this week" : `${b.count} of ${b.target}`}</small>
               </span>
+              <Go act="badge" label={`Open your badges: ${b.name}`} onClick={() => onWhere("badges")} />
             </li>
           ))}
         </ul>
@@ -227,6 +245,7 @@ export default function ScoreboardPanel({
                 <b>{b.label}</b>
                 {b.secondaryLabel ? <small>{b.secondaryLabel}</small> : null}
               </span>
+              <Go act="badge" label={`Open your badges: ${b.label}`} onClick={() => onWhere("badges")} />
             </li>
           ))}
         </ul>
@@ -242,6 +261,7 @@ export default function ScoreboardPanel({
             <b>{sx?.streak ?? streak ?? COMING}</b>
             <small>{sx ? "Days in a row with ONE GO opened. +10 XP each check-in." : streakNode?.summary ?? "Days in a row with ONE GO opened. +10 XP each check-in."}</small>
           </span>
+          {onPage ? <Go act="streak" label="Open your Daily Tracker" onClick={() => onPage("/daily")} /> : null}
         </li>
         {ws ? (
           <li>
@@ -250,6 +270,7 @@ export default function ScoreboardPanel({
               <b>{`Weekly score: ${ws.big}`}</b>
               <small>{ws.note}</small>
             </span>
+            {onPage ? <Go act="score" label="Open your Weekly Tracker" onClick={() => onPage("/weekly")} /> : null}
           </li>
         ) : null}
         <li>
@@ -258,6 +279,7 @@ export default function ScoreboardPanel({
             <b>{sx?.xp ?? xpNode?.secondaryLabel ?? COMING}</b>
             <small>{sx?.xpNote ?? xpNode?.summary ?? "This week's XP and your total, the same numbers as ONE GO's Scoreboard."}</small>
           </span>
+          {onPage ? <Go act="xp" label="Open your Daily Tracker, where the XP is earned" onClick={() => onPage("/daily")} /> : null}
         </li>
       </ul>
 

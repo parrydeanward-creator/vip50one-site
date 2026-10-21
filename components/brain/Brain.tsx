@@ -178,7 +178,8 @@ import { returnNote, withoutNotes } from "@/lib/googleReturn.ts";
 import { arrivalFor, type Arrival } from "@/lib/deepLink.ts";
 import { DEMO_PAGES, withTourPages } from "@/lib/examples/tourPages.ts";
 import { arrivalExact, landing, seedArrival } from "@/lib/deepLinkNode.ts";
-import { IN_BRAIN, MENU_ORB, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_TOP, inBrainPage, moveGroupsFor, withMoveCoach, moveEmbedHref, moveGroupId, moveMenuHref, movePageId, type MovePage, pageAddress, pageFromAddress, withTeamLeadsPage } from "@/lib/moveMenu.ts";
+import { statGo } from "@/lib/statOpen.ts";
+import { IN_BRAIN, MENU_ORB, MOVE_MENU, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGroup, isMovePage, MOVE_TOP, inBrainPage, moveGroupsFor, withMoveCoach, moveEmbedHref, moveGroupId, moveMenuHref, movePageId, type MovePage, pageAddress, pageFromAddress, withTeamLeadsPage } from "@/lib/moveMenu.ts";
 
 // The ONE Brain shell: navigation controller, gestures, the accessible layer
 // of real buttons over the drawn nodes, and the detail drawer. Business data
@@ -2554,6 +2555,28 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     setFullPage(path);
     goTo(movePageId(path));
   };
+  // A row's own way in (rule 12, Parry 19 Oct): a ONE MOVE page inside the Brain; on the example agent, which has no such
+  // page on its map, one line says what it opens when signed in.
+  const goPage = (path: string, label?: string) => {
+    if (ix.byId.has(movePageId(path))) return openMovePage(path);
+    setSiteNote(`Example agent: signed in, this opens ${label ?? MOVE_MENU.find((m) => m.path === path)?.label ?? "that page"}.`);
+  };
+  // A number on an orb's panel opens what is behind it (lib/statOpen.ts); an orb not on the map, or no such page, opens nothing.
+  const statOpens: Record<string, () => void> | undefined = (() => {
+    const out: Record<string, () => void> = {};
+    if (focus.id === "move" && life) out[DATES_STAT] = () => openOrb(LIFE_NODE);
+    for (const st of focus.stats ?? []) {
+      if (out[st.label]) continue;
+      const g = statGo(focus.id, st.label);
+      if (!g) continue;
+      const orb = g.ids?.find((i) => ix.byId.has(i));
+      if (orb) out[st.label] = () => openOrb(orb);
+      else if (g.power) out[st.label] = () => setPowerOpen(true);
+      else if (g.team && team) out[st.label] = () => setTeamOpen(true);
+      else if (g.page) out[st.label] = () => goPage(g.page!);
+    }
+    return Object.keys(out).length ? out : undefined;
+  })();
   // The Calendar, from the ONE YOU orb or the header button: ONE MOVE's Calendar inside the Brain.
   const openCalendar = () => {
     if (!live) return setSiteNote("Example agent: signed in, this opens your Calendar.");
@@ -3933,6 +3956,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                         </button>
                       ) : null}
                     </span>
+                    {!tour ? (
+                      <span className="pm-acts">
+                        <button onClick={() => setGoalsOpen(true)} data-act="goals-part" aria-label={`Open Goals: ${r.t}`}>→</button>
+                      </span>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -3965,6 +3993,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               onOpenPartners={() => setPartnersOpen(true)}
               onOpenWins={() => setWinsOpen(true)}
               onOpenTeam={team ? () => setTeamOpen(true) : undefined}
+              onPage={(path) => goPage(path)}
               onWhere={(w) => {
                 if (w === "badges") {
                   try {
@@ -4245,7 +4274,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             </a>
           )}
 
-          {focus.stats?.length ? <Stats stats={focus.stats} color={hex(PRODUCT_COLOR[focus.product])} ticked={(l) => ticked.has(`${focus.id}|${l}`)} open={focus.id === "move" && life ? { [DATES_STAT]: () => openOrb(LIFE_NODE) } : undefined} /> : null}
+          {focus.stats?.length ? <Stats stats={focus.stats} color={hex(PRODUCT_COLOR[focus.product])} ticked={(l) => ticked.has(`${focus.id}|${l}`)} open={statOpens} /> : null}
 
           {focus.pace && !focus.locked && focus.type !== "goal" && (
             <div className="pace">
@@ -4563,6 +4592,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             setContactOpen({ id, k: Date.now() });
             goTo(page);
           }}
+          onPage={(path) => {
+            setGoalsOpen(false);
+            goPage(path);
+          }}
           onForecast={shownGoals.forecast ? () => setForecastOpen(true) : undefined}
           onIncomeMap={theIncome ? () => setIncomeOpen(true) : undefined}
           onClose={() => setGoalsOpen(false)}
@@ -4691,6 +4724,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             setPlanOpen(false);
             goTo(id);
           }}
+          onPage={(path) => {
+            setPlanOpen(false);
+            goPage(path);
+          }}
           onSaved={setPlanned}
           onTick={(ref, on) => tickDay(`day:${ref}`, on)}
         />
@@ -4751,20 +4788,30 @@ function Stats({ stats, color, ticked = () => false, open }: { stats: { label: s
   const m = /^\s*(\d+)\s*\/\s*(\d+)/.exec(hero.value);
   return (
     <div className="stats">
-      {m ? (
-        <div className="hero">
-          <Ring value={Number(m[1])} max={Number(m[2])} color={color} />
-          <div>
-            <p className="hero-label">{hero.label}</p>
-            <p className={`hero-value${ticked(hero.label) ? " tick" : ""}`}>{hero.value}</p>
+      {(() => {
+        const go = open?.[hero.label];
+        const body = m ? (
+          <div className="hero">
+            <Ring value={Number(m[1])} max={Number(m[2])} color={color} />
+            <div>
+              <p className="hero-label">{hero.label}</p>
+              <p className={`hero-value${ticked(hero.label) ? " tick" : ""}`}>{hero.value}</p>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="row">
-          <span>{hero.label}</span>
-          <b className={ticked(hero.label) ? "tick" : undefined}>{hero.value}</b>
-        </div>
-      )}
+        ) : (
+          <div className="row">
+            <span>{hero.label}</span>
+            <b className={ticked(hero.label) ? "tick" : undefined}>{hero.value}</b>
+          </div>
+        );
+        return go ? (
+          <button type="button" className="row-open hero-open" onClick={go} aria-label={`${hero.label}: ${hero.value}, open`}>
+            {body}
+          </button>
+        ) : (
+          body
+        );
+      })()}
       {rest.map((s) => {
         const body = (
           <>
