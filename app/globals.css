@@ -1130,6 +1130,7 @@ a.link { display: block; text-decoration: none; }
 /* VIP rings (VIP-SUMMARY §3d) */
 .page-panel-native { inset: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
 .page-panel-native .page-panel-body { background: radial-gradient(circle at 38% 50%, #0c1430 0%, #060a1a 55%, #050816 100%); }
+.pc-subs { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
 .vr { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 380px; }
 .vr-stage { position: relative; min-width: 0; min-height: 0; }
 .vr-line { margin: 12px 18px 0; color: var(--text-2); font-size: 13px; }
