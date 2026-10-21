@@ -80,6 +80,7 @@ import TeamView from "./TeamView.tsx";
 import WarRoomView from "./WarRoomView.tsx";
 import ReviewCallsView from "./ReviewCallsView.tsx";
 import HabitsView from "./HabitsView.tsx";
+import LogReferral from "./LogReferral.tsx";
 import PartnersView from "./PartnersView.tsx";
 import PowerHourView from "./PowerHourView.tsx";
 import CoachView from "./CoachView.tsx";
@@ -4058,6 +4059,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           )}
 
           {focus.type === "core" && !ask && <ClosedCards live={live} />}
+          {/* Log a referral from the home panel too, not only Goals and the Scoreboard (Parry, 21 Oct: "both classic and
+              one brain"). */}
+          {focus.type === "core" && !ask && !tour ? <LogReferral demo={!live} onLogged={loadRefs} /> : null}
 
           {focus.type === "core" && !ask && (() => {
             // One morning (CONNECTIONS gap 7): the one thing in each product that needs you today.
