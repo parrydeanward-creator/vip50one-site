@@ -1,5 +1,6 @@
 "use client";
 
+import LogReferral from "./LogReferral.tsx";
 import { useEffect, useRef, useState } from "react";
 import PulseRing, { PULSE_COLOR } from "./PulseRing.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
@@ -48,7 +49,7 @@ export type AskResult = { ok: boolean; words: string };
 const EXAMPLE_OWED: ThankOwed = { id: "example-owed", firstName: "Jane", sent: 2, lastSentAt: null };
 const EXAMPLE_ASK: ReadyAsk = { id: "example-ask", firstName: "Mark", why: "Closed with you 40 days ago; no referral since" };
 
-export default function ReferralsView({ data, today, demo, onClose, onAsk, onThank, onThanked, onPerson, network, onNetwork }: { data: Referrals; today: string; demo: boolean; onClose: () => void; onAsk?: (contactId: string) => Promise<AskResult>; onThank?: (referralId: string) => Promise<string>; onThanked?: (contactId: string, kind: ThankKind) => Promise<AskResult>; onPerson?: (contactId: string) => void; network?: NetworkCounts | null; onNetwork?: () => void }) {
+export default function ReferralsView({ data, today, demo, onClose, onAsk, onThank, onThanked, onPerson, network, onNetwork, onLogged }: { data: Referrals; today: string; demo: boolean; onClose: () => void; onLogged?: () => void; onAsk?: (contactId: string) => Promise<AskResult>; onThank?: (referralId: string) => Promise<string>; onThanked?: (contactId: string, kind: ThankKind) => Promise<AskResult>; onPerson?: (contactId: string) => void; network?: NetworkCounts | null; onNetwork?: () => void }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
@@ -153,6 +154,7 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk, onTha
   const exampleTag = <span className="rf-example">Example</span>;
   const workLists = (
     <div className="rf-cols">
+      {onLogged ? <section className="rf-col" aria-label="Log a referral"><LogReferral demo={demo} onLogged={onLogged} /></section> : null}
       <section className="rf-col" aria-label="Thank-you owed">
         <h2>Thank-you owed</h2>
         <p className="rf-hint">People who sent you business and are still owed a thanks. Log the thank-you you gave; ONE sends nothing.</p>

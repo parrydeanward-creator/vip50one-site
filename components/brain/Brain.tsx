@@ -80,6 +80,7 @@ import TeamView from "./TeamView.tsx";
 import WarRoomView from "./WarRoomView.tsx";
 import ReviewCallsView from "./ReviewCallsView.tsx";
 import HabitsView from "./HabitsView.tsx";
+import LogReferral from "./LogReferral.tsx";
 import PartnersView from "./PartnersView.tsx";
 import PowerHourView from "./PowerHourView.tsx";
 import CoachView from "./CoachView.tsx";
@@ -720,13 +721,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       .then((j) => setNetwork(j ? readNetwork(j) : null))
       .catch(() => {});
   }, [live]);
-  useEffect(() => {
+  const loadRefs = useCallback(() => {
     if (!live) return setRefs(demoReferrals(todayIn()));
     fetch(referralsUrl(), { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setRefs(j ? readReferrals(j) : null))
       .catch(() => {});
   }, [live]);
+  useEffect(() => loadRefs(), [loadRefs]);
   useEffect(() => {
     refsRef.current = refs;
     setGraph((g) => withReferralsNode(g, refs, todayIn()));
@@ -3937,6 +3939,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               onSave={saveGoal}
               onProfile={() => goTo(movePageId("/profile"))}
               onReferrals={() => (refs ? setRefsOpen(true) : goTo(REFERRALS_NODE))}
+              onReferralLogged={loadRefs}
             />
           )}
 
@@ -4056,6 +4059,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           )}
 
           {focus.type === "core" && !ask && <ClosedCards live={live} />}
+          {/* Log a referral from the home panel too, not only Goals and the Scoreboard (Parry, 21 Oct: "both classic and
+              one brain"). */}
+          {focus.type === "core" && !ask && !tour ? <LogReferral demo={!live} onLogged={loadRefs} /> : null}
 
           {focus.type === "core" && !ask && (() => {
             // One morning (CONNECTIONS gap 7): the one thing in each product that needs you today.
@@ -4565,7 +4571,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       {partnersOpen && partners ? <PartnersView state={partners} me={weekScore} today={todayIn()} demo={!live} onClose={() => setPartnersOpen(false)} onAct={partnerAct} /> : null}
       {habitsOpen && theHabits.length ? <HabitsView habits={theHabits} demo={!live} onClose={() => setHabitsOpen(false)} onTick={tickHabit} onOwn={ownHabit} /> : null}
       {mqOpen ? <MarqueeView tool={mqOpen.tool} deck={mqOpen.deck} href={mqOpen.href} today={todayIn()} onClose={() => setMqOpen(null)} /> : null}
-      {refsOpen && refs ? <ReferralsView network={network} onNetwork={() => { setRefsOpen(false); goTo(movePageId("/referral-network")); }} data={refs} today={todayIn()} demo={!live} onClose={() => setRefsOpen(false)} onAsk={askReferral} onThank={thankReferral} onThanked={thankedReferral} onPerson={openReferralPerson} /> : null}
+      {refsOpen && refs ? <ReferralsView onLogged={loadRefs} network={network} onNetwork={() => { setRefsOpen(false); goTo(movePageId("/referral-network")); }} data={refs} today={todayIn()} demo={!live} onClose={() => setRefsOpen(false)} onAsk={askReferral} onThank={thankReferral} onThanked={thankedReferral} onPerson={openReferralPerson} /> : null}
       {agentRead ? <PulseCoachView read={agentRead.read} who={agentRead.who} demo={!live} onClose={() => setAgentRead(null)} /> : null}
       {cmOpen && commitments && (
         <CommitmentsView initial={commitments} live={live} hour={denverHour()} onClose={() => setCmOpen(false)} onChanged={setCommitments} />
