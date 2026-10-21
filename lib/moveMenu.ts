@@ -39,6 +39,8 @@ export const MOVE_GROUPS: MoveGroup[] = [
       { label: "Business Rolodex", path: "/rolodex" },
       // VIP-SUMMARY §3af and §3ah (13 Oct; Parry: every feature in the Brain as well as Classic)
       { label: "Referral Network", path: "/referral-network" },
+      // The agent's public page for other agents (Classic only until 21 Oct; Parry: everything on Classic in the Brain).
+      { label: "Agent Hub", path: "/profile/agent-hub" },
       { label: "Buyer Needs", path: "/buyer-needs" },
       // LAUNCH.md §5 (14 Oct, vip50-web-crm#228): the agent's Marquee listings, each with Launch and its checklist
       { label: "Your listings", path: "/listings" },
@@ -46,6 +48,12 @@ export const MOVE_GROUPS: MoveGroup[] = [
       { label: "Life Events", path: "/life-events" },
       // ONE MOVE's Deals page (17 Oct); in the Brain the row opens the Deals orb
       { label: "Deals", path: "/deals" },
+      // Every Classic page in the Brain too (Parry, 21 Oct: "everything on classic needs to be on the Brain as well"):
+      // the contact tools that were Classic only.
+      { label: "Import Contacts", path: "/contacts/import" },
+      { label: "Clean Up Contacts", path: "/contacts/cleanup" },
+      { label: "Archived Contacts", path: "/contacts/archived" },
+      { label: "Lead Sources", path: "/contacts/sources" },
     ],
   },
   {
@@ -53,6 +61,8 @@ export const MOVE_GROUPS: MoveGroup[] = [
     label: "Trackers",
     blurb: "Daily, weekly and 90 days",
     pages: [
+      // The full task list (Classic /tasks; Parry, 21 Oct).
+      { label: "Tasks", path: "/tasks" },
       { label: "Daily Tracker", path: "/daily" },
       { label: "Weekly Tracker", path: "/weekly" },
       { label: "90-Day Challenge", path: "/challenge" },
@@ -117,6 +127,9 @@ export const MOVE_COACH: MoveGroup = {
     { label: "Luxury Team", path: "/admin/team" },
     { label: "Review calls", path: "/admin/review-calls" },
     { label: "System Health", path: "/admin/system-health" },
+    { label: "Pulse Tests", path: "/admin/pulse-tests" },
+    { label: "Coach Table", path: "/admin/classic" },
+    { label: "Communications", path: "/communications" },
   ],
 };
 
