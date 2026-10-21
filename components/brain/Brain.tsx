@@ -81,6 +81,7 @@ import WarRoomView from "./WarRoomView.tsx";
 import ReviewCallsView from "./ReviewCallsView.tsx";
 import HabitsView from "./HabitsView.tsx";
 import LogReferral from "./LogReferral.tsx";
+import TeamRezenSection from "./TeamRezenSection.tsx";
 import PartnersView from "./PartnersView.tsx";
 import PowerHourView from "./PowerHourView.tsx";
 import CoachView from "./CoachView.tsx";
@@ -3592,6 +3593,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           })()}
 
           {focus.id === TEAM_HUB && attraction?.teamLead && !ask ? <AttractionSection a={attraction} live={live} /> : null}
+          {/* The team's deals from the leader's reZEN: never in their own goals (Parry, 21 Oct). Owner and admin only. */}
+          {focus.id === TEAM_HUB && !ask && !tour ? <TeamRezenSection live={live} /> : null}
 
           {partOf(focus.id) && focus.product === "move" && !focus.locked && !ask && !tour ? (
             <OutreachPanel
