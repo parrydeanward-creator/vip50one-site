@@ -395,7 +395,12 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk, onTha
                   <li key={x.id}>
                     <i className="pm-dot" style={{ background: x.closed ? GREEN : GOLD }} aria-hidden="true" />
                     <span className="pm-body">
-                      <b>Sent you {x.name}</b>
+                      <b>
+                        Sent you{" "}
+                        {!x.id.includes(":") && !demo ? (
+                          <button className="link rf-name" data-r12="referred-person" onClick={() => person(x.id)} aria-label={`Open ${x.name}`}>{x.name}</button>
+                        ) : x.name}
+                      </b>
                       <small>{ago(x.at, today)}{x.closed ? ` · closed${x.value ? ` at ${money(x.value)}` : ""}` : ""}</small>
                     </span>
                   </li>
@@ -409,6 +414,7 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk, onTha
               ) : null}
               {candidateFor(sel.r.id) ? <p className="d-sum">{candidateFor(sel.r.id)!.words}. A thank-you and an ask go well together.</p> : <p className="d-sum">Thank them. People who have referred once are the likeliest to refer again.</p>}
               {askButton(sel.r.id, sel.r.name)}
+              {onPerson && !demo ? <button className="vr-classic" data-r12="referrer-contact" onClick={() => person(sel.r.id)}>{`Open ${sel.r.name.split(/\s+/)[0]}'s contact`}</button> : null}
               <button className="vr-classic" onClick={() => open(null)}>The whole scoreboard</button>
             </>
           ) : sel && sel.kind === "cand" ? (
@@ -417,6 +423,7 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk, onTha
               <p className="d-sub">{WHY_TITLE[sel.c.why]}</p>
               <p className="d-sum">{sel.c.words}.</p>
               {askButton(sel.c.id, sel.c.name)}
+              {onPerson && !demo ? <button className="vr-classic" data-r12="candidate-contact" onClick={() => person(sel.c.id)}>{`Open ${sel.c.name.split(/\s+/)[0]}'s contact`}</button> : null}
               <button className="vr-classic" onClick={() => open(null)}>The whole scoreboard</button>
             </>
           ) : (

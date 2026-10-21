@@ -9,7 +9,7 @@ import ContactPanel from "./ContactPanel.tsx";
 import MoveExampleFetch from "./views/MoveExampleFetch.tsx";
 import type { ExampleStore } from "@/lib/examples/move2.ts";
 import { nextThings, type ContactRef, type Do, type Card, type Review, type ReviewKey, type Thing } from "@/lib/review.ts";
-import type { Read as PulseRead, ReadKey } from "@/lib/pulseCoach.ts";
+import { PART_DO, type Read as PulseRead, type ReadKey } from "@/lib/pulseCoach.ts";
 
 // Weekly Review in ONE YOU: the week's score in the middle, its parts round it (VIP touches, who you haven't
 // reached, commitments, goals). Tap one and it comes to the middle with its detail in the side panel; the
@@ -268,6 +268,13 @@ export default function ReviewView({
                   </li>
                 ))}
               </ul>
+              {readSel.key !== "focus" ? (
+                <div className="decide-btns">
+                  <button type="button" className="chip-btn primary" data-act="read-part" onClick={() => run(PART_DO[readSel.key as Exclude<ReadKey, "focus">].do as Do)}>
+                    {PART_DO[readSel.key as Exclude<ReadKey, "focus">].label}
+                  </button>
+                </div>
+              ) : null}
               <button className="vr-classic" onClick={() => setReadPick(null)}>Whole review</button>
             </>
           ) : sel && touchRow ? (

@@ -85,6 +85,16 @@ export interface Part {
   level: "today" | null; // yellow when it needs the agent; the rest still green
   good: boolean;
 }
+/** Where each part of Pulse's read goes to be worked on (rule 12, Parry 19 Oct): the page or view behind the numbers. */
+export type PartDo = { kind: "page"; path: string } | { kind: "view"; view: "commitments" };
+export const PART_DO: Record<Exclude<ReadKey, "focus">, { label: string; do: PartDo }> = {
+  trend: { label: "Open the Weekly Tracker", do: { kind: "page", path: "/weekly" } },
+  touches: { label: "Open the Touch Audit", do: { kind: "page", path: "/contacts/audit" } },
+  days: { label: "Open the Daily Tracker", do: { kind: "page", path: "/daily" } },
+  habits: { label: "Open the Daily Tracker", do: { kind: "page", path: "/daily" } },
+  keep: { label: "Open your commitments", do: { kind: "view", view: "commitments" } },
+};
+
 export interface Read {
   headline: string; // the one line in the middle
   parts: Part[];

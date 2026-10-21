@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { chimeOn, setChime } from "@/lib/chime.ts";
 import { calendarDisconnectUrl, calendarSyncUrl, connectCalendarUrl, connectContactsUrl, googleDisconnectUrl, googlePhotosUrl, googleStatusUrl, readGoogle, shortWhen, type GoogleState } from "@/lib/googleLink.ts";
 import { membershipUrl, planName, readMembership, standing, type Membership } from "@/lib/membership.ts";
-import { badgesUrl, pct, readBadges, type Badges } from "@/lib/badges.ts";
+import { badgePath, badgesUrl, pct, readBadges, type Badges } from "@/lib/badges.ts";
 import { CONSENT_LINE, adsConsentUrl, readAdsConsent, type AdsConsent } from "@/lib/teamWelcome.ts";
 import { NOTIFY_KEYS, NOTIFY_LABEL, notifyUrl, readNotify, type NotifyKey, type NotifyPrefs } from "@/lib/notifyPrefs.ts";
 
@@ -181,6 +181,7 @@ export function BadgesSection() {
               <b>{x.name}</b>
               <span className="bd-bar"><i style={{ width: `${pct(x.count, x.target)}%` }} /></span>
               <small>{x.earned ? "Earned this week" : `${x.count} of ${x.target}`}{x.times ? ` · ${x.times} in all` : ""}</small>
+              <a className="link" data-act="badge-tile" href={`/dashboard${badgePath(x.name)}`}>{x.earned ? "See where it came from" : "Work on it"}</a>
             </li>
           ))}
         </ul>
@@ -194,6 +195,7 @@ export function BadgesSection() {
                 <b>{x.name}</b>
                 {x.description ? <small>{x.description}</small> : null}
                 {x.earned ? <small>Earned{x.earnedAt ? ` ${x.earnedAt.slice(0, 10)}` : ""}</small> : x.target ? <span className="bd-bar"><i style={{ width: `${pct(x.progress, x.target)}%` }} /></span> : null}
+                <a className="link" data-act="badge-tile" href="/dashboard/achievements">Open the Scoreboard</a>
               </li>
             ))}
           </ul>

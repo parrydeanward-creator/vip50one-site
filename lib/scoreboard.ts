@@ -126,3 +126,14 @@ export function weeklyScoreLines(weeks: ScoreWeek[] | null | undefined, today: s
   ].filter(Boolean);
   return { big, note: `${parts.join(" · ")}${parts.length ? ". " : ""}Daily tracker points plus the weekly bonus boxes; the standard is ${minimum}.` };
 }
+
+/** The ONE MOVE page behind each Mission Control target, so no row stands alone (rule 12, Parry 19 Oct). null: unknown title. */
+export function missionPath(title: string): string | null {
+  const t = title.toLowerCase();
+  if (t.includes("daily tracker") || t.includes("check-in")) return "/daily";
+  if (t.includes("agent attraction")) return "/weekly";
+  if (t.includes("open house")) return "/events";
+  if (t.includes("vip-50") || t.includes("momentum")) return "/contacts/vip";
+  if (t.includes("task")) return "/tasks";
+  return null;
+}
