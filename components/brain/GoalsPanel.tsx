@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import LogReferral from "./LogReferral.tsx";
 import { GOAL_WORD, behindPace, fmtGoal, goalPace, goalValue, type GoalFacts, type GoalKey } from "@/lib/goals.ts";
 
 // Goals on the desktop, the same list the phone shows (Parry, 16 Oct, audit 3.4.4): Closings, Referrals and GCI, each
@@ -21,6 +22,7 @@ export default function GoalsPanel({
   onSave,
   onProfile,
   onReferrals,
+  onReferralLogged,
 }: {
   goals: GoalFacts[];
   today: string;
@@ -34,6 +36,8 @@ export default function GoalsPanel({
   onSave: (key: GoalKey, value: number) => Promise<string | null>;
   onProfile: () => void;
   onReferrals?: () => void;
+  /** After a referral is logged here: reload the counts. */
+  onReferralLogged?: () => void;
 }) {
   const [editing, setEditing] = useState<GoalKey | null>(null);
   const [text, setText] = useState("");
@@ -103,6 +107,7 @@ export default function GoalsPanel({
                   Change goal
                 </button>
               )}
+              {!editOnly && g.key === "referrals_goal" && onReferralLogged ? <LogReferral demo={demo} onLogged={onReferralLogged} /> : null}
               {!editOnly && g.key === "referrals_goal" ? (
                 <p className="gl-src">
                   Counted from your Referrals scoreboard.{" "}

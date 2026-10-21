@@ -2947,3 +2947,13 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .hb-add { display: flex; gap: 8px; align-items: center; margin: 12px 0 4px; flex-wrap: wrap; }
 .hb-add input { flex: 1 1 160px; min-width: 0; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(245, 197, 66, 0.4); border-radius: 10px; color: #eef1f8; padding: 8px 10px; font-size: 14px; }
 .hb-add input:focus { outline: none; border-color: #f5c542; }
+/* Log a referral (Referrals goal and scoreboard). */
+.lr { margin: 10px 0 4px; }
+.lr-open { display: flex; flex-direction: column; gap: 8px; }
+.lr-open label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #a7b0c8; }
+.lr-open input { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(245, 197, 66, 0.4); border-radius: 10px; color: #eef1f8; padding: 8px 10px; font-size: 14px; }
+.lr-open input:focus { outline: none; border-color: #f5c542; }
+.lr-picked { display: flex; gap: 10px; align-items: center; color: #eef1f8; font-size: 14px; }
+.lr-hits { list-style: none; margin: 0; padding: 0; border: 1px solid rgba(245, 197, 66, 0.25); border-radius: 10px; overflow: hidden; }
+.lr-hits button { all: unset; display: block; width: 100%; box-sizing: border-box; padding: 8px 10px; cursor: pointer; color: #eef1f8; font-size: 14px; }
+.lr-hits button:hover, .lr-hits button:focus-visible { background: rgba(245, 197, 66, 0.12); }
