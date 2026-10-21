@@ -4,7 +4,7 @@ import { STORY_LABEL, filterStory, productsIn, storyProduct, type StoryProduct }
 import AskGroupSection from "./AskGroupSection.tsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { dialable, mailable } from "@/lib/contact.ts";
-import { byName, editText, editValue, gapsIn, groupColor, listUrl, peopleUrl, personTag, personUrl, readGroups, readPage, readPerson, readTimeline, LEFT_EARLY_LINE, sectionColor, showValue, timelineUrl, type Field, type Groups, type Person, type PersonItem, type Section, type Timeline } from "@/lib/people.ts";
+import { BIZ_PARENT, byName, editText, editValue, gapsIn, groupColor, isBizSub, listUrl, nestBizVip, parentGroup, peopleUrl, personTag, personUrl, readGroups, readPage, readPerson, readTimeline, LEFT_EARLY_LINE, sectionColor, showValue, timelineUrl, type Field, type Groups, type Person, type PersonItem, type Section, type Timeline } from "@/lib/people.ts";
 import { initialsOf, ringRows } from "@/lib/vips.ts";
 import { focusFace, focusRings } from "@/lib/orbs.ts";
 import { useSvgCamera } from "./useSvgCamera.ts";
@@ -59,7 +59,9 @@ export default function Contacts({
   onClassic,
   celebrate = [],
   openId = null,
+  startGroup = null,
 }: {
+  startGroup?: string | null; // open this group on arrival; mayors_circle and rising_vip land inside Biz VIP
   openId?: { id: string; k: number } | null; // open this person on arrival ("Go to" elsewhere in the Brain)
   onUnavailable: () => void;
   onChanged: () => void;
@@ -72,6 +74,8 @@ export default function Contacts({
   const [err, setErr] = useState<string | null>(null);
   const [group, setGroup] = useState<string | null>(null);
   const [people, setPeople] = useState<PersonItem[]>([]);
+  // Biz VIP's three lists, so a person in two of them counts once in the orb's roll-up.
+  const [family, setFamily] = useState<Record<string, PersonItem[]>>({});
   const [more, setMore] = useState<{ total: number; next: string | null }>({ total: 0, next: null });
   const [due, setDue] = useState<PersonItem[]>([]);
   const [q, setQ] = useState("");
@@ -174,15 +178,52 @@ export default function Contacts({
     }
     cam.reset();
   };
+  const allGroups = () => {
+    setGroup(null);
+    setPeople([]);
+    cam.reset();
+  };
+  // Back from a sub-group goes to Biz VIP, then to all groups.
+  const closeGroup = () => {
+    const up = parentGroup(group);
+    if (group && up) return openGroup(up);
+    if (group) openGroup(group);
+  };
   const back = () => {
     if (edit) return setEdit(null);
     if (adding) return setAdding(null);
     if (focusFld) return setFocusFld(null);
     if (focusSec) return setFocusSec(null);
     if (person) return setPerson(null);
-    if (group) return openGroup(group);
+    if (group) return closeGroup();
     onBack();
   };
+
+  const inFamily = group === BIZ_PARENT || isBizSub(group);
+  useEffect(() => {
+    if (!inFamily || !groups) return setFamily({});
+    let live = true;
+    const keys = [BIZ_PARENT, ...groups.groups.filter((g) => isBizSub(g.key)).map((g) => g.key)];
+    Promise.all(keys.map((k) => getJson(listUrl({ group: k, sort: "name", limit: 100 })).then((r) => [k, r?.status === 200 ? readPage(r.body)?.items ?? null : null] as const))).then((rs) => {
+      if (live) setFamily(Object.fromEntries(rs.filter((x): x is readonly [string, PersonItem[]] => !!x[1])));
+    });
+    return () => {
+      live = false;
+    };
+  }, [inFamily, groups]);
+  const nest = useMemo(() => nestBizVip(groups?.groups ?? [], family), [groups, family]);
+  const shown = inFamily ? [...nest.ring, ...nest.subs] : nest.ring;
+  const startedRef = useRef(false);
+  useEffect(() => {
+    if (!groups || !startGroup || startedRef.current) return;
+    startedRef.current = true;
+    const want = startGroup;
+    if (!groups.groups.some((g) => g.key === want)) return;
+    setGroup(want);
+    setPeople([]);
+    loadGroup(want);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups, startGroup]);
 
   // ---- writing -----------------------------------------------------------------------------
   const post = async (url: string, body: unknown): Promise<{ ok: boolean; body: unknown; status: number }> => {
@@ -285,14 +326,15 @@ export default function Contacts({
   const layout = useMemo(() => {
     const orbs = new Map<string, { x: number; y: number; k: number; lx: number; ly: number; anchor: "start" | "middle" | "end" }>();
     const seats: { id: string; x: number; y: number; r: number; fx: number; fy: number; delay: number }[] = [];
-    const gs = groups?.groups ?? [];
+    const gs = shown;
     if (group) {
-      const others = gs.filter((g) => g.key !== group);
+      // Round the centre: the two sub-orbs first (a little larger), then the other groups.
+      const others = [...gs.filter((g) => g.key !== group && isBizSub(g.key) && group === BIZ_PARENT), ...gs.filter((g) => g.key !== group && !(isBizSub(g.key) && group === BIZ_PARENT))];
       orbs.set(group, { x: C, y: C, k: 1, lx: C, ly: C + 24, anchor: "middle" });
       others.forEach((g, i) => {
         const a = -Math.PI / 2 + (2 * Math.PI * (i + 0.5)) / others.length;
         const x = C + OR * Math.cos(a), y = C + OR * Math.sin(a);
-        orbs.set(g.key, { x, y, k: 0.3, lx: x, ly: y + 44, anchor: "middle" });
+        orbs.set(g.key, { x, y, k: isBizSub(g.key) && group === BIZ_PARENT ? 0.42 : 0.3, lx: x, ly: y + (isBizSub(g.key) && group === BIZ_PARENT ? 58 : 44), anchor: "middle" });
       });
       const fr = focusFace(people.length);
       ringRows(people.map((p) => p.id), C, C, focusRings(100, fr), fr, 26).forEach((s, j) => seats.push({ id: s.id, x: s.x, y: s.y, r: fr, fx: C, fy: C, delay: Math.min(j, 40) * 22 }));
@@ -305,7 +347,7 @@ export default function Contacts({
       });
     }
     return { orbs, seats };
-  }, [groups, group, people]);
+  }, [shown, group, people]);
   const byId = useMemo(() => new Map(people.map((p) => [p.id, p] as const)), [people]);
 
   // A person in the middle, their sections round them. Tap a section: it comes to the middle,
@@ -477,11 +519,11 @@ export default function Contacts({
               ];
             })}
 
-            {groups.groups.map((g) => {
+            {shown.map((g) => {
               const o = layout.orbs.get(g.key)!;
               const col = groupColor(g.key);
               const centre = group === g.key;
-              const act = () => openGroup(g.key);
+              const act = () => (centre ? closeGroup() : openGroup(g.key));
               return (
                 <g key={g.key}>
                   <g
@@ -491,7 +533,7 @@ export default function Contacts({
                     role="button"
                     tabIndex={0}
                     aria-pressed={centre}
-                    aria-label={centre ? `${g.label}: back to all groups` : `${g.label}, ${g.count} ${g.count === 1 ? "person" : "people"}${g.needsYou ? `, ${g.needsYou} need you` : ""}`}
+                    aria-label={centre ? `${g.label}: back to ${parentGroup(g.key) ? gLabel(parentGroup(g.key)!) : "all groups"}` : `${g.label}, ${g.count} ${g.count === 1 ? "person" : "people"}${g.needsYou ? `, ${g.needsYou} need you` : ""}`}
                     onClick={act}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
@@ -513,12 +555,12 @@ export default function Contacts({
                   </g>
                   <g className="fx-move" style={{ transform: `translate(${o.lx}px, ${o.ly}px)` }} pointerEvents="none">
                     <text className="rx-fam" dy="0.35em" textAnchor={o.anchor} style={{ fill: col }}>{g.label.toUpperCase()}</text>
-                    {centre && <text key={`back-${g.key}`} className="rx-back fx-fade" y={26} textAnchor="middle" style={{ animationDelay: "500ms" }}>tap for all groups</text>}
+                    {centre && <text key={`back-${g.key}`} className="rx-back fx-fade" y={26} textAnchor="middle" style={{ animationDelay: "500ms" }}>{parentGroup(g.key) ? `tap for ${gLabel(parentGroup(g.key)!)}` : "tap for all groups"}</text>}
                   </g>
                 </g>
               );
             })}
-            {group && people.length === 0 && (groups.groups.find((g) => g.key === group)?.count ?? 0) === 0 && (
+            {group && people.length === 0 && (shown.find((g) => g.key === group)?.count ?? 0) === 0 && (
               <text key={`empty-${group}`} x={C} y={C + 170} textAnchor="middle" className="rx-name fx-fade">No one in this group yet</text>
             )}
           </g>
@@ -863,7 +905,7 @@ export default function Contacts({
               {group && <span className="chip" style={{ color: groupColor(group), borderColor: groupColor(group) }}>{gLabel(group)}</span>}
             </div>
             <h1 className="d-title">{group ? gLabel(group) : "My Contacts"}</h1>
-            <p className="d-sub">{group ? `${more.total.toLocaleString("en-US")} ${more.total === 1 ? "person" : "people"}, who needs you first` : `${groups.total.toLocaleString("en-US")} people · ${groups.needsYou} need you`}</p>
+            <p className="d-sub">{group ? `${(group === BIZ_PARENT ? shown.find((g) => g.key === group)?.count ?? more.total : more.total).toLocaleString("en-US")} ${(group === BIZ_PARENT ? shown.find((g) => g.key === group)?.count ?? more.total : more.total) === 1 ? "person" : "people"}${group === BIZ_PARENT ? " with Mayor's Circle and Rising VIP" : ""}, who needs you first` : `${groups.total.toLocaleString("en-US")} people · ${groups.needsYou} need you`}</p>
             <div className="ta-log">
               <button className="chip-btn primary" onClick={() => setAdding({ first_name: "", last_name: "", phone: "", email: "", tier: "contact" })}>+ Add a person</button>
             </div>
@@ -879,7 +921,18 @@ export default function Contacts({
               <>
                 <ul className="ta-list">{people.map(row)}</ul>
                 {more.next && <button className="vr-classic" onClick={() => loadGroup(group, more.next)}>{`Show more (${(more.total - people.length).toLocaleString("en-US")} left)`}</button>}
-                <button className="vr-classic" onClick={() => openGroup(group)}>All groups</button>
+                {group === BIZ_PARENT && nest.subs.length > 0 && (
+                  <ul className="ta-list pc-subs">
+                    {nest.subs.map((g) => (
+                      <li key={g.key}>
+                        <button className="ta-name" onClick={() => openGroup(g.key)}>{`${g.label} (${g.count.toLocaleString("en-US")})`}</button>
+                        <span className={g.needsYou ? "pc-pulse" : undefined}>{g.needsYou ? `${g.needsYou} need you` : ""}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {parentGroup(group) && <button className="vr-classic" onClick={() => openGroup(BIZ_PARENT)}>{`Back to ${gLabel(BIZ_PARENT)}`}</button>}
+                <button className="vr-classic" onClick={allGroups}>All groups</button>
               </>
             ) : (
               <>

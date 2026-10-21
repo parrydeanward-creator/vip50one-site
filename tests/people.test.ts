@@ -164,3 +164,51 @@ test("relationship groups: the board's rule, first match wins", async () => {
   assert.equal(inRelationshipGroup("biz_vip", { tags: ["rising-vip"] }), false);
   assert.equal(inRelationshipGroup("vip50", { tags: ["biz-vip"] }), false);
 });
+
+// Parry, 21 Oct: "biz vip as the main orb and then mayors circle and rising inside biz vip or as sub orbs".
+const grp = (key: string, label: string, count: number, needsYou = 0, needsNow = 0) => ({ key, label, kind: "tier" as const, count, needsYou, needsNow });
+const flat = [grp("vip50", "VIP-50", 5), grp("biz_vip", "Biz VIP", 4, 1, 0), grp("rising_vip", "Rising VIP", 3, 1, 0), grp("mayors_circle", "Mayor's Circle", 2, 1, 1), grp("lofty", "Lofty", 9)];
+
+test("biz vip nest: the ring has one Biz VIP orb, the two others are sub-orbs", async () => {
+  const { nestBizVip } = await import("../lib/people.ts");
+  const { ring, subs } = nestBizVip(flat);
+  assert.deepEqual(ring.map((g) => g.key), ["vip50", "biz_vip", "lofty"]);
+  assert.equal(ring.filter((g) => g.key === "rising_vip" || g.key === "mayors_circle").length, 0);
+  assert.deepEqual(subs.map((g) => g.label), ["Mayor's Circle", "Rising VIP"]);
+  assert.deepEqual(subs.map((g) => g.count), [2, 3]); // each sub-orb keeps its own count and pulse
+  assert.equal(subs[0].needsNow, 1);
+});
+
+test("biz vip nest: the roll-up adds the three, counts a person once, red beats yellow", async () => {
+  const { nestBizVip } = await import("../lib/people.ts");
+  const biz = nestBizVip(flat).ring.find((g) => g.key === "biz_vip")!;
+  assert.deepEqual([biz.count, biz.needsYou, biz.needsNow], [9, 3, 1]);
+  const p = (id: string, pulse: string | null = null, urgency: "now" | "today" | null = null) => ({ id, pulse, urgency });
+  const lists = {
+    biz_vip: [p("a"), p("b", "call", "today"), p("c"), p("d")],
+    rising_vip: [p("b", "call", "today"), p("e"), p("f")], // b sits in two groups
+    mayors_circle: [p("g", "call", "now"), p("a")], // and so does a
+  };
+  const deduped = nestBizVip(flat, lists).ring.find((g) => g.key === "biz_vip")!;
+  assert.equal(deduped.count, 7);
+  assert.equal(deduped.needsYou, 2); // b's second pulse is dropped
+  assert.equal(deduped.needsNow, 1); // red stays red
+  const partial = nestBizVip(flat, { biz_vip: lists.biz_vip }).ring.find((g) => g.key === "biz_vip")!;
+  assert.equal(partial.count, 9); // a list not loaded in full cannot prove an overlap
+  const red = nestBizVip([grp("biz_vip", "Biz VIP", 1), grp("rising_vip", "Rising VIP", 1, 1, 1)]).ring[0];
+  assert.deepEqual([red.needsYou, red.needsNow], [1, 1]);
+});
+
+test("biz vip nest: a sub-group opens inside Biz VIP; Back goes to Biz VIP, then all groups", async () => {
+  const { parentGroup, groupTrail, isBizSub, nestBizVip } = await import("../lib/people.ts");
+  assert.equal(parentGroup("mayors_circle"), "biz_vip");
+  assert.equal(parentGroup("rising_vip"), "biz_vip");
+  assert.equal(parentGroup("biz_vip"), null);
+  assert.equal(parentGroup("vip50"), null);
+  assert.deepEqual(groupTrail("rising_vip"), ["biz_vip", "rising_vip"]);
+  assert.deepEqual(groupTrail("biz_vip"), ["biz_vip"]);
+  assert.equal(isBizSub("mayors_circle"), true);
+  assert.equal(isBizSub("biz_vip"), false);
+  // no Biz VIP of its own sent: the parent orb still stands for the sub-groups
+  assert.deepEqual(nestBizVip([grp("rising_vip", "Rising VIP", 2)]).ring.map((g) => [g.key, g.count]), [["biz_vip", 2]]);
+});

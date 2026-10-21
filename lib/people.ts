@@ -322,6 +322,60 @@ export const RELATIONSHIP_GROUPS = [
 export const inRelationshipGroup = (key: string, c: Parameters<typeof relationshipColumn>[0], referrals = 0) =>
   RELATIONSHIP_GROUPS.some((g) => g.key === key && g.column === relationshipColumn(c, referrals));
 
+/**
+ * Biz VIP is the one ring orb; Mayor's Circle and Rising VIP sit inside it as sub-orbs (Parry, 21 Oct: "I want biz vip as
+ * the main orb and then mayors circle and rising inside biz vip or as sub orbs"). ONE MOVE still sends three groups.
+ */
+export const BIZ_PARENT = "biz_vip";
+export const BIZ_SUBS = ["mayors_circle", "rising_vip"] as const;
+export const isBizSub = (key: string | null | undefined): boolean => !!key && (BIZ_SUBS as readonly string[]).includes(key);
+/** The orb a group opens inside: a sub-group's parent is Biz VIP; everything else has none. */
+export const parentGroup = (key: string | null | undefined): string | null => (isBizSub(key) ? BIZ_PARENT : null);
+/** The ways into a group, outermost first: all groups, then Biz VIP, then the sub-group. */
+export const groupTrail = (key: string): string[] => (isBizSub(key) ? [BIZ_PARENT, key] : [key]);
+
+type Listed = { id: string; pulse?: string | null; urgency?: "now" | "today" | null };
+/**
+ * The ring and the sub-orbs from ONE MOVE's flat groups. The Biz VIP orb rolls up Biz VIP plus both sub-groups; a person
+ * in two groups counts once when the groups' people are loaded in full (`lists`, by group key), otherwise the counts
+ * add (the board puts a contact in one column, so they do not overlap). Red beats yellow beats green (needsNow is
+ * kept within needsYou, which levelOf reads).
+ */
+export function nestBizVip(groups: PeopleGroup[], lists: Partial<Record<string, Listed[]>> = {}): { ring: PeopleGroup[]; subs: PeopleGroup[] } {
+  const subs = BIZ_SUBS.map((k) => groups.find((g) => g.key === k)).filter((g): g is PeopleGroup => !!g);
+  const parent = groups.find((g) => g.key === BIZ_PARENT) ?? (subs.length ? { key: BIZ_PARENT, label: "Biz VIP", kind: "tier" as const, count: 0, needsYou: 0, needsNow: 0 } : null);
+  const isRest = (g: PeopleGroup) => g.key !== BIZ_PARENT && !isBizSub(g.key);
+  const rest = groups.filter(isRest);
+  if (!parent) return { ring: rest, subs: [] };
+  const parts = [parent, ...subs];
+  let count = parts.reduce((n, g) => n + g.count, 0);
+  let needsYou = parts.reduce((n, g) => n + g.needsYou, 0);
+  let needsNow = parts.reduce((n, g) => n + g.needsNow, 0);
+  const full = parts.every((g) => (lists[g.key]?.length ?? -1) >= g.count);
+  if (full) {
+    const seen = new Set<string>();
+    let dupes = 0, dupPulse = 0, dupNow = 0;
+    for (const g of parts) {
+      for (const p of (lists[g.key] ?? []).slice(0, g.count)) {
+        if (seen.has(p.id)) {
+          dupes++;
+          if (p.pulse) dupPulse++;
+          if (p.pulse && p.urgency === "now") dupNow++;
+        } else seen.add(p.id);
+      }
+    }
+    count -= dupes;
+    needsYou -= dupPulse;
+    needsNow -= dupNow;
+  }
+  needsYou = Math.max(0, needsYou);
+  const rolled: PeopleGroup = { ...parent, label: "Biz VIP", count: Math.max(0, count), needsYou, needsNow: Math.min(needsYou, Math.max(0, needsNow)) };
+  const first = groups.findIndex((g) => !isRest(g));
+  const ring = [...rest];
+  ring.splice(groups.slice(0, first).filter(isRest).length, 0, rolled);
+  return { ring, subs };
+}
+
 /** How many fields in a section are empty: the gaps Pulse can ask about. */
 export const gapsIn = (s: Section) => s.fields.filter((f) => showValue(f) == null).length;
 
