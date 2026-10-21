@@ -22,7 +22,22 @@ export interface RezenState {
   read: RezenRead;
 }
 
-export interface RezenRead { openDeals: number | null; closedDeals: number | null; revsharePaid: number | null; network: number | null; readAt: string | null }
+export interface RezenRead { plans: RezenPlan[]; openDeals: number | null; closedDeals: number | null; revsharePaid: number | null; network: number | null; readAt: string | null }
+
+export interface RezenPlan { kind: string; plan: string }
+
+/** `read.plans.data` is an object mapping a kind of plan to its name (vip50-web-crm#349); "commission_plan" shows as "Commission plan". */
+export function readPlans(data: unknown): RezenPlan[] {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return [];
+  const out: RezenPlan[] = [];
+  for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
+    const plan = typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : "";
+    const kind = k.replace(/[_-]+/g, " ").trim();
+    if (!plan || !kind) continue;
+    out.push({ kind: kind.charAt(0).toUpperCase() + kind.slice(1), plan: plan.slice(0, 120) });
+  }
+  return out.slice(0, 12);
+}
 
 const arr = (v: unknown) => (Array.isArray(v) ? v : null);
 const money = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() && Number.isFinite(Number(v)) ? Number(v) : null);
@@ -33,6 +48,7 @@ export function readRezenRead(v: unknown): RezenRead {
   const deals = data("deals"), rev = data("revshare"), net = data("network");
   const times = Object.values(r).map((x) => (x && typeof x.read_at === "string" ? x.read_at : null)).filter((x): x is string => !!x).sort();
   return {
+    plans: readPlans(data("plans")),
     openDeals: deals ? arr(deals.open)?.length ?? null : null,
     closedDeals: deals ? arr(deals.closed)?.length ?? null : null,
     revsharePaid: rev ? money(rev.paid) : null,

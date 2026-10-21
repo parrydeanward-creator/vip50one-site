@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LeadMailSection, OwnAISection, PulseModesSection } from "./ConnectSections.tsx";
 import RezenSection from "./RezenSection.tsx";
+import MyCardSection from "./MyCardSection.tsx";
 import VoiceSection from "./VoiceSection.tsx";
 import { syncKind, type VoiceKind } from "@/lib/voicePick.ts";
 import { GbpProfileCard } from "./GbpScreen.tsx";
@@ -315,6 +316,7 @@ export default function MyProfile({
       {/* PROFILE.md §2 v1.9: profile facts saved on their own card, in the two-column grid (one column on a phone).
           Time off joins them (Parry, 16 Oct: off ONE YOU, onto My Profile, on Classic and the Brain alike). */}
       <div className="pf-cards">
+        <MyCardSection demo={demo} />
         <WhereIWorkSection demo={demo} />
         <TimeOffSection demo={demo} />
         <ToursSection demo={demo} />

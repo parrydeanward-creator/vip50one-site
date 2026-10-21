@@ -7,6 +7,7 @@ import { MAX_TASKS_SHOWN, planUrl, putBody, suggest, type Plan, type PlanItem } 
 import { toldBusy, type Answers, type Told } from "@/lib/overview.ts";
 import { addDays, slide } from "@/lib/assist.ts";
 import { floor5 } from "@/lib/dayView.ts";
+import { nextOpenSlot, readClashAnswer, readPushNote, type ClashAsk, type ClashChoice } from "@/lib/dayClash.ts";
 import { nextWorkingDay, readWeek, weekTemplateUrl, worksOn, type Week } from "@/lib/workDay.ts";
 import { withoutTaskCopies, buildDay, customItem, customKey, customsOn, DAY_OVER_WHY, dayPutBody, dayUrl, denverNow, readDay, toMin, tomorrowPlan, type Block, type Busy, type Custom, type DayPlan } from "@/lib/schedule.ts";
 
@@ -53,6 +54,9 @@ export interface Day {
   told: TellState | null;
   tell: (t: TellState | null) => Promise<string | null>; // a note for the agent when the save goes somewhere other than their calendar
   addBlock: (c: Omit<Custom, "id">, on?: string) => Promise<string>;
+  /** Set while a new block sits on top of an appointment the agent booked (ONE-CALENDAR §3 rule 3); answer with `answerClash`. */
+  clash: ClashAsk | null;
+  answerClash: (c: ClashChoice | null) => void;
   removeBlock: (id: string) => void;
   approve: () => Promise<string>;
   replan: () => void;
@@ -97,6 +101,13 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
   const [move, setMove] = useState<ReturnType<typeof readDay>>(null);
   const [moveTomorrow, setMoveTomorrow] = useState<ReturnType<typeof readDay>>(null);
   const [told, setTold] = useState<TellState | null>(null);
+  const [clash, setClash] = useState<ClashAsk | null>(null);
+  const clashWait = useRef<((c: ClashChoice | null) => void) | null>(null);
+  const answerClash = (c: ClashChoice | null) => {
+    clashWait.current?.(c);
+    clashWait.current = null;
+    setClash(null);
+  };
   // Yesterday's leftovers, carried in one tap at the end of that day (§3o.6 "At day's end").
   const [carried, setCarried] = useState<PlanItem[]>([]);
   // ONE MOVE's day (§3o.2): working hours, busy times from the calendar of record and the agent's other
@@ -244,13 +255,65 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
 
   const addBlock = async (c: Omit<Custom, "id">, on: string = date): Promise<string> => {
     const id = `${Date.now().toString(36)}`;
-    saveStored([...stored, { ...c, id, date: on }]);
-    if (on === date) unapprove();
-    if (!live) return "Added. Example agent: in your account it goes on your calendar too.";
+    const keep = (x: Omit<Custom, "id">) => {
+      saveStored([...stored, { ...x, id, date: on }]);
+      if (on === date) unapprove();
+    };
+    if (!live) {
+      keep(c);
+      return "Added. Example agent: in your account it goes on your calendar too.";
+    }
+    const repeatWords = c.repeat === "weekdays" ? " every weekday" : c.repeat === "daily" ? " every day" : "";
+    const post = async (x: Omit<Custom, "id">, extra: Record<string, unknown>) => {
+      const r = await fetch(`${dayUrl}/block`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `${x.title} ${x.start} to ${x.end}${repeatWords}`, confirmed: { title: x.title, start: x.start, end: x.end, repeat: x.repeat }, date: on, ...extra }) });
+      return { ok: r.ok, status: r.status, j: await r.json().catch(() => null) };
+    };
+    const push = (x: Omit<Custom, "id">) =>
+      fetch(`${dayUrl}/clash`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: on, start: x.start, end: x.end, push: true }) })
+        .then((r) => (r.ok ? r.json() : null))
+        .then(readPushNote)
+        .catch(() => null);
+    const savedNote = (k: { status: number; j: unknown }) => {
+      const a = readClashAnswer(k.status, k.j);
+      return a.kind === "ok" ? a.note : null;
+    };
+    const done = (x: Omit<Custom, "id">, note: string | null) => {
+      keep(x);
+      return `Added, and on your calendar.${note ? ` ${note}` : ""}`;
+    };
     try {
-      const r = await fetch(`${dayUrl}/block`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `${c.title} ${c.start} to ${c.end}${c.repeat === "weekdays" ? " every weekday" : c.repeat === "daily" ? " every day" : ""}`, confirmed: { title: c.title, start: c.start, end: c.end, repeat: c.repeat }, date: on }) });
-      return r.ok ? "Added, and on your calendar." : "Added on this computer. It reaches your calendar once ONE GO's calendar update is live.";
+      let cur = c;
+      // Ask first (ONE-CALENDAR §3 rule 3). Moving the new one can land on another appointment, so ask again, a few times at most.
+      for (let tries = 0; tries < 4; tries++) {
+        const { ok, status, j } = await post(cur, { ask: true });
+        const a = readClashAnswer(status, j);
+        if (a.kind === "ok") return done(cur, a.note);
+        if (a.kind === "other") {
+          keep(cur);
+          return ok ? "Added, and on your calendar." : "Added on this computer. It reaches your calendar once ONE GO's calendar update is live.";
+        }
+        const choice = await new Promise<ClashChoice | null>((res) => {
+          clashWait.current = res;
+          setClash(a.ask);
+        });
+        if (choice === null) return "Not added.";
+        if (choice === "both") {
+          const k = await post(cur, { keep_both: true });
+          if (!k.ok) return keep(cur), "Added on this computer. It reaches your calendar once ONE GO's calendar update is live.";
+          return done(cur, savedNote(k));
+        }
+        if (choice === "other") {
+          const k = await post(cur, { keep_both: true });
+          if (!k.ok) return keep(cur), "Added on this computer. It reaches your calendar once ONE GO's calendar update is live.";
+          return done(cur, (await push(cur)) ?? savedNote(k));
+        }
+        const slot = nextOpenSlot(busy, hours, cur.start, cur.end);
+        if (!slot) return "There is no open time left in your day for that. Pick another time, or keep both.";
+        cur = { ...cur, ...slot };
+      }
+      return "Not added. Pick a time that is open.";
     } catch {
+      keep(c);
       return "Added on this computer. It reaches your calendar once ONE GO's calendar update is live.";
     }
   };
@@ -321,5 +384,5 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
   };
 
   const dayOff = !!move?.dayOff || !worksOn(date, week);
-  return { date, now, hours, busy, plan: shown, moved: slid?.note ?? null, carry, tomorrowDate, dayOff, week, planTomorrow, loadTomorrow, approvedAt: (move?.approvedAt ?? approved?.at) || null, fromMove: !!move, customs, told, tell, addBlock, removeBlock, approve, replan: unapprove };
+  return { date, now, hours, busy, plan: shown, moved: slid?.note ?? null, carry, tomorrowDate, dayOff, week, planTomorrow, loadTomorrow, approvedAt: (move?.approvedAt ?? approved?.at) || null, fromMove: !!move, customs, told, tell, addBlock, removeBlock, approve, replan: unapprove, clash, answerClash };
 }
