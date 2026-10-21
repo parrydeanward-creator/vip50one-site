@@ -33,6 +33,17 @@ export function cleanNext(v: unknown): string {
   return v;
 }
 
+/** Each product's own app, where a signed-in agent lands when no page was asked for. "/" on every product is its
+ * public sales page, with a Sign up button (Parry, 21 Oct: "all three ... are still asking for a sign up when you open
+ * them from the main vip-50 app"). */
+export const APP_HOME: Record<SignInProduct, string> = { "vip-open": "/app", marquee: "/go", showly: "/app" };
+
+/** The page the hop lands on: the asked-for page, or the product's app instead of its home page. */
+export const landingFor = (product: SignInProduct, next: unknown): string => {
+  const n = cleanNext(next);
+  return n === "/" ? APP_HOME[product] : n;
+};
+
 /** The Brain's hop into a product: `/go/<product>?next=<path>`. */
 export const goHref = (product: SignInProduct, path = "/"): string => `/go/${product}?next=${encodeURIComponent(cleanNext(path))}`;
 
