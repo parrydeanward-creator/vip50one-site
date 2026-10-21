@@ -6,7 +6,7 @@ import Icon from "./Icon.tsx";
 import { listingsUrl, type Launch, type PieceKey, type PieceState } from "@/lib/launch.ts";
 import type { MyListing } from "@/lib/examples/move2.ts";
 import { fitsLine, fitsUrl, readFits, type Fits } from "@/lib/listingFits.ts";
-import { STAGE_WORDS, domWords, factsLine, launchProgress, listingOrb, money, type LaunchProgress, type ListingFacts } from "@/lib/listingCards.ts";
+import { STAGE_WORDS, domWords, factsLine, launchProgress, listingOrb, money, toursWords, type LaunchProgress, type ListingFacts } from "@/lib/listingCards.ts";
 import "@/app/marquee-views.css";
 import "@/app/listing-cards.css";
 
@@ -56,6 +56,7 @@ export interface CardView {
   launch: LaunchProgress | null; // null: no launch for this agent's package
   fits: { line: string; count: number } | null;
   openHouse: { when: string; ahead: number } | null;
+  tours?: { line: string; href: string | null } | null; // "2 tours booked · next Thu 22 Oct", opens Showly
   marqueeLine: string | null; // "2 posts to approve · 3 scheduled"
   extra?: string | null; // the example's views and showings
 }
@@ -72,6 +73,7 @@ export function ListingCard({
   canLaunch,
   onMarquee,
   onReport,
+  onTours,
 }: {
   v: CardView;
   onOpen: () => void;
@@ -83,6 +85,7 @@ export function ListingCard({
   /** Example agent: the button acts on screen instead of following a link. */
   onMarquee?: () => void;
   onReport?: () => void;
+  onTours?: () => void;
 }) {
   const stop = (fn?: () => void) => (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -139,6 +142,18 @@ export function ListingCard({
             <li>
               <Icon kind="open" size={16} />
               <span>Open house {v.openHouse.when}{v.openHouse.ahead ? ` · ${v.openHouse.ahead} signed up ahead` : ""}</span>
+            </li>
+          ) : null}
+          {v.tours ? (
+            <li>
+              <Icon kind="open" size={16} />
+              {v.tours.href ? (
+                <a className="lst-link" href={v.tours.href} target="_blank" rel="noopener" onClick={(e) => e.stopPropagation()}>{v.tours.line}</a>
+              ) : onTours ? (
+                <button type="button" className="lst-link" onClick={stop(onTours)}>{v.tours.line}</button>
+              ) : (
+                <span>{v.tours.line}</span>
+              )}
             </li>
           ) : null}
           {v.marqueeLine ? (
@@ -202,6 +217,7 @@ export function cardOf(f: ListingFacts, launch: Launch | null, fits: Fits | null
     launch: showLaunch || launch ? launchProgress(launch) : null,
     fits: fits ? { line: fitsLine(fits), count: fits.reason ? 0 : fits.count } : null,
     openHouse: f.openHouse,
+    tours: f.tours ? { line: toursWords(f.tours), href: f.tours.href } : null,
     marqueeLine: marqueeLine(f),
   };
 }
@@ -340,6 +356,7 @@ export function exampleCard(l: MyListing): CardView {
     fits: { line: l.fits ? `${l.fits} of your people ${l.fits === 1 ? "fits" : "fit"} this home` : "None of your people fit this home yet.", count: l.fits },
     openHouse: l.openHouse ? { when: l.openHouse, ahead: 0 } : null,
     marqueeLine: l.marquee,
+    tours: l.tours ? { line: toursWords({ count: l.tours.count, next: l.tours.next }), href: null } : null,
     extra: l.views ? `${l.views.toLocaleString("en-US")} views · ${l.showings} showings` : null,
   };
 }

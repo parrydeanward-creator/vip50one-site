@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { askCommunity, askExamples, type AskAnswer } from "@/lib/rolodexAsk.ts";
 import { dialable, mailable } from "@/lib/contact.ts";
-import { DRAFT_FIELDS, FAMILIES, FAMILY_COLOR, FAN_MAX, bizInitials, draftOf, draftProblem, familyLabel, fanOrder, groupSeats, placedLine, readRolodex, recommendedLine, rolodexUrl, saveBody, withShared, type CommunityBiz, type Draft, type FamilyKey, type MineBiz, type Rolodex as RolodexData } from "@/lib/rolodex.ts";
+import { contactAddress } from "@/lib/deepLink.ts";
+import { DRAFT_FIELDS, bizVipBody, readBizVip, type BizVipAnswer, FAMILIES, FAMILY_COLOR, FAN_MAX, bizInitials, draftOf, draftProblem, familyLabel, fanOrder, groupSeats, placedLine, readRolodex, recommendedLine, rolodexUrl, saveBody, withShared, type CommunityBiz, type Draft, type FamilyKey, type MineBiz, type Rolodex as RolodexData } from "@/lib/rolodex.ts";
 import { ringRows } from "@/lib/vips.ts";
 import { focusFace, focusRings } from "@/lib/orbs.ts";
 import { useSvgCamera } from "./useSvgCamera.ts";
@@ -56,6 +57,8 @@ export default function Rolodex({
   const [askQ, setAskQ] = useState("");
   const [answer, setAnswer] = useState<AskAnswer | null>(null);
   const [classicOnly, setClassicOnly] = useState(false);
+  const [vips, setVips] = useState<Record<string, { contactId: string; name: string }>>({});
+  const [vipErr, setVipErr] = useState<Record<string, string>>({});
   const cam = useSvgCamera(SIZE);
 
   const load = useCallback(async () => {
@@ -178,6 +181,21 @@ export default function Rolodex({
     } finally {
       setBusy(false);
     }
+  };
+  const makeVip = async (b: MineBiz) => {
+    if (busy) return;
+    setBusy(true);
+    setVipErr(({ [b.id]: _gone, ...rest }) => rest);
+    let a: BizVipAnswer;
+    try {
+      const r = await fetch(rolodexUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bizVipBody(b.id)) });
+      a = readBizVip(r.status, await r.json().catch(() => null), b.name);
+    } catch {
+      a = { kind: "error", line: "ONE couldn't reach ONE MOVE just now. Nothing was changed." };
+    }
+    if (a.kind === "ok") setVips((m) => ({ ...m, [b.id]: { contactId: a.contactId, name: a.name } }));
+    else setVipErr((m) => ({ ...m, [b.id]: a.line }));
+    setBusy(false);
   };
   const startEdit = (b: MineBiz | null) => {
     setConfirmDel(false);
@@ -490,6 +508,17 @@ export default function Rolodex({
                     </select>
                   </label>
                 </div>
+                <div className="ta-log">
+                  {vips[sel.id] ? (
+                    <>
+                      <span className="chip" style={{ color: TEAL, borderColor: TEAL }}>Biz VIP</span>
+                      <a className="chip-btn primary" href={contactAddress(vips[sel.id].contactId)}>{`Open ${vips[sel.id].name}`}</a>
+                    </>
+                  ) : (
+                    <button className="chip-btn" disabled={busy} onClick={() => makeVip(sel)}>Make Biz VIP</button>
+                  )}
+                </div>
+                {vipErr[sel.id] && <p className="d-sum rx-small" role="alert">{vipErr[sel.id]}</p>}
                 {sel.notes && (
                   <>
                     <h2>Your notes (private)</h2>

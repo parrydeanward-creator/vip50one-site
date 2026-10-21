@@ -271,3 +271,23 @@ export function groupSeats(n: number, fx: number, fy: number, cx: number, cy: nu
 export function fanOrder<T extends { name: string; offer: string | null }>(items: T[], shared: (b: T) => boolean): T[] {
   return [...items].sort((a, b) => Number(!!b.offer) - Number(!!a.offer) || Number(shared(b)) - Number(shared(a)) || a.name.localeCompare(b.name));
 }
+
+// ---- Make Biz VIP (GO/MOVE: POST /api/brain/rolodex {action:"biz_vip", id}) ----------------------------------------
+// Turns one Business Rolodex entry into a VIP contact in ONE MOVE. Changes nothing else.
+
+export const bizVipBody = (id: string) => ({ action: "biz_vip" as const, id });
+
+export type BizVipAnswer = { kind: "ok"; contactId: string; name: string; created: boolean } | { kind: "error"; line: string };
+
+/** Reads ONE MOVE's answer: 200 {ok, contact_id, name, created, href}; anything else is one plain line. */
+export function readBizVip(status: number, j: unknown, bizName: string): BizVipAnswer {
+  const r = (j && typeof j === "object" ? j : {}) as Record<string, unknown>;
+  const err = typeof r.error === "string" && r.error.trim() ? r.error.trim().slice(0, 200) : null;
+  if (status === 200 && r.ok === true && typeof r.contact_id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(r.contact_id)) {
+    const name = typeof r.name === "string" && r.name.trim() ? r.name.trim().slice(0, 120) : bizName;
+    return { kind: "ok", contactId: r.contact_id, name, created: r.created !== false };
+  }
+  if (status === 403) return { kind: "error", line: err ?? "You can't make that business a VIP." };
+  if (status === 404) return { kind: "error", line: err ?? "That business is no longer in your Rolodex." };
+  return { kind: "error", line: err ?? "That didn't go through. Nothing was changed." };
+}

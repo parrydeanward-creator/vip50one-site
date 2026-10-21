@@ -238,6 +238,7 @@ export function ListingsView({ s, act }: { s: M2State; act: (a: M2Act) => void }
             onLaunch={() => (l.launch ? say(`${l.street}: each piece opens where it lives, for you to approve. Nothing goes out until you do. ${EXAMPLE_SAVED}`) : act({ t: "launch", id: l.id }))}
             onFits={() => say(`${l.street}: ${l.fits} of your people fit. On your own listing, Make my call list puts them on today's calls; nothing is sent. ${EXAMPLE_SAVED}`)}
             onMarquee={() => say(`${l.street}: on your own listing this opens it in Marquee, already signed in. ${EXAMPLE_SAVED}`)}
+            onTours={() => say(`${l.street}: on your own listing this opens Showly's tours for the home, already signed in. ${EXAMPLE_SAVED}`)}
             onReport={l.status === "Launching" ? undefined : () => say(`${l.street}: on your own listing this opens this week's seller report in Marquee. ${EXAMPLE_SAVED}`)}
           />
         ))}

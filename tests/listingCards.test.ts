@@ -85,3 +85,55 @@ test("the live graph carries each listing's facts on its orb", () => {
   assert.equal(orb!.listing!.openHouse?.ahead, 4);
   assert.equal(orb!.listing!.approvals, 3);
 });
+
+import { nextDayWords, readListingTours, sumTours, toursWords } from "../lib/listingCards.ts";
+import { bizVipBody, readBizVip } from "../lib/rolodex.ts";
+
+test("listing_tours: the checker rejects junk and keeps good rows", () => {
+  const good = { property_key: "1298-e-2nd-83672", date: "2026-10-22", count: 1 };
+  const junk = [
+    null, "x", 5, {}, { ...good, property_key: "Bad Key!" }, { ...good, property_key: "" }, { ...good, property_key: 7 }, { ...good, property_key: "a".repeat(201) },
+    { ...good, date: "22 Oct" }, { ...good, date: "2026-02-30" }, { ...good, date: 20261022 },
+    { ...good, count: 0 }, { ...good, count: -2 }, { ...good, count: 1.5 }, { ...good, count: "2" }, { ...good, count: 101 },
+  ];
+  assert.deepEqual(readListingTours([...junk, good]), [{ propertyKey: "1298-e-2nd-83672", date: "2026-10-22", count: 1 }]);
+  assert.deepEqual(readListingTours(undefined), []);
+  assert.deepEqual(readListingTours({ a: 1 }), []);
+  assert.equal(readListingTours(Array.from({ length: 150 }, () => good)).length, 100);
+});
+
+test("listing_tours sum per property with the earliest date", () => {
+  const m = sumTours(readListingTours([
+    { property_key: "k-1", date: "2026-10-25", count: 2 },
+    { property_key: "k-1", date: "2026-10-22", count: 1 },
+    { property_key: "k-2", date: "2026-10-23", count: 4 },
+  ]));
+  assert.deepEqual(m.get("k-1"), { count: 3, next: "2026-10-22" });
+  assert.deepEqual(m.get("k-2"), { count: 4, next: "2026-10-23" });
+  assert.equal(toursWords({ count: 1, next: "2026-10-22" }), "1 tour booked · next Thu 22 Oct");
+  assert.equal(toursWords({ count: 3, next: null }), "3 tours booked");
+  assert.equal(nextDayWords("2026-10-22"), "next Thu 22 Oct");
+});
+
+test("a listing card shows tours booked only when Showly sent them for its key", () => {
+  const l = { ref: "r1", address: "1298 E 2nd St, Heber, UT 83672", property_key: "1298-e-2nd-83672", status: "live", list_price: 400000, live_on: "2026-10-01" };
+  const f = listingFacts(l, null, null, "2026-10-21", { listing_tours: [{ property_key: "1298-e-2nd-83672", date: "2026-10-22", count: 1 }, { property_key: "other", date: "2026-10-22", count: 5 }] })!;
+  assert.equal(f.tours?.count, 1);
+  assert.equal(f.tours?.next, "2026-10-22");
+  assert.match(f.tours!.href, /^\/go\/showly\?next=/);
+  assert.equal(listingFacts(l, null, null, "2026-10-21", { listing_tours: [] })!.tours, null);
+  assert.equal(listingFacts(l, null, null, "2026-10-21")!.tours, null);
+});
+
+test("Make Biz VIP: the request body and the answer reader", () => {
+  assert.deepEqual(bizVipBody("b1"), { action: "biz_vip", id: "b1" });
+  const ok = readBizVip(200, { ok: true, contact_id: "c-9f", name: "Erin Holt", created: true, href: "/contacts/c-9f" }, "Summit");
+  assert.deepEqual(ok, { kind: "ok", contactId: "c-9f", name: "Erin Holt", created: true });
+  assert.equal(readBizVip(200, { ok: true, contact_id: "c1", created: false }, "Summit").kind, "ok");
+  for (const [st, j] of [[200, { ok: true }], [200, { ok: true, contact_id: "../x" }], [200, null], [400, { error: "Bad id" }], [403, {}], [404, {}], [500, "x"]] as const) {
+    const a = readBizVip(st, j, "Summit");
+    assert.equal(a.kind, "error");
+  }
+  assert.equal((readBizVip(400, { error: "Bad id" }, "S") as { line: string }).line, "Bad id");
+  assert.match((readBizVip(404, null, "S") as { line: string }).line, /no longer/);
+});
