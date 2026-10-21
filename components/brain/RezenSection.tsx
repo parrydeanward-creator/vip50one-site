@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { PlansList } from "./RezenOrbPanel.tsx";
 import { REZEN_OPEN, cleanKey, readConnect, readLine, readRezen, rezenBoxesUrl, rezenConnectUrl, rezenDisconnectUrl, rezenUrl, sinceWords, type RezenState } from "@/lib/rezen.ts";
 
 // My Profile: Connect reZEN (REZEN.md §3). Three steps on one card: open reZEN, paste the key, tick what passes through.
@@ -132,6 +133,7 @@ export default function RezenSection() {
           </p>
           {s.error && <p className="pf-note bad" role="status">{s.error}. Paste a new key from reZEN to fix it.</p>}
           {readLine(s.read) ? <p className="rz-line">{readLine(s.read)}.</p> : <small className="pf-sub">Nothing has come through yet. ONE reads reZEN once an hour.</small>}
+          <PlansList plans={s.read.plans} />
           <h3>What passes through</h3>
           <ul className="rz-boxes">
             {s.boxes.map((b) => (

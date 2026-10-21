@@ -85,6 +85,7 @@ export function withRezenNodes<G extends { nodes: GraphNode[]; edges: GraphEdge[
 }
 
 export const demoRezenRead = () => ({
+  plans: { read_at: "2026-10-14T20:00:00Z", data: { commission_plan: "Standard 85/15 with $12,000 cap", revenue_share_plan: "Standard tiers 1 to 7" } },
   revshare: { read_at: "2026-10-14T20:00:00Z", data: { paid: 4820, pending: 610, pending_contributions: 3, months: [{ year: 2026, month: 7, earnings: 380 }, { year: 2026, month: 8, earnings: 455 }, { year: 2026, month: 9, earnings: 520 }] } },
   network: { read_at: "2026-10-14T20:00:00Z", data: { total: 14, tiers: [{ tier: 1, size: 5 }, { tier: 2, size: 9 }], front_line: [{ name: "Jen Alvarez", status: "ACTIVE", since: "2025-03-01", network: 4 }, { name: "Dave Ruiz", status: "INACTIVE", since: "2025-09-12", network: 0 }] } },
 });

@@ -159,6 +159,7 @@ import { DEMO_FOLLOW_NODE, FOLLOW_NODE, followUpsUrl, isFollowUpsOrb, mergeFollo
 import { START_NODE, demoStart, filmUrl, movePathOf, placeFor, readStart, startAgentUrl, startMenuLine, startUrl, withStartNode, type Start, type StartPlace, type StartStep } from "@/lib/gettingStarted.ts";
 import { TEAM_HUB, isTeamLead, withTeamHub, type HubInput } from "@/lib/teamHub.ts";
 import { NetworkPanel, RevsharePanel } from "./RezenOrbPanel.tsx";
+import { readRezenRead, type RezenPlan } from "@/lib/rezen.ts";
 import { NETWORK_NODE, REVSHARE_NODE, demoRezenRead, readNetwork as readRezenNetwork, readRevshare, withRezenNodes, type Network as RezenNetwork, type Revshare } from "@/lib/rezenOrbs.ts";
 import { rezenUrl } from "@/lib/rezen.ts";
 import { ONB_NODE, demoOnboarding, onbIdOf, onboardingUrl, readOnboarding, readRemoved, withStart, type OnbMember } from "@/lib/onboarding.ts";
@@ -1471,11 +1472,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     else goTo(movePageId("/profile"));
   };
   // Revenue share and My network from reZEN (REZEN.md §3a): only the boxes the agent ticked, read hourly by ONE MOVE.
-  const [rezen, setRezen] = useState<{ r: Revshare | null; n: RezenNetwork | null }>({ r: null, n: null });
+  const [rezen, setRezen] = useState<{ r: Revshare | null; n: RezenNetwork | null; p: RezenPlan[] }>({ r: null, n: null, p: [] });
   // Whether reZEN is connected, for Goals' "Closings and GCI come from reZEN and the MLS" line (audit 3.4.1).
   const [rezenOn, setRezenOn] = useState<boolean | null>(null);
   useEffect(() => {
-    const take = (read: unknown) => setRezen({ r: readRevshare(read), n: readRezenNetwork(read) });
+    const take = (read: unknown) => setRezen({ r: readRevshare(read), n: readRezenNetwork(read), p: readRezenRead(read).plans });
     if (!live) {
       setRezenOn(true);
       return take(demoRezenRead());
@@ -3620,7 +3621,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             </div>
           ) : null}
 
-          {focus.id === REVSHARE_NODE && rezen.r && !ask ? <RevsharePanel r={rezen.r} /> : null}
+          {focus.id === REVSHARE_NODE && rezen.r && !ask ? <RevsharePanel r={rezen.r} plans={rezen.p} /> : null}
           {focus.id === NETWORK_NODE && rezen.n && !ask ? <NetworkPanel n={rezen.n} /> : null}
 
           {focus.id === START_NODE && start && !ask ? (

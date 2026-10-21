@@ -1,11 +1,11 @@
 "use client";
 
 import { dollars, type Network, type Revshare } from "@/lib/rezenOrbs.ts";
-import { REZEN_OPEN, sinceWords } from "@/lib/rezen.ts";
+import { REZEN_OPEN, sinceWords, type RezenPlan } from "@/lib/rezen.ts";
 
 // The Revenue share and My network orbs (REZEN.md §3a): what reZEN sent, for the agent only. Read only; reZEN itself
 // is one tap away.
-export function RevsharePanel({ r }: { r: Revshare }) {
+export function RevsharePanel({ r, plans = [] }: { r: Revshare; plans?: RezenPlan[] }) {
   const max = Math.max(1, ...r.months.map((m) => m.earnings));
   return (
     <section className="rz-orb" aria-label="Revenue share">
@@ -23,6 +23,7 @@ export function RevsharePanel({ r }: { r: Revshare }) {
           ))}
         </ol>
       ) : null}
+      <PlansList plans={plans} />
       <Foot at={r.readAt} />
     </section>
   );
@@ -62,5 +63,23 @@ function Foot({ at }: { at: string | null }) {
       From reZEN{at ? `, read ${sinceWords(at) ?? "recently"}` : ""}. Change what comes through in My Profile.{" "}
       <a href={REZEN_OPEN} target="_blank" rel="noopener noreferrer">Open reZEN ↗</a>
     </p>
+  );
+}
+
+/** My plans (vip50-web-crm#349): each kind of plan reZEN has for the agent, with its name. Hidden when there are none. */
+export function PlansList({ plans }: { plans: RezenPlan[] }) {
+  if (!plans.length) return null;
+  return (
+    <>
+      <h2 className="rz-h">My plans</h2>
+      <ul className="rz-front" aria-label="My plans">
+        {plans.map((p) => (
+          <li key={p.kind}>
+            <b>{p.kind}</b>
+            <small>{p.plan}</small>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

@@ -412,7 +412,16 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
             )}
           </svg>
 
-          {(picked || note) && (
+          {day.clash && (
+            <div className="vr-bar pop" role="alertdialog" aria-label="This overlaps another appointment">
+              <span>{day.clash.question}</span>
+              <button className="chip-btn primary" onClick={() => day.answerClash("new")}>Move the new one</button>
+              <button className="chip-btn" onClick={() => day.answerClash("other")}>Move the other one</button>
+              <button className="chip-btn" onClick={() => day.answerClash("both")}>Keep both</button>
+              <button className="chip-btn" onClick={() => day.answerClash(null)}>Cancel</button>
+            </div>
+          )}
+          {!day.clash && (picked || note) && (
             <div className="vr-bar pop" role="status">
               {note ? (
                 <>

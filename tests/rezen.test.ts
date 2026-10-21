@@ -44,3 +44,16 @@ test("rezen read line, as Classic's: counts and totals only, only for ticked box
   assert.equal(readLine(readRezenRead({ deals: { data: { open: [], closed: [] } } })), "From reZEN: 0 open and 0 recent closed deals");
   assert.equal(readLine(readRezenRead(undefined)), null);
 });
+
+test("my plans: kind and plan name in plain words; none means nothing to show", async () => {
+  const { readPlans, readRezenRead } = await import("../lib/rezen.ts");
+  assert.deepEqual(readPlans({ commission_plan: "85/15 with cap", revenue_share_plan: " Standard " }), [
+    { kind: "Commission plan", plan: "85/15 with cap" },
+    { kind: "Revenue share plan", plan: "Standard" },
+  ]);
+  assert.deepEqual(readPlans({ a: "", b: null, c: {} }), []);
+  assert.deepEqual(readPlans(["x"]), []);
+  assert.deepEqual(readPlans(undefined), []);
+  assert.deepEqual(readRezenRead({ plans: { data: { commission_plan: "Team" } } }).plans, [{ kind: "Commission plan", plan: "Team" }]);
+  assert.deepEqual(readRezenRead(undefined).plans, []);
+});
