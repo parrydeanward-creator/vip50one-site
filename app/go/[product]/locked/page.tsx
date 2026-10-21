@@ -18,7 +18,11 @@ export default async function Locked({ params }: { params: Promise<{ product: st
     <main className="login">
       <div className="login-card">
         <Logo label="VIP-50 ONE" size={56} />
-        <h1 id="locked-line">{lockedLine(product, who.email)}</h1>
+        {/* The email keeps its own case; the heading face is all capitals. */}
+        <h1 id="locked-line" aria-label={lockedLine(product, who.email)}>
+          {lockedLine(product, "").replace(/ for \.$/, " for")}{" "}
+          <span style={{ textTransform: "none", fontFamily: "inherit", letterSpacing: 0, wordBreak: "break-all" }}>{who.email}</span>.
+        </h1>
         <a className="cta" href="/reactivate">See plans</a>
         <a className="cta ghost" href="/dashboard">Close</a>
       </div>
