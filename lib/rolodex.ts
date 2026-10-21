@@ -45,7 +45,7 @@ export interface Card {
   image: string | null;
 }
 export type GroupBy = "rules" | "pulse" | "agent";
-export interface MineBiz extends Card { id: string; notes: string | null; shared: boolean; groupBy: GroupBy }
+export interface MineBiz extends Card { id: string; notes: string | null; shared: boolean; groupBy: GroupBy; bizVip: boolean }
 export interface Recommender { name: string; me: boolean; since: string | null }
 export interface CommunityBiz extends Card { key: string; recommended_by: Recommender[]; in_mine: boolean }
 export interface Rolodex { myCity: string | null; mine: MineBiz[]; community: CommunityBiz[] }
@@ -101,7 +101,7 @@ export function readRolodex(raw: unknown): Rolodex | null {
     const c = card(o);
     if (!c || typeof o.id !== "string" || !o.id) continue;
     const by: GroupBy = o.group_by === "pulse" || o.group_by === "agent" ? o.group_by : "rules";
-    mine.push({ ...placed(c, o.group_by == null), id: o.id, notes: str(o.notes, 2000), shared: o.shared === true, groupBy: by });
+    mine.push({ ...placed(c, o.group_by == null), id: o.id, notes: str(o.notes, 2000), shared: o.shared === true, groupBy: by, bizVip: o.biz_vip === true });
   }
   const community: CommunityBiz[] = [];
   for (const m of r.community as unknown[]) {

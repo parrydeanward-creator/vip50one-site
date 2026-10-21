@@ -10,6 +10,7 @@ export type MenuAction =
   | { kind: "help" }
   | { kind: "goTour" }
   | { kind: "oneTour" }
+  | { kind: "websiteFilm" }
   | { kind: "billing" }
   | { kind: "addons" }
   | { kind: "orb"; id: string }
@@ -51,6 +52,8 @@ export function menuRows(m: MenuInput): MenuRow[] {
   rows.push({ key: "goTour", label: "Watch the ONE GO tour", line: "Your phone app, start to finish, in eleven minutes.", action: { kind: "goTour" } });
   // Film A, approved by Parry 18 Oct (13:54 MT).
   rows.push({ key: "oneTour", label: "Watch the ONE tour", line: "ONE on the desktop, start to finish, in twenty-five minutes.", action: { kind: "oneTour" } });
+  // Film C, approved by Parry 21 Oct (14:43 MT: "yes for now").
+  rows.push({ key: "websiteFilm", label: "Watch the website film", line: "Your website, start to finish, in twenty-three minutes.", action: { kind: "websiteFilm" } });
   rows.push({ key: "classic", label: "Classic view", line: "ONE MOVE's older screens, if you need them.", action: { kind: "href", href: m.classicUrl } });
   rows.push({ key: "signout", label: "Sign out", line: "Sign out of ONE on this device.", action: { kind: "signout" } });
   return rows;

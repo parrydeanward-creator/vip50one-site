@@ -42,7 +42,7 @@ import { clock, completedBy, duration, isEvening, planDay, recap, type DayItem, 
 import { localDay } from "@/lib/morning.ts";
 import PulseMark from "./PulseMark.tsx";
 import PulseIntro from "./PulseIntro.tsx";
-import SignalsFilm, { GO_TOUR_FILM, ONE_TOUR_FILM } from "./SignalsFilm.tsx";
+import SignalsFilm, { GO_TOUR_FILM, ONE_TOUR_FILM, WEBSITE_FILM } from "./SignalsFilm.tsx";
 import PlanMyDay from "./PlanMyDay.tsx";
 import DayClock from "./DayClock.tsx";
 import { useDay } from "./useDay.ts";
@@ -408,6 +408,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [mpOffer, setMpOffer] = useState(false); // the once-a-day offer on the morning note
   const [goTour, setGoTour] = useState(false); // the ONE GO phone tour (Film B)
   const [oneTour, setOneTour] = useState(false); // the ONE desktop tour (Film A)
+  const [webFilm, setWebFilm] = useState(false); // the website film (Film C)
   useEffect(() => {
     if (!live) return;
     if (arrival) return; // a link to a page opens that page; Meet Pulse waits for a plain visit
@@ -3052,6 +3053,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                       else if (a.kind === "help") setGuide(true);
                       else if (a.kind === "goTour") setGoTour(true);
                       else if (a.kind === "oneTour") setOneTour(true);
+                      else if (a.kind === "websiteFilm") setWebFilm(true);
                       else if (a.kind === "billing") void openBilling();
                       else if (a.kind === "addons") setAddonsOpen(true);
                       else if (a.kind === "site") void editSite(a.host, a.next);
@@ -3670,7 +3672,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           {focus.id === NETWORK_NODE && rezen.n && !ask ? <NetworkPanel n={rezen.n} /> : null}
 
           {focus.id === START_NODE && start && !ask ? (
-            <GettingStartedPanel s={start} placeOf={startPlaceOf} onOpen={openStartPlace} onFilm={(f) => (f === "a" ? setGuide(true) : setGoTour(true))} />
+            <GettingStartedPanel s={start} placeOf={startPlaceOf} onOpen={openStartPlace} onFilm={(f) => (f === "a" ? setGuide(true) : f === "c" ? setWebFilm(true) : setGoTour(true))} />
           ) : null}
 
           {isFollowUpsOrb(focus.id) && !ask ? (
@@ -3768,7 +3770,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               learn={learn}
               live={live}
               onOpenPage={(path) => (live ? openMovePage(path) : setSiteNote("Example agent: signed in, this opens it in ONE MOVE."))}
-              onFilm={(f) => (f === "a" ? setGuide(true) : setGoTour(true))}
+              onFilm={(f) => (f === "a" ? setGuide(true) : f === "c" ? setWebFilm(true) : setGoTour(true))}
             />
           ) : null}
 
@@ -4597,7 +4599,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           onClose={() => setMp(null)}
         />
       )}
-      {oneTour && <SignalsFilm film={ONE_TOUR_FILM} onClose={() => setOneTour(false)} />}
+      {oneTour && <SignalsFilm film={ONE_TOUR_FILM} onClose={() => setOneTour(false)} onNext={{ label: "See the website film", open: () => { setOneTour(false); setWebFilm(true); } }} />}
+      {webFilm && <SignalsFilm film={WEBSITE_FILM} onClose={() => setWebFilm(false)} />}
       {goTour && <SignalsFilm film={GO_TOUR_FILM} onClose={() => setGoTour(false)} onEnded={() => markFilm("b")} />}
       {reviewOpen && theReview ? <ReviewView review={theReview} read={thePulseRead} week={weekScore} demo={!live} onClose={() => setReviewOpen(false)} onCommit={commitThing} onChanged={refreshRoster} onAction={reviewAct} demoStore={reviewDemoStore} /> : null}
       {goalsOpen ? (

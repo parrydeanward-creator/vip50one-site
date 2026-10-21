@@ -9,7 +9,7 @@ export default function GettingStartedPanel({ s, placeOf, onOpen, onFilm }: {
   s: Start;
   placeOf: (step: StartStep) => StartPlace | null;
   onOpen: (place: StartPlace, step: StartStep) => void;
-  onFilm: (film: "a" | "b") => void;
+  onFilm: (film: "a" | "b" | "c") => void;
 }) {
   const steps = shownSteps(s);
   const badge = badgeLine(s);
