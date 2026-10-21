@@ -29,7 +29,60 @@ export interface ListingFacts {
   scheduled: number; // posts scheduled from today on
   posted: number; // posts that went out in the last 30 days
   openHouse: { when: string; href: string | null; ahead: number } | null; // the next one, from ONE Open
+  /** Timed Showly tours booked in the next 14 days (Showly's listing_tours, counts only); null when none. */
+  tours: { count: number; next: string; href: string } | null;
 }
+
+// ---- Showly tours booked on a listing (vip_summary listing_tours; counts only, no buyer names) ----------------------
+
+export interface TourDay { propertyKey: string; date: string; count: number }
+const KEY_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/; // the property key format: "1298-e-2nd-83672"
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Showly's listing_tours, strictly: junk rows are dropped, never repaired. At most 100 rows are read. */
+export function readListingTours(raw: unknown): TourDay[] {
+  if (!Array.isArray(raw)) return [];
+  const out: TourDay[] = [];
+  for (const r of raw.slice(0, 100)) {
+    if (!r || typeof r !== "object") continue;
+    const o = r as Record<string, unknown>;
+    const key = o.property_key;
+    const date = o.date;
+    const count = o.count;
+    if (typeof key !== "string" || key.length > 200 || !KEY_RE.test(key)) continue;
+    if (typeof date !== "string" || !YMD_RE.test(date) || Number.isNaN(Date.parse(`${date}T12:00:00Z`)) || new Date(`${date}T12:00:00Z`).toISOString().slice(0, 10) !== date) continue;
+    if (typeof count !== "number" || !Number.isInteger(count) || count < 1 || count > 100) continue;
+    out.push({ propertyKey: key, date, count });
+  }
+  return out;
+}
+
+/** Tours per property: the total and the earliest date, summed over the rows. */
+export function sumTours(rows: TourDay[]): Map<string, { count: number; next: string }> {
+  const m = new Map<string, { count: number; next: string }>();
+  for (const r of rows) {
+    const e = m.get(r.propertyKey);
+    if (e) {
+      e.count += r.count;
+      if (r.date < e.next) e.next = r.date;
+    } else m.set(r.propertyKey, { count: r.count, next: r.date });
+  }
+  return m;
+}
+
+/** "next Thu 22 Oct" from a YYYY-MM-DD day. */
+export function nextDayWords(date: string): string {
+  const d = new Date(`${date}T12:00:00Z`);
+  const f = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en-US", { timeZone: "UTC", ...o }).format(d);
+  return `next ${f({ weekday: "short" })} ${f({ day: "numeric" })} ${f({ month: "short" })}`;
+}
+
+/** "1 tour booked" / "3 tours booked", with the next date when there is one. */
+export function toursWords(t: { count: number; next: string | null }): string {
+  return `${t.count} ${t.count === 1 ? "tour" : "tours"} booked${t.next ? ` · ${nextDayWords(t.next)}` : ""}`;
+}
+
+export const toursHref = goHref("showly", "/app");
 
 type Loose = Record<string, unknown>;
 const str = (v: unknown, max = 300) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
@@ -62,7 +115,7 @@ const REPORT_WORDS: Record<string, string> = { asked: "waiting on your answers",
  * posts, reports and approval items, and ONE Open's upcoming open houses. `marquee` and `open` are those products'
  * vip_summary answers (null when not asked or not answered).
  */
-export function listingFacts(l: Loose, marquee: Loose | null, open: Loose | null, today: string): ListingFacts | null {
+export function listingFacts(l: Loose, marquee: Loose | null, open: Loose | null, today: string, showly: Loose | null = null): ListingFacts | null {
   const ref = str(l.ref, 80);
   const address = str(l.address, 200);
   if (!ref || !address) return null;
@@ -100,6 +153,9 @@ export function listingFacts(l: Loose, marquee: Loose | null, open: Loose | null
     .sort((a, b) => Date.parse(a.starts_at as string) - Date.parse(b.starts_at as string))[0];
   const nextLink = next ? https(next.link) : null;
 
+  // Showly: timed tours booked in the next 14 days, matched on the property key.
+  const booked = key ? sumTours(readListingTours(showly?.listing_tours)).get(key) : undefined;
+
   const price = stage === "closed" ? num(l.sold_price) ?? num(l.list_price) : num(l.list_price);
   const link = https(l.link);
   return {
@@ -119,6 +175,7 @@ export function listingFacts(l: Loose, marquee: Loose | null, open: Loose | null
     approvals,
     scheduled,
     posted,
+    tours: booked ? { count: booked.count, next: booked.next, href: toursHref } : null,
     openHouse: next ? { when: whenWords(next.starts_at as string, today), href: nextLink ? (productLink(nextLink) as string) : null, ahead: Math.max(0, Math.round(num(next.signed_up_ahead) ?? 0)) } : null,
   };
 }

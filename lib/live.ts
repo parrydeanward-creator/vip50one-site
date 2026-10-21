@@ -655,7 +655,7 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
         summary: `${l.address}. ${listingLine(l, o.today)}.`,
         href: safeImage(l.link ?? null),
         image: safeImage(l.image ?? null),
-        listing: listingFacts(l as unknown as Record<string, unknown>, (a?.env ?? null) as Record<string, unknown> | null, (others.open?.env ?? null) as Record<string, unknown> | null, o.today) ?? undefined,
+        listing: listingFacts(l as unknown as Record<string, unknown>, (a?.env ?? null) as Record<string, unknown> | null, (others.open?.env ?? null) as Record<string, unknown> | null, o.today, (others.showly?.env ?? null) as Record<string, unknown> | null) ?? undefined,
       }));
       rows.forEach((r, j) => add({
         id: r.id,
@@ -714,7 +714,7 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
         summary: `${l.address}. ${listingLine(l, o.today)}.`,
         href: safeImage(l.link ?? null),
         image: safeImage(l.image ?? null),
-        listing: listingFacts(l as unknown as Record<string, unknown>, (a?.env ?? null) as Record<string, unknown> | null, (others.open?.env ?? null) as Record<string, unknown> | null, o.today) ?? undefined,
+        listing: listingFacts(l as unknown as Record<string, unknown>, (a?.env ?? null) as Record<string, unknown> | null, (others.open?.env ?? null) as Record<string, unknown> | null, o.today, (others.showly?.env ?? null) as Record<string, unknown> | null) ?? undefined,
       }));
     }
   });

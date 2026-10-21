@@ -594,6 +594,15 @@ export function exampleMoveAnswer(s: ExampleStore, method: string, url: string, 
 
   // Business Rolodex (§3i)
   if (path === "rolodex" && get) return ok(rolodexBody(s));
+  if (path === "rolodex" && method === "POST" && b.action === "biz_vip") {
+    const biz = s.rolodex.mine.find((x) => x.id === b.id);
+    if (!biz) return { status: 404, body: { ok: false, error: "That business is no longer in your Rolodex." } };
+    const name = biz.contact_name || biz.name;
+    const have = s.people.find((p) => fullName(p) === name);
+    const p2 = have ?? mkPerson(s.next++, name, "sphere", null);
+    if (!have) s.people.push(p2);
+    return ok({ ok: true, contact_id: p2.id, name, created: !have, href: `/contacts/${p2.id}` });
+  }
   if (path.startsWith("rolodex/") && method === "POST") {
     const what = path.slice(8);
     const r = s.rolodex;
@@ -735,10 +744,11 @@ export interface MyListing {
   id: string; street: string; city: string; price: number; status: "Launching" | "Active" | "Under contract"; days: number;
   beds: number; baths: number; sqft: number; views: number; showings: number; tone: "dusk" | "sage" | "sand" | "slate" | "ember" | "sky";
   fits: number; openHouse: string | null; marquee: string | null; launch: ExLaunch | null;
+  tours?: { count: number; next: string }; // Showly tours booked (example)
 }
 export const MY_LISTINGS: MyListing[] = [
   { id: "ml1", street: "1212 Maple Ridge Dr", city: "Bountiful, UT 84010", price: 549_000, status: "Launching", days: 0, beds: 4, baths: 3, sqft: 2860, views: 0, showings: 0, tone: "dusk", fits: 3, openHouse: null, marquee: "Photos in; Marquee is building the campaign", launch: null },
-  { id: "ml2", street: "322 Orchard Ln", city: "Centerville, UT 84014", price: 489_000, status: "Active", days: 12, beds: 3, baths: 2, sqft: 1980, views: 1420, showings: 9, tone: "sage", fits: 2, openHouse: "Sat 24 Oct, 11:00 AM · 6 signed up ahead", marquee: "2 pieces to approve · 3 scheduled · 5 posted this month", launch: { marquee_page: "done", site_page: "done", open_house: "ready", ad_draft: "ready", buyer_notes: "done" } },
+  { id: "ml2", street: "322 Orchard Ln", city: "Centerville, UT 84014", price: 489_000, status: "Active", days: 12, beds: 3, baths: 2, sqft: 1980, views: 1420, showings: 9, tone: "sage", fits: 2, openHouse: "Sat 24 Oct, 11:00 AM · 6 signed up ahead", marquee: "2 pieces to approve · 3 scheduled · 5 posted this month", launch: { marquee_page: "done", site_page: "done", open_house: "ready", ad_draft: "ready", buyer_notes: "done" }, tours: { count: 3, next: "2026-10-22" } },
   { id: "ml3", street: "640 Meadow Brook Ln", city: "Kaysville, UT 84037", price: 715_000, status: "Under contract", days: 21, beds: 5, baths: 4, sqft: 4010, views: 2210, showings: 14, tone: "sand", fits: 0, openHouse: null, marquee: "Closing post waits until it records", launch: { marquee_page: "done", site_page: "done", open_house: "done", ad_draft: "done", buyer_notes: "done" } },
 ];
 export const EXAMPLE_LAUNCHED: ExLaunch = { marquee_page: "ready", site_page: "drafting", open_house: "drafting", ad_draft: "drafting", buyer_notes: "ready" };
