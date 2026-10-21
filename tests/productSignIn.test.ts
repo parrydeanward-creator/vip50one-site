@@ -93,3 +93,14 @@ test("a Marquee link with & survives the hop whole: built, read once by /go, and
   assert.equal(hopOutcome("marquee", { ok: true, url: "https://marquee.vip-50.com/auth/one", ticket: t }, null, next).kind, "enter");
   assert.equal(fallbackUrl("marquee", next), "https://marquee.vip-50.com/go?c=abc&s=door");
 });
+
+test("the hop lands on each product's app, never its sales page at /", async () => {
+  const { landingFor, APP_HOME } = await import("../lib/productSignIn.ts");
+  assert.equal(landingFor("showly", "/"), "/app");
+  assert.equal(landingFor("vip-open", "/"), "/app");
+  assert.equal(landingFor("marquee", "/"), "/go");
+  assert.equal(landingFor("marquee", null), "/go");
+  assert.equal(landingFor("showly", "//evil.com"), "/app");
+  assert.equal(landingFor("vip-open", "/app/settings"), "/app/settings");
+  assert.deepEqual(Object.keys(APP_HOME).sort(), ["marquee", "showly", "vip-open"]);
+});

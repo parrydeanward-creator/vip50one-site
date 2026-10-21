@@ -1,5 +1,5 @@
 import { masterClient } from "@/lib/server/auth.ts";
-import { LOCKED_HREF, cleanNext, fallbackUrl, hopOutcome, isSignInProduct } from "@/lib/productSignIn.ts";
+import { LOCKED_HREF, fallbackUrl, hopOutcome, isSignInProduct, landingFor } from "@/lib/productSignIn.ts";
 
 // ENTITLEMENT §6b (v1.6, 16 Oct; Parry: "once a person signs into the system they need access to all the tools without
 // having to sign in again"): GET /go/<product>?next=<path>. Signed in to the Brain, it asks MASTER for a one-time ticket
@@ -16,7 +16,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ product: string
   const { product } = await ctx.params;
   if (!isSignInProduct(product)) return new Response("Not found", { status: 404, headers: HEADERS });
   const u = new URL(req.url);
-  const next = cleanNext(u.searchParams.get("next"));
+  const next = landingFor(product, u.searchParams.get("next")); // never the product's sales page
   const sb = await masterClient();
   const { data: claims } = await sb.auth.getClaims();
   if (!claims?.claims?.sub) {
