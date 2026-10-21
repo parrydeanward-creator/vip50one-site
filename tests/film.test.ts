@@ -48,3 +48,13 @@ test("your day: every task starts open and is done by the end of the day", async
   }
   assert.equal(g.nodes.find((n) => n.id === "d1")!.status, "opportunity", "the base graph is never changed");
 });
+
+test("Film C (website film): files shipped, captions on, tall cut for phones, Film A ends on it", async () => {
+  const { readFileSync, existsSync } = await import("node:fs");
+  for (const f of ["film-c.mp4", "film-c.vtt", "film-c.jpg", "film-c-tall.mp4", "film-c-tall.vtt", "film-c-trailer.mp4"]) assert.ok(existsSync(new URL(`../public/home/films/${f}`, import.meta.url)), f);
+  const src = readFileSync(new URL("../components/brain/SignalsFilm.tsx", import.meta.url), "utf8");
+  assert.match(src, /WEBSITE_FILM = \{[^}]*captionsOn: true/);
+  assert.match(src, /default=\{film\.captionsOn\}/);
+  const brain = readFileSync(new URL("../components/brain/Brain.tsx", import.meta.url), "utf8");
+  assert.match(brain, /label: "See the website film"/);
+});

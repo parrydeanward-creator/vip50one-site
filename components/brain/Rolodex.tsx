@@ -509,7 +509,9 @@ export default function Rolodex({
                   </label>
                 </div>
                 <div className="ta-log">
-                  {vips[sel.id] ? (
+                  {sel.bizVip && !vips[sel.id] ? (
+                    <span className="chip" style={{ color: TEAL, borderColor: TEAL }}>Biz VIP</span>
+                  ) : vips[sel.id] ? (
                     <>
                       <span className="chip" style={{ color: TEAL, borderColor: TEAL }}>Biz VIP</span>
                       <a className="chip-btn primary" href={contactAddress(vips[sel.id].contactId)}>{`Open ${vips[sel.id].name}`}</a>

@@ -113,3 +113,15 @@ test("ten groups' fans never overlap, even at the cap", () => {
   assert.ok(closest >= 50, `closest pair ${closest.toFixed(1)}px`);
   assert.ok(all.every((s) => s.x > 0 && s.x < SIZE && s.y > 0 && s.y < SIZE));
 });
+
+test("readRolodex keeps biz_vip as a boolean only (GO/MOVE, 21 Oct)", () => {
+  const r = readRolodex({ mine: [{ id: "a", name: "A", biz_vip: true }, { id: "b", name: "B", biz_vip: "true" }, { id: "c", name: "C", biz_vip: false }, { id: "d", name: "D" }], community: [] })!;
+  assert.deepEqual(r.mine.map((m) => m.bizVip), [true, false, false, false]);
+});
+
+test("Rolodex view: the Biz VIP chip shows and Make Biz VIP hides when bizVip is true", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../components/brain/Rolodex.tsx", import.meta.url), "utf8");
+  assert.match(src, /sel\.bizVip && !vips\[sel\.id\] \?/);
+  assert.match(src, /Make Biz VIP<\/button>/);
+});

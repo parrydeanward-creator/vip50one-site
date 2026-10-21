@@ -1,10 +1,10 @@
 import { masterClient } from "@/lib/server/auth.ts";
-import { LOCKED_HREF, fallbackUrl, hopOutcome, isSignInProduct, landingFor } from "@/lib/productSignIn.ts";
+import { fallbackUrl, hopOutcome, isSignInProduct, landingFor, lockedHref } from "@/lib/productSignIn.ts";
 
 // ENTITLEMENT §6b (v1.6, 16 Oct; Parry: "once a person signs into the system they need access to all the tools without
 // having to sign in again"): GET /go/<product>?next=<path>. Signed in to the Brain, it asks MASTER for a one-time ticket
 // as that agent (`vip_product_ticket`) and forwards to the product's enter page with the ticket in the fragment. Signed
-// out, the sign-in page brings them straight back here. Not in the package: the Brain. Anything else (MASTER's RPC not
+// out, the sign-in page brings them straight back here. Not in the package: the locked page (/go/<product>/locked). Anything else (MASTER's RPC not
 // live yet, an error): the plain product address, as before this hop existed.
 
 export const dynamic = "force-dynamic";
@@ -30,6 +30,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ product: string
   } catch {
     out = { kind: "fallback", url: fallbackUrl(product, next) };
   }
-  if (out.kind === "locked") return go(new URL(LOCKED_HREF, u).toString());
+  if (out.kind === "locked") return go(new URL(lockedHref(product), u).toString());
   return go(out.url);
 }

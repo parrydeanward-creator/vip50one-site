@@ -14,13 +14,16 @@ export const ONE_FILM = { title: "Watch ONE Work", src: "/home/one-film.mp4", po
 export const GO_TOUR_FILM = { title: "The ONE GO tour", src: "/home/films/one-go-tour-wide.mp4", poster: "/home/films/one-go-tour-wide.jpg", captions: "/home/films/one-go-tour.vtt", note: "Example agent; people and addresses are invented.", tallSrc: "/home/films/one-go-tour.mp4", tallPoster: "/home/films/one-go-tour.jpg" };
 // Film A (approved by Parry 18 Oct 13:54 MT: "ok ship film A to eco"): ONE on the desktop, 25 min 26 s, 17 chapters (vip50-ecosystem research/films/film-a/README.md), from the menu.
 export const ONE_TOUR_FILM = { title: "The ONE tour on the desktop", src: "/home/films/film-a.mp4", poster: "/home/films/film-a.jpg", captions: "/home/films/film-a.vtt", note: "Example agent; people and addresses are invented." };
+// Film C (approved by Parry 21 Oct 14:43 MT: "yes for now"): the website film, 23 min, voiced; the phone cut for narrow screens. File names stay stable so an update is a straight replacement.
+export const WEBSITE_FILM = { title: "The ONE website film", src: "/home/films/film-c.mp4", poster: "/home/films/film-c.jpg", captions: "/home/films/film-c.vtt", note: "Example agent; people and addresses are invented.", tallSrc: "/home/films/film-c-tall.mp4", tallPoster: "/home/films/film-c.jpg", tallCaptions: "/home/films/film-c-tall.vtt", captionsOn: true };
 const SIGNALS = { title: "What everything means", src: SIGNALS_FILM.src, poster: SIGNALS_FILM.poster, captions: SIGNALS_FILM.captions, stepHref: "/watch?signals=1", note: "Example agent; people and addresses are invented.", tallSrc: SIGNALS_FILM.tallSrc, tallPoster: SIGNALS_FILM.tallPoster };
 
-type Film = { title: string; src: string; poster: string; captions: string; stepHref?: string; note: string; tallSrc?: string; tallPoster?: string };
+type Film = { title: string; src: string; poster: string; captions: string; stepHref?: string; note: string; tallSrc?: string; tallPoster?: string; tallCaptions?: string; captionsOn?: boolean };
 
 /** `onEnded` runs when the film plays to the end (Getting started step 11 records it; GETTING-STARTED §5). */
-export default function SignalsFilm({ onClose, onMeet, onEnded, film = SIGNALS }: { onClose: () => void; onMeet?: () => void; onEnded?: () => void; film?: Film }) {
+export default function SignalsFilm({ onClose, onMeet, onEnded, onNext, film = SIGNALS }: { onClose: () => void; onMeet?: () => void; onEnded?: () => void; onNext?: { label: string; open: () => void }; film?: Film }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const [ended, setEnded] = useState(false); // Film A ends on "See the website film"
   // What everything means opens on the written key; its film waits, paused and silent, until pressed (walker audit 02).
   const keyFirst = film === SIGNALS;
   const [showFilm, setShowFilm] = useState(!keyFirst);
@@ -64,8 +67,8 @@ export default function SignalsFilm({ onClose, onMeet, onEnded, film = SIGNALS }
           </ul>
         )}
         {showFilm ? (
-          <video className={`sf-video${tall ? " tall" : ""}`} src={tall ? film.tallSrc : film.src} poster={tall ? film.tallPoster : film.poster} controls autoPlay={!keyFirst} playsInline preload="metadata" onEnded={onEnded}>
-            <track kind="captions" src={film.captions} srcLang="en" label="English" />
+          <video className={`sf-video${tall ? " tall" : ""}`} src={tall ? film.tallSrc : film.src} poster={tall ? film.tallPoster : film.poster} controls autoPlay={!keyFirst} playsInline preload="metadata" onEnded={() => { setEnded(true); onEnded?.(); }}>
+            <track kind="captions" src={tall && film.tallCaptions ? film.tallCaptions : film.captions} srcLang="en" label="English" default={film.captionsOn} />
           </video>
         ) : (
           <button className="pi-btn sf-watch" onClick={() => setShowFilm(true)}>
@@ -75,6 +78,11 @@ export default function SignalsFilm({ onClose, onMeet, onEnded, film = SIGNALS }
         <p className="sf-note">
           {film.note} {film.stepHref && <a href={film.stepHref}>Play it step by step</a>}
         </p>
+        {onNext && ended && (
+          <div className="pi-actions">
+            <button className="pi-btn" onClick={onNext.open}>{onNext.label}</button>
+          </div>
+        )}
         {onMeet && (
           <div className="pi-actions">
             <button className="pi-btn" onClick={onMeet}>Meet Pulse: what it does for you</button>

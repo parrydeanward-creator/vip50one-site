@@ -104,3 +104,20 @@ test("the hop lands on each product's app, never its sales page at /", async () 
   assert.equal(landingFor("vip-open", "/app/settings"), "/app/settings");
   assert.deepEqual(Object.keys(APP_HOME).sort(), ["marquee", "showly", "vip-open"]);
 });
+
+test("locked hop: a small page that names the product and the signed-in email", async () => {
+  const { lockedHref, lockedLine, PRODUCT_NAMES } = await import("../lib/productSignIn.ts");
+  assert.equal(lockedHref("showly"), "/go/showly/locked");
+  assert.equal(lockedLine("showly", "ann@example.com"), "Showly isn't in the plan for ann@example.com.");
+  assert.equal(lockedLine("marquee", "a@b.co"), "Marquee isn't in the plan for a@b.co.");
+  assert.equal(lockedLine("vip-open", "a@b.co"), "ONE Open isn't in the plan for a@b.co.");
+  assert.deepEqual(Object.values(PRODUCT_NAMES).sort(), ["Marquee", "ONE Open", "Showly"]);
+  const { readFileSync } = await import("node:fs");
+  const route = readFileSync(new URL("../app/go/[product]/route.ts", import.meta.url), "utf8");
+  assert.match(route, /lockedHref\(product\)/);
+  const page = readFileSync(new URL("../app/go/[product]/locked/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /lockedLine\(product, who\.email\)/, "the email comes from the session");
+  assert.match(page, /href="\/reactivate">See plans/);
+  assert.match(page, /href="\/dashboard">Close/);
+  assert.doesNotMatch(page, /searchParams/, "nothing in the address can change the words");
+});

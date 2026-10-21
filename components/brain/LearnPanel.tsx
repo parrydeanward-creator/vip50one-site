@@ -75,7 +75,7 @@ export function LearnSearch({ live, learn, onOpenPage }: { live: boolean; learn:
 }
 
 /** One Learn part's panel. */
-export function LearnPartPanel({ part, learn, live, onOpenPage, onFilm }: { part: LearnPartKey; learn: Learn | null; live: boolean; onOpenPage: (path: string) => void; onFilm: (f: "a" | "b") => void }) {
+export function LearnPartPanel({ part, learn, live, onOpenPage, onFilm }: { part: LearnPartKey; learn: Learn | null; live: boolean; onOpenPage: (path: string) => void; onFilm: (f: "a" | "b" | "c") => void }) {
   const open = useOpen(onOpenPage);
   const example = !live ? <p className="op-ex">Example: the example agent&apos;s, not real.</p> : null;
   const waiting = <p className="hr-sub">Waiting on ONE MOVE for what is in Learn.</p>;
@@ -90,10 +90,12 @@ export function LearnPartPanel({ part, learn, live, onOpenPage, onFilm }: { part
         <ul className="op-list">
           <li><span>What everything means</span><small>The map, the orbs and Pulse</small></li>
           <li><span>The ONE GO tour</span><small>The phone app</small></li>
+          <li><span>The website film</span><small>Your website, start to finish</small></li>
         </ul>
         <div className="op-acts">
           <button type="button" className="chip-btn primary" onClick={() => onFilm("a")} aria-label="Watch What everything means">What everything means</button>
           <button type="button" className="chip-btn" onClick={() => onFilm("b")} aria-label="Watch the ONE GO tour">Watch the ONE GO tour</button>
+          <button type="button" className="chip-btn" onClick={() => onFilm("c")} aria-label="Watch the website film">Watch the website film</button>
         </div>
       </section>
     );

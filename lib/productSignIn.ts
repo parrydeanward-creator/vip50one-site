@@ -92,5 +92,11 @@ export function hopOutcome(product: SignInProduct, data: unknown, error: unknown
   return url ? { kind: "enter", url } : { kind: "fallback", url: fallbackUrl(product, next) };
 }
 
-/** Where a product the agent's package does not include sends them: the Brain (it has no locked-product view yet). */
-export const LOCKED_HREF = "/dashboard";
+/** The names a person knows the three products by. */
+export const PRODUCT_NAMES: Record<SignInProduct, string> = { "vip-open": "ONE Open", marquee: "Marquee", showly: "Showly" };
+
+/** Where a product the agent's package does not include sends them: a small page, the same words ONE GO uses. */
+export const lockedHref = (product: SignInProduct): string => `/go/${product}/locked`;
+
+/** "Showly isn't in the plan for ann@example.com." The email is the signed-in session's, never from the address. */
+export const lockedLine = (product: SignInProduct, email: string): string => `${PRODUCT_NAMES[product]} isn't in the plan for ${email}.`;
