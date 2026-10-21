@@ -1,6 +1,12 @@
 // "Ask AI about you" (PULSE-ROADMAP, Scout item 54, 12 Oct): once a month the agent checks whether AI answer engines
 // name them. ONE never automates ChatGPT or any assistant (against their terms): each button opens the engine with
-// the question already filled in, and the agent ticks "named" or "not named". Results stay in this browser for now.
+// the question already filled in, and the agent ticks "named" or "not named". Results are kept in MASTER through ONE
+// MOVE's /api/brain/ai-check (vip50-web-crm#326); this browser holds them only for the example agent, or when that
+// route does not answer.
+
+import { MOVE_URL } from "./host.ts";
+
+export const aiCheckUrl = `${MOVE_URL}/api/brain/ai-check`;
 
 /** The old orb id: no orb now (lib/youGroups.ts drops any graph that still carries one). */
 export const ASK_AI_NODE = "go-ask-ai";
@@ -77,4 +83,46 @@ export function askAiCard(r: Results | null): { title: string; line: string; due
     line: `Once a month: do ChatGPT, Perplexity and Google name you? ${r ? tallyLine(r) : "Not checked yet this month"}.`,
     due: asked === 0,
   };
+}
+
+/** What ONE MOVE's GET /api/brain/ai-check answers: this month's check, kept in MASTER. */
+export interface AiCheck {
+  month: string;
+  results: Results;
+  area: string;
+  name: string;
+  lastMonth: Results | null;
+  card: { title: string; line: string; due: boolean } | null;
+}
+
+const str = (v: unknown) => (typeof v === "string" ? v : "");
+
+/** Read the route's answer; null when it is not that shape (the page then keeps the device copy). */
+export function readAiCheck(raw: unknown): AiCheck | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.month !== "string" || !o.results || typeof o.results !== "object") return null;
+  const c = o.card && typeof o.card === "object" ? (o.card as Record<string, unknown>) : null;
+  const card = c && typeof c.line === "string" && c.line ? { title: str(c.title) || "Ask AI about you", line: c.line, due: c.due === true } : null;
+  return {
+    month: o.month,
+    results: readResults(o.results),
+    area: str(o.area),
+    name: str(o.name),
+    lastMonth: o.last_month && typeof o.last_month === "object" ? readResults(o.last_month) : null,
+    card,
+  };
+}
+
+/** The POST body: one answer, or the area. A null answer clears that mark. Keys the route does not know are never sent. */
+export function aiCheckBody(change: { mark?: { key: string; answer: Answer | null }; area?: string }): { results?: Record<string, Answer | null>; area?: string } {
+  const out: { results?: Record<string, Answer | null>; area?: string } = {};
+  if (change.mark && /^(who|best|recommend):(chatgpt|perplexity|google)$/.test(change.mark.key)) out.results = { [change.mark.key]: change.mark.answer };
+  if (typeof change.area === "string") out.area = change.area.slice(0, 80);
+  return out;
+}
+
+/** The card as My Profile shows it: the route's own line when it sent one, else the local wording. */
+export function cardFor(check: AiCheck | null, r: Results | null): { title: string; line: string; due: boolean } {
+  return check?.card ?? askAiCard(r);
 }

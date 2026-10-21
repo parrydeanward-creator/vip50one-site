@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { GBP_ADDRESS, arrivalFirstId, arrivalFor, isArrivalPath, openTarget, type Arrival } from "../lib/deepLink.ts";
+import { GBP_ADDRESS, arrivalFirstId, arrivalFor, contactAddress, contactIdOf, isArrivalPath, openTarget, type Arrival } from "../lib/deepLink.ts";
 import { arrivalExact, landing, seedArrival } from "../lib/deepLinkNode.ts";
 import { MENU_ORB, MOVE_COACH, MOVE_GROUPS, MOVE_HIDDEN, MOVE_MENU, TEAM_LEADS_PAGE, moveGroupId, movePageId, withMoveCoach, withTeamLeadsPage } from "../lib/moveMenu.ts";
 import { GBP_PATH } from "../lib/gbp.ts";
@@ -176,4 +176,56 @@ test("first paint: every menu address and ?open= name is on the map the server d
     assert.equal(seedArrival(base, null, { growth: true, exampleToday }), base);
     assert.equal(seedArrival(base, arrivalFor("/profile", null), { growth: true, exampleToday }), base);
   }
+});
+
+// Parry, 19 Oct: other products link an agent to one named person, ready to act (MASTER's contact UUID, the id lead_in
+// returns and ONE MOVE's /contacts/<id> uses).
+const CID = "5b0c2f4e-7a1d-4e8b-9c3a-0d6f1e2a3b4c";
+test("/dashboard/contacts/<uuid> routes to that contact; the Contacts list link still works", () => {
+  const a = arrivalFor(`/contacts/${CID}`, null) as { kind: string; contact?: string; label: string } | null;
+  assert.ok(a && a.kind !== "gbp");
+  assert.equal(a.contact, CID);
+  assert.equal(a.label, "Contacts");
+  assert.equal(contactAddress(CID.toUpperCase()), `/dashboard/contacts/${CID}`);
+  assert.equal((arrivalFor(`/contacts/${CID.toUpperCase()}`, null) as { contact?: string }).contact, CID);
+  const list = arrivalFor("/contacts", null) as { contact?: string; label: string };
+  assert.equal(list.label, "Contacts");
+  assert.equal(list.contact, undefined);
+  // ?contact=<uuid> on /dashboard
+  assert.equal((arrivalFor("/dashboard", null, CID) as { contact?: string }).contact, CID);
+  assert.equal((arrivalFor(null, null, CID) as { contact?: string }).contact, CID);
+  assert.equal(arrivalFor(null, null, "nope"), null);
+});
+
+test("a bad contact id falls back to the Contacts page", () => {
+  for (const bad of ["abc", "5b0c2f4e-7a1d-4e8b-9c3a", `${CID}x`, "../etc", "1234"]) {
+    const a = arrivalFor(`/contacts/${bad}`, null) as { contact?: string; label: string } | null;
+    assert.ok(a, bad);
+    assert.equal(a.label, "Contacts", bad);
+    assert.equal(a.contact, undefined, bad);
+  }
+  assert.equal(contactIdOf("not-a-uuid"), null);
+  assert.equal(contactIdOf(null), null);
+  // the existing Contacts sub-pages are untouched
+  assert.equal((arrivalFor("/contacts/visitors", null) as { label: string }).label, "New to Sort");
+  assert.ok(isArrivalPath("/contacts/vip"));
+});
+
+test("the sign-in next= path keeps the contact", () => {
+  assert.equal(appTarget(`/dashboard/contacts/${CID}`), `/dashboard/contacts/${CID}`);
+  assert.equal(appTarget(`/dashboard/contacts/${CID.toUpperCase()}`), `/dashboard/contacts/${CID}`);
+  assert.equal(afterSignIn(`/dashboard/contacts/${CID}`, "/dashboard/weekly"), `/dashboard/contacts/${CID}`);
+  assert.equal(appTarget(`/dashboard?contact=${CID}`), `/dashboard?contact=${CID}`);
+  // a bad id lands on Contacts; nothing else rides along
+  assert.equal(appTarget("/dashboard/contacts/zzz"), "/dashboard/contacts");
+  assert.equal(appTarget("/dashboard?contact=zzz"), "/dashboard");
+  assert.equal(appTarget("/dashboard/contacts/visitors"), "/dashboard/contacts/visitors");
+  assert.equal(appTarget("//evil.com/contacts/x"), "/dashboard");
+  assert.equal(appTarget(`/dashboard/contacts/${CID}/../..`), "/dashboard");
+});
+
+test("a contact link lands on the Contacts orb on the map", () => {
+  const g = demoWalk();
+  const a = arrivalFor(`/contacts/${CID}`, null)!;
+  assert.ok(land(g, a)?.id);
 });
