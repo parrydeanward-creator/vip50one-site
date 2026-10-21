@@ -8,6 +8,10 @@ export const TOUR_PAGES: [string, string, string][] = [
   ["/contacts", "Contacts", "move-0"], ["/contacts/vip", "VIP Management", "move-2"], ["/contacts/audit", "Touch Audit", "move-1"],
   ["/hot-warm-cold", "Hot/Warm/Cold", "move-9"], ["/rolodex", "Business Rolodex", "move-0"], ["/daily", "Daily Tracker", "move"],
   ["/weekly", "Weekly Tracker", "move"], ["/profile", "My Profile", "move"], ["/home-reports", "Market Reports", "move"],
+  // The Classic-only pages added to the menu on 21 Oct (Parry: everything on Classic in the Brain too).
+  ["/contacts/import", "Import Contacts", "move-0"], ["/contacts/cleanup", "Clean Up Contacts", "move-0"],
+  ["/contacts/archived", "Archived Contacts", "move-0"], ["/contacts/sources", "Lead Sources", "move-0"],
+  ["/tasks", "Tasks", "move"], ["/profile/agent-hub", "Agent Hub", "move"],
 ];
 // The example agent (?demo=1) has no ONE MOVE menu either; Market Reports gets its orb so the example shows it (HOME-REPORT
 // §5.4, 16 Oct). It runs on example data there, with no network.
