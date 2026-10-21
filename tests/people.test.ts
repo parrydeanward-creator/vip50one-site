@@ -145,3 +145,22 @@ test("left_early: a partial lead carries the flag and Classic's words (LEADS §1
   assert.equal(readPerson(base)!.leftEarly, false);
   assert.match(LEFT_EARLY_LINE, /^Left before giving a phone or email\./);
 });
+
+// Copied from vip50-web-crm components/contacts/RelationshipBoard.tsx (read 21 Oct): Julie's Biz VIPs must show in the Brain.
+test("relationship groups: the board's rule, first match wins", async () => {
+  const { relationshipColumn, inRelationshipGroup } = await import("../lib/people.ts");
+  assert.equal(relationshipColumn({ tags: ["biz-vip"] }), "biz");
+  assert.equal(relationshipColumn({ contactType: "vendor" }), "biz");
+  assert.equal(relationshipColumn({ tags: ["rising-vip"] }), "rising");
+  assert.equal(relationshipColumn({ tags: ["mayors-circle"], tier: "vip50" }), "mayors");
+  assert.equal(relationshipColumn({ tags: ["mayors-circle"] }), "new"); // the circle needs the VIP-50 tier
+  assert.equal(relationshipColumn({ tags: ["biz-vip"], tier: "vip50" }), "vip50"); // a tier outranks the flag
+  assert.equal(relationshipColumn({ tags: ["biz-vip"], tier: "vip100" }), "vip100");
+  assert.equal(relationshipColumn({ tags: ["biz-vip", "rising-vip"] }), "biz");
+  assert.equal(relationshipColumn({ tags: ["biz-vip"] }, 3), "champion");
+  assert.equal(relationshipColumn({ contactType: "sphere" }), "new");
+  assert.equal(relationshipColumn({ tags: "biz-vip" }), "new"); // tags must be a list
+  assert.equal(inRelationshipGroup("biz_vip", { contactType: "vendor" }), true);
+  assert.equal(inRelationshipGroup("biz_vip", { tags: ["rising-vip"] }), false);
+  assert.equal(inRelationshipGroup("vip50", { tags: ["biz-vip"] }), false);
+});

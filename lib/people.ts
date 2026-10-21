@@ -293,6 +293,35 @@ function realDate(y: number | null, m: number, d: number, label: string): { valu
   return { value: y == null ? `--${mm}-${dd}` : `${y}-${mm}-${dd}` };
 }
 
+/**
+ * ONE MOVE Classic's Relationships board (vip50-web-crm components/contacts/RelationshipBoard.tsx), copied exactly:
+ * a contact sits in ONE column, first match wins: Mayor's Circle (tag mayors-circle AND tier vip50), Ambassador (5+
+ * referrals), Champion (3+), VIP-50, VIP-100, Biz VIP (tag biz-vip OR contact_type vendor), Rising VIP (tag
+ * rising-vip), else New Connection. So a VIP-50 vendor is in VIP-50, not Biz VIP. Referral counts are optional;
+ * the people list does not carry them yet, so Champion and Ambassador are never guessed here.
+ */
+export type RelColumn = "new" | "rising" | "biz" | "vip100" | "vip50" | "champion" | "ambassador" | "mayors";
+export function relationshipColumn(c: { tags?: unknown; contactType?: unknown; tier?: unknown }, referrals = 0): RelColumn {
+  const tags = Array.isArray(c.tags) ? c.tags.map(String) : [];
+  const tier = typeof c.tier === "string" ? c.tier : "";
+  if (tags.includes("mayors-circle") && tier === "vip50") return "mayors";
+  if (referrals >= 5) return "ambassador";
+  if (referrals >= 3) return "champion";
+  if (tier === "vip50") return "vip50";
+  if (tier === "vip100") return "vip100";
+  if (tags.includes("biz-vip") || c.contactType === "vendor") return "biz";
+  if (tags.includes("rising-vip")) return "rising";
+  return "new";
+}
+/** The Brain's group keys for the board columns it shows as groups. */
+export const RELATIONSHIP_GROUPS = [
+  { key: "biz_vip", label: "Biz VIP", column: "biz" },
+  { key: "rising_vip", label: "Rising VIP", column: "rising" },
+  { key: "mayors_circle", label: "Mayor's Circle", column: "mayors" },
+] as const;
+export const inRelationshipGroup = (key: string, c: Parameters<typeof relationshipColumn>[0], referrals = 0) =>
+  RELATIONSHIP_GROUPS.some((g) => g.key === key && g.column === relationshipColumn(c, referrals));
+
 /** How many fields in a section are empty: the gaps Pulse can ask about. */
 export const gapsIn = (s: Section) => s.fields.filter((f) => showValue(f) == null).length;
 
@@ -311,6 +340,9 @@ const COLORS: Record<string, string> = {
   showly: "#ff8a3d",
   imported: "#9fb3d9",
   other: "#9aa4bf",
+  biz_vip: "#4dd0e1",
+  rising_vip: "#7ee081",
+  mayors_circle: "#ffd77a",
 };
 export const groupColor = (key: string) => COLORS[key] ?? "#9aa4bf";
 

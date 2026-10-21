@@ -1,5 +1,6 @@
 import type { PieceKey, PieceState } from "../launch.ts";
 import { MOVE_URL } from "../host.ts";
+import { inRelationshipGroup, RELATIONSHIP_GROUPS } from "../people.ts";
 import { moveGroupId, moveMenuHref, movePageId } from "../moveMenu.ts";
 import type { GraphEdge, GraphNode } from "../graph/types.ts";
 
@@ -54,6 +55,9 @@ export interface ExPerson {
   street: string;
   about: Record<string, string>;
   notes: { id: string; note: string; ago: number }[];
+  /** ONE MOVE's tags and contact_type, as the Relationships board reads them (Biz VIP, Rising VIP, Mayor's Circle). */
+  tags?: string[];
+  contactType?: string;
   deleted?: boolean;
 }
 
@@ -115,6 +119,12 @@ const PULSES: Record<string, { reason: string; urgency: "now" | "today" }> = {
   "Rosa Diaz": { reason: "Visited an open house Saturday", urgency: "today" },
 };
 
+const BIZ: [string, string | null, string | null, string][] = [
+  ["Dana Whitfield", "biz-vip", null, "Lender"],
+  ["Leo Garrison", "biz-vip", null, "Title officer"],
+  ["Pete Marlow", null, "vendor", "Plumber"],
+];
+
 function mkPerson(n: number, name: string, tier: Tier, source: Source): ExPerson {
   const [first, ...rest] = name.split(" ");
   const last = rest.join(" ");
@@ -168,6 +178,17 @@ export function makeExampleStore(today: string): ExampleStore {
   for (const name of VIP50_NAMES) people.push(mkPerson(n++, name, "vip50", name === "Rosa Diaz" ? "open_house" : null));
   for (const name of VIP100_NAMES) people.push(mkPerson(n++, name, "vip100", null));
   for (const [name, src] of OTHER) people.push(mkPerson(n++, name, "sphere", src));
+  // Biz VIPs (Julie, 21 Oct: put in as Biz VIP in ONE MOVE, then could not find them in the Brain), one Rising VIP, one Mayor's Circle
+  for (const [name, tag, type, role] of BIZ) {
+    const b = mkPerson(n++, name, "sphere", null);
+    b.tags = [...(tag ? [tag] : []), role];
+    if (type) b.contactType = type;
+    people.push(b);
+  }
+  const rising = people.find((p) => p.tier === "sphere" && !p.tags);
+  if (rising) rising.tags = ["rising-vip"];
+  const mayor = people.find((p) => p.tier === "vip50");
+  if (mayor) mayor.tags = ["mayors-circle"];
   // Jen's birthday is tomorrow, as the map says
   const jen = people.find((p) => p.first === "Jen")!;
   jen.birthday = addDays(today, 1).slice(5);
@@ -206,7 +227,8 @@ const urgencyOf = (ago: number) => (ago > 30 ? "overdue" : ago > 21 ? "due_soon"
 
 const TIER_GROUPS: [string, string][] = [["vip50", "VIP-50"], ["vip100", "VIP-100"], ["sphere", "Sphere"]];
 const SOURCE_GROUPS: [string, string][] = [["open_house", "Open house visitors"], ["website", "Website leads"], ["referral", "Referrals"]];
-const inGroup = (p: ExPerson, g: string) => p.tier === g || p.source === g;
+const relOf = (p: ExPerson) => ({ tags: p.tags, contactType: p.contactType, tier: p.tier === "sphere" ? null : p.tier });
+const inGroup = (p: ExPerson, g: string) => p.tier === g || p.source === g || inRelationshipGroup(g, relOf(p));
 
 function groupsBody(s: ExampleStore) {
   const ps = live(s);
@@ -218,7 +240,7 @@ function groupsBody(s: ExampleStore) {
     total: ps.length,
     needs_you: ps.filter((p) => p.pulse).length,
     needs_now: ps.filter((p) => p.pulse?.urgency === "now").length,
-    groups: [...TIER_GROUPS.map(([k, l]) => g(k, l, "tier")), ...SOURCE_GROUPS.map(([k, l]) => g(k, l, "source"))],
+    groups: [...TIER_GROUPS.map(([k, l]) => g(k, l, "tier")), ...RELATIONSHIP_GROUPS.map((r) => g(r.key, r.label, "tier")), ...SOURCE_GROUPS.map(([k, l]) => g(k, l, "source"))],
     gaps: { vip_no_birthday: 2, to_sort: 3, possible_duplicates: 1 },
   };
 }
@@ -268,7 +290,7 @@ function personBody(s: ExampleStore, p: ExPerson) {
     tier: p.tier === "sphere" ? null : p.tier,
     class: p.cls,
     stage: p.cls === "hot" ? "Active" : null,
-    tags: [p.tier === "vip50" ? "VIP-50" : p.tier === "vip100" ? "VIP-100" : "Sphere", ...(p.source ? [SOURCE_LABEL[p.source]] : []), "Example"],
+    tags: [p.tier === "vip50" ? "VIP-50" : p.tier === "vip100" ? "VIP-100" : "Sphere", ...(p.source ? [SOURCE_LABEL[p.source]] : []), "Example", ...(p.tags ?? [])],
     source_label: p.source ? SOURCE_LABEL[p.source] : null,
     pulse: p.pulse ? { line: p.pulse.reason, next_step: p.pulse.reason.startsWith("New baby") ? "card" : "call", urgency: p.pulse.urgency } : null,
     timeline_count: 5,
