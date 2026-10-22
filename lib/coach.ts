@@ -19,6 +19,11 @@ export interface Coached {
   name: string;
   c: Commitments;
   setup: Setup | null;
+  /** Optional, read when MASTER sends them (asked of GO/MOVE for the Coaching board, 22 Oct): a face, each finished
+   *  week's share kept (oldest first, at most 8, null for a week with nothing set) and the last sign-in. */
+  photo?: string | null;
+  keptWeeks?: (number | null)[];
+  lastActive?: string | null;
 }
 
 /** §3ag answer for one agent, checked; null when absent or the wrong shape. */
@@ -63,7 +68,12 @@ export function readCoached(j: unknown, today: string): Coached[] {
     const c = readCommitments({ ...a, today });
     if (!c) continue;
     const name = typeof a.name === "string" && a.name.trim() ? a.name.trim().slice(0, 60) : "Agent";
-    out.push({ id: a.agent_id, name: name.includes("@") ? name.split("@")[0] : name, c, setup: readSetup(a.setup) });
+    const kw = Array.isArray(a.kept_by_week)
+      ? (a.kept_by_week as unknown[]).slice(-8).map((v) => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : null))
+      : undefined;
+    const photo = typeof a.photo_url === "string" && /^https:\/\//.test(a.photo_url) ? a.photo_url.slice(0, 500) : null;
+    const seen = [a.last_active, a.last_sign_in_at].find((v) => typeof v === "string" && !Number.isNaN(Date.parse(v))) as string | undefined;
+    out.push({ id: a.agent_id, name: name.includes("@") ? name.split("@")[0] : name, c, setup: readSetup(a.setup), photo, ...(kw ? { keptWeeks: kw } : {}), lastActive: seen ?? null });
   }
   return out;
 }
