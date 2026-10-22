@@ -189,7 +189,7 @@ import { IN_BRAIN, MENU_ORB, MOVE_MENU, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGrou
 
 const PHONE_QUERY = "(max-width: 719px)";
 const CARD_ROOM = 420; // desktop width kept free for the floating card
-const TEAM_PHONE_SCALE = 0.6; // the least the Team orb's rings are drawn at on a phone (the outer ring is a pan away)
+const TEAM_PHONE_SCALE = 20 / 54; // the least the Team orb is drawn at on a phone: a face keeps a 20px radius (the outer ring is a pan away)
 const RAIL_ROOM = 250; // and for the rail of floating buttons on the left
 
 export interface BrainAgent {

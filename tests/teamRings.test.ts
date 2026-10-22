@@ -84,10 +84,15 @@ for (const n of [18, 24]) {
         const p = placed.find((q) => q.id === id)!;
         assert.ok(Math.abs(Math.hypot(p.x, p.y) - radii[0]) < 0.01, `${id} is on the inner ring`);
       }
-      // phone: starts fitted to the focus and inner ring at a readable scale
+      // phone: starts fitted to the focus and the WHOLE inner ring, inside the map area above the slider (about y 150 to
+      // 430 at 390x844), with faces at least 20px in radius; the outer ring is a pan away.
       if (phone) {
-        const c = Math.max(fit(bounds(teamInner(placed), 20), { width: w, height: h - 254 }, 12).scale, 0.6);
-        assert.ok(TEAM_ORB_R * c >= 27, "readable on a phone");
+        const area = { width: w, height: 430 - 150 };
+        const ib = bounds(teamInner(placed), 20);
+        const c = Math.max(fit(ib, area, 12).scale, 20 / TEAM_ORB_R);
+        assert.ok(TEAM_ORB_R * c >= 20 - 1e-9, "faces keep a 20px radius on a phone");
+        assert.ok((ib.maxX - ib.minX) * c <= area.width && (ib.maxY - ib.minY) * c <= area.height, "the whole inner ring is on screen at the start");
+        assert.ok(teamInner(placed).length > 1 && teamInner(placed).length < placed.length, "the outer ring is left to pan to");
       }
     });
   }
