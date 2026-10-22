@@ -87,7 +87,7 @@ import PowerHourView from "./PowerHourView.tsx";
 import CoachView from "./CoachView.tsx";
 import { commitmentWork } from "@/lib/assist.ts";
 import { demoHistory, historyUrl, pulseRead, readHistory, type History, type Read as PulseRead } from "@/lib/pulseCoach.ts";
-import { POWER_NODE, lineUp, newSession, powerKey, readSession, withPowerNode, type Call, type Session as PowerSession } from "@/lib/powerHour.ts";
+import { POWER_NODE, callsFromTouch, newSession, powerKey, readSession, withPowerNode, withTicked, type Call, type Session as PowerSession } from "@/lib/powerHour.ts";
 import { goalsPlanUrl, goalsShown, readGoalsPlan, type GoalsPlan } from "@/lib/goalsPlan.ts";
 import { ASSUME_DEFAULT, START as INCOME_START, goalFacts, incomeKey, incomeMap, readAssume, yearStartFor, type Assume, type GoalKey } from "@/lib/goals.ts";
 import GoalsPanel from "./GoalsPanel.tsx";
@@ -1694,28 +1694,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     },
     [live, coached],
   );
-  // Power Hour: today's VIP touches, most urgent first, then the VIP-50 touches behind pace for the month.
   const [powerOpen, setPowerOpen] = useState(false);
   const [growthOpen, setGrowthOpen] = useState<string | null>(null); // a Growth piece's full view, by its key
-  const callsKey = JSON.stringify(lineUp(graph.today ?? [], roster, todayIn()));
-  const calls = useMemo(() => JSON.parse(callsKey) as Call[], [callsKey]);
-  const [power, setPower] = useState<PowerSession | null>(null);
-  useEffect(() => {
-    try {
-      setPower(readSession(JSON.parse(localStorage.getItem(powerKey(todayIn())) ?? "null"), todayIn()));
-    } catch {}
-  }, []);
-  const session = power ?? newSession(todayIn(), calls);
-  const savePower = (s: PowerSession) => {
-    setPower(s);
-    try {
-      localStorage.setItem(powerKey(s.date), JSON.stringify(s));
-    } catch {}
-  };
-  useEffect(() => {
-    powerRef.current = { calls, session: power };
-    setGraph((g) => withPowerNode(g, calls, power));
-  }, [calls, power]);
   // The Day Clock (§3o.9): the day planned round the calendar; Your day lists its blocks in time order.
   const [clockOpen, setClockOpen] = useState(false);
   const [tellText, setTellText] = useState<string | undefined>(undefined);
@@ -1728,6 +1708,29 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     [graph.today, planned],
   );
   const theDay = useDay({ today: graph.today ?? [], planned, live, doneRefs, onPlan: setPlanned, extra: commitWork });
+  // Power Hour in ONE YOU: the one ONE MOVE sends (and its follow-up), read once by useDay and drawn the same here as on the
+  // Day Clock and in Your day (Parry, 22 Oct); a tick is the same tick (tickTouch below).
+  const callsKey = JSON.stringify(callsFromTouch(theDay.touch));
+  const calls = useMemo(() => JSON.parse(callsKey) as Call[], [callsKey]);
+  const [power, setPower] = useState<PowerSession | null>(null);
+  useEffect(() => {
+    try {
+      setPower(readSession(JSON.parse(localStorage.getItem(powerKey(todayIn())) ?? "null"), todayIn()));
+    } catch {}
+  }, []);
+  const session = withTicked(power ?? newSession(todayIn(), calls), calls);
+  const savePower = (s: PowerSession) => {
+    // what ONE MOVE shows ticked is not stored as a result here: unticking it elsewhere must stay possible
+    const own = { ...s, results: Object.fromEntries(Object.entries(s.results).filter(([k, v]) => !(v === "sent" && calls.find((c) => c.id === k)?.done && power?.results[k] !== "sent"))) };
+    setPower(own);
+    try {
+      localStorage.setItem(powerKey(s.date), JSON.stringify(own));
+    } catch {}
+  };
+  useEffect(() => {
+    powerRef.current = { calls, session: withTicked(power ?? newSession(todayIn(), calls), calls) };
+    setGraph((g) => withPowerNode(g, calls, powerRef.current!.session));
+  }, [calls, power]);
   // ONE MOVE's Power Hour (or its follow-up) open in the side panel, by block id (Parry, 22 Oct)
   const [touchOpen, setTouchOpen] = useState<string | null>(null);
   const touchShown = touchOpen ? theDay.touch.find((b) => b.id === touchOpen) ?? null : null;
@@ -3895,7 +3898,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               <span className="pi-play" aria-hidden="true">☎</span>
               <span>
                 <b>Start a Power Hour</b>
-                <span>Today's VIP touches, then anything behind for the month: calls, video texts and social, with a countdown and what got done.</span>
+                <span>Your day's one Power Hour: today's VIP touches (calls, video texts, social), with a countdown and what got done.</span>
               </span>
             </button>
           )}
@@ -4697,7 +4700,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           session={session}
           live={live}
           onSession={savePower}
-          onTick={(ref, on) => tickDay(`day:${ref}`, on)}
+          onTick={(ref, on) => {
+            const item = theDay.touch.flatMap((b) => b.items ?? []).find((i) => i.ref === ref);
+            return item ? tickTouch(item, on) : Promise.resolve(null);
+          }}
           onClose={() => setPowerOpen(false)}
           contactCard={(contactId, name) => (
             <PersonPanel
