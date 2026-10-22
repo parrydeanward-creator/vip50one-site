@@ -364,6 +364,33 @@ export interface Custom {
 }
 export const customKey = "one.blocks";
 
+// The example agent's appointments (/dashboard?demo=1 only), so the example plans round something real.
+export const DEMO_BUSY: readonly Busy[] = [
+  { start: "10:00", end: "11:00", title: "Listing appointment, 418 Oak Lane", source: "listing_appointment" },
+  { start: "14:00", end: "14:45", title: "Showing with the Parks", source: "showing" },
+];
+/** The calendar the day is planned round: ONE MOVE's busy times once it answers. A signed-in agent never gets the example
+ * agent's appointments, even before ONE MOVE answers or when it cannot (Parry, 22 Oct: "I dont want the real estate
+ * appointments unless the user adds that"); the example agent gets them until it tells Pulse its own day. */
+export function calendarBusy(fromMove: Busy[] | null, live: boolean, told: boolean): Busy[] {
+  if (fromMove) return fromMove;
+  return live || told ? [] : [...DEMO_BUSY];
+}
+
+/** Where this browser keeps the day (the agent's blocks, the approved plan, the told day, what was carried). The example
+ * agent's are kept apart under "demo.": /dashboard?demo=1 and the signed-in Brain share one origin, so without it the
+ * example day (its lunch, its calls, a told day) came back in a real agent's Day Clock and Plan my day (Parry, 22 Oct:
+ * "I dont want the real estate appointments unless the user adds that"). A signed-in agent's keys are unchanged. */
+export function dayKeys(live: boolean) {
+  const ns = live ? "" : "demo.";
+  return {
+    custom: `${ns}${customKey}`,
+    approved: (date: string) => `${ns}one.dayplan.${date}`,
+    told: (date: string) => `${ns}one.told.${date}`,
+    carry: (date: string) => `${ns}one.carry.${date}`,
+  };
+}
+
 /** The agent's blocks that fall on a day: one-offs on their date, weekday and daily ones by the rule. */
 export function customsOn(all: (Custom & { date: string })[], date: string): Custom[] {
   const dow = new Date(`${date}T12:00:00Z`).getUTCDay();

@@ -9,7 +9,7 @@ import { addDays, slide } from "@/lib/assist.ts";
 import { floor5 } from "@/lib/dayView.ts";
 import { nextOpenSlot, readClashAnswer, readPushNote, type ClashAsk, type ClashChoice } from "@/lib/dayClash.ts";
 import { nextWorkingDay, readWeek, weekTemplateUrl, worksOn, type Week } from "@/lib/workDay.ts";
-import { withoutTaskCopies, buildDay, customItem, customKey, customsOn, DAY_OVER_WHY, dayPutBody, dayUrl, denverNow, freeGaps, readDay, toMin, toTime, tomorrowPlan, type Block, type Busy, type Custom, type DayPlan } from "@/lib/schedule.ts";
+import { calendarBusy, withoutTaskCopies, buildDay, customItem, customsOn, dayKeys, DAY_OVER_WHY, dayPutBody, dayUrl, denverNow, freeGaps, readDay, toMin, toTime, tomorrowPlan, type Block, type Busy, type Custom, type DayPlan } from "@/lib/schedule.ts";
 import { demoTouchBlocks, isAnyPowerBlock, tickBody, touchBlocks, type TouchItem } from "@/lib/touchBlock.ts";
 
 // The day as Pulse plans it (VIP-SUMMARY §3o), shared by the Day Clock and the Brain's Next line and
@@ -18,14 +18,6 @@ import { demoTouchBlocks, isAnyPowerBlock, tickBody, touchBlocks, type TouchItem
 // ONE MOVE's (Parry, 22 Oct): one, with its touches, and its follow-up once the hour has ended (lib/touchBlock.ts).
 
 const HOURS = { start: "08:00", end: "17:30" };
-// The demo agent's appointments, so the example plans round something real.
-const DEMO_BUSY: Busy[] = [
-  { start: "10:00", end: "11:00", title: "Listing appointment, 418 Oak Lane", source: "listing_appointment" },
-  { start: "14:00", end: "14:45", title: "Showing with the Parks", source: "showing" },
-];
-const approvedKey = (date: string) => `one.dayplan.${date}`;
-const toldKey = (date: string) => `one.told.${date}`;
-const carryKey = (date: string) => `one.carry.${date}`;
 
 /** What the agent told Pulse about their day (Tell Pulse your day), with their answers to its questions. */
 export interface TellState {
@@ -81,6 +73,8 @@ export interface Day {
 
 export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: { today: DayItem[]; planned: Plan | null; live: boolean; doneRefs: Set<string>; onPlan: (p: Plan) => void; extra?: PlanItem[] }): Day {
   const date = useMemo(() => todayIn(), []);
+  // the example agent's day is kept apart in this browser, so it never shows in a signed-in agent's day
+  const { custom: customKey, approved: approvedKey, told: toldKey, carry: carryKey } = useMemo(() => dayKeys(live), [live]);
   // The clock starts in the browser (the server's minute may differ). Planning starts from the time the
   // agent opened the page, so the plan stays put while they look at it; the example agent after hours
   // shows the whole day.
@@ -176,7 +170,7 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
   // (Parry, 20 Oct: "why are there multiple items stacked into the same time slot").
   const taskTitles = useMemo(() => today.map((d) => d.what), [today]);
   const busy = useMemo(() => {
-    const cal = withoutTaskCopies(move ? move.busy : live ? [] : told?.items.length ? [] : DEMO_BUSY, taskTitles);
+    const cal = withoutTaskCopies(calendarBusy(move ? move.busy : null, live, !!told?.items.length), taskTitles);
     if (!told?.items.length) return cal;
     // what this browser holds of the told day wins over ONE MOVE's saved copy of it (the same blocks), so
     // nothing shows twice; another device's told day still shows from ONE MOVE
