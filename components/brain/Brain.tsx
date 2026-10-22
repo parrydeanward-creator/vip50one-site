@@ -97,7 +97,8 @@ import { CHALLENGE_NODE, GOALS_NODE, SCORE_NODE, goalsThree, withoutRetired } fr
 import { groupOneYou, isYouGroup } from "@/lib/youGroups.ts";
 import ScoreboardPanel from "./ScoreboardPanel.tsx";
 import ChallengePanel from "./ChallengePanel.tsx";
-import { challengeUrl, readChallenge, withChallengeNode, type LiveChallenge } from "@/lib/challenge.ts";
+import { challengeShown, challengeUrl, demoChallenge, readChallenge, withChallengeNode, type LiveChallenge } from "@/lib/challenge.ts";
+import ChallengeView from "./ChallengeView.tsx";
 import { profileUrl, readProfile } from "@/lib/profile.ts";
 import { syncKind } from "@/lib/voicePick.ts";
 import GoalsView from "./GoalsView.tsx";
@@ -994,6 +995,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     challengeRef.current = challenge;
     setGraph((g) => withChallengeNode(g, challenge));
   }, [challenge]);
+  const reloadChallenge = useCallback(() => {
+    void fetch(challengeUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const c = readChallenge(j);
+        if (c) setChallenge(c);
+      })
+      .catch(() => {});
+  }, []);
+  // The challenge page (Parry, 22 Oct: "yes on both"): the agent's own answer only; the example agent's on the demo.
+  const demoCh = useMemo(() => (live ? null : demoChallenge()), [live]);
+  const shownChallenge = challengeShown(live, challenge, () => demoCh);
+  const [chOpen, setChOpen] = useState(false);
   // Energy (§3w): retired from ONE YOU by Parry, 16 Oct ("lets drop the energy orb"). Nothing asks for it or reads it
   // here any more; stored answers stay in MASTER.
   // Life-event radar (§3y): from ONE MOVE once it answers (404 until then: no orb), the example agent's in the demo.
@@ -1827,6 +1841,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   if (focus.id === state.focusId) lastPath.current = pathTo(ix, focus.id).slice(0, -1).map((n) => n.id);
   const focusIdRef = useRef(focus.id);
   focusIdRef.current = focus.id;
+  // The 90-Day Challenge orb opens its full page at once (Parry, 22 Oct: "yes on both"); back leaves the orb's panel.
+  useEffect(() => {
+    setChOpen(focus.id === CHALLENGE_NODE && !tour && !focus.locked);
+  }, [focus.id, focus.locked, tour]);
   // The One Team orb open: every face shows, on two rings (lib/brain/layout.ts teamRings).
   const teamRings = focus.id === TEAM_HUB && !ask && !tour && !timeline && !dayView;
   const vs = useMemo(
@@ -4091,30 +4109,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           )}
           {/* The 90-Day Challenge in full (Parry, 16 Oct 13:43 MT: "it needs to go much deeper"), live and demo. */}
           {focus.id === CHALLENGE_NODE && !focus.locked && !ask && (
-            <ChallengePanel
-              key={focus.id}
-              node={focus}
-              nodes={graph.nodes}
-              live={live}
-              tour={!!tour}
-              data={live ? challenge : null}
-              onCompleted={() =>
-                void fetch(challengeUrl, { credentials: "include", cache: "no-store" })
-                  .then((r) => (r.ok ? r.json() : null))
-                  .then((j) => {
-                    const c = readChallenge(j);
-                    if (c) setChallenge(c);
-                  })
-                  .catch(() => {})
-              }
-              onOpenPage={(url) => {
-                // The route's own link (on ONE MOVE): inside the Brain when that page is in its ONE MOVE menu.
-                const path = new URL(url).pathname;
-                const page = movePageId(path);
-                if (ix.byId.has(page)) return goTo(page);
-                window.open(url, "_blank", "noopener,noreferrer");
-              }}
-            />
+            <ChallengePanel key={focus.id} node={focus} data={shownChallenge} tour={!!tour} onOpenView={() => setChOpen(true)} />
           )}
           {focus.type === "goal" && focus.goal && !focus.locked && !tour && !ask && (
             <GoalsPanel
@@ -4660,6 +4655,24 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       {webFilm && <SignalsFilm film={WEBSITE_FILM} onClose={() => setWebFilm(false)} />}
       {goTour && <SignalsFilm film={GO_TOUR_FILM} onClose={() => setGoTour(false)} onEnded={() => markFilm("b")} />}
       {reviewOpen && theReview ? <ReviewView review={theReview} read={thePulseRead} week={weekScore} demo={!live} onClose={() => setReviewOpen(false)} onCommit={commitThing} onChanged={refreshRoster} onAction={reviewAct} demoStore={reviewDemoStore} /> : null}
+      {chOpen && focus.id === CHALLENGE_NODE && !tour ? (
+        <ChallengeView
+          data={shownChallenge}
+          demo={!live}
+          onData={(c) => {
+            if (live) setChallenge(c);
+          }}
+          onCompleted={reloadChallenge}
+          onOpenPage={(url) => {
+            // The route's own link (on ONE MOVE): inside the Brain when that page is in its ONE MOVE menu.
+            const path = new URL(url).pathname;
+            const page = movePageId(path);
+            if (ix.byId.has(page)) return goTo(page);
+            window.open(url, "_blank", "noopener,noreferrer");
+          }}
+          onClose={() => setChOpen(false)}
+        />
+      ) : null}
       {goalsOpen ? (
         <GoalsView
           three={theGoals}
