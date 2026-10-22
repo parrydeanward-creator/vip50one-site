@@ -1,6 +1,7 @@
 import { test } from "node:test";
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
-import { challengeCompleteUrl, challengeLine, challengeUrl, completedLine, groupLine, moveLink, readChallenge, readComplete, resultsLine, safeUrl, withChallengeNode } from "../lib/challenge.ts";
+import { TONE_HUE, applyTick, canTick, challengeCompleteUrl, challengeLine, challengeShown, challengeTickUrl, challengeUrl, completedLine, demoChallenge, demoChallengeBody, groupLine, moveLink, readChallenge, readComplete, resultsLine, ringOf, safeUrl, tickBody, tilesOf, toneOf, withChallengeNode } from "../lib/challenge.ts";
 import { liveGraph, type SummaryEnvelope } from "../lib/live.ts";
 import { CHALLENGE, CHALLENGE_NODE } from "../lib/oneYou.ts";
 
@@ -206,4 +207,159 @@ test("resultsLine and readComplete", () => {
   assert.deepEqual(readComplete(400, { ok: false, error: "Not day 90 yet." }), { kind: "error", words: "Not day 90 yet." });
   assert.equal(readComplete(500, null).kind, "error");
   assert.equal(readComplete(200, { ok: false }).kind, "error");
+});
+
+// ---- the challenge page (Parry, 22 Oct: "yes on both"; VIP-SUMMARY §3ap, proposed: days, boxes, stats, leaderboard, tick).
+
+const enrolled = (raw: unknown, today = "2026-10-16") => {
+  const c = readChallenge(raw, today);
+  assert.ok(c && c.enrolled);
+  return c as Extract<NonNullable<typeof c>, { enrolled: true }>;
+};
+
+test("ring from days: gold 100, green 70+, blue under 70, grey missed, faint to come; today outlined by its points", () => {
+  // Day 6 of 90 from 2026-10-11; day 3 sent no entry (missed), today (day 6) 40 so far.
+  const days = [
+    { date: "2026-10-11", score: 100 },
+    { date: "2026-10-12", score: 70 },
+    { date: "2026-10-14", score: 69 },
+    { date: "2026-10-15", score: 0 },
+    { date: "2026-10-16", score: 40 },
+  ];
+  const c = enrolled({ ...LIVE, start_date: "2026-10-11", day: 6, days });
+  const r = ringOf(c);
+  assert.equal(r.mode, "days");
+  assert.equal(r.segs.length, 90);
+  assert.deepEqual(r.segs.slice(0, 7).map((s) => s.tone), ["perfect", "good", "missed", "low", "missed", "low", "future"]);
+  assert.deepEqual(r.segs.filter((s) => s.today).map((s) => s.day), [6]);
+  assert.equal(r.segs[5].score, 40);
+  assert.equal(r.segs[2].date, "2026-10-13");
+  assert.equal(r.toGo, 84);
+  assert.equal(TONE_HUE.perfect, "#f5c542");
+  assert.deepEqual([100, 85, 70, 69, 1, 0].map(toneOf), ["perfect", "good", "good", "low", "low", "missed"]);
+  // Today with no points yet stays faint, still outlined.
+  const zero = ringOf(enrolled({ ...LIVE, start_date: "2026-10-11", day: 6, days: days.slice(0, 4), today: { points: 0, arenas: [] } }));
+  assert.equal(zero.segs[5].tone, "future");
+  assert.ok(zero.segs[5].today);
+  // Finished: every day coloured, none outlined.
+  const fin = ringOf(enrolled({ ...LIVE, status: "completed", start_date: "2026-07-10", day: 90, days: [{ date: "2026-07-10", score: 100 }] }, "2026-10-20"));
+  assert.equal(fin.day, 90);
+  assert.equal(fin.segs.filter((s) => s.today).length, 0);
+  assert.equal(fin.segs[0].tone, "perfect");
+  assert.equal(fin.segs[89].tone, "missed");
+});
+
+test("fallbacks: no days, boxes, stats or leaderboard", () => {
+  const c = enrolled(LIVE); // the route as live on 22 Oct: none of the §3ap fields
+  assert.equal(c.days, null);
+  assert.equal(c.stats, null);
+  assert.equal(c.leaderboard, null);
+  assert.ok(c.today.arenas.every((a) => a.boxes === null));
+  // The ring splits days gone and days to come; results never colour a day.
+  const r = ringOf(c);
+  assert.equal(r.mode, "split");
+  assert.deepEqual([...new Set(r.segs.slice(0, 22).map((s) => s.tone))], ["elapsed"]);
+  assert.equal(r.segs[22].today, true);
+  assert.equal(r.segs[22].tone, "low"); // 65 so far
+  assert.deepEqual([...new Set(r.segs.slice(23).map((s) => s.tone))], ["future"]);
+  // Tiles: the streak only (no average without results, no rank without a leaderboard).
+  assert.deepEqual(tilesOf(c), [{ key: "streak", value: "6", label: "day streak" }]);
+  // With results: the average from them, still no perfect days or rank.
+  assert.deepEqual(tilesOf(enrolled({ ...LIVE, results: { days_scored: 20, average: 74 } })).map((t) => `${t.key}:${t.value}`), ["streak:6", "average:74"]);
+  // With days but no stats: average and perfect days counted from the days.
+  const fromDays = enrolled({ ...LIVE, start_date: "2026-10-14", day: 3, days: [{ date: "2026-10-14", score: 100 }, { date: "2026-10-15", score: 0 }, { date: "2026-10-16", score: 60 }] });
+  assert.deepEqual(tilesOf(fromDays).map((t) => `${t.key}:${t.value}`), ["streak:6", "average:80", "perfect:1"]);
+  // No boxes: nothing to tick here (the arena opens ONE MOVE instead).
+  assert.equal(canTick(c), false);
+  assert.equal(applyTick(c, "ch_biz_conversations", true), c);
+});
+
+test("§3ap fields read: boxes, stats, leaderboard (ranked, me as You, https photos only)", () => {
+  const c = enrolled({
+    ...LIVE,
+    today: { date: "2026-10-16", points: 10, arenas: [{ key: "business", done: 2, of: 4, points: 10, boxes: [{ key: "ch_biz_conversations", label: "5 real conversations", done: true }, { key: "ch_biz_followup", label: "Follow up", done: true }, { key: "bad key!", label: "x" }, { key: "ch_biz_marketing", label: "Marketing", done: "yes" }] }] },
+    stats: { average: 81.4, perfect_days: 19, best: 100 },
+    leaderboard: [
+      { user_id: "a", first_name: "Angelina Rose", last_initial: "t", day: 40, week_avg: 76, photo_url: "http://x.example/a.jpg" },
+      { user_id: "me", first_name: "Kim", last_initial: "W", day: 23, week_avg: 81, me: true },
+      { user_id: "j", first_name: "Julie", last_initial: "S", day: 61, week_avg: 94, photo_url: "https://cdn.example/j.jpg" },
+      { user_id: "z", week_avg: 50 },
+    ],
+  });
+  const biz = c.today.arenas.find((a) => a.key === "business")!;
+  assert.deepEqual(biz.boxes, [
+    { key: "ch_biz_conversations", label: "5 real conversations", done: true, sub: null },
+    { key: "ch_biz_followup", label: "Follow up", done: true, sub: null },
+    { key: "ch_biz_marketing", label: "Marketing", done: false, sub: null },
+  ]);
+  assert.deepEqual(c.stats, { average: 81, perfectDays: 19, best: 100 });
+  assert.deepEqual(c.leaderboard!.map((r) => [r.rank, r.name, r.initials, r.weekAvg, r.me]), [
+    [1, "Julie S.", "JS", 94, false],
+    [2, "You", "YOU", 81, true],
+    [3, "Angelina T.", "AT", 76, false],
+  ]);
+  assert.equal(c.leaderboard![0].photo, "https://cdn.example/j.jpg");
+  assert.equal(c.leaderboard![2].photo, null);
+  assert.deepEqual(tilesOf(c).map((t) => `${t.key}:${t.value}:${t.label}`), ["streak:6:day streak", "average:81:average", "perfect:19:perfect days", "rank:#2:in your group"]);
+  // ONE MOVE's own rank wins (the agent below the top 5).
+  const ranked = enrolled({ ...LIVE, group: null, leaderboard: [{ first_name: "Julie", week_avg: 94, rank: 1 }, { first_name: "Kim", week_avg: 40, rank: 9, me: true }] });
+  assert.deepEqual(ranked.leaderboard!.map((r) => r.rank), [1, 9]);
+  assert.equal(tilesOf(ranked).find((t) => t.key === "rank")?.label, "on your team");
+});
+
+test("the tick: its route, exactly {key, done}, applied at once and undone by the reverse tick", () => {
+  assert.equal(challengeTickUrl, "https://move.vip50one.com/api/brain/challenge/tick");
+  assert.equal(tickBody("ch_biz_marketing", true), '{"key":"ch_biz_marketing","done":true}');
+  assert.deepEqual(JSON.parse(tickBody("ch_biz_marketing", false)), { key: "ch_biz_marketing", done: false });
+  const c = demoChallenge("2026-10-22")!;
+  assert.ok(canTick(c));
+  const t = applyTick(c, "ch_biz_marketing", true);
+  assert.ok(t.enrolled && c.enrolled);
+  if (!t.enrolled || !c.enrolled) return;
+  const biz = t.today.arenas.find((a) => a.key === "business")!;
+  assert.equal(biz.done, 3);
+  assert.equal(biz.points, 15);
+  assert.equal(t.today.points, 75);
+  assert.equal(t.days!.find((d) => d.date === "2026-10-22")!.score, 75);
+  assert.equal(ringOf(t).segs[73].score, 75);
+  // Rolled back (ONE MOVE refused): the same as before.
+  assert.deepEqual(applyTick(t, "ch_biz_marketing", false), c);
+  // A finished challenge is not ticked here.
+  assert.equal(canTick(readChallenge({ ...demoChallengeBody("2026-10-22"), status: "completed" }, "2026-10-22")), false);
+});
+
+test("the demo is the approved mockup: day 74, 70 today, 12-day streak, 81 average, 19 perfect, #3", () => {
+  const c = demoChallenge("2026-10-22")!;
+  assert.ok(c.enrolled);
+  if (!c.enrolled) return;
+  assert.equal(c.day, 74);
+  assert.equal(c.startDate, "2026-08-10");
+  assert.equal(c.today.points, 70);
+  assert.deepEqual(c.today.arenas.map((a) => a.done), [4, 3, 3, 2, 2]);
+  assert.ok(c.today.arenas.every((a) => a.boxes?.length === 4));
+  assert.deepEqual(tilesOf(c).map((t) => t.value), ["12", "81", "19", "#3"]);
+  const r = ringOf(c);
+  assert.equal(r.mode, "days");
+  assert.equal(r.toGo, 16);
+  assert.ok(r.segs[73].today && r.segs[73].tone === "good");
+  assert.ok(r.segs.slice(74).every((s) => s.tone === "future"));
+  assert.ok(new Set(r.segs.slice(0, 73).map((s) => s.tone)).size >= 3);
+});
+
+test("a live agent never sees the example agent's challenge", () => {
+  let asked = 0;
+  const demo = () => {
+    asked++;
+    return demoChallenge("2026-10-22");
+  };
+  assert.equal(challengeShown(true, null, demo), null); // still loading, or no answer: nothing, never the example
+  const mine = readChallenge(LIVE);
+  assert.equal(challengeShown(true, mine, demo), mine);
+  assert.equal(asked, 0);
+  const shown = challengeShown(false, mine, demo);
+  assert.ok(shown?.enrolled && shown.day === 74);
+  // The Brain passes the demo only when signed out (the example agent).
+  const brain = readFileSync(new URL("../components/brain/Brain.tsx", import.meta.url), "utf8");
+  assert.ok(brain.includes("const shownChallenge = challengeShown(live, challenge, () => demoCh);"));
+  assert.ok(brain.includes("const demoCh = useMemo(() => (live ? null : demoChallenge()), [live]);"));
 });

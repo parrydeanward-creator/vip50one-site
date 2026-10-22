@@ -75,6 +75,7 @@ const MARKS: [string, string[]][] = [
   ["components/brain/ScoreboardPanel.tsx", ['act="mission"', 'act="leader"', 'act="partner"', 'act="badge"', 'act="streak"', 'act="score"', 'act="xp"']],
   ["components/brain/ReferralsView.tsx", ['data-r12="referred-person"', 'data-r12="referrer-contact"', 'data-r12="candidate-contact"']],
   ["components/brain/ChallengePanel.tsx", ['data-act="challenge-row"']],
+  ["components/brain/ChallengeView.tsx", ['data-act="challenge-row"', 'data-act="challenge-stat"', 'data-act="challenge-arena"', 'data-act="challenge-box"', 'data-act="challenge-leader"', 'data-act="challenge-cert"', 'data-act="challenge-tick"']],
   ["components/brain/GoalsView.tsx", ['data-act="goals-closed"', 'data-act="goals-week-row"', 'data-act="goals-likely"', 'data-act="goals-week-move"', 'data-act="goals-add-deal"']],
   ["components/brain/HotWarmCold.tsx", ['data-act="hwc-count"']],
   ["components/brain/PlanMyDay.tsx", ['data-act="plan-points"', 'data-act="suggest-open"']],
