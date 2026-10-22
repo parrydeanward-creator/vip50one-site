@@ -47,7 +47,8 @@ test("clock and duration words", () => {
 });
 
 test("a tool showing its labelled example is told apart from the agent's own", () => {
-  const demo = [...showlyToolOrbs(null, "2026-10-18"), ...openToolOrbs(null)];
+  // Door hangers (vip-open#65) is link-only, never an example, so it is left out of the examples.
+  const demo = [...showlyToolOrbs(null, "2026-10-18"), ...openToolOrbs(null).filter((t) => t.key !== "hangers")];
   assert.ok(demo.every((t) => isExampleTool({ secondaryLabel: t.sub, summary: t.summary })));
   assert.equal(isExampleTool({ secondaryLabel: "2 tours in 60 days", summary: "One tour per showing day." }), false);
 });

@@ -5,7 +5,7 @@ import { withOpportunities } from "./opportunities.ts";
 import { celebrateIds, withSpecialDays } from "./specialDays.ts";
 import { addGoals, type GoalKey } from "./goals.ts";
 import { includes } from "./products.ts";
-import { productToolOrbs, toolForKind, type ToolOrb } from "./productTools.ts";
+import { doorHangersHref, productToolOrbs, toolForKind, type ToolOrb } from "./productTools.ts";
 import { goHref, goUrl } from "./productSignIn.ts";
 import { listingFacts } from "./listingCards.ts";
 import { MENU_ORB, MOVE_BOTTOM, MOVE_GROUPS, moveGroupId, moveMenuHref, movePageId } from "./moveMenu.ts";
@@ -817,6 +817,13 @@ function itemNode(add: (n: Omit<GraphNode, "importance"> & { importance?: number
 export function hostAgainHref(nodeId: string): string | undefined {
   const m = /^live:open:upcoming:([0-9a-f-]{36})$/i.exec(nodeId);
   return m && UUID.test(m[1]) ? goHref("vip-open", `/app/events/${m[1].toLowerCase()}/again`) : undefined;
+}
+
+/** "Door hanger" on an open house card (ONE Open, vip-open#65): the designer for that event with the neighbor tour
+ * hanger chosen. Same orb ids as hostAgainHref, so only a real event id gets it. */
+export function doorHangerHref(nodeId: string): string | undefined {
+  const m = /^live:open:upcoming:([0-9a-f-]{36})$/i.exec(nodeId);
+  return m && UUID.test(m[1]) ? doorHangersHref(m[1]) : undefined;
 }
 
 /** "go:task:<uuid>" -> the uuid (VIP-SUMMARY §3c.3, `task_id`). */

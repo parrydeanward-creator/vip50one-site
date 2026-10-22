@@ -7,6 +7,7 @@ import {
   OPEN_HOUSES, OPEN_PROTOCOL, OPEN_QUESTIONS, OPEN_REPORT, OPEN_VISITORS, RATING_WORD, SAFETY_BUDDY, SAFETY_MINUTES,
   clockWords, currentPhase, dueWords, isExampleTool, minWords, protocolProgress, ratingCounts, type ProtocolStep, type Rating, type Visitor,
 } from "@/lib/examples/open.ts";
+import { doorHangersHref } from "@/lib/productTools.ts";
 import ShowlyOpenShell, { HomeBlock, OpenToolButton, RealRows } from "./ShowlyOpenShell.tsx";
 
 // ONE Open's tools in the Brain (Parry, 18 Oct): each side panel shows the example itself, and "Open ..." opens a full
@@ -24,6 +25,8 @@ const TABS: { key: Key; label: string }[] = [
   { key: "safety", label: "Safety" },
   { key: "scorecard", label: "Scorecard" },
 ];
+// Link-only tab (ONE Open's door hanger designer, vip-open#65): opens signed in, no view of its own here.
+const SHELL_TABS = [...TABS, { key: "hangers", label: "Door hangers", href: doorHangersHref() }];
 const COLOR = hex(PRODUCT_COLOR.open);
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const NOT_SENT = "(Example: nothing was sent.)";
@@ -170,7 +173,7 @@ export default function OpenTools({ node, kids, live }: { node: GraphNode; kids:
     <div className="pso-panel">
       {panel}
       {open ? (
-        <ShowlyOpenShell product="ONE Open" color={COLOR} title={TABS.find((t) => t.key === open)!.label} tabs={TABS} tab={open} onTab={(k) => setOpen(k as Key)} example={example || open !== key} onClose={() => setOpen(null)}>
+        <ShowlyOpenShell product="ONE Open" color={COLOR} title={TABS.find((t) => t.key === open)!.label} tabs={SHELL_TABS} tab={open} onTab={(k) => setOpen(k as Key)} example={example || open !== key} onClose={() => setOpen(null)}>
           {!example && open === key && key !== "scorecard" && key !== "safety" ? (
             <RealRows rows={realRows} empty={`Nothing in ${label} yet.`} />
           ) : (
