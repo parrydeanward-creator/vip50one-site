@@ -2,7 +2,7 @@
 import { lockedLine } from "@/lib/growthOrb.ts";
 
 import { CLASSIC_DASHBOARD_URL } from "@/lib/host.ts";
-import { hostAgainHref } from "@/lib/live.ts";
+import { doorHangerHref, hostAgainHref } from "@/lib/live.ts";
 import { goHref, productLink } from "@/lib/productSignIn.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PersonPanel from "./PersonPanel.tsx";
@@ -2903,6 +2903,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   if (!ask && focus.locked) orbActions.push(focus.id === GROWTH_NODE ? { label: GROWTH_JOIN_BUTTON.label, href: GROWTH_JOIN_BUTTON.action.kind === "join" ? GROWTH_JOIN_BUTTON.action.href : UPGRADE_URL } : { label: "Add with Complete", href: UPGRADE_URL });
   const again = !ask && !focus.locked ? hostAgainHref(focus.id) : undefined;
   if (again) orbActions.push({ label: "Host it again ↗", href: again });
+  const hanger = !ask && !focus.locked ? doorHangerHref(focus.id) : undefined;
+  if (hanger) orbActions.push({ label: "Door hanger ↗", href: hanger });
 
   // ONE MOVE's menu in the rail: one link per page, groups as drop-downs.
   const moveLink = (m: MovePage) => {

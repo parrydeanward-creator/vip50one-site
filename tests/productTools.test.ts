@@ -33,9 +33,9 @@ const OPEN_TOOLS = {
   ],
 };
 
-test("ONE Open: six tools in order, real data, every link through the one sign-in hop", () => {
+test("ONE Open: seven tools in order (the last, Door hangers, link-only), real data, every link through the one sign-in hop", () => {
   const t = openToolOrbs(OPEN_TOOLS, NOW);
-  assert.deepEqual(t.map((x) => x.label), ["Open houses", "Visitors", "Questions", "Reports", "Scorecard", "Safety"]);
+  assert.deepEqual(t.map((x) => x.label), ["Open houses", "Visitors", "Questions", "Reports", "Scorecard", "Safety", "Door hangers"]);
   assert.ok(t.every((x) => !x.example));
   for (const x of t) {
     assert.match(x.href, /^\/go\/vip-open\?next=/, x.key);
@@ -79,8 +79,10 @@ test("ONE Open: its own example when a tool sends one, labelled, never pulsing; 
   assert.match(q.rows[0].sub!, /^Example/);
   assert.equal(q.rows[0].status, undefined);
   const none = openToolOrbs(null, NOW);
-  assert.equal(none.length, 6);
-  assert.ok(none.every((x) => x.example && x.rows.every((r) => !r.status)));
+  // Door hangers (vip-open#65) is link-only: no data, so never an example; the other six are ONE Open's labelled examples.
+  assert.equal(none.length, 7);
+  assert.ok(none.slice(0, 6).every((x) => x.example && x.rows.every((r) => !r.status)));
+  assert.equal(none[6].example, false);
 });
 
 test("Marquee: six tools; examples when the new arrays are absent, real rows when present", () => {
@@ -164,7 +166,7 @@ const ALL: OtherAnswers = { open: { env: OPEN, reachable: true, tools: OPEN_TOOL
 test("live graph: each product opens to its tools, with items inside and the pulse carried up once", () => {
   const g = liveGraph(MASTER, OPTS, ALL);
   const ix = indexGraph(g);
-  assert.deepEqual(childrenOf(ix, "open").map((n) => n.label), ["Open houses", "Visitors", "Questions", "Reports", "Scorecard", "Safety"]);
+  assert.deepEqual(childrenOf(ix, "open").map((n) => n.label), ["Open houses", "Visitors", "Questions", "Reports", "Scorecard", "Safety", "Door hangers"]);
   assert.deepEqual(childrenOf(ix, "showly").map((n) => n.label), ["Tours", "Buyer answers", "Recaps", "Lender"]);
   assert.equal(ix.byId.get("marquee:listing:l1")!.parentId, "marquee-tool-listings");
   // the safety item sits in the Safety tool; its own "panic" row does not pulse a second time
@@ -182,4 +184,21 @@ test("live graph: each product opens to its tools, with items inside and the pul
 test("live graph: a product that did not answer shows no tools", () => {
   const g = liveGraph(MASTER, OPTS, { open: { env: null, reachable: false } });
   assert.equal(childrenOf(indexGraph(g), "open").length, 0);
+});
+
+test("Door hangers: a link-only ONE Open tool through the ticket hop; per-event link carries event and template", async () => {
+  const { OPEN_HANGERS_PATH, doorHangersHref } = await import("../lib/productTools.ts");
+  assert.equal(OPEN_HANGERS_PATH, "/app/hangers");
+  const tool = openToolOrbs(OPEN_TOOLS, NOW).find((x) => x.key === "hangers")!;
+  assert.equal(tool.href, "/go/vip-open?next=%2Fapp%2Fhangers");
+  assert.equal(tool.id, "open-tool-hangers");
+  assert.match(tool.summary, /open house, neighbor tour, just listed, just sold, coming soon, home value, sorry I missed you/);
+  assert.equal(doorHangersHref(), "/go/vip-open?next=%2Fapp%2Fhangers");
+  const id = "73f13822-dfbf-4dd9-9d04-9aff09a29912";
+  assert.equal(doorHangersHref(id), `/go/vip-open?next=${encodeURIComponent(`/app/hangers?event=${id}&template=neighbor_tour`)}`);
+  assert.equal(doorHangersHref(id), "/go/vip-open?next=%2Fapp%2Fhangers%3Fevent%3D73f13822-dfbf-4dd9-9d04-9aff09a29912%26template%3Dneighbor_tour");
+  assert.equal(doorHangersHref("e1"), "/go/vip-open?next=%2Fapp%2Fhangers", "not a real event id: the plain designer");
+  assert.equal(doorHangersHref("x&template=evil"), "/go/vip-open?next=%2Fapp%2Fhangers");
+  const { goUrl } = await import("../lib/productSignIn.ts");
+  assert.equal(goUrl("vip-open", "/app/hangers"), "https://www.vip50one.com/go/vip-open?next=%2Fapp%2Fhangers");
 });

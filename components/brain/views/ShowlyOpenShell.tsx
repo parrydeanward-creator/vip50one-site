@@ -10,6 +10,8 @@ import "@/app/showly-open-views.css";
 export interface ShellTab {
   key: string;
   label: string;
+  /** A link-only tool: opens the product's own page (through the sign-in hop) in a new tab instead of a view here. */
+  href?: string;
 }
 
 export default function ShowlyOpenShell({ product, color, title, tabs, tab, onTab, example, onClose, children }: {
@@ -59,11 +61,15 @@ export default function ShowlyOpenShell({ product, color, title, tabs, tab, onTa
           {example ? <span className="pso-ex">Example</span> : null}
         </header>
         <nav ref={tabsRef} className="pso-tabs" aria-label={`${product} tools`}>
-          {tabs.map((t) => (
+          {tabs.map((t) => (t.href ? (
+            <a key={t.key} className="chip-btn" href={t.href} target="_blank" rel="noopener noreferrer">
+              {t.label} ↗
+            </a>
+          ) : (
             <button key={t.key} type="button" className="chip-btn" aria-pressed={t.key === tab} onClick={() => onTab(t.key)}>
               {t.label}
             </button>
-          ))}
+          )))}
         </nav>
         {children}
       </div>
