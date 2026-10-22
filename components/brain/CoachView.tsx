@@ -2,43 +2,34 @@
 
 import { mateOf, paceOf, teamPace } from "@/lib/teamPace.ts";
 import type { Team } from "@/lib/team.ts";
-import { useEffect, useRef, useState } from "react";
-import PulseRing, { PULSE_COLOR } from "./PulseRing.tsx";
-import { useSvgCamera } from "./useSvgCamera.ts";
-import { attention, coachOrder, lastWeekShare, setupLate, setupWords, teamKeepRate, teamSetup, type Coached, type Setup } from "@/lib/coach.ts";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { setupLate, setupWords, teamSetup, type Coached, type Setup } from "@/lib/coach.ts";
 import { KIND_LABEL, progressWords, reached, resultWord, type Item, type Result } from "@/lib/commitments.ts";
+import { demoHistory, historyUrl, readHistory } from "@/lib/pulseCoach.ts";
+import { barTone, buildBoard, cardLine, mondayOf, sparkOf, weekLabel, COLUMN_SHOW, NUDGE_WORDS, nudgeUrl, type BoardAgent, type Tone } from "@/lib/coachBoard.ts";
 
-// The Coach view (VIP-SUMMARY §3n.4, §3n.7): the agents you coach round you, each orb's gold ring their keep
-// rate (8 weeks), pulsing red when they are late setting or checking in, yellow when it is due today. Tap an
-// agent and they come to the middle, the others and the team round them, with their week, weekend, results
-// and notes in the side panel (Parry, 6 Oct, the rule for every orb). Read only: a coach never sets or marks.
+// The Coaching board (Parry, 22 Oct, picked option A: vip50-ecosystem research/mockups/coaching/coaching-a.png).
+// The agents you coach in three columns (Needs you now, Slipping, Winning; rules in lib/coachBoard.ts), the week's
+// five counts above them, each opening the agents behind it (rule 12), and the picked agent on the right: their
+// weeks, this week, Pulse's read and one tap to act. A coach reads and nudges; only the agent sets and marks their
+// commitments (§3n.4). Scores, keep rates and yes/no only: never a client or a contact's note.
 
-const SIZE = 1000;
-const C = SIZE / 2;
-const CORE = 120;
-const RING = 300;
-const GOLD = "#f5c542";
 const RES_COLOR: Record<Result, string> = { kept: "#3fbf7f", partly: "#e5b83a", missed: "#e4574a" };
+const TONE: Record<Tone, string> = { red: "#ff5a5f", amber: "#f5c542", green: "#2fbf71", grey: "#8089a2" };
+const BAR8: Record<Tone, string> = { green: "#f5c542", amber: "#5fb3f0", red: "#ff5a5f", grey: "rgba(169,176,189,0.25)" };
 const pct = (r: number | null) => (r == null ? "No history yet" : `${Math.round(r * 100)}%`);
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join("");
+const firstOf = (b: BoardAgent) => b.short.split(/\s+/)[0];
+/** The full name in the panel, unless the name we have is a handle; then the short one. */
+const fullOf = (b: BoardAgent) => (/\s/.test(b.a.name) && !/[@\d]/.test(b.a.name) ? b.a.name : b.short);
 
-function arc(cx: number, cy: number, r: number, share: number): string {
-  const a = Math.max(0.001, Math.min(0.9999, share)) * Math.PI * 2;
-  const x = cx + r * Math.sin(a), y = cy - r * Math.cos(a);
-  return `M ${cx} ${cy - r} A ${r} ${r} 0 ${a > Math.PI ? 1 : 0} 1 ${x} ${y}`;
-}
+type ListKey = "all" | "notSet" | "kept" | "down2" | "at100" | "now" | "slip" | "win";
+type Weeks = { values: (number | null)[]; kind: "kept" | "score" } | "loading" | null;
 
 function ItemRow({ i }: { i: Item }) {
   const on = i.result === "kept" || reached(i);
   return (
     <li className={i.result ? "is-done" : ""}>
-      <i className="pm-dot" style={{ background: i.result ? RES_COLOR[i.result] : on ? GOLD : "rgba(255,255,255,0.35)" }} aria-hidden="true" />
+      <i className="pm-dot" style={{ background: i.result ? RES_COLOR[i.result] : on ? "#f5c542" : "rgba(255,255,255,0.35)" }} aria-hidden="true" />
       <span className="pm-body">
         <b>{i.text}</b>
         <small>
@@ -51,248 +42,390 @@ function ItemRow({ i }: { i: Item }) {
   );
 }
 
-export default function CoachView({ agents, hour, demo, onClose, onPulse, squad }: { agents: Coached[]; hour: number; demo: boolean; onClose: () => void; onPulse?: (a: Coached) => Promise<string | null>; squad?: Team | null }) {
-  const cam = useSvgCamera(SIZE);
+function Face({ b, big }: { b: BoardAgent; big?: boolean }) {
+  return (
+    <span className={`cb-av${big ? " big" : ""}`} aria-hidden="true">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {b.photo ? <img src={b.photo} alt="" /> : b.initials}
+    </span>
+  );
+}
+
+function Spark({ b }: { b: BoardAgent }) {
+  const s = sparkOf(b);
+  if (!s.values.length) return <span className="cb-spark" aria-hidden="true" />;
+  return (
+    <span className="cb-spark" role="img" aria-label={`Last ${s.values.length} weeks, ${s.kind === "kept" ? "share kept" : "weekly score"}`}>
+      {s.values.map((v, k) => (
+        <i key={k} style={{ height: v == null ? 3 : Math.max(4, Math.min(1, v) * 22), background: TONE[barTone(v)] }} />
+      ))}
+    </span>
+  );
+}
+
+function Card({ b, sel, onOpen }: { b: BoardAgent; sel: boolean; onOpen: () => void }) {
+  return (
+    <button type="button" className={`cb-card${sel ? " sel" : ""}`} onClick={onOpen} aria-label={`${b.short}: ${b.why}. ${cardLine(b)}. Open.`} aria-pressed={sel}>
+      <Face b={b} />
+      <span className="cb-who">
+        <b>{b.short}</b>
+        <small>{cardLine(b)}</small>
+        <em style={{ color: TONE[b.tone] }}>{b.why}</em>
+      </span>
+      <Spark b={b} />
+    </button>
+  );
+}
+
+export default function CoachView({ agents, hour, demo, onClose, onPulse, squad, onBook }: { agents: Coached[]; hour: number; demo: boolean; onClose: () => void; onPulse?: (a: Coached) => Promise<string | null>; squad?: Team | null; /** Open the Day Clock's add-a-block, filled in. */ onBook?: (title: string) => void }) {
+  void hour; // the board's rules are by the week; kept for the caller's signature
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const board = useMemo(() => buildBoard(agents, squad ?? null), [agents, squad]);
   const [pick, setPick] = useState<string | null>(null);
+  const [list, setList] = useState<ListKey | null>(null);
+  const listRef = useRef(list);
+  listRef.current = list;
+  const [sent, setSent] = useState<Record<string, string>>({});
+  const [confirm, setConfirm] = useState<string[] | null>(null);
+  const [busy, setBusy] = useState(false);
   const [pulseNote, setPulseNote] = useState<string | null>(null);
+  const [weekOpen, setWeekOpen] = useState(false);
+  const [weeks, setWeeks] = useState<Record<string, Weeks>>({});
+
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.stopPropagation();
+      if (listRef.current) return setList(null);
       onCloseRef.current();
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
-  const order = coachOrder(agents, hour);
-  const team = teamKeepRate(agents);
-  const late = order.filter((a) => attention(a, hour).level === "now").length;
-  const n = order.length;
-  const sel = order.find((a) => a.id === pick);
-  // The one picked sits in the middle; everyone else, and the team, go round them.
-  const round = sel ? order.filter((a) => a.id !== sel.id) : order;
-  const m = round.length + (sel ? 1 : 0);
-  const r = Math.max(34, Math.min(62, 420 / Math.max(m, 4)));
-  const seatAt = (k: number) => {
-    const ang = (k / Math.max(m, 1)) * Math.PI * 2;
-    return { x: C + RING * Math.sin(ang), y: C - RING * Math.cos(ang) };
-  };
-  const teamSeat = sel ? seatAt(0) : null;
-  const seats = round.map((a, k) => ({ a, ...seatAt(k + (sel ? 1 : 0)) }));
-  const open = (id: string | null) => {
+  const today = agents[0]?.c.today ?? new Date().toISOString().slice(0, 10);
+  const sel = board.agents.find((b) => b.id === pick) ?? board.now[0] ?? board.agents[0] ?? null;
+
+  // The 8-week chart: kept weeks when MASTER sends them, else the weekly scores from the history route (§3q.2, coach).
+  const selId = sel?.id ?? null;
+  const selHasKept = (sel?.keptWeeks.length ?? 0) >= 2;
+  useEffect(() => {
+    if (!selId || selHasKept || weeks[selId] !== undefined) return;
+    const toWeeks = (h: ReturnType<typeof readHistory>): Weeks =>
+      h ? { values: h.weeks.slice(-8).map((w) => (w.score == null ? null : w.score / (w.minimum || 100))), kind: "score" } : null;
+    if (demo) {
+      setWeeks((w) => ({ ...w, [selId]: toWeeks(demoHistory(today, board.agents.findIndex((b) => b.id === selId) + 1)) }));
+      return;
+    }
+    setWeeks((w) => ({ ...w, [selId]: "loading" }));
+    fetch(historyUrl(8, selId), { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setWeeks((w) => ({ ...w, [selId]: toWeeks(j ? readHistory(j) : null) })))
+      .catch(() => setWeeks((w) => ({ ...w, [selId]: null })));
+  }, [selId, selHasKept, demo, today, weeks, board.agents]);
+
+  const open = (id: string) => {
     setPick(id);
     setPulseNote(null);
-    cam.reset();
+    setWeekOpen(false);
   };
-  const tap = (go: () => void) => ({
-    onClick: go,
-    onKeyDown: (e: React.KeyboardEvent) => {
-      if (e.key !== "Enter" && e.key !== " ") return;
-      e.preventDefault();
-      go();
-    },
-  });
+
+  /** ONE MOVE's coach nudge, one agent at a time (preset words; ONE sends it to the agent's own ONE notifications). */
+  const nudge = async (ids: string[]) => {
+    setBusy(true);
+    const out: Record<string, string> = {};
+    for (const id of ids) {
+      if (demo) {
+        out[id] = "Nudge sent (example)";
+        continue;
+      }
+      try {
+        const r = await fetch(nudgeUrl(id, "push"), { method: "POST", credentials: "include" });
+        out[id] = r.ok ? "Nudge sent" : r.status === 403 ? "Only an admin can send a nudge from ONE yet" : r.status === 401 ? "Please sign in again" : "Could not send it";
+      } catch {
+        out[id] = "Could not send it";
+      }
+    }
+    setSent((s) => ({ ...s, ...out }));
+    setBusy(false);
+    setConfirm(null);
+  };
+  const notYet = board.kpi.notSet.filter((b) => !sent[b.id]?.startsWith("Nudge sent"));
+
+  const LISTS: Record<ListKey, { title: string; people: BoardAgent[]; line?: string }> = {
+    all: { title: "Everyone you coach", people: board.kpi.all },
+    notSet: { title: "Haven't set this week", people: board.kpi.notSet, line: "Their commitments for this week are not set yet." },
+    kept: { title: "Commitments kept, 8 weeks", people: board.kpi.keptList, line: "Lowest keep rate first. The team figure is the average of these." },
+    down2: { title: "Slipping two weeks running", people: board.kpi.down2, line: "Kept % or weekly score down two finished weeks in a row." },
+    at100: { title: `At ${squad?.minimum ?? 100} this week`, people: board.kpi.at100, line: "A good week to say so." },
+    now: { title: "Needs you now", people: board.now, line: "Not set this week, nothing kept two weeks or more, or gone quiet." },
+    slip: { title: "Slipping", people: board.slip, line: `Down two weeks running, or under ${squad?.minimum ?? 100} last week.` },
+    win: { title: "Winning", people: board.win, line: "Everyone else, at or above pace." },
+  };
+
+  const kpis: { key: ListKey; value: string; label: string; act: string; tone?: Tone }[] = [
+    { key: "all", value: String(board.kpi.all.length), label: board.kpi.all.length === 1 ? "agent you coach" : "agents you coach", act: "All" },
+    { key: "notSet", value: String(board.kpi.notSet.length), label: "haven't set this week", act: "Nudge", tone: board.kpi.notSet.length ? "red" : undefined },
+    { key: "kept", value: board.kpi.teamKept == null ? "–" : `${Math.round(board.kpi.teamKept * 100)}%`, label: "commitments kept, team", act: "See", tone: board.kpi.teamKept == null ? undefined : barTone(board.kpi.teamKept) },
+    { key: "down2", value: String(board.kpi.down2.length), label: "slipping two weeks running", act: "Open", tone: board.kpi.down2.length ? "amber" : undefined },
+    { key: "at100", value: String(board.kpi.at100.length), label: `at ${squad?.minimum ?? 100} this week`, act: "Celebrate", tone: board.kpi.at100.length ? "green" : undefined },
+  ];
+  const cols: { key: "now" | "slip" | "win"; title: string; tone: Tone; people: BoardAgent[]; empty: string }[] = [
+    { key: "now", title: "Needs you now", tone: "red", people: board.now, empty: "No one needs you right now." },
+    { key: "slip", title: "Slipping", tone: "amber", people: board.slip, empty: "No one is slipping." },
+    { key: "win", title: "Winning", tone: "green", people: board.win, empty: "No one at pace yet this week." },
+  ];
+
+  const ts = teamSetup(agents);
+  const tp = squad ? teamPace(squad, new Set(agents.map((a) => a.id))) : null;
+  const week = weekLabel(squad?.weekStart ?? mondayOf(today));
+
+  const ConfirmBox = confirm ? (
+    <div className="cb-confirm pop" role="alertdialog" aria-labelledby="cb-confirm-q">
+      <p id="cb-confirm-q">
+        <b>Nudge {confirm.length} {confirm.length === 1 ? "agent" : "agents"} who haven&apos;t set this week?</b>
+        <small>Each gets one ONE notification: &ldquo;{NUDGE_WORDS}&rdquo;</small>
+      </p>
+      <div className="decide-btns">
+        <button type="button" className="chip-btn primary" disabled={busy} onClick={() => nudge(confirm)}>{busy ? "Sending…" : `Send to ${confirm.length}`}</button>
+        <button type="button" className="chip-btn" disabled={busy} onClick={() => setConfirm(null)}>Cancel</button>
+      </div>
+    </div>
+  ) : null;
 
   return (
-    <div className="pm-full pop" role="dialog" aria-modal="true" aria-labelledby="cv-title">
-      <div className="vr" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
-        <div className="vr-stage">
-          <svg ref={cam.svgRef} className="vr-svg" viewBox={cam.viewBox} preserveAspectRatio="xMidYMid meet" {...cam.handlers} role="group" aria-label="The agents you coach">
-            <defs>
-              <radialGradient id="cv-glass" cx="50%" cy="50%" r="50%">
-                <stop offset="0" stopColor="#0b1226" />
-                <stop offset="0.7" stopColor="#111a33" />
-                <stop offset="1" stopColor="#3a3013" />
-              </radialGradient>
-            </defs>
-            <circle className="vr-track" cx={C} cy={C} r={RING} />
-            {seats.map(({ a, x, y }) => (
-              <line key={`l-${a.id}`} className="vr-link" x1={C} y1={C} x2={x} y2={y} />
-            ))}
-            {teamSeat && <line className="vr-link" x1={C} y1={C} x2={teamSeat.x} y2={teamSeat.y} />}
-            {sel ? (
-              (() => {
-                const st = attention(sel, hour);
-                const rate = sel.c.keepRate8w;
-                return (
-                  <g className="pm-orb picked" aria-label={`${sel.name}, in the middle`}>
-                    {st.level ? <PulseRing r={CORE} level={st.level} x={C} y={C} /> : null}
-                    <circle cx={C} cy={C} r={CORE} fill="url(#cv-glass)" stroke={st.level === "now" ? PULSE_COLOR.now : st.level === "today" ? PULSE_COLOR.today : "#ffd86a"} strokeWidth={3} />
-                    {rate != null && <path d={arc(C, C, CORE + 9, rate)} fill="none" stroke={GOLD} strokeWidth={6} strokeLinecap="round" />}
-                    <text className="pm-mark" x={C} y={C - 18} dy="0.36em" textAnchor="middle" fontSize={54}>{initials(sel.name)}</text>
-                    <text className="dt-score-sub" x={C} y={C + 30} textAnchor="middle">{sel.name.split(/\s+/)[0].toUpperCase()}</text>
-                    <text className="pm-core-end" x={C} y={C + 54} textAnchor="middle">{rate == null ? "No history yet" : `${Math.round(rate * 100)}% kept`}</text>
-                  </g>
-                );
-              })()
-            ) : (
-              <>
-                <circle cx={C} cy={C} r={CORE} fill="url(#cv-glass)" stroke="#ffd86a" strokeWidth={3} />
-                <text className="dt-score" x={C} y={C - 4} textAnchor="middle">{team == null ? n : `${Math.round(team * 100)}%`}</text>
-                <text className="dt-score-sub" x={C} y={C + 26} textAnchor="middle">{team == null ? (n === 1 ? "AGENT" : "AGENTS") : "TEAM KEEP RATE"}</text>
-                {late > 0 && <text className="pm-core-end" x={C} y={C + 50} textAnchor="middle">{`${late} late`}</text>}
-              </>
-            )}
-            {teamSeat && (
-              <g data-tap className="pm-orb pm-plan" role="button" tabIndex={0} aria-label={`Your team: ${n} agents, keeps ${pct(team)}. Back to everyone.`} {...tap(() => open(null))}>
-                <circle className="pm-disc" cx={teamSeat.x} cy={teamSeat.y} r={r} fill="url(#cv-glass)" stroke="#ffd86a" strokeWidth={2.5} />
-                <text className="pm-mark" x={teamSeat.x} y={teamSeat.y} dy="0.36em" textAnchor="middle" fontSize={Math.max(13, r * 0.4)}>{team == null ? n : `${Math.round(team * 100)}%`}</text>
-                <text className="pm-name-l" x={teamSeat.x} y={teamSeat.y + r + 24} textAnchor="middle">Team</text>
-                <text className="pm-time-l" x={teamSeat.x} y={teamSeat.y + r + 42} textAnchor="middle">{late ? `${late} late` : `${n} agents`}</text>
-              </g>
-            )}
-
-            {seats.map(({ a, x, y }) => {
-              const at = attention(a, hour);
-              const rate = a.c.keepRate8w;
-              const allOn = !at.level && (a.c.week?.items.length ?? 0) > 0 && a.c.week!.items.every((i) => i.result === "kept" || reached(i));
-              return (
-                <g
-                  key={a.id}
-                  data-tap
-                  className={`pm-orb pm-plan${pick === a.id ? " picked" : ""}`}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`${a.name}: ${at.words}. Keeps ${pct(rate)}.`}
-                  {...tap(() => open(a.id))}
-                >
-                  {at.level ? <PulseRing r={r} level={at.level} x={x} y={y} /> : null}
-                  <circle className="pm-disc" cx={x} cy={y} r={r} fill="url(#cv-glass)" stroke={at.level === "now" ? PULSE_COLOR.now : at.level === "today" ? PULSE_COLOR.today : allOn ? "#3fbf7f" : "rgba(160,175,210,0.45)"} strokeWidth={2.5} />
-                  {rate != null && <path d={arc(x, y, r + 7, rate)} fill="none" stroke={GOLD} strokeWidth={4} strokeLinecap="round" />}
-                  <text className="pm-mark" x={x} y={y} dy="0.36em" textAnchor="middle" fontSize={Math.max(14, r * 0.55)}>{initials(a.name)}</text>
-                  <text className="pm-name-l" x={x} y={y + r + 24} textAnchor="middle">{a.name.split(/\s+/)[0]}</text>
-                  <text className="pm-time-l" x={x} y={y + r + 42} textAnchor="middle">{rate == null ? "" : `${Math.round(rate * 100)}% kept`}</text>
-                </g>
-              );
-            })}
-          </svg>
-          <div className="controls" role="toolbar" aria-label="Map controls">
-            <button ref={closeRef} onClick={onClose} aria-label="Back to the Brain">←</button>
-            <button className="zoom-btn" onClick={() => cam.zoomAt(1.25)} aria-label="Zoom in">+</button>
-            <button className="zoom-btn" onClick={() => cam.zoomAt(0.8)} aria-label="Zoom out">−</button>
-            <button onClick={cam.reset} aria-label="Back to the middle">◎</button>
+    <div className="pm-full pop cb" role="dialog" aria-modal="true" aria-labelledby="cv-title">
+      <div className="cb-scroll">
+        <header className="cb-top">
+          <div className="cb-head">
+            <button ref={closeRef} className="cb-back" onClick={onClose} aria-label="Back to the Brain">←</button>
+            <div>
+              <span className="cb-tag">ONE YOU · COACHING</span>
+              <h1 className="cb-h1" id="cv-title">Your agents this week</h1>
+              <p className="cb-sub">Who needs you now, who&apos;s slipping, who&apos;s winning. One tap to act.</p>
+            </div>
           </div>
+          <div className="cb-top-acts">
+            <span className="cb-btn">{week}</span>
+            <button type="button" className="cb-btn solid" disabled={!notYet.length || busy} onClick={() => setConfirm(notYet.map((b) => b.id))}>
+              {notYet.length ? `Nudge everyone who hasn't set (${notYet.length})` : board.kpi.notSet.length ? "Everyone not set is nudged" : "Everyone has set the week"}
+            </button>
+          </div>
+        </header>
+        {ConfirmBox}
+
+        <div className="cb-kpis">
+          {kpis.map((k) => (
+            <button key={k.key} type="button" className={`cb-kpi${list === k.key ? " on" : ""}`} onClick={() => setList(list === k.key ? null : k.key)} aria-label={`${k.value} ${k.label}. ${k.act}.`}>
+              <b style={k.tone ? { color: TONE[k.tone] } : undefined}>{k.value}</b>
+              <span>{k.label}</span>
+              <em>{k.act} →</em>
+            </button>
+          ))}
         </div>
 
-        <aside className="drawer vr-drawer pm-drawer" aria-label="Coaching">
-          <div className="d-head">
-            <span className="chip" style={{ color: GOLD, borderColor: GOLD }}>ONE YOU</span>
-          </div>
-          {sel ? (
-            <>
-              <h1 className="d-title" id="cv-title">{sel.name}</h1>
-              <p className="d-sub">{attention(sel, hour).words}</p>
-              <p className="d-sum">
-                Keeps {pct(sel.c.keepRate8w)} of commitments over 8 weeks{sel.c.streak ? ` · ${sel.c.streak}-week streak` : ""}.
-                {lastWeekShare(sel) != null ? ` Last week: ${sel.c.lastWeek!.kept} kept, ${sel.c.lastWeek!.partly} partly, ${sel.c.lastWeek!.missed} missed.` : ""}
-              </p>
-              {(() => {
-                const m = mateOf(squad ?? null, sel.id);
-                if (!m || !squad) return null;
-                const p = paceOf(m, squad.minimum);
-                return (
-                  <p className="d-sum">
-                    <b>Pace:</b> {p.line}
-                    {p.help ? <span className="tp-help"> · {p.help}</span> : null}
+        <div className="cb-main">
+          <div className="cb-board">
+            {list ? (
+              <section className="cb-list" aria-label={LISTS[list].title}>
+                <div className="cb-list-head">
+                  <h2>
+                    {LISTS[list].title} <small>{LISTS[list].people.length}</small>
+                  </h2>
+                  <div className="cb-list-acts">
+                    {list === "notSet" && notYet.length ? (
+                      <button type="button" className="chip-btn primary" onClick={() => setConfirm(notYet.map((b) => b.id))}>Nudge all {notYet.length}</button>
+                    ) : null}
+                    <button type="button" className="chip-btn" onClick={() => setList(null)}>Back to the board</button>
+                  </div>
+                </div>
+                {LISTS[list].line ? <p className="cb-list-line">{LISTS[list].line}</p> : null}
+                {list === "all" ? (
+                  <p className="cb-list-line">
+                    Team keep rate {pct(board.kpi.teamKept)}
+                    {ts ? ` · ${ts.full} of ${ts.of} fully set up` : ""}
+                    {tp ? ` · team pace: ${tp.average != null ? `average ${tp.average} this week; ${tp.atMinimum} of ${tp.counted} at ${squad!.minimum} so far` : "no scores this week yet"}` : ""}.
                   </p>
+                ) : null}
+                {list === "all" && tp?.help.length ? (
+                  <p className="cb-list-line">
+                    May need help:{" "}
+                    {tp.help.map(({ mate, words }, k) => (
+                      <span key={mate.id}>
+                        {k ? "; " : ""}
+                        {agents.some((a) => a.id === mate.id) ? (
+                          <button type="button" className="cb-link" onClick={() => open(mate.id)}>{board.agents.find((b) => b.id === mate.id)?.short ?? mate.name}</button>
+                        ) : (
+                          mate.name
+                        )}{" "}
+                        ({words.toLowerCase()})
+                      </span>
+                    ))}
+                  </p>
+                ) : null}
+                {LISTS[list].people.length ? (
+                  <div className="cb-grid">
+                    {LISTS[list].people.map((b) => (
+                      <div key={b.id} className="cb-row">
+                        <Card b={b} sel={sel?.id === b.id} onOpen={() => open(b.id)} />
+                        {list === "notSet" || list === "at100" ? (
+                          <span className="cb-row-act">{sent[b.id] ?? (list === "notSet" ? <button type="button" className="cb-link" disabled={busy} onClick={() => nudge([b.id])}>Nudge {firstOf(b)}</button> : null)}</span>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="pm-empty">No one here this week.</p>
+                )}
+              </section>
+            ) : (
+              <div className="cb-cols">
+                {cols.map((c) => (
+                  <section key={c.key} className="cb-col" aria-label={c.title}>
+                    <h2>
+                      <i style={{ background: TONE[c.tone], boxShadow: `0 0 10px ${TONE[c.tone]}` }} aria-hidden="true" />
+                      <button type="button" className="cb-col-t" onClick={() => setList(c.key)} aria-label={`${c.title}: ${c.people.length}. Open the list.`}>
+                        {c.title} <small>{c.people.length}</small>
+                      </button>
+                    </h2>
+                    {c.people.length ? c.people.slice(0, COLUMN_SHOW).map((b) => <Card key={b.id} b={b} sel={sel?.id === b.id} onOpen={() => open(b.id)} />) : <p className="pm-empty">{c.empty}</p>}
+                    {c.people.length > COLUMN_SHOW ? (
+                      <button type="button" className="cb-more" onClick={() => setList(c.key)}>+{c.people.length - COLUMN_SHOW} more →</button>
+                    ) : null}
+                  </section>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {sel ? (
+            <aside className={`cb-detail${pick ? " is-open" : ""}`} aria-label={`${sel.short}, this week`}>
+              <button type="button" className="cb-sheet-x" onClick={() => setPick(null)} aria-label="Close">×</button>
+              <div className="cb-d-head">
+                <Face b={sel} big />
+                <div>
+                  <h2>{fullOf(sel)}</h2>
+                  <p className="cb-chip" style={{ color: TONE[sel.tone] }}>
+                    <i style={{ background: TONE[sel.tone] }} aria-hidden="true" />
+                    {sel.why}
+                  </p>
+                </div>
+              </div>
+
+              {(() => {
+                const raw: Weeks = sel.keptWeeks.length >= 2 ? { values: sel.keptWeeks.slice(-8), kind: "kept" } : weeks[sel.id] ?? "loading";
+                // always eight slots, the oldest missing ones empty, so a new agent's few weeks sit on the right
+                const w: Weeks = raw && raw !== "loading" && raw.values.length ? { ...raw, values: [...Array<null>(Math.max(0, 8 - raw.values.length)).fill(null), ...raw.values] } : raw;
+                return (
+                  <>
+                    <h3 className="cb-sec">Last 8 weeks · {w && w !== "loading" && w.kind === "score" ? "weekly score" : "commitments kept"}</h3>
+                    {w === "loading" ? (
+                      <p className="pm-empty">Loading…</p>
+                    ) : !w || !w.values.length ? (
+                      <p className="pm-empty">No finished weeks yet.</p>
+                    ) : (
+                      <div className="cb-bars" role="img" aria-label={w.values.map((v, k) => `W${k + 1} ${v == null ? "none" : w.kind === "kept" ? `${Math.round(v * 100)}% kept` : `${Math.round(v * (sel.minimum || 100))}`}`).join(", ")}>
+                        {w.values.map((v, k) => (
+                          <div key={k}>
+                            <i style={{ height: v == null || v === 0 ? 4 : Math.max(6, Math.min(1.1, v) * 66), background: v == null ? BAR8.grey : v === 0 ? BAR8.red : BAR8[barTone(v)] }} />
+                            W{k + 1}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 );
               })()}
-              {sel.setup ? <SetupBlock st={sel.setup} late={setupLate(sel.setup, sel.c.today)} /> : null}
-              <h2>This week</h2>
-              {sel.c.week?.items.length ? (
-                <ul className="pm-list pm-compact">{sel.c.week.items.map((i) => <ItemRow key={i.id} i={i} />)}</ul>
-              ) : (
-                <p className="pm-empty">Not set yet.</p>
-              )}
-              {sel.c.weekend?.items.length ? (
-                <>
-                  <h2>Weekend</h2>
-                  <ul className="pm-list pm-compact">{sel.c.weekend.items.map((i) => <ItemRow key={i.id} i={i} />)}</ul>
-                </>
-              ) : null}
-              {onPulse ? (
-                <div className="decide-btns">
-                  <button type="button" className="chip-btn primary" onClick={() => onPulse(sel).then(setPulseNote)}>
-                    Pulse&apos;s read of {sel.name.split(/\s+/)[0]}&apos;s last 8 weeks
-                  </button>
-                </div>
-              ) : null}
-              {pulseNote ? <p className="pm-empty">{pulseNote}</p> : null}
-              <button className="vr-classic" onClick={() => open(null)}>All agents</button>
-            </>
-          ) : (
-            <>
-              <h1 className="d-title" id="cv-title">Coaching</h1>
-              <p className="d-sub">
-                {n} {n === 1 ? "agent" : "agents"} · team keep rate {pct(team)}
+
+              <h3 className="cb-sec">This week</h3>
+              <ul className="cb-checks">
+                <li>
+                  <span className={`cb-box${sel.set ? " d" : ""}`} aria-hidden="true">{sel.set ? "✓" : ""}</span>
+                  <span>{sel.set ? `Commitments set: ${sel.a.c.week!.items.length}` : sel.away ? "Away this week" : "Commitments not set yet"}</span>
+                  {!sel.set && !sel.away ? (
+                    sent[sel.id] ? <small className="cb-sent">{sent[sel.id]}</small> : <button type="button" className="cb-link" disabled={busy} onClick={() => nudge([sel.id])}>Nudge</button>
+                  ) : null}
+                </li>
                 {(() => {
-                  const ts = teamSetup(agents);
-                  return ts ? ` · ${ts.full} of ${ts.of} fully set up` : "";
-                })()}
-              </p>
-              <p className="d-sum">The ones who need a word from you come first. Their gold ring is how many commitments they keep.</p>
-              {squad
-                ? (() => {
-                    const tp = teamPace(squad, new Set(agents.map((a) => a.id)));
-                    return (
-                      <section className="tp" aria-label="Team pace">
-                        <h2>Team pace</h2>
-                        <p className="d-sum">
-                          {tp.average != null ? `Average ${tp.average} this week; ${tp.atMinimum} of ${tp.counted} at ${squad.minimum} so far.` : "No scores this week yet."} Scores only, never anyone&apos;s notes or contacts.
-                        </p>
-                        {tp.help.length ? (
-                          <ul className="pm-list pm-compact">
-                            {tp.help.map(({ mate, words }) => (
-                              <li key={mate.id}>
-                                <i className="pm-dot" style={{ background: PULSE_COLOR.today }} aria-hidden="true" />
-                                <span className="pm-body">
-                                  <b>{mate.name}</b>
-                                  <small>{words}</small>
-                                </span>
-                                {agents.some((a) => a.id === mate.id) ? (
-                                  <span className="pm-acts">
-                                    <button onClick={() => open(mate.id)} aria-label={`Open ${mate.name}`}>→</button>
-                                  </span>
-                                ) : null}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="pm-empty">No one is behind on pace.</p>
-                        )}
-                      </section>
-                    );
-                  })()
-                : null}
-              <ul className="pm-list pm-compact">
-                {order.map((a) => {
-                  const at = attention(a, hour);
-                  const sl = setupLate(a.setup, a.c.today);
+                  const m = mateOf(squad ?? null, sel.id);
+                  if (!m || !squad) return null;
+                  const p = paceOf(m, squad.minimum);
                   return (
-                    <li key={a.id}>
-                      <i className="pm-dot" style={{ background: at.level === "now" ? PULSE_COLOR.now : at.level === "today" || sl ? PULSE_COLOR.today : "rgba(255,255,255,0.35)" }} aria-hidden="true" />
-                      <span className="pm-body">
-                        <b>{a.name}</b>
-                        <small>{at.words} · keeps {pct(a.c.keepRate8w)}{a.setup ? ` · ${setupWords(a.setup)}` : ""}</small>
-                      </span>
-                      <span className="pm-acts">
-                        <button onClick={() => open(a.id)} aria-label={`Open ${a.name}`}>→</button>
+                    <li>
+                      <span className={`cb-box${m.score >= squad.minimum ? " d" : ""}`} aria-hidden="true">{m.score >= squad.minimum ? "✓" : ""}</span>
+                      <span>
+                        Score {p.line}
+                        {p.help ? <small className="tp-help"> · {p.help}</small> : null}
                       </span>
                     </li>
                   );
-                })}
+                })()}
+                {sel.a.setup ? (
+                  <li>
+                    <span className={`cb-box${sel.a.setup.done === sel.a.setup.of ? " d" : ""}`} aria-hidden="true">{sel.a.setup.done === sel.a.setup.of ? "✓" : ""}</span>
+                    <span>
+                      {sel.a.setup.steps.find((x) => !x.done)?.label ?? "Set up"} ({setupWords(sel.a.setup)})
+                      {setupLate(sel.a.setup, sel.a.c.today) ? <small className="tp-help"> · under half after 14 days</small> : null}
+                    </span>
+                  </li>
+                ) : null}
               </ul>
-            </>
+
+              <div className="cb-pulse">
+                <p>
+                  <b>Pulse:</b> {firstOf(sel)} keeps {pct(sel.kept)} of commitments over 8 weeks{sel.a.c.streak ? ` · ${sel.a.c.streak}-week streak` : ""}.
+                  {sel.a.c.lastWeek ? ` Last week: ${sel.a.c.lastWeek.kept} kept, ${sel.a.c.lastWeek.partly} partly, ${sel.a.c.lastWeek.missed} missed.` : ""}
+                </p>
+                {onPulse ? (
+                  <button type="button" className="cb-link" onClick={() => onPulse(sel.a).then(setPulseNote)}>
+                    Pulse&apos;s read of {firstOf(sel)}&apos;s last 8 weeks →
+                  </button>
+                ) : null}
+                {pulseNote ? <p className="pm-empty">{pulseNote}</p> : null}
+              </div>
+
+              <div className="cb-acts">
+                <button type="button" className="cb-btn solid" disabled={busy || !!sent[sel.id]?.startsWith("Nudge sent")} onClick={() => nudge([sel.id])} title={NUDGE_WORDS}>
+                  {sent[sel.id]?.startsWith("Nudge sent") ? "Nudged" : sel.set ? `Nudge ${firstOf(sel)}` : `Nudge ${firstOf(sel)} to set the week`}
+                </button>
+                {onBook ? (
+                  <button type="button" className="cb-btn" onClick={() => onBook(`Coaching call with ${firstOf(sel)}`)}>Book a coaching call</button>
+                ) : (
+                  <a className="cb-btn" href="https://move.vip50one.com/calendar" target="_blank" rel="noopener">Book a coaching call</a>
+                )}
+                <button type="button" className="cb-btn wide" aria-expanded={weekOpen} onClick={() => setWeekOpen(!weekOpen)}>
+                  {weekOpen ? `Close ${firstOf(sel)}'s week` : `Open ${firstOf(sel)}'s week →`}
+                </button>
+              </div>
+              {sent[sel.id] ? <p className="cb-sent">{sent[sel.id]}</p> : null}
+
+              {weekOpen ? (
+                <div className="cb-week">
+                  <h3 className="cb-sec">Commitments this week</h3>
+                  {sel.a.c.week?.items.length ? <ul className="pm-list pm-compact">{sel.a.c.week.items.map((i) => <ItemRow key={i.id} i={i} />)}</ul> : <p className="pm-empty">Not set yet.</p>}
+                  {sel.a.c.weekend?.items.length ? (
+                    <>
+                      <h3 className="cb-sec">Weekend</h3>
+                      <ul className="pm-list pm-compact">{sel.a.c.weekend.items.map((i) => <ItemRow key={i.id} i={i} />)}</ul>
+                    </>
+                  ) : null}
+                  {sel.a.setup ? <SetupBlock st={sel.a.setup} late={setupLate(sel.a.setup, sel.a.c.today)} /> : null}
+                </div>
+              ) : null}
+
+              <p className="cb-promise">
+                {demo ? "Example agents. " : ""}Coach view: commitments, scores and yes/no only, never a client. Only the agent sets and marks their commitments; nobody but the agent and their coach sees them.
+              </p>
+            </aside>
+          ) : (
+            <aside className="cb-detail">
+              <p className="pm-empty">No agents linked to you yet.</p>
+            </aside>
           )}
-          <p className="pm-promise">
-            {demo ? "Example agents. " : ""}Read only: only the agent sets and marks their commitments. Nobody but the agent and their coach sees them. Setup is yes or no and counts, never anything about a client.
-          </p>
-        </aside>
+        </div>
       </div>
     </div>
   );
@@ -303,7 +436,7 @@ function SetupBlock({ st, late }: { st: Setup; late: boolean }) {
   const left = st.steps.filter((x) => !x.done);
   return (
     <section className="cs" aria-label="Setup">
-      <h2>Getting set up</h2>
+      <h3 className="cb-sec">Getting set up</h3>
       <div className="cs-bar" role="img" aria-label={setupWords(st)}>
         {st.steps.map((x) => <i key={x.key} className={x.done ? "on" : undefined} />)}
       </div>

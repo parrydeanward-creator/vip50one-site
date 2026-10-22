@@ -134,6 +134,7 @@ import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, mondayOf, habi
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
 import { REFERRALS_NODE, applyThank, applyThanked, askUrl, demoReferrals, thankUrl, thankedUrl, readThanked, thankCount, withReferralCount, yearLine, type ThankKind, readReferrals, referralsUrl, withReferralsNode, type Referrals, demoNetwork, networkUrl, readNetwork, type NetworkCounts } from "@/lib/referrals.ts";
 import { COACH_NODE, coachedUrl, demoCoached, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
+import { demoCoachedMore } from "@/lib/coachBoard.ts";
 import { WEEK_NODE, commitWay, commitmentsUrl, demoCommitments, queueBody, queueDraft, queueUrl, readCommitments, readQueueAnswer, readQueued, withWeekNode, type Commitments } from "@/lib/commitments.ts";
 import { nextCommitKey } from "@/lib/pulseCoach.ts";
 import { CALENDAR_NODE, PLAN_NODE, planKey, planState, planUrl, readPlan, timed, withPlanNode, type Plan, type PlanState } from "@/lib/plan.ts";
@@ -535,7 +536,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const [coached, setCoached] = useState<Coached[] | null>(null);
   const [coachOpen, setCoachOpen] = useState(false);
   useEffect(() => {
-    if (!live) return setCoached(demoCoached(todayIn()));
+    if (!live) return setCoached([...demoCoached(todayIn()), ...demoCoachedMore(todayIn())]);
     fetch(coachedUrl, { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null)) // 403 for anyone who coaches nobody: no Coaching orb
       .then((j) => setCoached(j ? readCoached(j, todayIn()) : null))
@@ -1713,6 +1714,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // The Day Clock (§3o.9): the day planned round the calendar; Your day lists its blocks in time order.
   const [clockOpen, setClockOpen] = useState(false);
   const [tellText, setTellText] = useState<string | undefined>(undefined);
+  // A block to add, filled in, when the Day Clock opens (the Coaching board's "Book a coaching call").
+  const [blockTitle, setBlockTitle] = useState<string | undefined>(undefined);
   const doneRefs = useMemo(() => new Set([...dayDone].map((id) => id.replace(/^day:/, ""))), [dayDone]);
   // the week's commitments become today's work (§3o.7)
   const commitWork = useMemo(() => commitmentWork(commitments, todayIn()), [commitments]);
@@ -4764,7 +4767,19 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
         />
       ) : null}
       {incomeOpen && theIncome ? <IncomeMapView map={theIncome} assume={assume} kept={assumeKept} goals={withReferralCount(goalFacts(graph.nodes), refs)} demo={!live} onAssume={saveAssume} onSaveGoal={saveGoal} onClose={() => setIncomeOpen(false)} /> : null}
-      {coachOpen && coached?.length && !agentRead ? <CoachView agents={coached} hour={denverHour()} demo={!live} onClose={() => setCoachOpen(false)} onPulse={readAgent} squad={team} /> : null}
+      {coachOpen && coached?.length && !agentRead ? <CoachView
+          agents={coached}
+          hour={denverHour()}
+          demo={!live}
+          onClose={() => setCoachOpen(false)}
+          onPulse={readAgent}
+          squad={team}
+          onBook={(title) => {
+            setCoachOpen(false);
+            setBlockTitle(title);
+            setClockOpen(true);
+          }}
+        /> : null}
       {rcOpen && rcAgents ? <ReviewCallsView agents={rcAgents} demo={!live} onClose={() => setRcOpen(false)} onSearch={loadRcAgents} /> : null}
       {warOpen && war ? <WarRoomView room={war} demo={!live} onClose={() => setWarOpen(false)} onTeamLeads={() => { setWarOpen(false); goTo(movePageId(TEAM_LEADS_PATH)); }} /> : null}
       {teamOpen && team ? <TeamView team={team} demo={!live && !productTour} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} canAdd={teamSites.length > 0 || productTour} /> : null}
@@ -4818,6 +4833,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           day={theDay}
           live={live}
           tellText={tellText}
+          addTitle={blockTitle}
           tomorrow={tomorrow}
           dated={graph.dated}
           vipsNoVideo={roster ? roster.vip50.filter((p) => !p.month?.video_text).length : undefined}
@@ -4831,6 +4847,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           onClose={() => {
             setClockOpen(false);
             setTellText(undefined);
+            setBlockTitle(undefined);
           }}
           onTick={(refs, on) => refs.forEach((r) => tickDay(`day:${r}`, on))}
           onTouch={setTouchOpen}

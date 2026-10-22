@@ -55,7 +55,7 @@ const fits = (label: string, a1: number, a2: number, r: number) => (a2 - a1) * r
 const BLOCK_SHORT: Partial<Record<Block["kind"], string>> = { power_hour: "Power Hour", texts: "Texts", notes: "Notes", approvals: "Approvals" };
 const REPEAT_WORD = { none: "today only", weekdays: "every weekday", daily: "every day" } as const;
 
-export default function DayClock({ day, live, tellText, tomorrow = [], onClose, onTick, onClassic, dated, vipsNoVideo, commitments, titles, onOpenCalendar, onTouch }: { day: Day; live: boolean; tellText?: string; tomorrow?: TomorrowItem[]; onClose: () => void; onTick: (refs: string[], done: boolean) => void; onClassic: () => void; dated?: DatedNote[]; vipsNoVideo?: number; commitments?: Commitments | null; /** The day's work by id, to say who each block is for (lib/dayLabels.ts). */ titles?: ReadonlyMap<string, string>; /** Open ONE MOVE's Calendar on a day (a saved note's appointment). */ onOpenCalendar?: (date: string) => void; /** Open the Power Hour's (or its follow-up's) touches in the side panel (Parry, 22 Oct). */ onTouch?: (blockId: string) => void }) {
+export default function DayClock({ day, live, tellText, addTitle, tomorrow = [], onClose, onTick, onClassic, dated, vipsNoVideo, commitments, titles, onOpenCalendar, onTouch }: { day: Day; live: boolean; tellText?: string; /** Open "Add a block" filled in with this title, at the next half hour (e.g. "Coaching call with Annette"). */ addTitle?: string; tomorrow?: TomorrowItem[]; onClose: () => void; onTick: (refs: string[], done: boolean) => void; onClassic: () => void; dated?: DatedNote[]; vipsNoVideo?: number; commitments?: Commitments | null; /** The day's work by id, to say who each block is for (lib/dayLabels.ts). */ titles?: ReadonlyMap<string, string>; /** Open ONE MOVE's Calendar on a day (a saved note's appointment). */ onOpenCalendar?: (date: string) => void; /** Open the Power Hour's (or its follow-up's) touches in the side panel (Parry, 22 Oct). */ onTouch?: (blockId: string) => void }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -223,6 +223,16 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
     setMiss(false);
     setTimeout(() => inputRef.current?.focus(), 0);
   };
+  useEffect(() => {
+    if (!addTitle) return;
+    const m = day.now ? toMin(day.now) : 9 * 60;
+    const start = Math.min(23 * 60, Math.ceil((m + 1) / 30) * 30);
+    setDraft({ title: addTitle.slice(0, 80), start: toTime(start), end: toTime(Math.min(start + 30, 23 * 60 + 59)), repeat: "none" });
+    setMiss(false);
+    setTimeout(() => inputRef.current?.focus(), 0);
+    // once, when it opens with a block to add
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addTitle]);
   const save = async () => {
     if (!draft || !draft.title.trim() || toMin(draft.end) <= toMin(draft.start)) return;
     setBusy(true);
