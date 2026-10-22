@@ -7,7 +7,7 @@ import MoveExampleFetch from "./views/MoveExampleFetch.tsx";
 // One named person, ready to act (other products link here: /dashboard/contacts/<contact_id>, lib/deepLink.ts). The
 // same contact panel the Weekly Review's names open, loaded from ONE MOVE's /api/brain/contact?id=. Back returns to
 // Contacts, which the Brain has opened behind it.
-export default function ContactLinkView({ id, demo, onBack, onChanged }: { id: string; demo: boolean; onBack: () => void; onChanged: () => void }) {
+export default function ContactLinkView({ id, demo, onBack, onChanged, backLabel = "Back to Contacts" }: { id: string; demo: boolean; onBack: () => void; onChanged: () => void; backLabel?: string }) {
   const backRef = useRef<HTMLButtonElement>(null);
   const onBackRef = useRef(onBack);
   onBackRef.current = onBack;
@@ -31,7 +31,7 @@ export default function ContactLinkView({ id, demo, onBack, onChanged }: { id: s
           </div>
           {demo ? <MoveExampleFetch /> : null}
           <div className="rv-step">
-            <button ref={backRef} type="button" className="vr-classic" onClick={onBack}>Back to Contacts</button>
+            <button ref={backRef} type="button" className="vr-classic" onClick={onBack}>{backLabel}</button>
           </div>
           <ContactPanel key={id} contactId={id} onLogged={onChanged} />
         </aside>

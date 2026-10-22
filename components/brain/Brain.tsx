@@ -111,6 +111,8 @@ import { awayLine, demoTimeOff, readTimeOff, timeOffUrl, withAwayLabel, type Tim
 import { demoPulseReport, pulseReportUrl, readPulseReport, type PulseReport } from "@/lib/pulseReport.ts";
 import AskAiView from "./AskAiView.tsx";
 import ContactLinkView from "./ContactLinkView.tsx";
+import TouchPanel from "./TouchPanel.tsx";
+import type { TouchItem } from "@/lib/touchBlock.ts";
 import MorningPulse from "./MorningPulse.tsx";
 import { OFFER_KEY as MP_OFFER_KEY, buildMorningPulse, demoEvening, demoMorning, eveningUrl as mpEveningUrl, morningUrl as mpMorningUrl, orbFor as mpOrbFor, readEvening as readMpEvening, readMorning as readMpMorning, type Beat as MpBeat, type BeatTool as MpTool } from "@/lib/morningPulse.ts";
 import { readTeamSites, type TeamSite, readAgentTeamSites, siteOpenHref, type AgentTeamSite } from "@/lib/siteEdit.ts";
@@ -1726,6 +1728,9 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     [graph.today, planned],
   );
   const theDay = useDay({ today: graph.today ?? [], planned, live, doneRefs, onPlan: setPlanned, extra: commitWork });
+  // ONE MOVE's Power Hour (or its follow-up) open in the side panel, by block id (Parry, 22 Oct)
+  const [touchOpen, setTouchOpen] = useState<string | null>(null);
+  const touchShown = touchOpen ? theDay.touch.find((b) => b.id === touchOpen) ?? null : null;
   // One plan state (Parry, 16 Oct, Plan my day audit 3.1.3): the Plan my day orb and the ONE YOU card say the same thing.
   const thePlanState = planState({ approvedAt: theDay.approvedAt, sent: planned, blocks: theDay.plan.blocks.length, over: !!theDay.now && toMin(theDay.now) >= toMin(theDay.hours.end), off: theDay.dayOff });
   useEffect(() => {
@@ -1739,6 +1744,31 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       const out: Slot[] = [];
       for (const b of theDay.plan.blocks) {
         let t = toMin(b.start);
+        // ONE MOVE's Power Hour and its follow-up: one row per person, ticked through ONE MOVE (Parry, 22 Oct)
+        if (b.items) {
+          const per = Math.max(1, Math.floor((toMin(b.end) - toMin(b.start)) / Math.max(1, b.items.length)));
+          for (const i of b.items) {
+            const d = byRef.get(i.ref);
+            out.push({
+              id: `day:${i.ref}`,
+              ref: i.ref,
+              nodeId: d?.nodeId && ix.byId.has(d.nodeId) ? d.nodeId : "go",
+              product: d?.product ?? "go",
+              kind: i.kind,
+              what: `${i.what}: ${i.name}`,
+              minutes: per,
+              contactId: i.contactId ?? undefined,
+              vip: true,
+              start: toTime(t),
+              end: toTime(t + per),
+              done: i.done,
+              touchBlock: b.id,
+              touchTitle: b.title,
+            });
+            t += per;
+          }
+          continue;
+        }
         for (const r of b.refs) {
           const d = byRef.get(r);
           const p = plannedBy.get(r);
@@ -2091,6 +2121,17 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     if (live)
       fetch(`${planUrl}/done`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ref, done: on }) }).catch(() => {});
   };
+
+  // One touch of the Power Hour ticked (the panel or Your day): ONE MOVE completes it as its task list does and answers
+  // the day; the boxes, the counts and the pulse follow at once (rule 12: "all checks need to apply once done").
+  const tickTouch = async (item: TouchItem, on: boolean): Promise<string | null> => {
+    setDone([`day:${item.ref}`], on);
+    const err = await theDay.tickTouch(item, on);
+    if (err) setDone([`day:${item.ref}`], !on);
+    else if (live) void refreshLive();
+    return err;
+  };
+  const touchItemOf = (blockId: string, ref: string) => theDay.touch.find((b) => b.id === blockId)?.items?.find((i) => i.ref === ref) ?? null;
 
   // The Day Clock (§3o.9): the day planned round the calendar. The Next line and the chimes follow it
   // while the dashboard is open (§3o.11).
@@ -4160,7 +4201,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               )}
               {dayGroups.map((g) => (
                 <section key={g.key} className={`day-group${g.now ? " is-now" : ""}`} aria-label={groupHead(g)}>
-                  <h3 className="day-head">{groupHead(g)}</h3>
+                  {g.rows[0]?.touchBlock && g.key !== "done" && g.key !== "tomorrow" ? (
+                    <h3 className="day-head">
+                      <button className="day-head-open" onClick={() => setTouchOpen(g.rows[0].touchBlock!)}>{groupHead(g)} · Open →</button>
+                    </h3>
+                  ) : (
+                    <h3 className="day-head">{groupHead(g)}</h3>
+                  )}
                   <ol>
                     {g.rows.map((x) => (
                       <li key={x.id} className={`${x.done ? "is-done" : ""}${x.isNow ? " is-now" : ""}`}>
@@ -4170,13 +4217,15 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                           aria-label={x.done ? `Done: ${x.what}. Tap to undo.` : `Mark done: ${x.what}`}
                           onClick={() => {
                             if (!x.done) setDoneAt((m) => ({ ...m, [x.id]: theDay.now ?? "" }));
-                            tickDay(x.id, !x.done);
+                            const item = x.touchBlock ? touchItemOf(x.touchBlock, x.ref ?? "") : null;
+                            if (item) void tickTouch(item, !x.done);
+                            else tickDay(x.id, !x.done);
                           }}
                         >
                           <span aria-hidden="true">✓</span>
                           <small>{x.done ? (doneAt[x.id] ? `Done ${clock12(doneAt[x.id])}` : "Done") : "Done"}</small>
                         </button>
-                        <button className="day-item" onClick={() => goTo(x.nodeId)}>
+                        <button className="day-item" onClick={() => (x.touchBlock ? setTouchOpen(x.touchBlock) : goTo(x.nodeId))}>
                           <span className="day-time">{x.isNow ? "NOW" : clock(x.start)}</span>
                           <span className="day-body">
                             <small style={{ color: hex(PRODUCT_COLOR[x.product]) }}>
@@ -4684,7 +4733,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       {rcOpen && rcAgents ? <ReviewCallsView agents={rcAgents} demo={!live} onClose={() => setRcOpen(false)} onSearch={loadRcAgents} /> : null}
       {warOpen && war ? <WarRoomView room={war} demo={!live} onClose={() => setWarOpen(false)} onTeamLeads={() => { setWarOpen(false); goTo(movePageId(TEAM_LEADS_PATH)); }} /> : null}
       {teamOpen && team ? <TeamView team={team} demo={!live && !productTour} scope={teamScope} onScope={live ? setTeamScope : undefined} onClose={() => setTeamOpen(false)} canAdd={teamSites.length > 0 || productTour} /> : null}
-      {linkContact ? <ContactLinkView id={linkContact} demo={!live} onBack={() => setLinkContact(null)} onChanged={refreshRoster} /> : null}
+      {linkContact && !touchShown ? <ContactLinkView id={linkContact} demo={!live} onBack={() => setLinkContact(null)} onChanged={refreshRoster} /> : null}
       {aiOpen && askAi ? <AskAiView name={live ? askCheck?.name || agent.label.split(",")[0] : "Sarah Bennett"} area={askArea} results={askAi} demo={!live} deviceOnly={live && askDevice} onArea={saveArea} onMark={markAi} onClose={() => setAiOpen(false)} /> : null}
       {likelyOpen ? (
         <MoveLikelyView
@@ -4749,12 +4798,16 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             setTellText(undefined);
           }}
           onTick={(refs, on) => refs.forEach((r) => tickDay(`day:${r}`, on))}
+          onTouch={setTouchOpen}
           onClassic={() => {
             setClockOpen(false);
             setPlanOpen(true);
           }}
         />
       )}
+      {touchShown ? <TouchPanel block={touchShown} demo={!live} covered={!!linkContact} onClose={() => setTouchOpen(null)} onTick={tickTouch} onContact={setLinkContact} /> : null}
+      {/* a contact opened from the Power Hour's panel opens on top of it; Back returns to the panel */}
+      {linkContact && touchShown ? <ContactLinkView id={linkContact} demo={!live} backLabel="Back to the Power Hour" onBack={() => setLinkContact(null)} onChanged={refreshRoster} /> : null}
       {planOpen && (
         <PlanMyDay
           today={graph.today ?? []}

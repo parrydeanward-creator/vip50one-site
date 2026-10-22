@@ -14,6 +14,7 @@ import { assistNow, type Assist } from "@/lib/assist.ts";
 import type { Commitments } from "@/lib/commitments.ts";
 import type { DatedNote } from "@/lib/graph/types.ts";
 import type { Day } from "./useDay.ts";
+import { isTouchBlock } from "@/lib/touchBlock.ts";
 
 // The Day Clock (VIP-SUMMARY §3o.9; Parry, 6 Oct: "make this super smart so that the plan my day actually
 // makes sense and they will do it. not just look good"). A real 12-hour clock with the morning on the inner
@@ -54,7 +55,7 @@ const fits = (label: string, a1: number, a2: number, r: number) => (a2 - a1) * r
 const BLOCK_SHORT: Partial<Record<Block["kind"], string>> = { power_hour: "Power Hour", texts: "Texts", notes: "Notes", approvals: "Approvals" };
 const REPEAT_WORD = { none: "today only", weekdays: "every weekday", daily: "every day" } as const;
 
-export default function DayClock({ day, live, tellText, tomorrow = [], onClose, onTick, onClassic, dated, vipsNoVideo, commitments, titles, onOpenCalendar }: { day: Day; live: boolean; tellText?: string; tomorrow?: TomorrowItem[]; onClose: () => void; onTick: (refs: string[], done: boolean) => void; onClassic: () => void; dated?: DatedNote[]; vipsNoVideo?: number; commitments?: Commitments | null; /** The day's work by id, to say who each block is for (lib/dayLabels.ts). */ titles?: ReadonlyMap<string, string>; /** Open ONE MOVE's Calendar on a day (a saved note's appointment). */ onOpenCalendar?: (date: string) => void }) {
+export default function DayClock({ day, live, tellText, tomorrow = [], onClose, onTick, onClassic, dated, vipsNoVideo, commitments, titles, onOpenCalendar, onTouch }: { day: Day; live: boolean; tellText?: string; tomorrow?: TomorrowItem[]; onClose: () => void; onTick: (refs: string[], done: boolean) => void; onClassic: () => void; dated?: DatedNote[]; vipsNoVideo?: number; commitments?: Commitments | null; /** The day's work by id, to say who each block is for (lib/dayLabels.ts). */ titles?: ReadonlyMap<string, string>; /** Open ONE MOVE's Calendar on a day (a saved note's appointment). */ onOpenCalendar?: (date: string) => void; /** Open the Power Hour's (or its follow-up's) touches in the side panel (Parry, 22 Oct). */ onTouch?: (blockId: string) => void }) {
   const cam = useSvgCamera(SIZE);
   const closeRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -110,7 +111,8 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
     setAskNotice(typeof Notification !== "undefined" && Notification.permission === "default");
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+      // the Power Hour's panel (and a contact opened from it) closes first
+      if (e.key !== "Escape" || document.querySelector(".phx-wrap")) return;
       e.stopPropagation();
       onCloseRef.current();
     };
@@ -234,7 +236,15 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
     setNote(await day.approve());
     setBusy(false);
   };
-  const tick = (b: Block) => onTick(b.refs, !b.done);
+  // ONE MOVE's Power Hour and its follow-up open their touches in the side panel (Parry, 22 Oct): each is ticked there,
+  // one person at a time, never the block as a whole
+  const touchable = (b: Block) => !ahead && !!onTouch && isTouchBlock(b);
+  const pickBlock = (b: Block) => {
+    if (!touchable(b)) return choose(b);
+    if (pick !== b.id) choose(b);
+    onTouch!(b.id);
+  };
+  const tick = (b: Block) => (touchable(b) ? onTouch!(b.id) : onTick(b.refs, !b.done));
 
   // A clock face: twelve hours round, 12 at the top.
   const marks = Array.from({ length: 12 }, (_, h) => ({ a: (h / 12) * Math.PI * 2, label: String(h || 12), major: h % 3 === 0 }));
@@ -336,11 +346,11 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
                   role="button"
                   tabIndex={0}
                   aria-label={`${range(b.start, b.end)}: ${b.title}${b.done ? ", done" : ""}`}
-                  onClick={() => choose(b)}
+                  onClick={() => pickBlock(b)}
                   onKeyDown={(e) => {
                     if (e.key !== "Enter" && e.key !== " ") return;
                     e.preventDefault();
-                    choose(b);
+                    pickBlock(b);
                   }}
                 >
                   {faceArcs(b.start, b.end).map((x, j) => {
@@ -433,7 +443,7 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
                   <span>
                     <b>{range(picked!.start, picked!.end)}</b> {picked!.title}. {picked!.why}
                   </span>
-                  {!ahead && <button className="chip-btn" onClick={() => tick(picked!)}>{picked!.done ? "Undo" : "Done"}</button>}
+                  {!ahead && <button className="chip-btn" onClick={() => tick(picked!)}>{touchable(picked!) ? "Open the touches" : picked!.done ? "Undo" : "Done"}</button>}
                 </>
               )}
             </div>
@@ -508,12 +518,16 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
                   <li key={r.block.id} id={`dc-row-${r.block.id}`} className={`${r.block.done ? "is-done" : ""}${pick === r.block.id ? " picked" : ""}`}>
                     <span className="pm-time">{clock12(r.block.start)}</span>
                     <i className="pm-dot dc-num-dot" style={{ background: HUE[blockHue(r.block.kind)].color }} aria-hidden="true">{nums.get(r.block.id)}</i>
-                    <span className="pm-body dc-row-tap" role="button" tabIndex={0} onClick={() => choose(r.block!)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(r.block!); } }}>
+                    <span className="pm-body dc-row-tap" role="button" tabIndex={0} onClick={() => pickBlock(r.block!)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pickBlock(r.block!); } }}>
                       <b>{r.block.title}</b>
                       <small>{range(r.block.start, r.block.end)} · {who(r.block) || r.block.why}</small>
                     </span>
                     {!ahead && <span className="pm-acts">
-                      <button className={`pm-tick${r.block.done ? " on" : ""}`} aria-pressed={r.block.done} onClick={() => tick(r.block!)} aria-label={r.block.done ? `Done: ${r.block.title}. Tap to undo.` : `Mark done: ${r.block.title}`}>✓</button>
+                      {touchable(r.block) ? (
+                        <button className={`pm-tick${r.block.done ? " on" : ""}`} onClick={() => tick(r.block!)} aria-label={`Open the touches: ${r.block.title}`}>✓</button>
+                      ) : (
+                        <button className={`pm-tick${r.block.done ? " on" : ""}`} aria-pressed={r.block.done} onClick={() => tick(r.block!)} aria-label={r.block.done ? `Done: ${r.block.title}. Tap to undo.` : `Mark done: ${r.block.title}`}>✓</button>
+                      )}
                       {r.block.refs.some((x) => customIds.has(x)) && (
                         <button onClick={() => day.removeBlock(r.block!.refs[0].replace(/^blk:/, ""))} aria-label={`Remove the block: ${r.block.title}`}>×</button>
                       )}
@@ -591,7 +605,7 @@ export default function DayClock({ day, live, tellText, tomorrow = [], onClose, 
           {!ahead && <TellPulse day={day} live={live} initial={tellText} onNote={setNote} />}
 
           <p className="d-sum">
-            Pulse plans round your appointments and drives: your VIP touches (calls, then texts and social) in a Power Hour when people pick up, notes in one sitting, never more than 85% of your free time.
+            Pulse plans round your appointments and drives and your one Power Hour, never more than 85% of your free time. The Power Hour holds today&apos;s VIP touches: tap it to work them, one person at a time. What is not done when the hour ends moves to one block later today.
           </p>
 
           {ahead ? null : approvedAt ? (

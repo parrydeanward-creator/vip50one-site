@@ -32,6 +32,9 @@ export interface Slot extends DayItem {
   start: string; // "HH:MM"
   end: string;
   done: boolean;
+  /** A touch in ONE MOVE's Power Hour or its follow-up: that block's id and title (lib/touchBlock.ts). */
+  touchBlock?: string;
+  touchTitle?: string;
 }
 
 // When each kind of work goes best in a day: people first, while they pick

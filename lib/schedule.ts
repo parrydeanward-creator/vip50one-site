@@ -1,10 +1,13 @@
 import type { PlanItem } from "./plan.ts";
+import { readTouchItems, type TouchItem } from "./touchBlock.ts";
 
 // How Pulse builds a day (VIP-SUMMARY §3o.5; Parry, 6 Oct: "make the plan my day actually make sense and
 // they will do it. not just look good"). Pure: free time first, fixed things first, the work batched the way
-// a top agent works (Power Hour in the best calling window, one block of texts, one of notes), most urgent
-// first, never more than 85% of the free time, and whatever does not fit says so. The same rules run in
-// MASTER for the 7:00 build; this is the Brain's copy for planning live.
+// a top agent works, most urgent first, never more than 85% of the free time, and whatever does not fit says so. The
+// same rules run in MASTER for the 7:00 build; this is the Brain's copy for planning live.
+// The Power Hour is never built here (Parry, 22 Oct: "there are 2 power hours on the daily clock calendar"): ONE MOVE
+// sends the day's one Power Hour, and its follow-up, with the touches in them (lib/touchBlock.ts); the day is planned
+// round them and the VIP touches they hold are not planned again.
 
 export interface Busy {
   start: string; // "HH:MM"
@@ -25,14 +28,19 @@ export interface Block {
   refs: string[]; // the plan items inside it
   why: string; // one line, facts only
   done: boolean;
+  /** ONE MOVE's Power Hour and its follow-up only: the touches in it (lib/touchBlock.ts). */
+  items?: TouchItem[];
+  /** ONE MOVE's "Finish your VIP touches" block. */
+  followUp?: boolean;
 }
 
 export interface DayInput {
   hours: { start: string; end: string };
   busy: Busy[];
   items: PlanItem[];
-  bestCalls?: { start: string; end: string };
   notBefore?: string; // today: nothing is planned in the past
+  /** ONE MOVE's Power Hour and its follow-up, kept where they are; the touches in them are not planned again. */
+  touch?: Block[];
 }
 
 export interface DayPlan {
@@ -48,8 +56,6 @@ export const BUFFER = 10; // minutes either side of an appointment
 export const FULL_WHY = "Today is full: this keeps the day doable.";
 export const DAY_OVER_WHY = "The day is over: this moves to tomorrow.";
 export const MAX_SHARE = 0.85; // never plan more than this share of the free time
-const POWER_MAX = 60;
-const POWER_TAIL = 15; // a leftover this short joins the Power Hour before it
 
 export const toMin = (t: string) => {
   const [h, m] = t.split(":").map(Number);
@@ -80,22 +86,11 @@ export function freeGaps(hours: DayInput["hours"], busy: Busy[], notBefore?: str
 
 const rank = (p: PlanItem) => (p.urgency === "alert" ? 0 : p.special ? 1 : p.urgency === "today" ? 2 : 3);
 const isCall = (p: PlanItem) => p.kind === "call" || p.kind === "follow_up";
-// The Power Hour holds the day's touches: calls first, then texts, video texts, social touches and handwritten notes
-// (Parry, 19 Oct: "very specific people to call, text, social touch, send a letter ... focus for one hour to accomplish
-// thier touches"; it replaces the 16 Oct separate texts and notes blocks).
-// Only Today's VIP touches (ONE GO's generated tasks, or the example day's VIP touches) go in it; any other call is a
-// task of its own, as the Power Hour tool shows only those touches.
+// Today's VIP touches (ONE GO's generated tasks, or the example day's VIP touches): calls, texts, video texts, social
+// touches and handwritten notes. They are worked in ONE MOVE's Power Hour (Parry, 19 Oct and 22 Oct), never in a block
+// the Brain builds; any other call is a task of its own.
 const vipTouch = (p: PlanItem) => p.ref.startsWith("go:task:") || (!!p.vip && !p.ref.includes(":"));
-const inPower = (p: PlanItem) => vipTouch(p) && (isCall(p) || p.kind === "text" || p.kind === "note");
-const powerTitle = (items: PlanItem[]) => {
-  const c = items.filter(isCall).length, n = items.filter((p) => p.kind === "note").length, t = items.length - c - n;
-  const bits = [
-    c && `${c} ${c === 1 ? "call" : "calls"}`,
-    t && `${t} ${t === 1 ? "text or social touch" : "texts and social touches"}`,
-    n && `${n} ${n === 1 ? "note" : "notes"}`,
-  ].filter(Boolean);
-  return `Power Hour: ${bits.join(", ")}`;
-};
+export const inPowerHour = (p: PlanItem) => vipTouch(p) && (isCall(p) || p.kind === "text" || p.kind === "note");
 const IN_PERSON = /\b(coffee|lunch|face-to-face|drop-?by|meet)\b/i;
 const DROP_BY = /^\s*drop[- ]?by\s+/i;
 
@@ -106,47 +101,14 @@ interface Group {
   minutes: number;
   rank: number;
   why: string;
-  prefer?: [number, number];
   before?: number;
 }
 
-/** Batch the work the way a top agent does it. */
-export function batches(items: PlanItem[], bestCalls: [number, number]): Group[] {
+/** Batch the work the way a top agent does it. Today's VIP touches are not batched here: they are in ONE MOVE's one
+ * Power Hour (lib/touchBlock.ts), so they are left out. */
+export function batches(items: PlanItem[]): Group[] {
   const groups: Group[] = [];
-  // Power Hours of up to 60 minutes: the calls, most urgent first, then the texts and social touches, most urgent
-  // first, so a single overdue text never ends up as a five-minute "Power Hour" of its own
-  const calls = items.filter(inPower).sort((a, b) => Number(!isCall(a)) - Number(!isCall(b)) || rank(a) - rank(b));
-  let cur: PlanItem[] = [];
-  const flush = () => {
-    if (!cur.length) return;
-    const m = cur.reduce((t, p) => t + p.minutes, 0);
-    const late = cur.filter((p) => p.urgency === "alert").length;
-    groups.push({
-      kind: "power_hour",
-      title: powerTitle(cur),
-      items: cur,
-      minutes: m,
-      rank: Math.min(...cur.map(rank)),
-      why: late ? `${late} overdue first, in your best calling window.` : "In your best calling window, when people pick up.",
-      prefer: bestCalls,
-    });
-    cur = [];
-  };
-  for (const c of calls) {
-    if (cur.reduce((t, p) => t + p.minutes, 0) + c.minutes > POWER_MAX) flush();
-    cur.push(c);
-  }
-  // a short leftover (one text, a quick call) joins the hour before it rather than being a "Power Hour" of its own
-  const leftover = cur.reduce((t, p) => t + p.minutes, 0);
-  const prev = groups[groups.length - 1]; // only Power Hours are in the list so far
-  if (cur.length && prev?.kind === "power_hour" && leftover <= POWER_TAIL && prev.minutes + leftover <= POWER_MAX + POWER_TAIL) {
-    prev.items.push(...cur);
-    prev.minutes += leftover;
-    prev.title = powerTitle(prev.items);
-    cur = [];
-  }
-  flush();
-  const take = (pred: (p: PlanItem) => boolean) => items.filter((p) => !inPower(p) && pred(p));
+  const take = (pred: (p: PlanItem) => boolean) => items.filter((p) => !inPowerHour(p) && pred(p));
   const approvals = take((p) => p.kind === "approval");
   if (approvals.length) groups.push({ kind: "approvals", title: `Approvals (${approvals.length})`, items: approvals, minutes: approvals.reduce((t, p) => t + p.minutes, 0), rank: Math.min(...approvals.map(rank)), why: "Before posting time, so nothing waits on you.", before: toMin("12:00") });
   // Drop-bys go as one run, one stop after another with 15 minutes between (as ONE MOVE's day builder does), so the
@@ -167,33 +129,44 @@ export function batches(items: PlanItem[], bestCalls: [number, number]): Group[]
     const inPerson = p.kind === "meeting" || IN_PERSON.test(p.title);
     groups.push({ kind: inPerson ? "in_person" : "task", title: p.title.replace(/[.]$/, ""), items: [p], minutes: p.minutes + (inPerson ? 30 : 0), rank: rank(p), why: inPerson ? "With 15 minutes' drive each way." : p.urgency === "alert" ? "Overdue: done today, it stops pulsing." : "Due today." });
   }
-  return groups.sort((a, b) => a.rank - b.rank || (a.kind === "power_hour" ? -1 : 0));
+  return groups.sort((a, b) => a.rank - b.rank);
 }
 
 /** Pulse builds the day (§3o.5). Fixed-time items are placed as they are; the rest fills the free gaps. */
 export function buildDay(input: DayInput): DayPlan {
-  const fixed = input.items.filter((p) => p.at);
-  const loose = input.items.filter((p) => !p.at);
-  const busy: Busy[] = [...input.busy, ...fixed.map((p) => ({ start: p.at!, end: toTime(toMin(p.at!) + p.minutes), title: p.title, source: "fixed" as const }))];
+  // ONE MOVE's Power Hour and follow-up stay where ONE MOVE put them; every touch in them, and every VIP touch, is theirs
+  const touch = input.touch ?? [];
+  const touchRefs = new Set(touch.flatMap((b) => [...b.refs, ...(b.items ?? []).map((i) => i.ref)]));
+  const items = input.items.filter((p) => !inPowerHour(p) && !touchRefs.has(p.ref));
+  const fixed = items.filter((p) => p.at);
+  const loose = items.filter((p) => !p.at);
+  const busy: Busy[] = [
+    ...input.busy,
+    ...fixed.map((p) => ({ start: p.at!, end: toTime(toMin(p.at!) + p.minutes), title: p.title, source: "fixed" as const })),
+    ...touch.map((b) => ({ start: b.start, end: b.end, title: b.title, source: "fixed" as const })),
+  ];
   const gaps = freeGaps(input.hours, busy, input.notBefore);
-  const freeMin = gaps.reduce((t, [s, e]) => t + (e - s), 0);
+  // the touch blocks are work, not time taken: they count in the free time and in what is planned
+  const touchMin = touch.filter((b) => !input.notBefore || toMin(b.end) > toMin(input.notBefore)).reduce((t, b) => t + toMin(b.end) - Math.max(toMin(b.start), input.notBefore ? toMin(input.notBefore) : 0), 0);
+  const freeMin = gaps.reduce((t, [s, e]) => t + (e - s), 0) + touchMin;
   const cap = Math.floor(freeMin * MAX_SHARE);
-  const best = input.bestCalls ?? { start: "09:00", end: "11:00" };
-  const groups = batches(loose, [toMin(best.start), toMin(best.end)]);
+  const groups = batches(loose);
   const open = gaps.map(([s, e]) => [s, e] as [number, number]);
-  const blocks: Block[] = fixed.map((p) => ({ id: `b:${p.ref}`, start: p.at!, end: toTime(toMin(p.at!) + p.minutes), kind: "custom", title: p.title.replace(/[.]$/, ""), refs: [p.ref], why: "At the time you set.", done: p.done }));
+  const blocks: Block[] = [
+    ...fixed.map((p) => ({ id: `b:${p.ref}`, start: p.at!, end: toTime(toMin(p.at!) + p.minutes), kind: "custom" as const, title: p.title.replace(/[.]$/, ""), refs: [p.ref], why: "At the time you set.", done: p.done })),
+    ...touch,
+  ];
   const later: DayPlan["later"] = [];
   // no time left of the working day (now at or past its end): the day is over, not full (audit 3.1.4)
   const over = !!input.notBefore && toMin(input.hours.end) - toMin(input.notBefore) < 5;
-  let used = 0;
+  let used = touchMin;
   const place = (g: Group): number | null => {
     const fits = (k: number) => open[k][1] - open[k][0] >= g.minutes;
     let k = -1;
-    if (g.prefer) k = open.findIndex(([s, e], i) => fits(i) && Math.max(s, g.prefer![0]) + g.minutes <= Math.min(e, g.prefer![1] + 30));
-    if (k < 0 && g.before) k = open.findIndex(([s], i) => fits(i) && s + g.minutes <= g.before!);
+    if (g.before) k = open.findIndex(([s], i) => fits(i) && s + g.minutes <= g.before!);
     if (k < 0) k = open.findIndex((_, i) => fits(i));
     if (k < 0) return null;
-    const start = g.prefer && open[k][0] < g.prefer[0] && open[k][1] - g.prefer[0] >= g.minutes ? g.prefer[0] : open[k][0];
+    const start = open[k][0];
     const end = start + g.minutes;
     // split the gap round the block
     const [s, e] = open[k];
@@ -222,10 +195,11 @@ export function buildDay(input: DayInput): DayPlan {
 
 /** Tomorrow's plan from what moves to tomorrow (Parry, 16 Oct, Plan my day audit 3.1.9: "I like your idea"): the same
  * rules as today, over tomorrow's working hours and calendar, from the start of the day. What does not fit says so. */
-export function tomorrowPlan(items: PlanItem[], hours: DayInput["hours"], busy: Busy[] = [], customs: PlanItem[] = []): DayPlan {
+export function tomorrowPlan(items: PlanItem[], hours: DayInput["hours"], busy: Busy[] = [], customs: PlanItem[] = [], touch: Block[] = []): DayPlan {
   const seen = new Set<string>();
   const work = [...items.map((p) => ({ ...p, at: null, done: false })), ...customs].filter((p) => !seen.has(p.ref) && (seen.add(p.ref), true));
-  const out = buildDay({ hours, busy, items: work });
+  // tomorrow's VIP touches are in ONE MOVE's Power Hour for tomorrow, when it has sent one
+  const out = buildDay({ hours, busy, items: work, touch });
   // its reasons are about tomorrow, not today ("Due today." read wrong on tomorrow's plan)
   const tmr = (w: string) => w.replace(/\btoday\b/g, "tomorrow").replace(/\bToday\b/g, "Tomorrow");
   return { ...out, blocks: out.blocks.map((b) => ({ ...b, why: tmr(b.why) })), later: out.later.map((l) => ({ ...l, why: l.why === FULL_WHY ? "Tomorrow is full: this waits a day more." : tmr(l.why) })) };
@@ -352,16 +326,22 @@ export function readDay(j: unknown): DayFromMove | null {
   const blocks: DayFromMove["blocks"] = [];
   for (const b of Array.isArray(r.blocks) ? (r.blocks as Record<string, unknown>[]) : []) {
     if (!b || typeof b.id !== "string" || !isHM(b.start) || !isHM(b.end) || b.end <= b.start || typeof b.title !== "string") continue;
+    const kind = KIND_OK.includes(b.kind as BlockKind) ? (b.kind as BlockKind) : MOVE_KIND[b.kind as string] ?? "task";
+    const refs = Array.isArray(b.refs) ? (b.refs as unknown[]).filter((x): x is string => typeof x === "string") : [];
+    // the Power Hour and its follow-up carry their touches (vip50-web-crm#371, Parry 22 Oct)
+    const items = kind === "power_hour" || kind === "custom" ? readTouchItems(b.items) : null;
     blocks.push({
       id: b.id,
       start: b.start,
       end: b.end,
-      kind: KIND_OK.includes(b.kind as BlockKind) ? (b.kind as BlockKind) : MOVE_KIND[b.kind as string] ?? "task",
+      kind,
       title: b.title.slice(0, 120),
-      refs: Array.isArray(b.refs) ? (b.refs as unknown[]).filter((x): x is string => typeof x === "string") : [],
+      refs: refs.length || !items ? refs : items.map((i) => i.ref),
       why: typeof b.why === "string" ? b.why.slice(0, 160) : "",
       done: b.done === true,
       movedFrom: isHM(b.moved_from) ? b.moved_from : null,
+      ...(items ? { items } : {}),
+      ...(b.follow_up === true ? { followUp: true } : {}),
     });
   }
   blocks.sort((a, b) => toMin(a.start) - toMin(b.start));

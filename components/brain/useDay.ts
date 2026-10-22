@@ -9,11 +9,13 @@ import { addDays, slide } from "@/lib/assist.ts";
 import { floor5 } from "@/lib/dayView.ts";
 import { nextOpenSlot, readClashAnswer, readPushNote, type ClashAsk, type ClashChoice } from "@/lib/dayClash.ts";
 import { nextWorkingDay, readWeek, weekTemplateUrl, worksOn, type Week } from "@/lib/workDay.ts";
-import { withoutTaskCopies, buildDay, customItem, customKey, customsOn, DAY_OVER_WHY, dayPutBody, dayUrl, denverNow, readDay, toMin, tomorrowPlan, type Block, type Busy, type Custom, type DayPlan } from "@/lib/schedule.ts";
+import { withoutTaskCopies, buildDay, customItem, customKey, customsOn, DAY_OVER_WHY, dayPutBody, dayUrl, denverNow, freeGaps, readDay, toMin, toTime, tomorrowPlan, type Block, type Busy, type Custom, type DayPlan } from "@/lib/schedule.ts";
+import { demoTouchBlocks, isAnyPowerBlock, tickBody, touchBlocks, type TouchItem } from "@/lib/touchBlock.ts";
 
 // The day as Pulse plans it (VIP-SUMMARY §3o), shared by the Day Clock and the Brain's Next line and
 // chimes. ONE MOVE's day route first; until it answers, the Brain builds the day itself from what is
-// pulsing, the agent's own blocks and working hours, with the same rules (lib/schedule.ts).
+// pulsing, the agent's own blocks and working hours, with the same rules (lib/schedule.ts). The Power Hour is always
+// ONE MOVE's (Parry, 22 Oct): one, with its touches, and its follow-up once the hour has ended (lib/touchBlock.ts).
 
 const HOURS = { start: "08:00", end: "17:30" };
 // The demo agent's appointments, so the example plans round something real.
@@ -71,6 +73,10 @@ export interface Day {
   week: Week | null;
   planTomorrow: (items: PlanItem[]) => { hours: { start: string; end: string }; busy: Busy[]; plan: DayPlan };
   loadTomorrow: () => void;
+  /** ONE MOVE's Power Hour and its follow-up today (at most one of each), with their touches. */
+  touch: Block[];
+  /** Tick one touch in them: ONE MOVE completes it as its task list does and answers the whole day. A note when it failed. */
+  tickTouch: (item: TouchItem, done: boolean) => Promise<string | null>;
 }
 
 export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: { today: DayItem[]; planned: Plan | null; live: boolean; doneRefs: Set<string>; onPlan: (p: Plan) => void; extra?: PlanItem[] }): Day {
@@ -101,6 +107,8 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
   const [move, setMove] = useState<ReturnType<typeof readDay>>(null);
   const [moveTomorrow, setMoveTomorrow] = useState<ReturnType<typeof readDay>>(null);
   const [told, setTold] = useState<TellState | null>(null);
+  // a touch ticked in the Power Hour panel, until ONE MOVE answers with the day (rule 12: it shows done at once)
+  const [touchOver, setTouchOver] = useState<Record<string, boolean>>({});
   const [clash, setClash] = useState<ClashAsk | null>(null);
   const clashWait = useRef<((c: ClashChoice | null) => void) | null>(null);
   const answerClash = (c: ClashChoice | null) => {
@@ -176,15 +184,57 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
     const mine = toldBusy(told.items, told.answers, hours.start);
     return [...fromMove.filter((b) => !told.items.some((t) => t.start === b.start)), ...mine].sort((a, b) => toMin(a.start) - toMin(b.start));
   }, [move, live, told, hours.start, taskTitles]);
-  const isDone = useCallback((b: Block) => b.done || (b.refs.length > 0 && b.refs.every((r) => doneRefs.has(r))), [doneRefs]);
+  const isDone = useCallback((b: Block) => (b.items ? b.done : b.done || (b.refs.length > 0 && b.refs.every((r) => doneRefs.has(r)))), [doneRefs]);
+
+  // The one Power Hour (and its follow-up): ONE MOVE's. The example agent's is made in the same shape, an hour long at
+  // the first free hour from 9:00 (or from when the page opened), and read by the same reader.
+  const [demoFrom, setDemoFrom] = useState<string | null>(null);
+  useEffect(() => {
+    if (from && !demoFrom) setDemoFrom(from);
+  }, [from, demoFrom]);
+  const demoStart = useMemo(() => {
+    if (live) return null;
+    const lo = Math.max(toMin("09:00"), demoFrom && toMin(demoFrom) < toMin(hours.end) - 60 ? Math.ceil(toMin(demoFrom) / 5) * 5 : 0);
+    const gap = freeGaps(hours, busy).find(([s, e]) => Math.min(e, toMin(hours.end)) - Math.max(s, lo) >= 60);
+    return gap ? toTime(Math.max(gap[0], lo)) : "09:00";
+  }, [live, demoFrom, hours, busy]);
+  const demoTouch = useMemo(() => (demoStart ? demoTouchBlocks(readDay, date, today, demoStart) : []), [demoStart, date, today]);
+  const touch = useMemo(
+    () => touchBlocks(move ? move.blocks : live ? [] : demoTouch, (ref) => touchOver[ref] ?? (live ? undefined : doneRefs.has(ref))),
+    [move, live, demoTouch, touchOver, doneRefs],
+  );
+  const tickTouch = useCallback(
+    async (item: TouchItem, done: boolean): Promise<string | null> => {
+      setTouchOver((o) => ({ ...o, [item.ref]: done }));
+      if (!live) return null;
+      const settle = () =>
+        setTouchOver((o) => {
+          const { [item.ref]: _gone, ...rest } = o;
+          return rest;
+        });
+      try {
+        const r = await fetch(`${dayUrl}/done`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...tickBody(item, done), date }) });
+        const d = r.ok ? readDay(await r.json().catch(() => null)) : null;
+        if (d) setMove(d);
+        settle();
+        return d ? null : "ONE MOVE didn't take that tick. Try it again.";
+      } catch {
+        settle();
+        return "ONE couldn't reach ONE MOVE. Try it again.";
+      }
+    },
+    [live, date],
+  );
 
   const plan = useMemo<DayPlan>(() => {
     const fixed = (move?.approvedAt && move.blocks.length ? move.blocks : approved?.blocks) ?? null;
     if (fixed) {
-      const blocks = fixed.map((b) => ({ ...b, done: isDone(b) }));
+      // one Power Hour, ONE MOVE's: any other (one the Brain once built and kept) is never drawn
+      const blocks = [...fixed.filter((b) => !isAnyPowerBlock(b)).map((b) => ({ ...b, done: isDone(b) })), ...touch].sort((a, b) => toMin(a.start) - toMin(b.start));
       // the agent's own fixed blocks are time taken, not work planned (as buildDay counts them)
-      const work = blocks.filter((b) => b.kind !== "custom").reduce((t, b) => t + toMin(b.end) - toMin(b.start), 0);
-      const taken = [...busy, ...blocks.filter((b) => b.kind === "custom")].reduce((t, b) => t + toMin(b.end) - toMin(b.start), 0);
+      const own = (b: Block) => b.kind === "custom" && !b.items;
+      const work = blocks.filter((b) => !own(b)).reduce((t, b) => t + toMin(b.end) - toMin(b.start), 0);
+      const taken = [...busy, ...blocks.filter(own)].reduce((t, b) => t + toMin(b.end) - toMin(b.start), 0);
       const fromMove = !!(move?.approvedAt && move.blocks.length);
       return { blocks, later: [], plannedMin: fromMove ? work : approved?.plannedMin ?? work, freeMin: fromMove ? Math.max(work, toMin(hours.end) - toMin(hours.start) - taken) : approved?.freeMin ?? work };
     }
@@ -196,9 +246,9 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
     const more = [...extra, ...carried].filter((p) => !refs.has(p.ref) && (refs.add(p.ref), true));
     const items = [...base, ...more, ...customs.map(customItem)].filter((p) => !toldAt(p)).map((p) => ({ ...p, done: p.done || doneRefs.has(p.ref) }));
     const notBefore = from && (live || toMin(from) < toMin(hours.end) - 60) ? from : undefined;
-    const out = buildDay({ hours, busy, items, notBefore });
+    const out = buildDay({ hours, busy, items, notBefore, touch });
     return { ...out, blocks: out.blocks.map((b) => ({ ...b, done: isDone(b) })) };
-  }, [move, approved, busy, hours, planned, today, customs, doneRefs, from, isDone, told, live, extra, carried]);
+  }, [move, approved, busy, hours, planned, today, customs, doneRefs, from, isDone, told, live, extra, carried, touch]);
   // Missed blocks move by themselves (§3o.6): a block not ticked by its end slides to the next free gap
   // today, and the agent is told; fixed ones never move; what can't fit goes to "Moves to tomorrow".
   const slid = useMemo(() => (now ? slide(plan.blocks, busy, hours, now) : null), [plan.blocks, busy, hours, now]);
@@ -212,7 +262,7 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
     (items: PlanItem[]) => {
       const tHours = moveTomorrow?.hours ?? baseHours;
       const tBusy = moveTomorrow?.busy ?? [];
-      return { hours: tHours, busy: tBusy, plan: tomorrowPlan(items, tHours, tBusy, customsOn(stored, tomorrowDate).map(customItem)) };
+      return { hours: tHours, busy: tBusy, plan: tomorrowPlan(items, tHours, tBusy, customsOn(stored, tomorrowDate).map(customItem), touchBlocks(moveTomorrow?.blocks ?? [])) };
     },
     [moveTomorrow, baseHours, stored, tomorrowDate],
   );
@@ -357,7 +407,8 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
     const left: PlanItem[] = [];
     if (list) for (const l of list) left.push({ ...(byRef.get(l.item.ref) ?? l.item), at: null, done: false });
     else {
-      for (const b of shown.blocks.filter((x) => !x.done && x.kind !== "custom"))
+      // the Power Hour's touches stay with ONE MOVE: what is left of them is its follow-up's, and tomorrow's Power Hour's
+      for (const b of shown.blocks.filter((x) => !x.done && x.kind !== "custom" && !x.items))
         for (const r of b.refs) {
           const p = byRef.get(r);
           if (p && !doneRefs.has(r)) left.push({ ...p, at: null, done: false });
@@ -384,5 +435,5 @@ export function useDay({ today, planned, live, doneRefs, onPlan, extra = [] }: {
   };
 
   const dayOff = !!move?.dayOff || !worksOn(date, week);
-  return { date, now, hours, busy, plan: shown, moved: slid?.note ?? null, carry, tomorrowDate, dayOff, week, planTomorrow, loadTomorrow, approvedAt: (move?.approvedAt ?? approved?.at) || null, fromMove: !!move, customs, told, tell, addBlock, removeBlock, approve, replan: unapprove, clash, answerClash };
+  return { touch, tickTouch, date, now, hours, busy, plan: shown, moved: slid?.note ?? null, carry, tomorrowDate, dayOff, week, planTomorrow, loadTomorrow, approvedAt: (move?.approvedAt ?? approved?.at) || null, fromMove: !!move, customs, told, tell, addBlock, removeBlock, approve, replan: unapprove, clash, answerClash };
 }
