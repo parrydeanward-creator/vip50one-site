@@ -83,6 +83,9 @@ export interface Budget {
 
 export const DESKTOP_BUDGET: Budget = { children: 18, siblings: 8, related: 4, ancestors: 4 };
 export const PHONE_BUDGET: Budget = { children: 6, siblings: 0, related: 2, ancestors: 1 };
+// The One Team orb holds three parts and every agent's face (up to 27): all of them show, on a phone as well, or an
+// agent at the end of the list is cut off (Annette, 22 Oct). No siblings or related orbs round it; the back orb stays.
+export const TEAM_HUB_BUDGET: Budget = { children: 60, siblings: 0, related: 0, ancestors: 1 };
 
 // Presentation's question: what should be on screen when `focusId` is
 // focused? Never the whole graph (ONE-BRAIN.md §3, progressive disclosure).

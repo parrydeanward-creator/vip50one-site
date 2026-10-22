@@ -7,6 +7,7 @@ import { constellation, coreBody, glowTexture, icon, orbBody, orbit } from "./dr
 import { iconFor } from "@/lib/brain/icons.ts";
 import type { Need } from "@/lib/needs.ts";
 import { lockedLine } from "@/lib/growthOrb.ts";
+import { TEAM_ORB_R } from "@/lib/brain/layout.ts";
 
 // Follow the pulse: red is overdue or an alert, amber is due today.
 const NEED_COLOR = { now: STATUS.action.color, today: STATUS.attention.color } as const;
@@ -421,7 +422,8 @@ export class BrainScene {
       s.sub.style.wordWrapWidth = 150;
       s.sub.y = s.label.y + s.label.height + 1;
     }
-    s.sub.visible = role !== "ancestor" && role !== "sibling";
+    // The Team orb's two rows show the name only: the line under it would run into its neighbour (the side panel has it).
+    s.sub.visible = role !== "ancestor" && role !== "sibling" && !(role === "child" && s.tgt.r === TEAM_ORB_R);
     s.label.alpha = role === "ancestor" ? 0.8 : 1;
   }
 
