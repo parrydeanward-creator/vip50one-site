@@ -2994,3 +2994,44 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .rvw-more { justify-self: start; padding: 0; background: none; border: 0; color: var(--gold-2); font: inherit; font-size: 13px; cursor: pointer; }
 .rvw-actions { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; }
 @media (max-width: 760px) { .rvw-list { grid-template-columns: 1fr; } }
+
+/* The Power Hour's touches (Parry, 22 Oct): a right-hand panel on a desktop, a bottom sheet on a phone, over the Day
+   Clock and the dashboard; a contact opened from it opens on top (rendered after it). */
+.phx-wrap { position: fixed; inset: 0; z-index: 60; }
+.phx-scrim { position: absolute; inset: 0; background: rgba(2, 4, 12, 0.55); }
+.phx { position: absolute; top: 0; right: 0; bottom: 0; width: 440px; max-width: 100%; display: flex; flex-direction: column; background: #0b1226; border-left: 1px solid rgba(212, 175, 55, 0.35); box-shadow: -18px 0 48px rgba(0, 0, 0, 0.5); }
+.phx-grip { display: none; }
+.phx-head { display: flex; align-items: flex-start; gap: 12px; padding: 18px 18px 12px; border-bottom: 1px solid var(--line); }
+.phx-head > div { flex: 1; min-width: 0; }
+.phx-head h1 { margin: 0; font-size: 19px; line-height: 1.25; font-weight: 800; color: var(--text); }
+.phx-head p { margin: 3px 0 0; font-size: 12px; color: var(--text-2); }
+.phx-mark { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: rgba(245, 197, 66, 0.15); color: var(--gold-2); font-size: 18px; }
+.phx-close { flex: none; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: none; color: var(--text-2); font-size: 22px; line-height: 1; cursor: pointer; }
+.phx-close:hover { color: var(--text); border-color: var(--gold); }
+.phx-bar { margin: 12px 18px 0; height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.phx-bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--gold-2), var(--gold)); transition: width 300ms ease; }
+.phx-list { list-style: none; margin: 0; padding: 12px 12px 6px; overflow-y: auto; flex: 1; display: grid; gap: 6px; align-content: start; }
+.phx-list li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(169, 176, 189, 0.22); background: rgba(255, 255, 255, 0.03); }
+.phx-list li:hover { border-color: rgba(245, 197, 66, 0.5); }
+.phx-list li.is-done { opacity: 0.72; background: none; }
+.phx-box { flex: none; width: 34px; height: 34px; border-radius: 9px; border: 2px solid rgba(169, 176, 189, 0.6); background: none; color: #0b0b0b; font-size: 18px; font-weight: 900; cursor: pointer; display: grid; place-items: center; }
+.phx-box:hover { border-color: var(--gold-2); }
+.phx-box.on { background: var(--gold-2); border-color: var(--gold-2); }
+.phx-box:disabled { opacity: 0.6; cursor: wait; }
+.phx-body { min-width: 0; display: flex; flex-direction: column; }
+.phx-name { font-size: 16px; font-weight: 700; color: var(--text); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.phx-name:hover, a.phx-name:focus-visible { color: var(--gold-2); text-decoration: underline; }
+.phx-list li.is-done .phx-name { color: var(--text-2); }
+.phx-body small { font-size: 12px; color: var(--text-2); }
+.phx-body small span { color: var(--gold-2); }
+.phx-error { margin: 6px 18px; font-size: 13px; color: #ff8a8a; }
+.phx-foot { padding: 12px 18px 16px; border-top: 1px solid var(--line); font-size: 12px; color: var(--text-2); }
+@media (max-width: 719px) {
+  .phx { top: auto; left: 0; width: auto; max-height: 85vh; border-left: 0; border-top: 1px solid rgba(212, 175, 55, 0.35); border-radius: 18px 18px 0 0; box-shadow: 0 -18px 48px rgba(0, 0, 0, 0.5); }
+  .phx-grip { display: block; width: 40px; height: 4px; border-radius: 999px; background: rgba(169, 176, 189, 0.4); margin: 8px auto 0; }
+  .phx-head { padding: 12px 16px 10px; }
+  .phx-bar { margin: 10px 16px 0; }
+  .phx-foot { padding: 10px 16px 14px; }
+}
+.day-head-open { background: none; border: 0; padding: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--gold-2); cursor: pointer; text-align: left; }
+.day-head-open:hover, .day-head-open:focus-visible { text-decoration: underline; }

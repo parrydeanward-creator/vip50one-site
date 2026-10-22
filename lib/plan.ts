@@ -67,7 +67,7 @@ const rank = (p: PlanItem) => (p.urgency === "alert" ? 0 : p.special ? 1 : p.urg
 /** Pulse suggests: what is pulsing today, red first, then special days, then yellow; the products' own
  * order kept inside each; at most 15 other tasks (the rest wait until these are done). Every one of the day's VIP
  * touches is in the plan, always (Parry, 16 Oct: "every day the plan must carry that day's generated VIP touch tasks"):
- * they sit in the day's Power Hour, texts and notes blocks, so they never crowd out the 15. */
+ * they sit in ONE MOVE's one Power Hour (lib/touchBlock.ts), so they never crowd out the 15. */
 export function suggest(today: DayItem[], max = MAX_TASKS_SHOWN): PlanItem[] {
   const seen = new Set<string>();
   let others = 0;

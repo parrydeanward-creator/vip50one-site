@@ -21,12 +21,26 @@ test("two screens built in the same five minutes give the same first task", () =
   assert.equal(floor5("14:39"), "14:35");
 });
 
-test("blocks are named for what is in them: Power Hour only for a run of calls", () => {
-  assert.equal(groupName([s("a", "10:00", 5), s("b", "10:05", 5), s("c", "10:10", 5), s("d", "10:15", 5)]), "Power Hour · 4 calls");
+// Rewritten 22 Oct (Parry: "there are 2 power hours"): a run of the Brain's own calls was named "Power Hour · 4 calls";
+// the one Power Hour is ONE MOVE's now, named as ONE MOVE names it, and a run of calls is just "4 calls".
+test("blocks are named for what is in them: a run of calls is calls, never a Power Hour of the Brain's own", () => {
+  assert.equal(groupName([s("a", "10:00", 5), s("b", "10:05", 5), s("c", "10:10", 5), s("d", "10:15", 5)]), "4 calls");
   assert.equal(groupName([s("a", "10:00", 5, "follow_up"), s("b", "10:05", 5, "follow_up")]), "2 tasks");
   const g = groupRows(slideSlots([s("x", "14:35", 10, "follow_up"), s("y", "14:45", 10, "follow_up"), s("z", "14:55", 10)], "14:35"));
   assert.equal(groupHead(g[0]), "Now · 2:35pm to 2:55pm · 2 tasks");
   assert.equal(nowStrip(g), "Now: 2 tasks (until 2:55pm)");
+});
+
+test("22 Oct: ONE MOVE's Power Hour is one group in Your day, named as ONE MOVE names it; other calls never join it", () => {
+  const t = (id: string, start: string, done = false) => ({ ...s(id, start, 6, "call", done), touchBlock: "ph1", touchTitle: "Power Hour: 1 of 9 done" });
+  const rows = [s("x", "09:00", 10), ...Array.from({ length: 9 }, (_, k) => t(`t${k}`, `09:${String(10 + k * 5).padStart(2, "0")}`, k === 0)), s("y", "10:00", 10)];
+  const g = groupRows(slideSlots(rows, "08:00"));
+  const ph = g.filter((x) => /Power Hour/.test(x.name));
+  assert.equal(ph.length, 1, "exactly one Power Hour");
+  assert.equal(ph[0].name, "Power Hour: 1 of 9 done");
+  assert.equal(ph[0].rows.length, 8, "its undone touches; the done one is under Done");
+  assert.ok(ph[0].rows.every((r) => r.touchBlock === "ph1"));
+  assert.deepEqual(g.map((x) => x.name), ["1 call", "Power Hour: 1 of 9 done", "1 call", "Done · 1"]);
 });
 
 test("a fixed appointment never moves, even once its time has passed", () => {
@@ -46,13 +60,13 @@ test("no calls at night: past the end of the working day rows move to tomorrow (
   // late afternoon: what fits stays today, the rest goes to tomorrow
   const late = slideSlots([s("a", "09:00", 20), s("b", "09:20", 20), s("c", "09:40", 20)], "17:00", hours);
   assert.deepEqual(late.map((r) => r.tomorrow), [false, false, true]);
-  assert.equal(nowStrip(groupRows(late), "17:00", hours), "Now: Power Hour · 2 calls (until 5:40pm)");
+  assert.equal(nowStrip(groupRows(late), "17:00", hours), "Now: 2 calls (until 5:40pm)");
 });
 
 test("before the working day: the pill says when today starts", () => {
   const hours = { start: "08:00", end: "17:30" };
   const g = groupRows(slideSlots([s("a", "08:00", 10), s("b", "08:10", 10)], "06:40", hours));
-  assert.equal(nowStrip(g, "06:40", hours), "Today starts 8:00am with Power Hour · 2 calls");
+  assert.equal(nowStrip(g, "06:40", hours), "Today starts 8:00am with 2 calls");
 });
 
 // ---- Plan my day audit 3.1.2 (Parry, 16 Oct): one count for "moves to tomorrow" on every screen --------------------
@@ -87,7 +101,7 @@ test("3.1.2 during the day: what the plan cannot fit leaves today on Your day to
   const groups = groupRows(rows);
   assert.deepEqual(tomorrow.map((t) => t.ref), ["c"]);
   assert.equal(groups.find((g) => g.key === "tomorrow")!.rows.length, 1);
-  assert.equal(nowStrip(groups, "10:00", hours), "Now: Power Hour · 2 calls (until 10:20am)");
+  assert.equal(nowStrip(groups, "10:00", hours), "Now: 2 calls (until 10:20am)");
   assert.equal(tomorrow[0].why, "Today is full: this keeps the day doable.", "the plan's own reason is kept when it is true");
 });
 

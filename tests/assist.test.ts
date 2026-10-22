@@ -5,13 +5,15 @@ import type { Block, Busy } from "../lib/schedule.ts";
 import type { Commitments } from "../lib/commitments.ts";
 
 const hours = { start: "08:00", end: "17:30" };
-const blk = (id: string, start: string, end: string, extra: Partial<Block> = {}): Block => ({ id, start, end, kind: "power_hour", title: "Power Hour", refs: [id], why: "", done: false, ...extra });
+// Rewritten 22 Oct (Parry: one Power Hour, ONE MOVE's; what is left of it goes to ONE MOVE's follow-up block, so the
+// Brain never slides it): these blocks were Power Hours before; the sliding rule itself is unchanged for other work.
+const blk = (id: string, start: string, end: string, extra: Partial<Block> = {}): Block => ({ id, start, end, kind: "task", title: "Write the CMA", refs: [id], why: "", done: false, ...extra });
 
 test("slide: a missed block moves to the next free gap and the agent is told", () => {
   const busy: Busy[] = [{ start: "13:00", end: "14:00", title: "Showing", source: "showing" }];
   const r = slide([blk("a", "09:00", "10:00"), blk("b", "12:30", "12:45", { kind: "texts", title: "Texts" })], busy, hours, "12:20");
-  assert.deepEqual(r.moved.map((m) => [m.title, m.from, m.to]), [["Power Hour", "09:00", "14:10"]]);
-  assert.equal(r.note, "Moved Power Hour to 2:10pm.");
+  assert.deepEqual(r.moved.map((m) => [m.title, m.from, m.to]), [["Write the CMA", "09:00", "14:10"]]);
+  assert.equal(r.note, "Moved Write the CMA to 2:10pm.");
   assert.equal(r.blocks.find((b) => b.id === "a")!.movedFrom, "09:00");
 });
 
@@ -19,8 +21,16 @@ test("slide: done and fixed blocks never move; what can't fit goes to tomorrow",
   const r = slide([blk("a", "09:00", "10:00", { done: true }), blk("c", "09:00", "09:30", { kind: "custom", title: "Gym" }), blk("d", "10:00", "11:00")], [], hours, "17:00");
   assert.equal(r.moved.length, 0);
   assert.deepEqual(r.tomorrow.map((b) => b.id), ["d"]);
-  assert.equal(r.note, "Moved Power Hour to tomorrow.");
+  assert.equal(r.note, "Moved Write the CMA to tomorrow.");
   assert.equal(slide([blk("a", "09:00", "10:00")], [], hours, "08:30").note, null);
+});
+
+test("22 Oct: ONE MOVE's Power Hour and its follow-up never slide: what is left goes to ONE MOVE's follow-up block", () => {
+  const ph = blk("ph", "09:00", "10:00", { kind: "power_hour", title: "Power Hour: 3 of 9 done", items: [] });
+  const fu = blk("fu", "10:30", "11:00", { kind: "custom", title: "Finish your VIP touches (6 left)", followUp: true, items: [] });
+  const r = slide([ph, fu], [], hours, "12:00");
+  assert.equal(r.note, null);
+  assert.deepEqual(r.blocks.map((b) => [b.id, b.start]), [["ph", "09:00"], ["fu", "10:30"]]);
 });
 
 const cm = (items: { kind: string; target: number | null; count: number | null; result?: string | null }[]): Commitments => ({

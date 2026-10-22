@@ -24,7 +24,8 @@ export interface Moved {
  * moves to tomorrow. The note says so in one line. */
 export function slide(blocks: Block[], busy: Busy[], hours: { start: string; end: string }, now: string): { blocks: (Block & { movedFrom?: string })[]; moved: Moved[]; tomorrow: Block[]; note: string | null } {
   const n = toMin(now);
-  const missed = blocks.filter((b) => !b.done && b.kind !== "custom" && toMin(b.end) <= n);
+  // ONE MOVE's Power Hour never moves: what is left of it goes to its follow-up block, which ONE MOVE places (22 Oct)
+  const missed = blocks.filter((b) => !b.done && b.kind !== "custom" && b.kind !== "power_hour" && !b.items && toMin(b.end) <= n);
   if (!missed.length) return { blocks, moved: [], tomorrow: [], note: null };
   const stay = blocks.filter((b) => !missed.includes(b));
   const taken: Busy[] = [...busy, ...stay.map((b) => ({ start: b.start, end: b.end, title: b.title, source: "fixed" as const }))];

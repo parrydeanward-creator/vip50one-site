@@ -224,7 +224,9 @@ test("every one of the day's VIP touches is in the plan, beyond the 15 (Parry, 1
 });
 
 // Rewritten 19 Oct (Parry: the Power Hour holds "all of today's touches"): was "the Power Hour and the texts block".
-test("every VIP touch of the day lands in the Power Hour: calls first, then video texts and social touches", async () => {
+// Rewritten 22 Oct (Parry: "there are 2 power hours"): the Brain built this Power Hour; ONE MOVE sends it now, and the
+// Brain plans none of the touches in it again.
+test("every VIP touch of the day is ONE MOVE's Power Hour's: the Brain plans none of them itself", async () => {
   const { buildDay } = await import("../lib/schedule.ts");
   const { dayKind } = await import("../lib/live.ts");
   assert.equal(dayKind({ id: "x", kind: "vip_touch", title: "Social media touch — Ryan", urgency: "today" } as never), "text");
@@ -236,22 +238,23 @@ test("every VIP touch of the day lands in the Power Hour: calls first, then vide
     d("s1", { vip: true, kind: "text", what: "Social media touch — Ryan" }),
   ]);
   const out = buildDay({ hours: { start: "08:00", end: "17:30" }, busy: [], items });
-  const ph = out.blocks.find((b) => b.kind === "power_hour")!;
-  assert.deepEqual(ph.refs.slice(0, 2).sort(), ["c1", "c2"], "calls first");
-  assert.deepEqual(ph.refs.slice().sort(), ["c1", "c2", "s1", "t1"]);
-  assert.equal(ph.title, "Power Hour: 2 calls, 2 texts and social touches");
-  assert.equal(out.blocks.some((b) => b.kind === "texts"), false, "no separate texts block");
+  assert.equal(out.blocks.length, 0, "no Power Hour, texts or notes block of the Brain's own");
+  assert.equal(out.later.length, 0, "and none of them moves to tomorrow: they are ONE MOVE's");
 });
 
-test("the example agent's day is a full day: appointments, a Power Hour with the texts in it, and every VIP touch", async () => {
+test("the example agent's day is a full day: appointments, one Power Hour with every VIP touch in it, made like ONE MOVE's", async () => {
   const { demoGraph } = await import("../lib/graph/demo.ts");
-  const { buildDay } = await import("../lib/schedule.ts");
+  const { buildDay, readDay } = await import("../lib/schedule.ts");
+  const { demoTouchBlocks } = await import("../lib/touchBlock.ts");
   const today = demoGraph("complete").today!;
   const vip = today.filter((t) => t.vip && t.urgency !== "soon");
   assert.ok(vip.length >= 7);
-  const out = buildDay({ hours: { start: "08:00", end: "17:30" }, busy: [{ start: "10:00", end: "11:00", title: "Listing appointment", source: "listing_appointment" }], items: suggest(today) });
-  const planned = new Set(out.blocks.flatMap((b) => b.refs));
+  const touch = demoTouchBlocks(readDay, "2026-10-22", today, "09:00");
+  const out = buildDay({ hours: { start: "08:00", end: "17:30" }, busy: [{ start: "10:00", end: "11:00", title: "Listing appointment", source: "listing_appointment" }], items: suggest(today), touch });
+  const planned = new Set(out.blocks.flatMap((b) => [...b.refs, ...(b.items ?? []).map((i) => i.ref)]));
   for (const v of vip) assert.ok(planned.has(v.ref ?? v.id.replace(/^day:/, "")), v.what);
-  assert.ok(out.blocks.some((b) => b.kind === "power_hour" && b.refs.length >= 3));
-  assert.ok(!out.blocks.some((b) => b.kind === "texts"), "texts sit in the Power Hour now (Parry, 19 Oct)");
+  const ph = out.blocks.filter((b) => b.kind === "power_hour");
+  assert.equal(ph.length, 1, "exactly one Power Hour");
+  assert.ok(ph[0].items!.length >= 6 && ph[0].items!.some((i) => i.kind === "text") && ph[0].items!.some((i) => i.kind === "note"));
+  assert.ok(!out.blocks.some((b) => b.kind === "texts"), "texts sit in the Power Hour (Parry, 19 Oct)");
 });

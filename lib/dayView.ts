@@ -39,10 +39,13 @@ export function slideSlots(slots: readonly Slot[], now: string | null, hours?: H
 
 const isCall = (r: Slot) => r.kind === "call";
 
-/** "Power Hour · 4 calls" only for a run of calls; otherwise "3 tasks". */
+/** A run of calls is "4 calls"; other work "3 tasks". The one Power Hour is ONE MOVE's, named as ONE MOVE names it
+ * ("Power Hour: 3 of 9 done"); a run of the Brain's own calls is never called a Power Hour (Parry, 22 Oct: "there are 2
+ * power hours"). */
 export function groupName(rows: readonly Slot[]): string {
   const n = rows.length;
-  if (n > 1 && rows.every(isCall)) return `Power Hour · ${n} calls`;
+  if (rows[0]?.touchTitle) return rows[0].touchTitle;
+  if (n > 1 && rows.every(isCall)) return `${n} calls`;
   if (n === 1 && isCall(rows[0])) return "1 call";
   return `${n} ${n === 1 ? "task" : "tasks"}`;
 }
@@ -53,7 +56,9 @@ export function groupRows(rows: readonly DayRow[]): DayGroup[] {
   const undone = rows.filter((r) => !r.done && !r.tomorrow);
   for (const r of undone) {
     const g = out[out.length - 1];
-    if (g && isCall(g.rows[0]) === isCall(r) && g.rows.length < 8) {
+    // the Power Hour's touches are one group, the block's own; nothing else joins it
+    const same = g && (g.rows[0].touchBlock || r.touchBlock ? g.rows[0].touchBlock === r.touchBlock : isCall(g.rows[0]) === isCall(r) && g.rows.length < 8);
+    if (g && same) {
       g.rows.push(r);
       g.end = r.end;
     } else out.push({ key: r.id, now: r.isNow, start: r.start, end: r.end, name: "", rows: [r] });
@@ -69,8 +74,8 @@ export function groupRows(rows: readonly DayRow[]): DayGroup[] {
 export const groupHead = (g: DayGroup) =>
   g.key === "done" ? g.name : g.key === "tomorrow" ? `${g.name} (after your working day)` : `${g.now ? "Now · " : ""}${clock12(g.start)} to ${clock12(g.end)} · ${g.name}`;
 
-/** The Now strip, named for what is in it: "Now: Power Hour · 4 calls (until 3:20pm)". After the working day: "Day done ·
- * 8 move to tomorrow"; before it: "Today starts 8:00am with Power Hour · 4 calls" (walker 14 Oct, Parry approved). */
+/** The Now strip, named for what is in it: "Now: Power Hour: 3 of 9 done (until 3:20pm)". After the working day: "Day done ·
+ * 8 move to tomorrow"; before it: "Today starts 8:00am with 4 calls" (walker 14 Oct, Parry approved). */
 export function nowStrip(groups: readonly DayGroup[], now?: string | null, hours?: Hours): string | null {
   const later = groups.find((x) => x.key === "tomorrow")?.rows.length ?? 0;
   const g = groups.find((x) => x.key !== "done" && x.key !== "tomorrow");

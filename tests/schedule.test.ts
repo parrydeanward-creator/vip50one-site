@@ -1,11 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { batches, blockHue, buildDay, busyHue, categoryHue, readDay, freeGaps, HUE, nextLine, readBlock, toMin } from "../lib/schedule.ts";
+import { batches, blockHue, buildDay, busyHue, categoryHue, readDay, freeGaps, HUE, nextLine, readBlock, toMin, type Block } from "../lib/schedule.ts";
 import type { PlanItem } from "../lib/plan.ts";
 
-// one of the day's VIP touches unless the test says otherwise (19 Oct: only those go in the Power Hour)
+// one of the day's VIP touches unless the test says otherwise (19 Oct: only those go in the Power Hour, which is ONE
+// MOVE's from 22 Oct: the Brain plans round it and never builds one)
 const it = (ref: string, x: Partial<PlanItem> = {}): PlanItem => ({ ref, product: "move", kind: "call", title: `Call ${ref}`, contactId: null, link: null, minutes: 10, done: false, urgency: "today", vip: true, ...x });
 const hours = { start: "08:00", end: "17:00" };
+// ONE MOVE's one Power Hour, as GET /api/brain/day sends it (vip50-web-crm#371), read by the Brain's reader
+const movePower = (start: string, end: string, refs: string[]): Block =>
+  readDay({ date: "2026-10-22", hours: { start: "08:00", end: "17:00" }, busy: [], blocks: [{ id: "ph1", start, end, kind: "power_hour", title: `Power Hour: 0 of ${refs.length} done`, refs, why: "", done: false, follow_up: false, items: refs.map((r) => ({ task_id: null, ref: r, contact_id: null, name: r, kind: "call", what: "Call", done: false })) }] })!.blocks[0];
 
 test("free time: working hours minus appointments, with 10 minutes either side, and never the past", () => {
   const g = freeGaps(hours, [{ start: "10:00", end: "11:00", title: null, source: "calendar" }], "08:30");
@@ -14,35 +18,40 @@ test("free time: working hours minus appointments, with 10 minutes either side, 
   assert.deepEqual(own[0], [toMin("08:00"), toMin("12:00")], "no buffer round the agent's own blocks");
 });
 
-test("calls batch into Power Hours of up to 60 minutes, overdue first", () => {
+// Rewritten 22 Oct (Parry: "there are 2 power hours on the daily clock calendar"): this asserted the Brain batched
+// calls into Power Hours of up to 60 minutes (two for 8 calls). The Power Hour is ONE MOVE's now; the Brain builds none.
+test("22 Oct: the Brain never batches Today's VIP touches into a Power Hour of its own", () => {
   const calls = Array.from({ length: 8 }, (_, k) => it(`c${k}`, { urgency: k === 7 ? "alert" : "today" }));
-  const g = batches(calls, [toMin("09:00"), toMin("11:00")]);
-  assert.deepEqual(g.map((x) => [x.kind, x.items.length]), [["power_hour", 6], ["power_hour", 2]]);
-  assert.equal(g[0].items[0].ref, "c7", "the overdue call leads");
-  assert.match(g[0].why, /overdue/);
+  assert.deepEqual(batches(calls), [], "every VIP touch is in ONE MOVE's Power Hour");
+  const other = batches([it("move:fu", { vip: undefined, kind: "follow_up", title: "Call the Millers back", urgency: "alert" })]);
+  assert.deepEqual(other.map((x) => x.kind), ["task"], "any other call is a task of its own");
 });
 
-// Rewritten 19 Oct (Parry: "all of today's touches" in the Power Hour): texts were their own block before.
-test("approvals get one block; texts and notes go in the Power Hour", () => {
-  const g = batches([it("t1", { kind: "text" }), it("t2", { kind: "text" }), it("n1", { kind: "note", minutes: 5 }), it("a1", { kind: "approval", minutes: 15 })], [540, 660]);
-  assert.deepEqual(g.map((x) => x.kind).sort(), ["approvals", "power_hour"]);
-  const ph = g.find((x) => x.kind === "power_hour")!;
-  assert.equal(ph.items.length, 3);
-  assert.equal(ph.title, "Power Hour: 2 texts and social touches, 1 note");
+// Rewritten 22 Oct: texts and notes went in the Brain's Power Hour; they are ONE MOVE's Power Hour's now.
+test("approvals get one block; VIP texts and notes are left to ONE MOVE's Power Hour", () => {
+  const g = batches([it("t1", { kind: "text" }), it("t2", { kind: "text" }), it("n1", { kind: "note", minutes: 5 }), it("a1", { kind: "approval", minutes: 15 })]);
+  assert.deepEqual(g.map((x) => x.kind), ["approvals"]);
 });
 
-test("the day: Power Hour in the calling window, around the listing appointment, fixed lunch kept", () => {
+// Rewritten 22 Oct: the Brain placed its own Power Hour in the calling window; now ONE MOVE's stays where ONE MOVE put
+// it and the day is planned round it.
+test("the day: ONE MOVE's one Power Hour kept as sent, the rest round it, the appointment and the fixed lunch kept", () => {
+  const ph = movePower("11:00", "12:00", ["c1", "c2", "c3", "t1"]);
   const d = buildDay({
     hours,
     busy: [{ start: "09:30", end: "10:30", title: null, source: "listing_appointment" }],
-    items: [it("c1"), it("c2"), it("c3"), it("t1", { kind: "text" }), it("lunch", { kind: "meeting", title: "Lunch with Marcus", minutes: 60, at: "12:30" })],
-    bestCalls: { start: "09:00", end: "11:00" },
+    items: [it("c1"), it("c2"), it("c3"), it("t1", { kind: "text" }), it("x", { vip: undefined, kind: "other", title: "Write the CMA", minutes: 90 }), it("lunch", { kind: "meeting", title: "Lunch with Marcus", minutes: 60, at: "12:30" })],
+    touch: [ph],
   });
-  const ph = d.blocks.find((b) => b.kind === "power_hour")!;
-  assert.ok(toMin(ph.end) <= toMin("09:20") || toMin(ph.start) >= toMin("10:40"), "never inside the appointment or its buffer");
-  assert.ok(toMin(ph.start) >= toMin("09:00") && toMin(ph.start) <= toMin("11:00"), "in the calling window");
+  const hours1 = d.blocks.filter((b) => b.kind === "power_hour");
+  assert.equal(hours1.length, 1, "exactly one Power Hour");
+  assert.deepEqual([hours1[0].start, hours1[0].end, hours1[0].items?.length], ["11:00", "12:00", 4]);
+  const refs = d.blocks.flatMap((b) => b.refs);
+  for (const r of ["c1", "c2", "c3", "t1"]) assert.equal(refs.filter((x) => x === r).length, 1, `${r} planned once, in the Power Hour`);
+  const cma = d.blocks.find((b) => b.refs[0] === "x")!;
+  assert.ok(toMin(cma.end) <= toMin("09:20") || toMin(cma.start) >= toMin("12:00"), "never on the Power Hour or the appointment");
   assert.ok(d.blocks.some((b) => b.start === "12:30" && b.refs[0] === "lunch"), "the fixed lunch keeps its time");
-  assert.equal(d.later.length, 0);
+  assert.equal(d.plannedMin, 60 + 90, "the Power Hour counts as work planned");
 });
 
 test("honest load: never more than 85% of the free time; the rest moves to tomorrow with a reason", () => {
@@ -318,7 +327,8 @@ test("3.1.1 one row per appointment: the same time and title from the calendar a
 
 test("3.1.4 after the working day the reason is that the day is over; 'Today is full' only when it is", async () => {
   const { DAY_OVER_WHY, FULL_WHY } = await import("../lib/schedule.ts");
-  const items = [it("a"), it("b", { kind: "text" }), it("c", { kind: "other", title: "Write the CMA", minutes: 45 })];
+  // 22 Oct: a and b are not VIP touches here (those are ONE MOVE's Power Hour's and never move to tomorrow from the Brain)
+  const items = [it("a", { vip: undefined, ref: "move:a" }), it("b", { kind: "text", vip: undefined, ref: "move:b" }), it("c", { kind: "other", title: "Write the CMA", minutes: 45 })];
   const night = buildDay({ hours, busy: [], items, notBefore: "21:20" });
   assert.equal(night.later.length, 3);
   assert.ok(night.later.every((l) => l.why === DAY_OVER_WHY), "at 9:20pm nothing says the day is full");
@@ -341,10 +351,11 @@ test("3.1.6 an appointment's arc shows its title for every source that has one; 
 
 test("3.1.9 tomorrow's plan: what moves to tomorrow, planned with the same rules over tomorrow's hours", async () => {
   const { tomorrowPlan } = await import("../lib/schedule.ts");
-  const p = tomorrowPlan([it("a", { at: "09:00" }), it("b"), it("t", { kind: "text" })], hours, [{ start: "10:00", end: "11:00", title: "Listing appointment", source: "listing_appointment" }]);
+  const p = tomorrowPlan([it("a", { at: "09:00" }), it("b"), it("w", { vip: undefined, kind: "other", title: "Write the CMA", minutes: 30 })], hours, [{ start: "10:00", end: "11:00", title: "Listing appointment", source: "listing_appointment" }]);
   assert.equal(p.later.length, 0);
-  // 19 Oct: the text sits in the Power Hour now (was a separate "texts" block)
-  assert.deepEqual(p.blocks.map((b) => b.kind).sort(), ["power_hour"], "a carried time is not kept: it is planned again");
+  // 22 Oct: VIP touches are in ONE MOVE's Power Hour for tomorrow (rewritten: they made a Brain Power Hour here before)
+  assert.deepEqual(p.blocks.map((b) => b.kind), ["task"], "a carried time is not kept: it is planned again");
+  assert.deepEqual(tomorrowPlan([it("a"), it("b")], hours, [], [], [movePower("09:00", "10:00", ["a", "b"])]).blocks.map((b) => b.kind), ["power_hour"], "ONE MOVE's Power Hour for tomorrow, once");
   assert.ok(p.blocks.every((b) => toMin(b.start) >= toMin(hours.start)), "planned from the start of the day, not from now");
   assert.ok(p.blocks.every((b) => !b.done));
   assert.ok(p.blocks.every((b) => !/\btoday\b/i.test(b.why)), "its reasons speak of tomorrow, never \"Due today.\"");
@@ -352,27 +363,24 @@ test("3.1.9 tomorrow's plan: what moves to tomorrow, planned with the same rules
   assert.match(tight.later[0].why, /^Tomorrow is full/);
 });
 
-test("19 Oct: a short leftover joins the Power Hour before it, never a five-minute Power Hour of its own", () => {
-  const calls = Array.from({ length: 6 }, (_, k) => it(`c${k}`, { kind: "call", minutes: 10 }));
-  const g = batches([...calls, it("t1", { kind: "text", minutes: 5 })], [540, 660]).filter((x) => x.kind === "power_hour");
-  assert.equal(g.length, 1);
-  assert.equal(g[0].minutes, 65);
-  assert.equal(g[0].title, "Power Hour: 6 calls, 1 text or social touch");
-  const long = batches([...calls, it("t1", { kind: "text", minutes: 20 })], [540, 660]).filter((x) => x.kind === "power_hour");
-  assert.equal(long.length, 2, "a longer leftover still gets its own block");
+// Rewritten 22 Oct: a long list of touches made two Brain Power Hours (the second one Parry saw); ONE MOVE's one holds
+// them all, however many there are.
+test("22 Oct: however many touches, the day has exactly one Power Hour", () => {
+  const refs = Array.from({ length: 12 }, (_, k) => `go:task:${k}`);
+  const d = buildDay({ hours, busy: [], items: refs.map((r) => it(r)), touch: [movePower("09:00", "10:00", refs)] });
+  assert.equal(d.blocks.filter((b) => b.kind === "power_hour").length, 1);
+  assert.equal(d.blocks.length, 1, "no touch planned a second time");
+  assert.equal(buildDay({ hours, busy: [], items: refs.map((r) => it(r)) }).blocks.length, 0, "no Power Hour until ONE MOVE sends it");
 });
 
-test("19 Oct: only Today's VIP touches go in the Power Hour; any other call is a task of its own", () => {
-  const g = batches([it("go:task:a"), it("move:fu", { vip: undefined, kind: "follow_up", title: "Call the Millers back" }), it("go:task:n", { kind: "note" })], [540, 660]);
-  const ph = g.find((x) => x.kind === "power_hour")!;
-  assert.deepEqual(ph.items.map((x) => x.ref), ["go:task:a", "go:task:n"]);
-  assert.equal(ph.title, "Power Hour: 1 call, 1 note");
-  assert.ok(g.some((x) => x.kind === "task" && x.items[0].ref === "move:fu"));
-  assert.ok(!g.some((x) => x.kind === "notes"), "notes sit in the Power Hour now");
+// Rewritten 22 Oct: asserted the Brain's Power Hour held only the VIP touches; the Brain holds none now.
+test("19 Oct: only Today's VIP touches are the Power Hour's; any other call is a task of its own", () => {
+  const g = batches([it("go:task:a"), it("move:fu", { vip: undefined, kind: "follow_up", title: "Call the Millers back" }), it("go:task:n", { kind: "note" })]);
+  assert.deepEqual(g.map((x) => [x.kind, x.items[0].ref]), [["task", "move:fu"]]);
 });
 
 test("20 Oct: the day's drop-bys are one run on the clock, named", () => {
-  const g = batches([it("d1", { kind: "other", title: "Drop by Alex" }), it("d2", { kind: "other", title: "Drop by Wesley" }), it("d3", { kind: "other", title: "Drop by Chris" }), it("x", { kind: "other", title: "Write the CMA" })], [540, 660]);
+  const g = batches([it("d1", { kind: "other", title: "Drop by Alex" }), it("d2", { kind: "other", title: "Drop by Wesley" }), it("d3", { kind: "other", title: "Drop by Chris" }), it("x", { kind: "other", title: "Write the CMA" })]);
   const run = g.filter((x) => /Drop/.test(x.title));
   assert.equal(run.length, 1);
   assert.equal(run[0].title, "Drop-bys: Alex, Wesley, Chris");
