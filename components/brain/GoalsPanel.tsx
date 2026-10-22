@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import LogReferral from "./LogReferral.tsx";
-import { GOAL_WORD, behindPace, fmtGoal, goalPace, goalValue, type GoalFacts, type GoalKey } from "@/lib/goals.ts";
+import { GoalForm, YearForm, shortDay, yearStartOf, type GoalNote } from "./GoalForms.tsx";
+import { GOAL_WORD, behindPace, fmtGoal, goalPace, type GoalFacts, type GoalKey } from "@/lib/goals.ts";
 
 // Goals on the desktop, the same list the phone shows (Parry, 16 Oct, audit 3.4.4): Closings, Referrals and GCI, each
 // with its pace and "Change goal" (audit 3.4.1), saved to MASTER agent_goals through /api/goals. Closings and GCI come
@@ -43,72 +44,24 @@ export default function GoalsPanel({
   onSetStart?: (month: number, day: number) => Promise<string | null>;
 }) {
   const [editing, setEditing] = useState<GoalKey | null>(null);
-  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const shortDay = (iso: string) => { const d = new Date(`${iso}T12:00:00Z`); return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`; };
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [note, setNote] = useState<GoalNote | null>(null);
   const shown = ORDER.map((k) => goals.find((g) => g.key === k) ?? { key: k, label: GOAL_WORD[k], value: null, max: null, pace: null }).filter((g) => !only || g.key === only);
-
-  const start = (g: GoalFacts) => {
-    setEditing(g.key);
-    setText(g.max != null ? String(g.max) : "");
-    setNote(null);
-  };
-  const submit = async (key: GoalKey) => {
-    const v = goalValue(key, text);
-    if (typeof v !== "number") return setNote({ ok: false, text: v.error });
-    if (demo) return setNote({ ok: false, text: "Example agent: goals are not saved." });
-    setBusy(true);
-    const err = await onSave(key, v);
-    setBusy(false);
-    if (err) return setNote({ ok: false, text: err });
-    setEditing(null);
-    setNote({ ok: true, text: `${GOAL_WORD[key]} goal saved: ${fmtGoal(key, v)}.` });
-  };
 
   const sources = !editOnly && (!only || only !== "referrals_goal");
   // The goal year, and when it starts (Parry, 21 Oct: "we need a way for each agent to choose when their year starts").
   const year = goals.find((g) => g.from && g.to);
-  const [yearEdit, setYearEdit] = useState<{ m: number; d: number } | null>(null);
-  const saveStart = async () => {
-    if (!yearEdit || !onSetStart) return;
-    if (demo) return setNote({ ok: false, text: "Example agent: goals are not saved." });
-    setBusy(true);
-    const err = await onSetStart(yearEdit.m, yearEdit.d);
-    setBusy(false);
-    if (err) return setNote({ ok: false, text: err });
-    setYearEdit(null);
-    setNote({ ok: true, text: `Your goal year now starts on ${MONTHS[yearEdit.m - 1]} ${yearEdit.d}.` });
-  };
+  const [yearEdit, setYearEdit] = useState(false);
   return (
     <div className="gl-panel">
       {!editOnly && onSetStart ? (
         <div className="gl-year">
           {yearEdit ? (
-            <form className="gl-edit" onSubmit={(e) => { e.preventDefault(); void saveStart(); }}>
-              <label>
-                <span>Your goal year starts on</span>
-                <span className="gl-md">
-                  <select value={yearEdit.m} onChange={(e) => setYearEdit({ ...yearEdit, m: Number(e.target.value) })} aria-label="Month">
-                    {MONTHS.map((mo, i) => <option key={mo} value={i + 1}>{mo}</option>)}
-                  </select>
-                  <input inputMode="numeric" value={yearEdit.d} maxLength={2} aria-label="Day"
-                    onChange={(e) => setYearEdit({ ...yearEdit, d: Number(e.target.value.replace(/\D/g, "")) || 0 })} />
-                </span>
-              </label>
-              <small className="gl-src">Real agents: your cap year starts on your anniversary with Real.</small>
-              <span className="gl-acts">
-                <button type="submit" className="vr-btn" disabled={busy}>{busy ? "Saving" : "Save"}</button>
-                <button type="button" className="vr-btn" onClick={() => setYearEdit(null)} disabled={busy}>Cancel</button>
-              </span>
-            </form>
+            <YearForm initial={yearStartOf(year?.from)} demo={demo} onSetStart={onSetStart} onNote={setNote} onDone={() => setYearEdit(false)} />
           ) : (
             <p className="gl-src">
               {year ? `Goal year: ${shortDay(year.from!)} to ${shortDay(year.to!)}. ` : "Your goal year starts the day you set your goals. "}
               <button className="link" onClick={() => {
-                const f = year?.from ? new Date(`${year.from}T12:00:00Z`) : null;
-                setYearEdit({ m: f ? f.getUTCMonth() + 1 : 1, d: f ? f.getUTCDate() : 1 });
+                setYearEdit(true);
                 setNote(null);
               }}>Change when it starts</button>
             </p>
@@ -133,27 +86,9 @@ export default function GoalsPanel({
                 </p>
               ) : null}
               {editing === g.key ? (
-                <form
-                  className="gl-edit"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void submit(g.key);
-                  }}
-                >
-                  <label>
-                    <span>{GOAL_WORD[g.key]} goal for this goal year</span>
-                    <span className="im-in">
-                      {g.key === "gci_goal" ? <i>$</i> : null}
-                      <input autoFocus inputMode="numeric" value={text} onChange={(e) => setText(e.target.value)} aria-label={`${GOAL_WORD[g.key]} goal`} />
-                    </span>
-                  </label>
-                  <span className="gl-acts">
-                    <button type="submit" className="vr-btn" disabled={busy}>{busy ? "Saving" : "Save"}</button>
-                    <button type="button" className="vr-btn" onClick={() => setEditing(null)} disabled={busy}>Cancel</button>
-                  </span>
-                </form>
+                <GoalForm goalKey={g.key} initial={g.max} demo={demo} onSave={onSave} onNote={setNote} onDone={() => setEditing(null)} />
               ) : (
-                <button className="link gl-change" onClick={() => start(g)} aria-label={`Change ${GOAL_WORD[g.key]} goal`}>
+                <button className="link gl-change" onClick={() => { setEditing(g.key); setNote(null); }} aria-label={`Change ${GOAL_WORD[g.key]} goal`}>
                   Change goal
                 </button>
               )}
