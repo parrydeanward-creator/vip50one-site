@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
-import { TONE_HUE, applyTick, canTick, challengeCompleteUrl, challengeLine, challengeShown, challengeTickUrl, challengeUrl, completedLine, demoChallenge, demoChallengeBody, groupLine, moveLink, readChallenge, readComplete, resultsLine, ringOf, safeUrl, tickBody, tilesOf, toneOf, withChallengeNode } from "../lib/challenge.ts";
+import { TONE_HUE, applyTick, canTick, challengeCompleteUrl, challengeLine, challengeShown, challengeTickUrl, challengeStartUrl, challengeUrl, completedLine, demoChallenge, demoChallengeBody, groupLine, moveLink, readChallenge, readComplete, readStart, resultsLine, ringOf, runLine, runStatus, runsShown, safeUrl, startBody, STILL_RUNNING, tickBody, tilesOf, toneOf, withChallengeNode } from "../lib/challenge.ts";
 import { liveGraph, type SummaryEnvelope } from "../lib/live.ts";
 import { CHALLENGE, CHALLENGE_NODE } from "../lib/oneYou.ts";
 
@@ -362,4 +362,70 @@ test("a live agent never sees the example agent's challenge", () => {
   const brain = readFileSync(new URL("../components/brain/Brain.tsx", import.meta.url), "utf8");
   assert.ok(brain.includes("const shownChallenge = challengeShown(live, challenge, () => demoCh);"));
   assert.ok(brain.includes("const demoCh = useMemo(() => (live ? null : demoChallenge()), [live]);"));
+});
+
+// ---- every run kept (Parry, 22 Oct: "yes keep every run"; VIP-SUMMARY §3ap) ----
+
+const RUNS = [
+  { run: 1, start_date: "2026-07-10", completed_at: "2026-10-22", status: "completed", certificate_url: "https://move.vip50one.com/certificate/abc" },
+  { run: 2, start_date: "2026-10-22", completed_at: null, status: "active", certificate_url: null },
+];
+
+test("readChallenge reads run and runs; no runs field means null (the old route)", () => {
+  const c = readChallenge({ ...LIVE, run: 2, runs: [RUNS[1], RUNS[0], { run: "x" }, { run: 3, certificate_url: "https://evil.example/c" }] })!;
+  assert.ok(c.enrolled);
+  if (!c.enrolled) return;
+  assert.equal(c.run, 2);
+  assert.deepEqual(c.runs!.map((r) => r.run), [1, 2, 3]); // oldest first, junk dropped
+  assert.equal(c.runs![0].certificateUrl, "https://move.vip50one.com/certificate/abc");
+  assert.equal(c.runs![2].certificateUrl, null); // off ONE MOVE: refused
+  const old = readChallenge(LIVE)!;
+  assert.ok(old.enrolled);
+  if (!old.enrolled) return;
+  assert.equal(old.run, null);
+  assert.equal(old.runs, null);
+});
+
+test("runLine and runsShown: newest first, only with more than one run or a completed one", () => {
+  const c = readChallenge({ ...LIVE, run: 2, runs: RUNS })!;
+  assert.equal(runLine(c.enrolled ? c.runs![0] : (null as never)), "Run 1 · Jul 10 – Oct 22, 2026 · Completed");
+  assert.deepEqual(runsShown(c)!.map((r) => r.run), [2, 1]);
+  assert.equal(runLine(runsShown(c)![0]), "Run 2 · Started Oct 22, 2026 · In progress");
+  assert.equal(runsShown(readChallenge({ ...LIVE, run: 1, runs: [RUNS[1]] })), null);
+  assert.ok(runsShown(readChallenge({ ...LIVE, run: 1, runs: [RUNS[0]] })));
+  assert.equal(runsShown(readChallenge(LIVE)), null); // no runs field
+  const across = readChallenge({ ...LIVE, runs: [{ run: 1, start_date: "2025-12-01", completed_at: "2026-03-01", status: "completed" }] })!;
+  assert.equal(runLine(across.enrolled ? across.runs![0] : (null as never)), "Run 1 · Dec 1, 2025 – Mar 1, 2026 · Completed");
+});
+
+test("the start posts to ONE MOVE with the identity statement, or an empty body", () => {
+  assert.equal(challengeStartUrl, "https://move.vip50one.com/api/brain/challenge/start");
+  assert.deepEqual(JSON.parse(startBody("  I am becoming a closer.  ")), { identity_statement: "I am becoming a closer." });
+  assert.deepEqual(JSON.parse(startBody("   ")), {});
+});
+
+test("readStart: the whole new answer, 409 in plain words, anything else an error", () => {
+  const ok = readStart(200, { ...LIVE, run: 2, runs: RUNS });
+  assert.equal(ok.kind, "started");
+  if (ok.kind === "started" && ok.challenge.enrolled) assert.equal(ok.challenge.run, 2);
+  assert.deepEqual(readStart(409, { error: "active" }), { kind: "running", words: "Your current 90 days are still running." });
+  assert.equal(STILL_RUNNING, "Your current 90 days are still running.");
+  assert.equal(readStart(500, { error: "boom" }).kind, "error");
+  assert.equal(readStart(200, { nonsense: true }).kind, "error"); // 2xx that is not a challenge: nothing replaced
+});
+
+test("the view: the form posts /start when runs exist, Classic otherwise; the demo has a past run and the current one", () => {
+  const demo = readChallenge(demoChallengeBody("2026-10-22"), "2026-10-22")!;
+  assert.ok(demo.enrolled);
+  if (!demo.enrolled) return;
+  assert.equal(demo.run, 2);
+  assert.deepEqual(demo.runs!.map((r) => [r.run, runStatus(r)]), [[1, "Completed"], [2, "In progress"]]);
+  assert.ok(demo.runs![0].certificateUrl);
+  assert.equal(demo.runs![0].completedAt! < demo.startDate!, true);
+  const live = readChallenge(LIVE)!;
+  assert.ok(live.enrolled && live.runs === null && live.run === null); // a live agent on the old route sees no example runs
+  const view = readFileSync(new URL("../components/brain/ChallengeView.tsx", import.meta.url), "utf8");
+  assert.ok(view.includes("fetch(challengeStartUrl"));
+  assert.ok(view.includes('if (!canStart) return open("a new Day 1 setup");')); // old route: Classic
+  assert.ok(view.includes("const canStart = !!on?.runs;"));
 });

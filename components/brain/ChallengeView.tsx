@@ -9,12 +9,17 @@ import {
   applyTick,
   canTick,
   challengeCompleteUrl,
+  challengeStartUrl,
   challengeTickUrl,
   completedLine,
   groupLine,
   mountainToday,
   readChallenge,
   readComplete,
+  readStart,
+  runLine,
+  runsShown,
+  startBody,
   ringOf,
   tickBody,
   tilesOf,
@@ -214,6 +219,66 @@ export default function ChallengeView({
     window.open(productLink(certificateUrl) as string, "_blank", "noopener,noreferrer");
   };
 
+  // Start another 90 (§3ap "Every run kept"): an inline form when the route sends `runs`, else Classic's page as before.
+  const [startOpen, setStartOpen] = useState(false);
+  const [startText, setStartText] = useState("");
+  const [starting, setStarting] = useState(false);
+  const canStart = !!on?.runs;
+  const startAnother = () => {
+    if (!canStart) return open("a new Day 1 setup");
+    setStartText(on?.identity ?? "");
+    setStartOpen(true);
+    setNote(null);
+  };
+  const submitStart = async () => {
+    if (starting) return;
+    setStarting(true);
+    setNote(null);
+    if (demo) {
+      setStarting(false);
+      setStartOpen(false);
+      setNote("Example agent: signed in, this starts your next 90 days today.");
+      return;
+    }
+    let res: ReturnType<typeof readStart>;
+    try {
+      const r = await fetch(challengeStartUrl, { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: startBody(startText) });
+      res = isSignInRefusal(r.status) ? { kind: "error", words: SIGN_IN_LINE } : readStart(r.status, await r.json().catch(() => null));
+    } catch {
+      res = { kind: "error", words: "ONE MOVE could not be reached. Nothing was changed; try again." };
+    }
+    setStarting(false);
+    if (res.kind === "started") {
+      setDoneNow(null);
+      setLetterOpen(false);
+      setStartOpen(false);
+      setC(res.challenge);
+      onData(res.challenge);
+      setNote("Your next 90 days start today.");
+    } else setNote(res.words);
+  };
+  const startForm = startOpen ? (
+    <form
+      className="chv-startform"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submitStart();
+      }}
+    >
+      <label htmlFor="chv-start-id">Who are you becoming this time?</label>
+      <textarea id="chv-start-id" rows={2} maxLength={500} value={startText} onChange={(e) => setStartText(e.target.value)} placeholder="I am becoming someone who…" />
+      <div className="chv-finbtns">
+        <button type="button" className="chv-btn" onClick={() => setStartOpen(false)} disabled={starting}>
+          Cancel
+        </button>
+        <button type="submit" className="chv-btn solid" data-act="challenge-start" disabled={starting}>
+          {starting ? "Starting…" : "Start"}
+        </button>
+      </div>
+    </form>
+  ) : null;
+  const runs = runsShown(c);
+
   const ring = on ? ringOf(on) : null;
   const tiles = on ? tilesOf(on) : [];
   const date = on?.today.date ?? mountainToday();
@@ -225,7 +290,10 @@ export default function ChallengeView({
         <div>
           <span className="chip chv-tag">ONE YOU</span>
           <h1 className="d-title chv-title" id="chv-title">The 90-Day Challenge</h1>
-          <p className="chv-sub">Five arenas, every day, for 90 days. Become who you said you&apos;d be.</p>
+          <p className="chv-sub">
+            {on && on.run != null && on.run > 1 ? <b className="chv-run">{`Run ${on.run}`} · </b> : null}
+            Five arenas, every day, for 90 days. Become who you said you&apos;d be.
+          </p>
         </div>
       </div>
       {on ? (
@@ -343,6 +411,31 @@ export default function ChallengeView({
                     </button>
                   </div>
                 </div>
+
+                {runs ? (
+                  <div className="chv-card chv-runs">
+                    <div className="chv-kick">Your runs</div>
+                    <ul>
+                      {runs.map((r) => (
+                        <li key={r.run}>
+                          <span>{runLine(r)}</span>
+                          {r.certificateUrl ? (
+                            <a
+                              className="chv-link"
+                              data-act="challenge-cert"
+                              href={productLink(r.certificateUrl) as string}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={demo ? (e) => { e.preventDefault(); setNote("Example agent: signed in, this opens your certificate in ONE MOVE."); } : undefined}
+                            >
+                              Certificate ↗
+                            </a>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
 
               <div className="chv-col">
@@ -479,7 +572,7 @@ export default function ChallengeView({
                   <button type="button" className="chv-btn solid" data-act="challenge-cert" onClick={openCert}>
                     View my certificate
                   </button>
-                  <button type="button" className="chv-btn" data-act="challenge-row" onClick={() => open("a new Day 1 setup")}>
+                  <button type="button" className="chv-btn" data-act="challenge-row" onClick={startAnother}>
                     Start another 90
                   </button>
                 </div>
@@ -511,7 +604,7 @@ export default function ChallengeView({
                       View my certificate
                     </button>
                   ) : null}
-                  <button type="button" className="chv-btn" data-act="challenge-row" onClick={() => open("a new Day 1 setup")}>
+                  <button type="button" className="chv-btn" data-act="challenge-row" onClick={startAnother}>
                     Start another 90
                   </button>
                 </div>
@@ -527,6 +620,7 @@ export default function ChallengeView({
                 </button>
               </div>
             )}
+            {startForm}
             {on.letter && letterOpen ? <p className="d-sum ch-letter chv-letter">{on.letter}</p> : null}
           </>
         )}
