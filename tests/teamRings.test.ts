@@ -6,7 +6,7 @@ import { WAR_NODE, demoWarRoom } from "../lib/warroom.ts";
 import { demoOnboarding } from "../lib/onboarding.ts";
 import { MAX_FACES, agentNodeId, readPeople } from "../lib/teamPeople.ts";
 import { indexGraph, visibleSet, DESKTOP_BUDGET, PHONE_BUDGET, TEAM_HUB_BUDGET } from "../lib/graph/model.ts";
-import { TEAM_ORB_R, TEAM_ROWS, layout, bounds } from "../lib/brain/layout.ts";
+import { TEAM_ORB_R, layout, bounds, teamInner } from "../lib/brain/layout.ts";
 import { fit } from "../lib/brain/camera.ts";
 import type { GraphEdge, GraphNode } from "../lib/graph/types.ts";
 
@@ -52,26 +52,48 @@ for (const n of [18, 24]) {
   });
 
   for (const [name, w, h, phone] of [["1440x900", 1440, 900, false], ["390x844", 390, 844, true]] as const) {
-    test(`One Team with ${n} agents at ${name}: two rows, no orb overlaps another, orbs larger than the ring`, () => {
+    test(`One Team with ${n} agents at ${name}: two concentric rings, nothing overlaps, orbs no smaller than #335's`, () => {
       const { vs } = open(n);
-      const placed = layout(vs, { teamRows: phone ? "start" : "centre" });
+      const placed = layout(vs, { teamRings: true });
       assert.equal(placed.length, vs.nodes.length, "every visible node is placed");
+      // Deliberate change (Parry, 22 Oct): the two straight rows (#335) are replaced by two rings round the focus.
       for (let i = 0; i < placed.length; i++)
         for (let j = i + 1; j < placed.length; j++) {
           const a = placed[i], b = placed[j];
-          assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= a.r + b.r + 8, `${a.id} overlaps ${b.id}`);
+          assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= a.r + b.r + 10, `${a.id} overlaps ${b.id}`);
         }
+      const focus = placed.find((p) => p.role === "focus")!;
+      assert.deepEqual([focus.x, focus.y], [0, 0], "the focus is the centre");
       const kids = placed.filter((p) => p.role === "child");
-      assert.equal(new Set(kids.map((k) => k.y)).size, TEAM_ROWS, "exactly two rows");
-      const b = bounds(placed, 20);
-      const c = phone ? { scale: Math.max(fit(b, { width: w, height: h - 254 }, 12).scale, 0.6) } : fit(b, { width: w - 420, height: h }, 40);
-      if (!phone) assert.ok((b.maxX - b.minX) * c.scale <= w - 420, "all of it fits beside the card");
-      // Today's ring (desktop budget, 18 children cut) at the same screen, rail included on desktop.
-      const old = layout(visibleSet(indexGraph(open(n).g as never), TEAM_HUB, phone ? PHONE_BUDGET : DESKTOP_BUDGET));
-      const ob = bounds(old, 20);
-      const oc = phone ? fit(ob, { width: w, height: h - 254 }, 12) : fit(ob, { width: w - 420 - 250, height: h - 160 }, 40);
-      assert.ok(TEAM_ORB_R * c.scale > 34 * oc.scale * (n === 18 ? 1.5 : 1.2), `larger: ${TEAM_ORB_R * c.scale} vs ${34 * oc.scale}`);
-      if (phone) assert.ok(TEAM_ORB_R * c.scale >= 27, "readable on a phone");
+      assert.equal(kids.length, n + 3);
+      const dist = kids.map((k) => Math.hypot(k.x - focus.x, k.y - focus.y));
+      const radii = [...new Set(dist.map((d) => Math.round(d * 1000)))].map((d) => d / 1000).sort((a, b) => a - b);
+      assert.equal(radii.length, 2, "exactly two distinct ring radii");
+      assert.ok(radii[0] < radii[1], "inner radius < outer radius");
+      for (const d of dist) assert.ok(radii.some((r) => Math.abs(d - r) < 0.01), "every child sits on one of the two rings");
+      const inner = dist.filter((d) => Math.abs(d - radii[0]) < 0.01).length;
+      const outer = kids.length - inner;
+      assert.ok(inner < outer, "the outer ring holds more (split by circumference)");
+      // "space all of them the same" (Parry, 22 Oct): neighbour gap on each ring and the gap between the rings agree.
+      const gapIn = 2 * radii[0] * Math.sin(Math.PI / inner), gapOut = 2 * radii[1] * Math.sin(Math.PI / outer), gapRings = radii[1] - radii[0];
+      const gs = [gapIn, gapOut, gapRings];
+      assert.ok(Math.max(...gs) / Math.min(...gs) <= 1.05, `equal spacing: ${gs.map((g) => g.toFixed(1))}`);
+      assert.ok(kids.every((k) => k.r >= TEAM_ORB_R) && TEAM_ORB_R >= 54, "orbs are no smaller than #335's");
+      // the three parts are on the inner ring
+      for (const id of [TEAM_NODE, WAR_NODE]) {
+        const p = placed.find((q) => q.id === id)!;
+        assert.ok(Math.abs(Math.hypot(p.x, p.y) - radii[0]) < 0.01, `${id} is on the inner ring`);
+      }
+      // phone: starts fitted to the focus and the WHOLE inner ring, inside the map area above the slider (about y 150 to
+      // 430 at 390x844), with faces at least 20px in radius; the outer ring is a pan away.
+      if (phone) {
+        const area = { width: w, height: 430 - 150 };
+        const ib = bounds(teamInner(placed), 20);
+        const c = Math.max(fit(ib, area, 12).scale, 20 / TEAM_ORB_R);
+        assert.ok(TEAM_ORB_R * c >= 20 - 1e-9, "faces keep a 20px radius on a phone");
+        assert.ok((ib.maxX - ib.minX) * c <= area.width && (ib.maxY - ib.minY) * c <= area.height, "the whole inner ring is on screen at the start");
+        assert.ok(teamInner(placed).length > 1 && teamInner(placed).length < placed.length, "the outer ring is left to pan to");
+      }
     });
   }
 }

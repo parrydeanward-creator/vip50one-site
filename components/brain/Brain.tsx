@@ -25,7 +25,7 @@ import GroupPanel from "./GroupPanel.tsx";
 import { demoDailyRaw, demoWeeklyRaw, menuTarget, withDemoTrackers } from "@/lib/examples/move.ts";
 import type { BusinessGraph, GraphNode } from "@/lib/graph/types.ts";
 import { DESKTOP_BUDGET, PHONE_BUDGET, TEAM_HUB_BUDGET, childrenOf, indexGraph, pathTo, visibleSet } from "@/lib/graph/model.ts";
-import { bounds, layout } from "@/lib/brain/layout.ts";
+import { bounds, layout, teamInner } from "@/lib/brain/layout.ts";
 import { fit, keepInBand, pan, zoomAt } from "@/lib/brain/camera.ts";
 import * as nav from "@/lib/brain/nav.ts";
 import { PRODUCT_COLOR, STATUS, hex } from "@/lib/brain/theme.ts";
@@ -189,7 +189,7 @@ import { IN_BRAIN, MENU_ORB, MOVE_MENU, MOVE_PAGE_WIDTH, MOVE_BOTTOM, isMoveGrou
 
 const PHONE_QUERY = "(max-width: 719px)";
 const CARD_ROOM = 420; // desktop width kept free for the floating card
-const TEAM_PHONE_SCALE = 0.6; // the least the Team orb's rows are drawn at on a phone (then they scroll sideways)
+const TEAM_PHONE_SCALE = 20 / 54; // the least the Team orb is drawn at on a phone: a face keeps a 20px radius (the outer ring is a pan away)
 const RAIL_ROOM = 250; // and for the rail of floating buttons on the left
 
 export interface BrainAgent {
@@ -1794,8 +1794,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   if (focus.id === state.focusId) lastPath.current = pathTo(ix, focus.id).slice(0, -1).map((n) => n.id);
   const focusIdRef = useRef(focus.id);
   focusIdRef.current = focus.id;
-  // The One Team orb open: every face shows, in two larger rows (lib/brain/layout.ts teamRows).
-  const teamRows = focus.id === TEAM_HUB && !ask && !tour && !timeline && !dayView;
+  // The One Team orb open: every face shows, on two rings (lib/brain/layout.ts teamRings).
+  const teamRings = focus.id === TEAM_HUB && !ask && !tour && !timeline && !dayView;
   const vs = useMemo(
     () =>
       tour
@@ -1806,17 +1806,17 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             ? answerSet(ix, productIds)
             : dayView
               ? answerSet(ix, dayIds)
-              : visibleSet(ix, focus.id, teamRows ? TEAM_HUB_BUDGET : phone ? PHONE_BUDGET : DESKTOP_BUDGET),
-    [ix, focus.id, phone, ask, askIds, tour, timeline, productIds, dayView, dayIds, teamRows],
+              : visibleSet(ix, focus.id, teamRings ? TEAM_HUB_BUDGET : phone ? PHONE_BUDGET : DESKTOP_BUDGET),
+    [ix, focus.id, phone, ask, askIds, tour, timeline, productIds, dayView, dayIds, teamRings],
   );
-  const placed = useMemo(() => layout(vs, teamRows ? { teamRows: phone ? "start" : "centre" } : {}), [vs, teamRows, phone]);
+  const placed = useMemo(() => layout(vs, teamRings ? { teamRings: true } : {}), [vs, teamRings]);
   // ONE MOVE focused: the rail is ONE MOVE's main menu, as in Classic (Parry, 3 Oct).
   // Its live items stay in the panel on the right.
   const moveMenu = focus.id === "move" && !focus.locked && !ask && !tour && !timeline && !dayView;
   // The rail: the focused node's children as floating buttons on the left.
   const railNodes = useMemo(
     () =>
-      moveMenu || teamRows
+      moveMenu || teamRings
         ? []
         : tour
         ? tour.ids.map((id) => ix.byId.get(id)!).filter(Boolean)
@@ -1829,7 +1829,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               : focus.id === "go"
                 ? childrenOf(ix, focus.id) // ONE YOU: every tool in one look (Walker, 17 Oct)
                 : childrenOf(ix, focus.id).slice(0, 9),
-    [ix, focus.id, ask, askIds, tour, timeline, datedIds, dayView, dayIds, moveMenu, teamRows],
+    [ix, focus.id, ask, askIds, tour, timeline, datedIds, dayView, dayIds, moveMenu, teamRings],
   );
   const railCount = railNodes.length;
   const railRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -1893,8 +1893,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       if (phone) {
         // screen pixels kept clear above and below (the bar, the timeline)
         let c = fit(b, { width: vp.width, height: vp.height - keep.top - keep.bottom }, 12);
-        // The Team orb's rows never shrink below a readable orb: they start at the left edge and scroll sideways.
-        if (teamRows && c.scale < TEAM_PHONE_SCALE) c = { ...c, scale: TEAM_PHONE_SCALE, x: b.minX + (vp.width / 2 - 12) / TEAM_PHONE_SCALE };
+        // The Team orb's rings never shrink below a readable orb: the phone fits the focus and inner ring, and pans out.
+        if (teamRings && c.scale < TEAM_PHONE_SCALE) c = { ...c, scale: TEAM_PHONE_SCALE };
         return s.setCamera({ ...c, y: c.y - (keep.top - keep.bottom) / 2 / c.scale }, animate);
       }
       // Desktop: the detail card floats on the right; fit the graph to the rest.
@@ -1903,11 +1903,11 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       const c = fit(b, { width: vp.width - room - rail, height: vp.height }, 40);
       s.setCamera({ ...c, x: c.x + (room - rail) / 2 / c.scale }, animate);
     },
-    [phone, railCount, moveMenu, teamRows],
+    [phone, railCount, moveMenu, teamRings],
   );
   const fitNow = useCallback(
     (animate: boolean) => {
-      const b = bounds(placed, 20);
+      const b = bounds(teamRings && phone ? teamInner(placed) : placed, 20);
       if (phone) {
         // the Pulse bar; the hint, the timeline and the button row under it (measured when the page is laid out)
         const band = clearBand();
@@ -1918,7 +1918,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
       b.minY -= 70; // and of the Ask ONE bar across the top
       frameOn(b, animate);
     },
-    [placed, phone, frameOn, clearBand],
+    [placed, phone, teamRings, frameOn, clearBand],
   );
 
   // Refit only when what is on screen changes, not when a number ticks (the
