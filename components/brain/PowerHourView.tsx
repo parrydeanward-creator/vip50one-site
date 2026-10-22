@@ -6,7 +6,8 @@ import CallPrepCard from "./CallPrepCard.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
 import { touchUrl } from "@/lib/contact.ts";
 import { chimeOn, playChime } from "@/lib/chime.ts";
-import { LENGTHS, LOGGED, OUTCOMES, TOUCH_WORD, bringUp, current, mmss, outcomeWord, remaining, shown, touchesLine, wrap, type Call, type Outcome, type Session, type TouchKind } from "@/lib/powerHour.ts";
+import { contactHref } from "@/lib/touchBlock.ts";
+import { LENGTHS, LOGGED, OUTCOMES, TOUCH_WORD, bringUp, current, mmss, outcomeWord, remaining, touchesLine, wrap, type Call, type Outcome, type Session, type TouchKind } from "@/lib/powerHour.ts";
 
 // Power Hour in ONE YOU (PULSE-ROADMAP "ONE YOU"; Parry approved, 6 Oct). The call now sits in the middle with
 // the countdown round it; the rest of the line-up goes round them. Tap anyone and they come to the middle with
@@ -45,7 +46,8 @@ export default function PowerHourView({
   session: Session;
   live: boolean;
   onSession: (s: Session) => void;
-  onTick: (ref: string, done: boolean) => void;
+  /** The Power Hour's one tick (Brain tickTouch): ONE MOVE completes it; the error text, or null. */
+  onTick: (ref: string, done: boolean) => Promise<string | null> | void;
   onClose: () => void;
   /** The person's full contact card (the Brain's PersonPanel), shown under the call when a name is picked. */
   contactCard?: (contactId: string, name: string) => ReactNode;
@@ -75,9 +77,8 @@ export default function PowerHourView({
     };
   }, []);
 
-  // Today's VIP touches; the behind-pace ones join only once every one of today's is done
-  const calls = shown(all, session);
-  const extra = calls.some((c) => c.behind);
+  // the Power Hour ONE MOVE sent (and its follow-up): the same touches as the Day Clock's side panel
+  const calls = all;
   const left = remaining(session, now);
   const timeUp = left === 0;
   // one chime when the hour is up, if the agent keeps chimes on (the Day Clock's switch)
@@ -148,7 +149,10 @@ export default function PowerHourView({
           return;
         }
       }
-      if (c.ref) onTick(c.ref, true);
+      if (c.ref) {
+        const err = await onTick(c.ref, true);
+        if (err) msg = `${msg ? `${msg} ` : ""}${err}`;
+      }
     }
     onSession({ ...session, results: { ...session.results, [c.id]: o } });
     setPick(null);
@@ -161,6 +165,12 @@ export default function PowerHourView({
     delete results[c.id];
     onSession(bringUp({ ...session, results }, c.id));
     setPick(null);
+    if (c.ref && c.done) void onTick(c.ref, false);
+  };
+  // the list's box: tick it done (as the side panel's), or take the tick back
+  const toggle = async (c: Call) => {
+    if (session.results[c.id] || c.done) return undo(c);
+    if (c.ref) setNote(await onTick(c.ref, true) ?? null);
   };
 
   const ringFor = (c: Call) => {
@@ -296,11 +306,11 @@ export default function PowerHourView({
               <h2>{finished ? "What got done" : "So far"}</h2>
               <p className="pi-today pi-lvl-today dc-next">{w.line}</p>
               {finished && w.talked > 0 && <p className="d-sum">Each conversation counts toward this week on your Income Map.</p>}
-              {finished && w.left === 0 && <p className="d-sum">{extra ? "Today's touches and the ones behind are done. You are current." : "Every VIP touch for today is done."}</p>}
+              {finished && w.left === 0 && <p className="d-sum">Every VIP touch for today is done.</p>}
             </>
           )}
 
-          <h2>{extra ? "Today's VIP touches, then the ones behind" : "Today's VIP touches"}</h2>
+          <h2>Today's VIP touches</h2>
           {calls.length ? (
             <ol className="pm-list pm-compact">
               {calls.map((c) => {
@@ -308,8 +318,31 @@ export default function PowerHourView({
                 return (
                   <li key={c.id} id={`ph-row-${c.id}`} className={`${res ? "is-done" : ""}${sel?.id === c.id ? " picked" : ""}`}>
                     <i className="pm-dot" style={{ background: ringFor(c) }} aria-hidden="true" />
-                    <span className="pm-body ph-name" role="button" tabIndex={0} aria-label={`Open the contact card: ${c.name}`} {...tap(() => choose(c))}>
-                      <b>{`${TOUCH_WORD[c.kind]}: ${c.name}`}</b>
+                    {c.ref ? (
+                      <button className={`phx-box${res ? " on" : ""}`} role="checkbox" aria-checked={!!res} onClick={() => void toggle(c)} aria-label={`${res ? "Mark not done" : "Mark done"}: ${TOUCH_WORD[c.kind]}, ${c.name}`}>
+                        {res ? "✓" : ""}
+                      </button>
+                    ) : null}
+                    <span className="pm-body ph-name" {...(c.contactId ? {} : { role: "button", tabIndex: 0, "aria-label": `Open the call: ${c.name}`, ...tap(() => choose(c)) })}>
+                      <b>
+                        {`${TOUCH_WORD[c.kind]}: `}
+                        {c.contactId ? (
+                          <a
+                            className="ph-link"
+                            href={contactHref(c.contactId)!}
+                            aria-label={`Open the contact card: ${c.name}`}
+                            onClick={(e) => {
+                              if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+                              e.preventDefault();
+                              choose(c);
+                            }}
+                          >
+                            {c.name}
+                          </a>
+                        ) : (
+                          c.name
+                        )}
+                      </b>
                       <small>{res ? outcomeWord(c.kind, res) : c.why}</small>
                     </span>
                     <span className="pm-acts">
@@ -320,7 +353,7 @@ export default function PowerHourView({
               })}
             </ol>
           ) : (
-            <p className="pm-empty">No VIP touches for today, and nothing behind for the month.</p>
+            <p className="pm-empty">No VIP touches in your Power Hour today.</p>
           )}
           <p className="pm-promise">{live ? "" : "Example agent. "}You make every call. Pulse never dials, texts or sends anything for you.</p>
         </aside>

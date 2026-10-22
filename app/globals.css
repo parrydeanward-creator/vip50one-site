@@ -1911,6 +1911,7 @@ a.link { display: block; text-decoration: none; }
 .ph-call h2 { margin-top: 0; }
 .ph-contact { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(245, 197, 66, 0.2); }
 .ph-name { cursor: pointer; }
+.ph-link { color: inherit; font: inherit; letter-spacing: inherit; text-transform: none; }
 .ph-name:hover b, .ph-name:focus-visible b { text-decoration: underline; }
 .ph-outcomes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 

@@ -5,7 +5,7 @@ import { demoGraph, oneYouView } from "../lib/graph/demo.ts";
 import { pathTo, indexGraph } from "../lib/graph/model.ts";
 import { needsOf } from "../lib/needs.ts";
 import { CALENDAR_NODE, PLAN_NODE, withPlanNode } from "../lib/plan.ts";
-import { POWER_NODE, lineUp, withPowerNode } from "../lib/powerHour.ts";
+import { POWER_NODE, withPowerNode } from "../lib/powerHour.ts";
 import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode } from "../lib/habits.ts";
 import { WEEK_NODE, demoCommitments, withWeekNode } from "../lib/commitments.ts";
 import { REVIEW_NODE, withReviewNode } from "../lib/review.ts";
@@ -35,7 +35,7 @@ function built(o: { coach?: boolean; calls?: boolean; growth?: boolean; base?: B
   g = withWeekNode(g, demoCommitments(TODAY), 10);
   g = withCoachNode(g, o.coach === false ? null : demoCoached(TODAY), 10);
   g = withReviewNode(g, { cards: [{ level: "now" }, { level: "today" }] } as never);
-  g = withPowerNode(g, lineUp(g.today ?? [], null, TODAY), null);
+  g = withPowerNode(g, [], null);
   g = withReferralsNode(g, demoReferrals(TODAY), TODAY);
   g = withHabitsNode(g, habitsToday(demoHabitsDay(TODAY), null, TODAY));
   g = withReviewCallsNode(g, o.calls !== false);
