@@ -10,6 +10,7 @@ import { GbpProfileCard } from "./GbpScreen.tsx";
 import WhereIWorkSection from "./WhereIWorkSection.tsx";
 import TimeOffSection from "./TimeOffSection.tsx";
 import ToursSection from "./ToursSection.tsx";
+import ReviewsSection from "./ReviewsSection.tsx";
 import { autostartBody, homeReportUrl, monthUrl, readMonthCard } from "@/lib/homeReport.ts";
 import { BadgesSection, GoogleSections, MembershipBadge, NotificationsSection, TeamAdsSection } from "./ProfileCards.tsx";
 import { brokerageAsk, CONNECTIONS, demoProfile, FIELDS, TIME_ZONES, UPLOAD_MAX, aboutChanges, changes, fitSize, greetingName, photoProblem, photoUrl, problem, profileUrl, readProfile, winsChange, WINS_MAX, type Profile } from "@/lib/profile.ts";
@@ -320,6 +321,7 @@ export default function MyProfile({
         <WhereIWorkSection demo={demo} />
         <TimeOffSection demo={demo} />
         <ToursSection demo={demo} />
+        <ReviewsSection demo={demo} />
         <GbpProfileCard demo={gbpDemo} onOpen={onOpenGbp} />
         {askAi && onOpenAskAi ? (
           <section className="pf-card" aria-label={askAi.title}>
