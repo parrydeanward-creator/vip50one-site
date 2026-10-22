@@ -168,7 +168,7 @@ import { NETWORK_NODE, REVSHARE_NODE, demoRezenRead, readNetwork as readRezenNet
 import { rezenUrl } from "@/lib/rezen.ts";
 import { ONB_NODE, demoOnboarding, onbIdOf, onboardingUrl, readOnboarding, readRemoved, withStart, type OnbMember } from "@/lib/onboarding.ts";
 import { heatUrl, readHeat, type HeatSuggestion } from "@/lib/heat.ts";
-import { NOT_YET_STORE, demoLooksHot, fromHeat, fromSignals, isLooksHotOrb, looksIdOf, looksNodeId, looksHotUrl, mergeLooks, readLooksHot, readNotYet, shownLooks, withLooksHot, withNotYet, type LooksPerson, type NotYet } from "@/lib/looksHot.ts";
+import { LOOKS_NODE, NOT_YET_STORE, demoLooksHot, fromHeat, fromSignals, isLooksHotOrb, looksIdOf, looksNodeId, looksHotUrl, mergeLooks, readLooksHot, readNotYet, shownLooks, withLooksHot, withNotYet, type LooksPerson, type NotYet } from "@/lib/looksHot.ts";
 import { DEMO_NTS_NODE, NTS_PATH, demoNewToSort, fromNewLeads, newToSortUrl, readNewToSort, withNewToSort, withoutPerson as withoutSorted, type NewToSort as NtsData } from "@/lib/newToSort.ts";
 import ClosedCards from "./ClosedCards.tsx";
 import { LAST_COOKIE, LAST_MAX_AGE } from "@/lib/landing.ts";
@@ -4690,6 +4690,20 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
           }}
           onForecast={shownGoals.forecast ? () => setForecastOpen(true) : undefined}
           onIncomeMap={theIncome ? () => setIncomeOpen(true) : undefined}
+          deals={deals}
+          hot={hotPeople}
+          refs={refs}
+          looks={looks}
+          avgGci={shownGoals.income?.avgGci.value ?? forecastAvg.value}
+          onAddDeal={() => {
+            setGoalsOpen(false);
+            if (deals) setDealsOpen("add");
+            else goPage("/deals");
+          }}
+          onLooksHot={() => {
+            setGoalsOpen(false);
+            goTo(LOOKS_NODE);
+          }}
           onClose={() => setGoalsOpen(false)}
         />
       ) : null}
