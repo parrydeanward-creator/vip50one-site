@@ -12,12 +12,14 @@ const dash = indexGraph(demoGraph("complete"));
 test("the dashboard demo opens Marquee, ONE Open and Showly to their tools, each labelled Example", () => {
   const labels = (p: string) => childrenOf(dash, p).map((n) => n.label);
   assert.deepEqual(labels("marquee"), ["Listings", "Calendar", "Posts waiting", "Seller reports", "Presentations", "Room cards"]);
-  assert.deepEqual(labels("open"), ["Open houses", "Visitors", "Questions", "Reports", "Scorecard", "Safety"]);
+  assert.deepEqual(labels("open"), ["Open houses", "Visitors", "Questions", "Reports", "Scorecard", "Safety", "Door hangers"]);
   assert.deepEqual(labels("showly"), ["Tours", "Buyer answers", "Recaps", "Lender"]);
   for (const p of ["marquee", "open", "showly"])
     for (const t of childrenOf(dash, p)) {
       assert.ok(t.summary && t.href?.startsWith("/go/"), `${t.id}: panel and the one sign-in hop`);
-      if (t.id !== "marquee-tool-listings") assert.match(t.secondaryLabel ?? "", /^Example/, t.id);
+      // Door hangers (vip-open#65) is link-only: a real link, not an example.
+      if (t.id === "open-tool-hangers") assert.equal(t.href, "/go/vip-open?next=%2Fapp%2Fhangers");
+      else if (t.id !== "marquee-tool-listings") assert.match(t.secondaryLabel ?? "", /^Example/, t.id);
     }
 });
 

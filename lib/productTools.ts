@@ -120,7 +120,15 @@ function orb(p: ToolProduct, key: string, label: string, does: string, o: Partia
 // ---- ONE Open (live: vip_open_tools, migration 076) ---------------------------
 
 const PHASE: Record<string, string> = { plan: "Plan", prepare: "Prepare", host: "Host", follow_up: "Follow Up" };
-const OPEN_KEYS = ["open_houses", "visitors", "questions", "reports", "scorecard", "safety"] as const;
+const OPEN_KEYS = ["open_houses", "visitors", "questions", "reports", "scorecard", "safety", "hangers"] as const;
+
+/** ONE Open's door hanger designer (vip-open#65), opened signed in through the one sign-in hop. With an event id (the
+ * agent's own open house, a UUID) it opens that house with the neighbor tour hanger chosen. */
+export const OPEN_HANGERS_PATH = "/app/hangers";
+const EVENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function doorHangersHref(eventId?: string): string {
+  return goHref("vip-open", eventId && EVENT_ID.test(eventId) ? `${OPEN_HANGERS_PATH}?event=${eventId.toLowerCase()}&template=neighbor_tour` : OPEN_HANGERS_PATH);
+}
 
 /** ONE Open's six tools from `vip_open_tools` (`tools` array). `answer` null: not asked or no answer, so every tool
  * shows ONE Open's own labelled example. `now` for "this question is fresh". */
@@ -137,6 +145,13 @@ function openTool(key: (typeof OPEN_KEYS)[number], t: Record<string, unknown> | 
   const src = ex ?? t ?? obj(OPEN_EXAMPLE[key])!;
   const link = t?.link;
   const p = "open" as const;
+  // Link-only: ONE Open's door hanger designer holds no data to show here, so it is never an example.
+  if (key === "hangers") {
+    return orb(p, key, "Door hangers", "Design and print door hangers: open house, neighbor tour, just listed, just sold, coming soon, home value, sorry I missed you.", {
+      sub: "Design and print",
+      path: OPEN_HANGERS_PATH,
+    });
+  }
   const items = arr(src.items) ?? [];
   const live = !example;
   if (key === "open_houses") {
@@ -268,6 +283,7 @@ const OPEN_EXAMPLE: Record<(typeof OPEN_KEYS)[number], Record<string, unknown>> 
   reports: { items: [{ address: "45 Sample Court", seller_report_sent: false, seller_recap_ready: true, buyer_reports_sent: 9 }] },
   scorecard: { open_houses: 2, sign_ins: 23, contacts: 19, appointments: 3, clients: 1 },
   safety: { active: true, buddy: "Your buddy gets a text if you do not check out on time" },
+  hangers: {},
 };
 
 // ---- Marquee -----------------------------------------------------------------

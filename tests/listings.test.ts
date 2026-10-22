@@ -54,4 +54,9 @@ test("Host it again: every upcoming ONE Open orb with a real event id links to /
   assert.equal(hostAgainHref(`live:open:upcoming:2026-10-04:1 A St`), undefined, "the next_open_house fallback has no event id");
   assert.equal(hostAgainHref(`live:open:upcoming:e1`), undefined);
   assert.equal(hostAgainHref(`marquee:listing:${id}`), undefined);
+  // Door hanger (vip-open#65): the same orbs, the designer for that event with the neighbor tour hanger.
+  const { doorHangerHref } = await import("../lib/live.ts");
+  assert.equal(doorHangerHref(oh!.id), `/go/vip-open?next=${encodeURIComponent(`/app/hangers?event=${id}&template=neighbor_tour`)}`);
+  assert.equal(doorHangerHref(`live:open:upcoming:2026-10-04:1 A St`), undefined);
+  assert.equal(doorHangerHref(`marquee:listing:${id}`), undefined);
 });
