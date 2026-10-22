@@ -53,8 +53,15 @@ export type LiveChallenge =
       stats: ChallengeStats | null;
       /** §3ap: this week's group or team board, top 5 plus the agent; null until sent (the group line shows instead). */
       leaderboard: Leader[] | null;
+      /** §3ap "Every run kept": the 1-based number of the current run; null on an older route. */
+      run: number | null;
+      /** §3ap: every run, oldest first; null when the route does not send `runs` (the old route: Start another 90 opens Classic). */
+      runs: Run[] | null;
       url: string;
     };
+
+/** One run of the challenge (§3ap `runs[]`). */
+export type Run = { run: number; startDate: string | null; completedAt: string | null; status: string; certificateUrl: string | null };
 
 const KEYS = CHALLENGE.arenas.map((a) => a.key) as readonly string[];
 const num = (v: unknown, lo: number, hi: number, dflt = 0) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : dflt);
@@ -249,8 +256,60 @@ export function readChallenge(raw: unknown, today: string = mountainToday()): Li
     days: readDays(r.days),
     stats: readStats(r.stats),
     leaderboard: readLeaderboard(r.leaderboard),
+    run: typeof r.run === "number" && Number.isFinite(r.run) && r.run >= 1 ? num(r.run, 1, 1000) : null,
+    runs: readRuns(r.runs),
     url,
   };
+}
+
+function readRuns(v: unknown): Run[] | null {
+  if (!Array.isArray(v)) return null;
+  const out: Run[] = [];
+  for (const x of v) {
+    if (!x || typeof x !== "object") continue;
+    const r = x as Record<string, unknown>;
+    if (typeof r.run !== "number" || !Number.isFinite(r.run) || r.run < 1) continue;
+    const completedAt = date(r.completed_at);
+    out.push({ run: num(r.run, 1, 1000), startDate: date(r.start_date), completedAt, status: str(r.status, 30) ?? (completedAt ? "completed" : "active"), certificateUrl: moveLink(r.certificate_url) });
+  }
+  return out.sort((a, b) => a.run - b.run).slice(0, 100);
+}
+
+/** POST here to start the next run today (§3ap "Every run kept"); it answers with the whole GET body. */
+export const challengeStartUrl = `${MOVE_URL}/api/brain/challenge/start`;
+
+/** The start's body: `{identity_statement}` when the agent wrote one, else `{}`. */
+export const startBody = (identity: string): string => {
+  const t = identity.trim().slice(0, 500);
+  return JSON.stringify(t ? { identity_statement: t } : {});
+};
+
+export const STILL_RUNNING = "Your current 90 days are still running.";
+/** ONE MOVE's answer to the start: the new state; 409, the current run is still active; or it did not take it. */
+export type StartResult = { kind: "started"; challenge: LiveChallenge } | { kind: "running"; words: string } | { kind: "error"; words: string };
+export function readStart(status: number, body: unknown): StartResult {
+  if (status === 409) return { kind: "running", words: STILL_RUNNING };
+  const b = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
+  const fresh = status >= 200 && status < 300 ? readChallenge(body) : null;
+  if (fresh?.enrolled) return { kind: "started", challenge: fresh };
+  return { kind: "error", words: str(b.error, 200) ?? "ONE MOVE did not take that. Nothing was changed; try again." };
+}
+
+const dayWords = (d: string, year: boolean) => new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric", ...(year ? { year: "numeric" } : {}) }).format(new Date(`${d}T12:00:00Z`));
+/** "Jul 10 – Oct 22, 2026" (both years when they differ); a run still going: "Started Oct 12, 2026". */
+export function runRange(r: Run): string {
+  if (!r.startDate) return r.completedAt ? `Finished ${dayWords(r.completedAt, true)}` : "Dates coming";
+  if (!r.completedAt) return `Started ${dayWords(r.startDate, true)}`;
+  const same = r.startDate.slice(0, 4) === r.completedAt.slice(0, 4);
+  return `${dayWords(r.startDate, !same)} – ${dayWords(r.completedAt, true)}`;
+}
+export const runStatus = (r: Run): string => (/^completed?$/i.test(r.status) || r.completedAt ? "Completed" : /^active$/i.test(r.status) ? "In progress" : r.status.charAt(0).toUpperCase() + r.status.slice(1));
+/** "Run 1 · Jul 10 – Oct 22, 2026 · Completed". */
+export const runLine = (r: Run): string => `Run ${r.run} · ${runRange(r)} · ${runStatus(r)}`;
+/** Runs, newest first, when the row shows: more than one run or any completed run; else null. */
+export function runsShown(c: LiveChallenge | null): Run[] | null {
+  if (!c || !c.enrolled || !c.runs) return null;
+  return c.runs.length > 1 || c.runs.some((r) => runStatus(r) === "Completed") ? [...c.runs].sort((a, b) => b.run - a.run) : null;
 }
 
 /** The orb's side line: "Day 23 of 90 · 65 today", or "Finished 7 Oct · start again" once it is over; null when not
@@ -489,6 +548,11 @@ export function demoChallengeBody(today: string = mountainToday()) {
     identity_statement: "I am constantly in motion with purpose, building better relationships and making new ones daily.",
     enemy: ["my family's freedom", "a business that runs on relationships"],
     group: null,
+    run: 2,
+    runs: [
+      { run: 1, start_date: addDays(start, -100), completed_at: addDays(start, -11), status: "completed", certificate_url: `${MOVE_URL}/certificate/example-run-1` },
+      { run: 2, start_date: start, completed_at: null, status: "active", certificate_url: null },
+    ],
     url: CHALLENGE.pageUrl,
   };
 }

@@ -3215,6 +3215,14 @@ a.phx-name:hover, a.phx-name:focus-visible { color: var(--gold-2); text-decorati
 .chv-finish p { margin: 0; flex: 1; min-width: 240px; font-size: 17px; }
 .chv-finish p b { color: #2fbf71; }
 .chv-finish > .chv-btn { margin-left: auto; }
+.chv-run { color: var(--gold-2); }
+.chv-runs ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.chv-runs li { display: flex; justify-content: space-between; align-items: center; gap: 8px 14px; flex-wrap: wrap; font-size: 14px; }
+.chv-runs .chv-link { text-decoration: none; }
+.chv-startform { margin-top: 14px; padding: 18px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); display: grid; gap: 10px; }
+.chv-startform label { font-weight: 700; font-size: 14px; }
+.chv-startform textarea { width: 100%; box-sizing: border-box; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,0.04); color: inherit; font: inherit; padding: 10px 12px; resize: vertical; }
+.chv-startform .chv-finbtns { margin-left: 0; justify-content: flex-end; }
 .chv-finbtns { display: flex; gap: 10px; flex-wrap: wrap; margin-left: auto; }
 .chv-dot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: #2fbf71; box-shadow: 0 0 0 6px rgba(47, 191, 113, 0.18); }
 .chv-letter { margin-top: 14px; }
