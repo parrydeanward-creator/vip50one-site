@@ -50,7 +50,36 @@ export function radiusFor(type: NodeType, role: Role): number {
 const GAP = 26;
 const LABEL_W = 150; // widest label a child carries, in world units
 
-export function layout(vs: VisibleSet, opts: { relax?: boolean } = {}): Placed[] {
+/** The One Team orb's children: every orb the same larger size, in this many rows. */
+export const TEAM_ROWS = 2;
+export const TEAM_ORB_R = 54;
+export const TEAM_SLOT = 120; // one column: the orb and its first name beneath it
+export const TEAM_ROW_GAP = 160; // centre to centre between the two rows; room for the name and the line under it
+
+/** Two rows under the focus, filled left to right, top row first. `start` puts the focus over the first column (a
+ * phone, whose camera starts at the left and scrolls sideways); otherwise the rows and the focus are centred. */
+export function teamRows(vs: VisibleSet, align: "centre" | "start" = "centre"): Placed[] {
+  const focus = vs.nodes.find((v) => v.role === "focus")!;
+  const rf = radiusFor(focus.node.type, "focus");
+  const kids = vs.nodes.filter((v) => v.role === "child").sort((a, b) => a.order - b.order);
+  const cols = Math.max(1, Math.ceil(kids.length / TEAM_ROWS));
+  const x0 = align === "centre" ? -((cols - 1) * TEAM_SLOT) / 2 : 0;
+  const y0 = rf + TEAM_ORB_R + 70;
+  const placed: Placed[] = [{ id: focus.node.id, role: "focus", x: align === "centre" ? 0 : x0, y: 0, r: rf }];
+  kids.forEach((k, i) => {
+    const row = Math.floor(i / cols), col = i % cols;
+    placed.push({ id: k.node.id, role: "child", x: x0 + col * TEAM_SLOT, y: y0 + row * TEAM_ROW_GAP, r: TEAM_ORB_R });
+  });
+  // The back orb sits to the upper left of the focus, clear of both rows.
+  vs.nodes.filter((v) => v.role === "ancestor").sort((a, b) => a.order - b.order).forEach((v, i) => {
+    const fx = placed[0].x;
+    placed.push({ id: v.node.id, role: "ancestor", x: fx - (rf + 110) - i * 84, y: -10, r: radiusFor(v.node.type, "ancestor") });
+  });
+  return placed;
+}
+
+export function layout(vs: VisibleSet, opts: { relax?: boolean; teamRows?: "centre" | "start" } = {}): Placed[] {
+  if (opts.teamRows) return teamRows(vs, opts.teamRows);
   const byRole = (role: Role) => vs.nodes.filter((v) => v.role === role).sort((a, b) => a.order - b.order);
   const placed: Placed[] = [];
 
