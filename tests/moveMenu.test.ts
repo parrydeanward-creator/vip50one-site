@@ -30,13 +30,19 @@ import { liveGraph, type SummaryEnvelope, type SummaryItem } from "../lib/live.t
 // (Parry: "I dont want the archived contacts orb on one move"); it stays a link on My Contacts.
 // Rewritten 23 Oct (third): 35. "Who is on my site" joins People (VIP-SUMMARY §3ar; Parry: "yes build it. looks great"),
 // a native Brain view at ONE MOVE's /on-my-site, under the same hard rule (Classic and the Brain).
-test("ONE MOVE menu: all 35 Classic pages, in Parry's groups, no admin items", () => {
-  assert.equal(MOVE_MENU.length, 35);
+// Rewritten 23 Oct (fourth): 36. Contacts holds Import and Clean Up (Parry, 23 Oct: "move import contacts and clean up
+// contacts under contacts orb ... three orbs now under contacts, contacts, import and clean"): Clean Up Contacts leaves the
+// People rows and comes back as a part of Contacts, and Import becomes a part of Contacts again (+1).
+test("ONE MOVE menu: all 36 Classic pages, in Parry's groups, no admin items", () => {
+  assert.equal(MOVE_MENU.length, 36);
   assert.deepEqual(MOVE_TOP.map((m) => m.label), ["Dashboard"]);
   assert.deepEqual(MOVE_GROUPS.map((g) => g.label), ["People", "Trackers", "Events", "Outreach", "Learn"]);
   assert.deepEqual(MOVE_BOTTOM.map((m) => m.label), ["The Lounge", "My Profile"]);
   // Rewritten 17 Oct: Home Reports is called Market Reports (HOME-REPORT v0.4; Parry, 16 Oct: "1 yes"); same path.
-  assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "Drop-By Map", "Opportunities", "Hot/Warm/Cold", "Who is on my site", "Business Rolodex", "Referral Network", "Life Events", "Deals", "Clean Up Contacts", "Lead Sources"]);
+  assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "Drop-By Map", "Opportunities", "Hot/Warm/Cold", "Who is on my site", "Business Rolodex", "Referral Network", "Life Events", "Deals", "Lead Sources"]);
+  // the parts of Contacts, right after it in menu order
+  assert.deepEqual(MOVE_GROUPS[0].pages[0].kids?.map((m) => [m.label, m.path]), [["Import", "/contacts/import"], ["Clean Up", "/contacts/cleanup"]]);
+  assert.deepEqual(MOVE_MENU.slice(1, 4).map((m) => m.label), ["Contacts", "Import", "Clean Up"]);
   assert.deepEqual(MOVE_GROUPS[0].pages.filter((m) => ["Opportunities", "Life Events", "Deals"].includes(m.label)).map((m) => m.path), ["/opportunities", "/life-events", "/deals"]);
   assert.deepEqual(MOVE_GROUPS[3].pages.map((m) => [m.label, m.path]), [["Overview", "/outreach"], ["Newsletter", "/newsletter"], ["Landing Pages", "/landing-pages"], ["Action Plans", "/action-plans"], ["Market Reports", "/home-reports"]]);
   assert.deepEqual(MOVE_GROUPS[4].pages.map((m) => [m.label, m.path]), [["Learn home", "/learn"], ["Video Library", "/content"], ["VIP Docs", "/vip-docs"], ["The Vault", "/vault"], ["What's New", "/whats-new"]]);
@@ -124,10 +130,13 @@ test("every ONE MOVE menu page opens inside the Brain; other orbs do not", async
   // Rewritten 23 Oct (second): still 45. Agent Hub leaves (-1), Coaching joins the Coach group (+1); Import Contacts left the
   // menu but stays a page the My Contacts Import button opens.
   // Rewritten 23 Oct (third): 46. "Who is on my site" (/on-my-site, VIP-SUMMARY §3ar) joins People and opens inside the Brain.
+  // Still 46 on 23 Oct (fourth): Import and Clean Up are parts of the Contacts orb now; both still open inside the Brain.
   assert.equal(IN_BRAIN.size, 46);
   assert.ok(!IN_BRAIN.has("/profile/agent-hub"));
   assert.equal(inBrainPage(movePageId("/coaching"))?.label, "Coaching");
-  assert.equal(inBrainPage(movePageId("/contacts/import"))?.label, "Import Contacts");
+  // Rewritten 23 Oct (fourth): Import is a part of the Contacts orb, named as Parry named it ("contacts, import and clean").
+  assert.equal(inBrainPage(movePageId("/contacts/import"))?.label, "Import");
+  assert.equal(inBrainPage(movePageId("/contacts/cleanup"))?.label, "Clean Up");
   assert.equal(inBrainPage(movePageId("/communications"))?.label, "Communications");
   assert.equal(inBrainPage(movePageId("/learn"))?.label, "Learn home");
   assert.equal(inBrainPage(movePageId("/achievements"))?.label, "Scoreboard");
@@ -173,4 +182,53 @@ test("the Team Leads orb shows under People for a team member only", async () =>
 test("Archived Contacts has no orb or menu row, but still opens inside the Brain from My Contacts (Parry, 23 Oct)", () => {
   assert.ok(!MOVE_MENU.some((m) => m.path === "/contacts/archived"));
   assert.ok(IN_BRAIN.has("/contacts/archived"));
+});
+
+// Parry, 23 Oct: "move import contacts and clean up contacts under contacts orb please. so there will be three orbs now
+// under contacts, contacts, import and clean". Checked on a live-shaped graph (the example agent has no ONE MOVE menu).
+test("the Contacts orb under People holds Contacts, Import and Clean Up, in that order", async () => {
+  const { CONTACTS_NODE, movePageId, inBrainPage } = await import("../lib/moveMenu.ts");
+  const { needsOf } = await import("../lib/needs.ts");
+  const g = liveGraph(MASTER, opts, {});
+  const parent = g.nodes.find((n) => n.id === CONTACTS_NODE)!;
+  assert.equal(parent.parentId, moveGroupId("people"));
+  assert.equal(parent.label, "Contacts");
+  assert.equal(parent.type, "category");
+  assert.ok(g.edges.some((e) => e.source === moveGroupId("people") && e.target === CONTACTS_NODE));
+  // a parent orb: focused, it shows its parts (no page frame of its own)
+  assert.equal(inBrainPage(CONTACTS_NODE), null);
+  const kids = g.nodes.filter((n) => n.parentId === CONTACTS_NODE).sort((a, b) => b.importance - a.importance);
+  assert.deepEqual(kids.map((n) => [n.id, n.label]), [[movePageId("/contacts"), "Contacts"], [movePageId("/contacts/import"), "Import"], [movePageId("/contacts/cleanup"), "Clean Up"]]);
+  for (const k of kids) assert.ok(g.edges.some((e) => e.source === CONTACTS_NODE && e.target === k.id), k.label);
+  // each opens its own view inside the Brain: My Contacts (native), Import and Clean Up (ONE MOVE's pages)
+  assert.deepEqual(kids.map((n) => inBrainPage(n.id)?.path), ["/contacts", "/contacts/import", "/contacts/cleanup"]);
+  // Clean Up (and Import) are not orbs directly under People any more; nothing is drawn twice
+  const people = g.nodes.filter((n) => n.parentId === moveGroupId("people")).map((n) => n.label);
+  assert.ok(!people.includes("Clean Up Contacts") && !people.includes("Clean Up") && !people.includes("Import"));
+  assert.equal(people.filter((l) => l === "Contacts").length, 1);
+  assert.equal(new Set(g.nodes.map((n) => n.id)).size, g.nodes.length);
+  // follow the pulse: what My Contacts needs lights the Contacts orb and People above it
+  const lit = g.nodes.map((n) => (n.id === movePageId("/contacts") ? { ...n, status: "attention" as const, needCount: 4 } : n));
+  const need = needsOf(lit);
+  assert.deepEqual(need.get(CONTACTS_NODE), { count: 4, level: "today" });
+  assert.equal(need.get(moveGroupId("people"))?.count, (needsOf(g.nodes).get(moveGroupId("people"))?.count ?? 0) + 4);
+});
+
+test("every Contacts address still lands: My Contacts, Import, Clean Up, one contact, ?open=contacts", async () => {
+  const { arrivalFor } = await import("../lib/deepLink.ts");
+  const { landing } = await import("../lib/deepLinkNode.ts");
+  const { CONTACTS_NODE, movePageId } = await import("../lib/moveMenu.ts");
+  const g = liveGraph(MASTER, opts, {});
+  const has = (id: string) => g.nodes.some((n) => n.id === id);
+  const at = (path: string | null, open: string | null = null) => landing(arrivalFor(path, open)!, has, () => false, true);
+  assert.deepEqual(at("/contacts"), { id: movePageId("/contacts"), exact: true });
+  assert.deepEqual(at("/contacts/import"), { id: movePageId("/contacts/import"), exact: true });
+  assert.deepEqual(at("/contacts/cleanup"), { id: movePageId("/contacts/cleanup"), exact: true });
+  assert.deepEqual(at(null, "contacts"), { id: movePageId("/contacts"), exact: true });
+  const one = arrivalFor("/contacts/0b5f1c9e-1d2a-4b3c-8d4e-5f6a7b8c9d0e", null)!;
+  assert.equal(one.kind !== "gbp" && one.contact, "0b5f1c9e-1d2a-4b3c-8d4e-5f6a7b8c9d0e");
+  assert.deepEqual(landing(one, has, () => false, true), { id: movePageId("/contacts"), exact: true });
+  // a part that is not on the map yet falls back to the Contacts orb first
+  const imp = arrivalFor("/contacts/import", null)!;
+  assert.ok(imp.kind === "page" && imp.fallback[0] === CONTACTS_NODE);
 });

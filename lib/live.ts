@@ -527,12 +527,19 @@ export function liveGraph(raw: SummaryEnvelope | null, o: LiveOptions, others: O
       // Hot/Warm/Cold is a daily tracker step (Parry, 5 Oct): it pulses until today's box for
       // each class is ticked.
       const hwc = pg.path === "/hot-warm-cold" && found ? hwcToday(env!.today_boxes) : null;
+      // A row with parts (Contacts: My Contacts, Import, Clean Up; Parry, 23 Oct) is a parent orb holding its own page
+      // orb first, then each part. Its pulse is what its parts need (follow the pulse, lib/needs.ts).
+      const holder = pg.orb && pg.kids?.length ? pg.orb : null;
+      if (holder) {
+        add({ id: holder, type: "category", label: pg.label, secondaryLabel: "Your contacts, import and clean up", parentId: gid, product: "move", importance: 0.8 - j * 0.02, summary: `${pg.label} in ONE MOVE: ${[`My ${pg.label}`, ...pg.kids!.map((k) => k.label)].join(", ")}. Open one to work in it.` });
+        pg.kids!.forEach((k, i) => add({ id: movePageId(k.path), type: "feature", label: k.label, parentId: holder, product: "move", importance: 0.78 - i * 0.02, href: moveMenuHref(k.path) }));
+      }
       add({
         id: movePageId(pg.path),
         type: "feature",
         label: pg.label,
         secondaryLabel: hwc ? (hwc.left ? `${3 - hwc.left} of 3 worked today` : "All three worked today") : undefined,
-        parentId: gid,
+        parentId: holder ?? gid,
         product: "move",
         importance: 0.8 - j * 0.02,
         href: moveMenuHref(pg.path),
