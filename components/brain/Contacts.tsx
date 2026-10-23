@@ -516,6 +516,8 @@ export default function Contacts({
 
       <header className="ct-head">
         <div>
+          {/* a back button on every page (Parry, 23 Oct: "I need back buttons on every page") */}
+          <button type="button" className="page-back" data-act="page-back" onClick={onBack} aria-label="Back">← Back</button>
           <span className="ct-tag">ONE MOVE · CONTACTS</span>
           <h1 className="ct-h1">MY CONTACTS</h1>
           <p className="ct-sub">

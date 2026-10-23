@@ -258,6 +258,8 @@ export default function MyProfile({
           </button>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden onChange={(e) => { choose(e.target.files?.[0]); e.target.value = ""; }} />
           <div className="pf-who">
+            {/* a back button on every page (Parry, 23 Oct: "I need back buttons on every page") */}
+            <button type="button" className="page-back" data-act="page-back" onClick={onBack} aria-label="Back">← Back</button>
             <p className="pf-kicker">My Profile</p>
             <h1>{greetingName(draft) || "You"}</h1>
             <p className="pf-sub">{saved.email}</p>

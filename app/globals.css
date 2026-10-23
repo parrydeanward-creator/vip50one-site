@@ -3361,3 +3361,8 @@ button.cb-btn:hover, a.cb-btn:hover { border-color: var(--gold-2); }
   .cb-top-acts { width: 100%; }
   .cb-top-acts .cb-btn.solid { flex: 1; white-space: normal; }
 }
+
+/* Back on every full page, top left (Parry, 23 Oct: "I need back buttons on every page") */
+.page-back { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 10px; padding: 7px 14px; border-radius: 999px; border: 1px solid rgba(212, 175, 55, 0.55); background: rgba(10, 18, 48, 0.7); color: var(--gold-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.page-back:hover { background: rgba(212, 175, 55, 0.12); }
+.page-back:focus-visible { outline: 2px solid var(--gold-2); outline-offset: 2px; }
