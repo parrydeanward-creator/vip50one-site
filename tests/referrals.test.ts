@@ -138,8 +138,8 @@ test("the Goals referrals line counts the same as the Referrals orb", () => {
 
 test("logging a thank-you: plain words, nothing sent", () => {
   assert.equal(thankedUrl, "https://move.vip50one.com/api/brain/referrals/thanked");
-  assert.deepEqual(THANK_KINDS.map((k) => k.kind), ["call", "note", "text", "email"]);
-  assert.deepEqual(THANK_KINDS.map((k) => k.label), ["Called", "Sent a note", "Texted", "Emailed"]);
+  assert.deepEqual(THANK_KINDS.map((k) => k.kind), ["call", "note", "text", "email", "gift"]); // rewritten 23 Oct: gift joins (GO/MOVE accepts it)
+  assert.deepEqual(THANK_KINDS.map((k) => k.label), ["Called", "Sent a note", "Texted", "Emailed", "Sent a gift"]);
   assert.deepEqual(readThanked(200, { ok: true, thanked: true, touch_credited: true }), { ok: true, words: "Thank-you logged; counted as a touch." });
   assert.deepEqual(readThanked(200, { ok: true, thanked: true, touch_credited: false }), { ok: true, words: "Thank-you logged." });
   assert.equal(readThanked(200, { ok: false, reason: "nothing_owed" }).ok, true);
@@ -153,4 +153,37 @@ test("the demo shows example people in both lists", () => {
   assert.ok(d.thankOwed!.length >= 1);
   assert.ok(d.readyToAsk!.length >= 1);
   assert.equal(yearCount(d), 7);
+});
+
+test("the people behind the stat tiles, the pace, and the gift thank-you", async () => {
+  const { THANK_TITLE, readMonthPeople, readGciClosings, readPace } = await import("../lib/referrals.ts");
+  const r = readReferrals({
+    referrers: [], recent: [], candidates: [], vips: {},
+    asks_this_month: 2, thanks_this_month: 1,
+    asked_this_month: [{ contact_id: "a1", name: "Ann Lee", at: "2026-10-02", how: "text" }, { name: "" }, { contact_id: "a2", name: "Bo Ray", at: "2026-10-05", how: null }],
+    thanked_this_month: [{ contact_id: "t1", name: "Cy Dunn", at: "2026-10-03", how: "gift" }],
+    referral_gci_closings: [{ contact_id: "c1", name: "Di Fox", closed_on: "2026-08-01", gci: 4200 }, { contact_id: null, name: null, closed_on: "2026-09-10", gci: "3000.5" }],
+    pace: { pace: 4, to_go: 8, cadence: "1 every 3 weeks" },
+  })!;
+  assert.deepEqual(r.askedThisMonth!.map((x) => x.id), ["a2", "a1"]); // newest first, nameless dropped
+  assert.deepEqual(r.thankedThisMonth, [{ id: "t1", name: "Cy Dunn", at: "2026-10-03", how: "gift" }]);
+  assert.deepEqual(r.gciClosings!.map((x) => [x.id, x.name, x.gci]), [[null, "A referral closing", 3000.5], ["c1", "Di Fox", 4200]]);
+  assert.deepEqual(r.pace, { pace: 4, toGo: 8, cadence: "1 every 3 weeks" });
+  // an older answer sends none of it: null, never invented
+  const old = readReferrals({ referrers: [], recent: [], candidates: [], vips: {} })!;
+  assert.equal(old.askedThisMonth, null);
+  assert.equal(old.thankedThisMonth, null);
+  assert.equal(old.gciClosings, null);
+  assert.equal(old.pace, null);
+  assert.equal(readMonthPeople("x"), null);
+  assert.equal(readGciClosings({}), null);
+  assert.equal(readPace(null), null);
+  // gift: "Sent a gift", and the button says it is not a VIP touch
+  const gift = THANK_KINDS.find((k) => k.kind === "gift")!;
+  assert.equal(gift.label, "Sent a gift");
+  assert.match(THANK_TITLE.gift, /does not count as a VIP touch/);
+  assert.match(THANK_TITLE.call, /counts as a VIP touch/);
+  // the tiles open their people (rule 12)
+  const net = (await import("node:fs")).readFileSync(new URL("../components/brain/ReferralNetwork.tsx", import.meta.url), "utf8");
+  assert.ok(net.includes("data.thankedThisMonth") && net.includes("data.askedThisMonth") && net.includes("data.gciClosings"));
 });

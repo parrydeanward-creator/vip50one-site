@@ -52,7 +52,7 @@ test("the rings go inside out by closeness, with counts and who needs you", () =
 
 test("the key lists every group, rings first, then Biz VIP, Hot/Warm/Cold and New to sort", () => {
   const b = boardOf(live());
-  assert.deepEqual(b.key.map((k) => k.key), ["vip50", "vip100", "past_clients", "sphere", "other", "biz_vip", "hwc", "to_sort"]);
+  assert.deepEqual(b.key.map((k) => k.key), ["vip50", "vip100", "past_clients", "sphere", "other", "biz_vip", "leads", "agents", "hwc", "to_sort"]); // rewritten 23 Oct: Leads and Agents join the key
   assert.equal(b.key.find((k) => k.key === "hwc")!.needsYou, 5);
   // Mayor's Circle and Rising VIP sit inside Biz VIP, never as their own key line
   assert.ok(!b.key.some((k) => k.key === "mayors_circle" || k.key === "rising_vip"));
@@ -200,4 +200,34 @@ test("My Contacts carries Archived (under the list) and Lead sources (under Came
   const src = readFileSync(new URL("../components/brain/Contacts.tsx", import.meta.url), "utf8");
   assert.match(src, /data-act="contacts-archived"[^\n]*onOpenPage\("\/contacts\/archived"\)/);
   assert.match(src, /data-act="contacts-sources"[^\n]*onOpenPage\("\/contacts\/sources"\)/);
+});
+
+// ---- Leads and Agents in the key (GO/MOVE, 23 Oct) ----
+test("the key has Leads with its sources under it, and Agents; sphere is the tagged SOI; a gap group never joins the key", () => {
+  const body = {
+    ...LIVE,
+    groups: [
+      ...LIVE.groups,
+      { key: "leads", label: "Leads", kind: "tier", count: 120, needs_you: 4, needs_now: 1 },
+      { key: "agents", label: "Agents", kind: "tier", count: 9, needs_you: 0, needs_now: 0 },
+      { key: "vip_no_birthday", label: "VIPs with no birthday", kind: "gap", count: 30, needs_you: 0, needs_now: 0 },
+    ],
+    leads_by_source: [{ source: "Zillow", count: 30 }, { source: "BT Paid Ad", count: 70 }, { source: "Zillow", count: 5 }, { source: "", count: 3 }, { source: "Op City", count: 0 }, { source: "Real Geeks", count: 20 }],
+  };
+  const g = readGroups(body)!;
+  assert.equal(g.groups.find((x) => x.key === "vip_no_birthday")!.kind, "gap");
+  const b = boardOf(g);
+  assert.deepEqual(b.key.map((k) => k.key), ["vip50", "vip100", "past_clients", "sphere", "other", "biz_vip", "leads", "agents", "hwc", "to_sort"]);
+  assert.deepEqual(b.key.find((k) => k.key === "leads")!.count, 120);
+  assert.equal(b.key.find((k) => k.key === "agents")!.count, 9);
+  assert.ok(!b.key.some((k) => k.key === "vip_no_birthday"));
+  assert.ok(!b.sources.some((s) => s.key === "vip_no_birthday"));
+  // largest first, junk and zero rows dropped, a repeated source kept once
+  assert.deepEqual(b.leadsSources, [{ source: "BT Paid Ad", count: 70 }, { source: "Zillow", count: 30 }, { source: "Real Geeks", count: 20 }]);
+  // Leads filters the list; the sub-lines are counts only (the people route has no source filter)
+  assert.deepEqual(filterQuery({ kind: "group", key: "leads" }), { group: "leads", sort: "name" });
+  assert.ok(!listUrl({ group: "leads" }).includes("source="));
+  // an older answer: the lines still show, at 0, with no sources
+  assert.deepEqual(boardOf(live()).leadsSources, []);
+  assert.equal(boardOf(live()).key.find((k) => k.key === "leads")!.count, 0);
 });

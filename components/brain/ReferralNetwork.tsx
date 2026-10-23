@@ -4,7 +4,7 @@ import "@/app/referral-network.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import LogReferral from "./LogReferral.tsx";
 import { listUrl, readPage, type PersonItem } from "@/lib/people.ts";
-import { THANK_KINDS, yearCount, type ReadyAsk, type Referrals, type ThankKind, type Warming } from "@/lib/referrals.ts";
+import { THANK_KINDS, THANK_TITLE, yearCount, type ReadyAsk, type Referrals, type ThankKind, type Warming } from "@/lib/referrals.ts";
 import { faceUrl, readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
 import {
   STAGES, STAGE_LABEL, askDraft, closestLine, demoAgents, demoNetworkItems, firstOf, gaugeOf, initials, joinNames, movesFor, netTitle,
@@ -34,7 +34,7 @@ type Props = {
 };
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
-const DONE_WORDS: Record<ThankKind, string> = { call: "called", note: "sent a note", text: "texted", email: "emailed" };
+const DONE_WORDS: Record<ThankKind, string> = { call: "called", note: "sent a note", text: "texted", email: "emailed", gift: "sent a gift" };
 
 function Avatar({ name, tone, photo }: { name: string; tone: "red" | "gold" | "green" | "teal" | "blue"; photo?: string | null }) {
   const src = faceUrl(photo);
@@ -207,7 +207,7 @@ export default function ReferralNetwork({ data, live, today, onAsk, onThanked, o
   const [plusAsks, setPlusAsks] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [pick, setPick] = useState<{ id: string; info: string; open: { id: string; name: string } | null } | null>(null);
-  const [peek, setPeek] = useState<"year" | "gci" | null>(null);
+  const [peek, setPeek] = useState<"year" | "gci" | "thanks" | "asks" | null>(null);
   const [tab, setTab] = useState<"in" | "out">("in");
   const lanesRef = useRef<HTMLDivElement>(null);
 
@@ -363,6 +363,17 @@ export default function ReferralNetwork({ data, live, today, onAsk, onThanked, o
   const show = tiles(data);
   const closedRefs = data.recent.filter((x) => x.closed);
   const yearPeople = data.referrers.filter((x) => x.thisYear > 0);
+  const md = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }) : "");
+  const monthRows = (l: { id: string; name: string; at: string | null; how: string | null }[] | null | undefined, verb: string) => (l ?? []).map((x) => ({ id: x.id.includes(":") ? null : x.id, name: x.name, line: `${verb}${x.how ? ` (${x.how})` : ""} ${md(x.at)}`.trim() }));
+  const closedLine = (x: { value: number | null }) => `closed${x.value ? ` at ${money(x.value)}` : ""}`;
+  const peekRows: { id: string | null; name: string; line: string }[] =
+    peek === "year" ? yearPeople.map((p) => ({ id: p.id, name: p.name, line: `${p.thisYear} this goal year` }))
+    : peek === "thanks" ? monthRows(data.thankedThisMonth, "thanked")
+    : peek === "asks" ? monthRows(data.askedThisMonth, "asked")
+    : peek === "gci" && data.gciClosings ? data.gciClosings.map((x) => ({ id: x.id, name: x.name, line: `${money(x.gci)} GCI ${md(x.closedOn)}`.trim() }))
+    : closedRefs.map((x) => ({ id: x.client?.id ?? (x.id.includes(":") ? null : x.id), name: x.client?.name ?? x.name, line: closedLine(x) }));
+  const peekLabel = peek === "year" ? "Who sent referrals this goal year" : peek === "thanks" ? "Who you thanked this month" : peek === "asks" ? "Who you asked this month" : peek === "gci" && data.gciClosings ? "Referral closings this goal year" : "Closed referrals";
+  const peekEmpty = peek === "year" ? "Nobody yet this goal year. Log one with Log a referral." : peek === "thanks" ? "No thank-yous logged this month." : peek === "asks" ? "No asks logged this month." : peek === "gci" && data.gciClosings ? "No referral closings this goal year." : "No closed referrals in the last 180 days.";
   const tick = (b: Branch, leaf?: number) => {
     const l = leaf != null ? b.leaves[leaf] : null;
     const id = l ? `${b.id}#${leaf}` : b.id;
@@ -419,10 +430,10 @@ export default function ReferralNetwork({ data, live, today, onAsk, onThanked, o
             <GoalGauge data={data} today={today} onOpen={() => setPeek((p) => (p === "year" ? null : "year"))} />
             <div className="rn-stats">
               {show.includes("thanks") ? (
-                <button type="button" className="rn-stat" onClick={toLanes}><b>{(data.thanksThisMonth ?? 0) + plusThanks}</b><span>thank-yous this month</span></button>
+                <button type="button" className="rn-stat" onClick={() => (data.thankedThisMonth ? setPeek((p) => (p === "thanks" ? null : "thanks")) : toLanes())}><b>{(data.thanksThisMonth ?? 0) + plusThanks}</b><span>thank-yous this month</span></button>
               ) : null}
               {show.includes("asks") ? (
-                <button type="button" className="rn-stat" onClick={toLanes}><b>{(data.asksThisMonth ?? 0) + plusAsks}</b><span>asks this month</span></button>
+                <button type="button" className="rn-stat" onClick={() => (data.askedThisMonth ? setPeek((p) => (p === "asks" ? null : "asks")) : toLanes())}><b>{(data.asksThisMonth ?? 0) + plusAsks}</b><span>asks this month</span></button>
               ) : null}
               {show.includes("gci") ? (
                 <button type="button" className="rn-stat" onClick={() => setPeek((p) => (p === "gci" ? null : "gci"))}><b>{money(data.gciYear ?? 0)}</b><span>referral GCI this year</span></button>
@@ -432,13 +443,13 @@ export default function ReferralNetwork({ data, live, today, onAsk, onThanked, o
               ) : null}
             </div>
             {peek ? (
-              <ul className="rn-peek" aria-label={peek === "year" ? "Who sent referrals this goal year" : "Closed referrals"}>
-                {(peek === "year" ? yearPeople.map((p) => ({ id: p.id, name: p.name, line: `${p.thisYear} this goal year` })) : closedRefs.map((x) => ({ id: x.client?.id ?? (x.id.includes(":") ? null : x.id), name: x.client?.name ?? x.name, line: `closed${x.value ? ` at ${money(x.value)}` : ""}` }))).map((p, i) => (
+              <ul className="rn-peek" aria-label={peekLabel}>
+                {peekRows.map((p, i) => (
                   <li key={`${p.id ?? "x"}${i}`}>
                     <button type="button" className="rn-link" disabled={!p.id} onClick={() => person(p.id, p.name)}>{p.name}</button> <small>{p.line}</small>
                   </li>
                 ))}
-                {(peek === "year" ? yearPeople : closedRefs).length ? null : <li className="rn-empty">{peek === "year" ? "Nobody yet this goal year. Log one with Log a referral." : "No closed referrals in the last 180 days."}</li>}
+                {peekRows.length ? null : <li className="rn-empty">{peekEmpty}</li>}
               </ul>
             ) : null}
           </section>
@@ -487,7 +498,7 @@ export default function ReferralNetwork({ data, live, today, onAsk, onThanked, o
                         <div className="rn-acts" role="group" aria-label={`How you thanked ${x.first}`}>
                           <button type="button" className="rn-btn solid" onClick={() => void copyDraft(draft)}>Copy the draft</button>
                           {THANK_KINDS.map((k) => (
-                            <button key={k.kind} type="button" className="rn-btn" disabled={thankBusy === x.id} onClick={() => void logThank(x, k.kind)} aria-label={`${x.first}: ${k.label}`}>{k.label}</button>
+                            <button key={k.kind} type="button" className="rn-btn" disabled={thankBusy === x.id} onClick={() => void logThank(x, k.kind)} aria-label={`${x.first}: ${k.label}`} title={THANK_TITLE[k.kind]}>{k.label}</button>
                           ))}
                         </div>
                       </>

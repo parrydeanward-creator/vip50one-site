@@ -55,6 +55,8 @@ function group(key: string): Arrival | null {
 
 function page(path: string): Arrival | null {
   if (path === GBP_ADDRESS) return { kind: "gbp", label: "Google Business Profile" };
+  // /coaching is also the Brain's own Coaching orb (ONE YOU); the address keeps landing on that. The Classic board is the Coach row's page frame.
+  if (path === "/coaching") return openTarget("coaching");
   const label = labelOf(path);
   const g = groupOf(path);
   const fallback = [...(g ? [moveGroupId(g.key)] : []), "move"];

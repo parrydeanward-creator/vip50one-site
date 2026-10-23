@@ -39,8 +39,7 @@ export const MOVE_GROUPS: MoveGroup[] = [
       { label: "Business Rolodex", path: "/rolodex" },
       // VIP-SUMMARY §3af (13 Oct; Parry: every feature in the Brain as well as Classic)
       { label: "Referral Network", path: "/referral-network" },
-      // The agent's public page for other agents (Classic only until 21 Oct; Parry: everything on Classic in the Brain).
-      { label: "Agent Hub", path: "/profile/agent-hub" },
+      // Agent Hub retired (Parry, 23 Oct; /profile/agent-hub redirects), so it is not a menu row.
       // Buyer Needs and Your listings retired (Parry, 23 Oct: "retire buyers needs"; "retire your listings already on
       // the website"). A buyer's wants stay on their contact, and listings that fit them stay on the listing orb.
       // vip50-web-crm#294 (17 Oct): the Life Events page; in the Brain the row opens the Life events orb
@@ -49,7 +48,7 @@ export const MOVE_GROUPS: MoveGroup[] = [
       { label: "Deals", path: "/deals" },
       // Every Classic page in the Brain too (Parry, 21 Oct: "everything on classic needs to be on the Brain as well"):
       // the contact tools that were Classic only.
-      { label: "Import Contacts", path: "/contacts/import" },
+      // Import is a button on My Contacts now (23 Oct), so it is not a menu row.
       { label: "Clean Up Contacts", path: "/contacts/cleanup" },
       { label: "Archived Contacts", path: "/contacts/archived" },
       { label: "Lead Sources", path: "/contacts/sources" },
@@ -123,6 +122,9 @@ export const MOVE_COACH: MoveGroup = {
     { label: "Revenue", path: "/admin/revenue" },
     { label: "All Agents", path: "/users" },
     { label: "Challenge", path: "/admin/challenge" },
+    // GO/MOVE's Classic coaching board (vip50-web-crm#378-#387). Linked coaches (coach_links) see it in Classic too;
+    // the Coach group here is admin-only, so it opens for admins; the page checks access itself.
+    { label: "Coaching", path: "/coaching" },
     { label: "Luxury Team", path: "/admin/team" },
     { label: "Review calls", path: "/admin/review-calls" },
     { label: "System Health", path: "/admin/system-health" },
@@ -157,6 +159,9 @@ export const menuNodeId = (path: string) => MENU_ORB[path] ?? movePageId(path);
 /** Pages no longer in the menu that still open inside the Brain: New to Sort (now inside Opportunities). */
 export const MOVE_HIDDEN: MovePage[] = [{ label: "New to Sort", path: "/contacts/visitors" }];
 
+/** Pages opened only by a button, never by a menu row or an orb: Import is a button on My Contacts (23 Oct). They open inside the Brain. */
+export const MOVE_BUTTON_PAGES: MovePage[] = [{ label: "Import Contacts", path: "/contacts/import" }];
+
 export const moveMenuHref = (path: string) => `${MOVE_URL}${path}`;
 
 /** The same page inside the Brain: ?embed=1 lets ONE MOVE take the Brain look before it paints. */
@@ -166,7 +171,7 @@ function MOVE_MENU_PATHS(): string[] {
   // Dashboard is ONE MOVE's Classic home, not a page inside the Brain.
   // Coach pages (admins) open in place too.
   // Rows that open a native orb (MENU_ORB) have no page frame; New to Sort keeps its page (MOVE_HIDDEN).
-  return [...MOVE_MENU, ...MOVE_HIDDEN, ...MOVE_COACH.pages].map((m) => m.path).filter((p) => p !== "/dashboard" && !MENU_ORB[p]);
+  return [...MOVE_MENU, ...MOVE_HIDDEN, ...MOVE_BUTTON_PAGES, ...MOVE_COACH.pages].map((m) => m.path).filter((p) => p !== "/dashboard" && !MENU_ORB[p]);
 }
 
 /** Graph ids: a group orb and a page orb. Touch Audit keeps its live id. */
@@ -188,7 +193,7 @@ export const TEAM_LEADS_PAGE: MovePage = { label: "Team Leads", path: "/team-lea
 
 export const IN_BRAIN: ReadonlySet<string> = new Set([...MOVE_MENU_PATHS(), TEAM_LEADS_PAGE.path]);
 
-const PATH_BY_ID = new Map([...MOVE_MENU, ...MOVE_HIDDEN, ...MOVE_COACH.pages, TEAM_LEADS_PAGE].map((m) => [movePageId(m.path), m]));
+const PATH_BY_ID = new Map([...MOVE_MENU, ...MOVE_HIDDEN, ...MOVE_BUTTON_PAGES, ...MOVE_COACH.pages, TEAM_LEADS_PAGE].map((m) => [movePageId(m.path), m]));
 
 /** The Team Leads orb under People, for a team member only (the war room's answer says whether they are on one). */
 export function withTeamLeadsPage<G extends { nodes: import("./graph/types.ts").GraphNode[]; edges: import("./graph/types.ts").GraphEdge[] }>(g: G, onTeam: boolean): G {

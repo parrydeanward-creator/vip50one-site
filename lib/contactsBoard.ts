@@ -1,4 +1,4 @@
-import { BIZ_PARENT, groupColor, isBizSub, nestBizVip, type Groups, type PeopleGroup, type PersonItem } from "./people.ts";
+import { BIZ_PARENT, groupColor, isBizSub, nestBizVip, type Groups, type LeadSource, type PeopleGroup, type PersonItem } from "./people.ts";
 
 // My Contacts, option C (Parry, 22 Oct: "yes on C"; vip50-ecosystem research/mockups/contacts/contacts-c.png): four
 // clean-up buttons on top; on the left the agent's circles as rings round YOU (closest inside), a key of every group and
@@ -11,8 +11,8 @@ export const RING_KEYS = ["vip50", "vip100", "past_clients", "sphere", "other"] 
 export type RingKey = (typeof RING_KEYS)[number];
 const RING_LABEL: Record<RingKey, string> = { vip50: "VIP-50", vip100: "VIP-100", past_clients: "Past clients", sphere: "Sphere", other: "Other" };
 /** The key's lines after the rings, in the order Parry approved. */
-export const EXTRA_KEYS = [BIZ_PARENT, "hwc", "to_sort"] as const;
-const EXTRA_LABEL: Record<string, string> = { [BIZ_PARENT]: "Biz VIP", hwc: "Hot / Warm / Cold", to_sort: "New to sort" };
+export const EXTRA_KEYS = [BIZ_PARENT, "leads", "agents", "hwc", "to_sort"] as const;
+const EXTRA_LABEL: Record<string, string> = { [BIZ_PARENT]: "Biz VIP", leads: "Leads", agents: "Agents", hwc: "Hot / Warm / Cold", to_sort: "New to sort" };
 
 /** Ring colours: the Brain's group colours, with the mockup's closeness colours for the rings. */
 export const BOARD_COLOR: Record<string, string> = {
@@ -22,6 +22,8 @@ export const BOARD_COLOR: Record<string, string> = {
   sphere: "#c58cff",
   other: "#8089a2",
   [BIZ_PARENT]: "#2ec4b6",
+  leads: "#4aa3ff",
+  agents: "#b8c34a",
   hwc: "#ff5a5f",
   to_sort: "#e05aa0",
 };
@@ -35,6 +37,8 @@ export interface Board {
   rings: BoardLine[];
   key: BoardLine[];
   sources: BoardSource[];
+  /** The Leads line's sources, largest first: counts only (the people route has no source filter), shown under Leads. */
+  leadsSources: LeadSource[];
   /** Sources with nobody yet: named in one grey line, never drawn. */
   emptySources: string[];
   /** Biz VIP's sub-groups (Mayor's Circle, Rising VIP), offered inside the Biz VIP list. */
@@ -61,6 +65,7 @@ export function boardOf(g: Groups, family: Partial<Record<string, PersonItem[]>>
     rings,
     key: [...rings, ...extras, ...more],
     sources: src.filter((x) => x.count > 0).sort((a, b) => b.count - a.count).map((x) => ({ key: x.key, label: x.label, count: x.count, color: groupColor(x.key) })),
+    leadsSources: g.leadsBySource ?? [],
     emptySources: src.filter((x) => x.count === 0).map((x) => x.label),
     bizSubs: nest.subs,
   };

@@ -94,6 +94,46 @@ export interface Referrals {
   asksThisMonth?: number | null;
   thanksThisMonth?: number | null;
   gciYear?: number | null;
+  /** The people behind this month's counts and the GCI, each null until ONE MOVE sends it (rule 12: every number opens its people). */
+  askedThisMonth?: MonthPerson[] | null;
+  thankedThisMonth?: MonthPerson[] | null;
+  gciClosings?: GciClosing[] | null;
+  /** Where the agent would be on an even pace, how many to go, the cadence in words. */
+  pace?: Pace | null;
+}
+export interface MonthPerson { id: string; name: string; at: string | null; how: string | null }
+export interface GciClosing { id: string | null; name: string; closedOn: string | null; gci: number }
+export interface Pace { pace: number | null; toGo: number | null; cadence: string | null }
+
+/** `asked_this_month` / `thanked_this_month`, checked: [{contact_id, name, at, how}], newest first. Null when not a list. */
+export function readMonthPeople(v: unknown): MonthPerson[] | null {
+  if (!Array.isArray(v)) return null;
+  const out: MonthPerson[] = [];
+  for (const x of v as Record<string, unknown>[]) {
+    if (!x || typeof x !== "object") continue;
+    const name = str(x.name);
+    if (!name) continue;
+    out.push({ id: str(x.contact_id) ?? str(x.id) ?? `${name}:${day(x.at) ?? ""}`, name, at: day(x.at), how: str(x.how) });
+  }
+  return out.sort((a, b) => (b.at ?? "").localeCompare(a.at ?? "")).slice(0, 100);
+}
+
+/** `referral_gci_closings`, checked: [{contact_id, name, closed_on, gci}], newest first. Null when not a list. */
+export function readGciClosings(v: unknown): GciClosing[] | null {
+  if (!Array.isArray(v)) return null;
+  const out: GciClosing[] = [];
+  for (const x of v as Record<string, unknown>[]) {
+    if (!x || typeof x !== "object") continue;
+    const g = typeof x.gci === "string" ? Number(x.gci) : x.gci;
+    out.push({ id: str(x.contact_id), name: str(x.name) ?? "A referral closing", closedOn: day(x.closed_on), gci: typeof g === "number" && Number.isFinite(g) ? g : 0 });
+  }
+  return out.sort((a, b) => (b.closedOn ?? "").localeCompare(a.closedOn ?? "")).slice(0, 100);
+}
+
+export function readPace(v: unknown): Pace | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  return { pace: numOrNull(o.pace), toGo: numOrNull(o.to_go), cadence: str(o.cadence) };
 }
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0);
@@ -173,13 +213,22 @@ export const yearLine = (r: Referrals) => {
   return `${n} ${n === 1 ? "referral" : "referrals"} this goal year${r.goal ? ` of ${r.goal}` : ""}`;
 };
 
-export type ThankKind = "call" | "note" | "text" | "email";
+export type ThankKind = "call" | "note" | "text" | "email" | "gift";
 export const THANK_KINDS: { kind: ThankKind; label: string }[] = [
   { kind: "call", label: "Called" },
   { kind: "note", label: "Sent a note" },
   { kind: "text", label: "Texted" },
   { kind: "email", label: "Emailed" },
+  { kind: "gift", label: "Sent a gift" },
 ];
+/** Button titles. A gift is logged but is not a VIP touch (GO/MOVE, 23 Oct), so it never moves the touch counts. */
+export const THANK_TITLE: Record<ThankKind, string> = {
+  call: "Log that you called them (counts as a VIP touch)",
+  note: "Log that you sent a note (counts as a VIP touch)",
+  text: "Log that you texted them (counts as a VIP touch)",
+  email: "Log that you emailed them (counts as a VIP touch)",
+  gift: "Log that you sent a gift. A gift does not count as a VIP touch.",
+};
 
 /** ONE MOVE's answer to "Log a thank-you", in plain words; `ok` true when the row should leave the list. */
 export function readThanked(status: number, body: unknown): { ok: boolean; words: string } {
@@ -244,6 +293,10 @@ export function readReferrals(j: unknown): Referrals | null {
     asksThisMonth: numOrNull(r.asks_this_month),
     thanksThisMonth: numOrNull(r.thanks_this_month),
     gciYear: numOrNull(r.referral_gci_year),
+    askedThisMonth: readMonthPeople(r.asked_this_month),
+    thankedThisMonth: readMonthPeople(r.thanked_this_month),
+    gciClosings: readGciClosings(r.referral_gci_closings),
+    pace: readPace(r.pace),
   };
 }
 

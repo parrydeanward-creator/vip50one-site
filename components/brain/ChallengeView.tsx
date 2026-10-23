@@ -224,7 +224,10 @@ export default function ChallengeView({
   const [startText, setStartText] = useState("");
   const [starting, setStarting] = useState(false);
   const canStart = !!on?.runs;
+  // `can_start_another` from the route: false means no new 90 yet, so the button is off (null = older route, as before).
+  const startBlocked = on?.canStartAnother === false;
   const startAnother = () => {
+    if (startBlocked) return;
     if (!canStart) return open("a new Day 1 setup");
     setStartText(on?.identity ?? "");
     setStartOpen(true);
@@ -572,7 +575,7 @@ export default function ChallengeView({
                   <button type="button" className="chv-btn solid" data-act="challenge-cert" onClick={openCert}>
                     View my certificate
                   </button>
-                  <button type="button" className="chv-btn" data-act="challenge-row" onClick={startAnother}>
+                  <button type="button" className="chv-btn" data-act="challenge-row" onClick={startAnother} disabled={startBlocked} title={startBlocked ? "You can start another 90 once your current run is complete." : undefined}>
                     Start another 90
                   </button>
                 </div>
@@ -604,7 +607,7 @@ export default function ChallengeView({
                       View my certificate
                     </button>
                   ) : null}
-                  <button type="button" className="chv-btn" data-act="challenge-row" onClick={startAnother}>
+                  <button type="button" className="chv-btn" data-act="challenge-row" onClick={startAnother} disabled={startBlocked} title={startBlocked ? "You can start another 90 once your current run is complete." : undefined}>
                     Start another 90
                   </button>
                 </div>

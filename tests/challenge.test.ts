@@ -429,3 +429,21 @@ test("the view: the form posts /start when runs exist, Classic otherwise; the de
   assert.ok(view.includes('if (!canStart) return open("a new Day 1 setup");')); // old route: Classic
   assert.ok(view.includes("const canStart = !!on?.runs;"));
 });
+
+test("runs keep the route's certificate_url as sent (/certificate/<user id>?run=N); can_start_another gates Start another 90", () => {
+  const url = "https://move.vip50one.com/certificate/6f1c0c1e-0000-4000-8000-000000000001?run=1";
+  const c = readChallenge({ ...LIVE, run: 2, runs: [{ ...RUNS[0], certificate_url: url }, RUNS[1]], can_start_another: false })!;
+  assert.ok(c.enrolled);
+  if (!c.enrolled) return;
+  assert.equal(c.runs![0].certificateUrl, url);
+  assert.equal(c.canStartAnother, false);
+  const yes = readChallenge({ ...LIVE, run: 2, runs: RUNS, can_start_another: true })!;
+  assert.ok(yes.enrolled && yes.canStartAnother === true);
+  const old = readChallenge({ ...LIVE, runs: RUNS })!;
+  assert.ok(old.enrolled && old.canStartAnother === null); // older route: the button shows as before
+  const view = readFileSync(new URL("../components/brain/ChallengeView.tsx", import.meta.url), "utf8");
+  assert.ok(view.includes('on?.canStartAnother === false'));
+  assert.equal((view.match(/disabled=\{startBlocked\}/g) ?? []).length, 2);
+  const demo = readChallenge(demoChallengeBody("2026-10-22"))!;
+  assert.ok(demo.enrolled && demo.runs!.every((r) => !r.certificateUrl || r.certificateUrl.includes("?run=")));
+});
