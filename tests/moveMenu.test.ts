@@ -232,3 +232,17 @@ test("every Contacts address still lands: My Contacts, Import, Clean Up, one con
   const imp = arrivalFor("/contacts/import", null)!;
   assert.ok(imp.kind === "page" && imp.fallback[0] === CONTACTS_NODE);
 });
+
+// 23 Oct: a button-only page (Archived Contacts) has no orb on a live map, yet it is an in-Brain page the button opens in
+// the page frame (Brain.tsx openMovePage keeps it off the map as offMapPage); the example-agent note must not be its answer.
+test("a button-only page has no orb on a live map but resolves to an openable in-Brain page", async () => {
+  const { MOVE_BUTTON_PAGES, inBrainPage, movePageId } = await import("../lib/moveMenu.ts");
+  const g = liveGraph(MASTER, opts, {});
+  for (const pg of MOVE_BUTTON_PAGES) {
+    assert.ok(IN_BRAIN.has(pg.path), `${pg.path} opens inside the Brain`);
+    assert.ok(!MENU_ORB[pg.path]);
+    assert.ok(!g.nodes.some((n) => n.id === movePageId(pg.path)), `${pg.label} has no orb`);
+    assert.equal(inBrainPage(movePageId(pg.path))?.path, pg.path);
+  }
+  assert.equal(inBrainPage(movePageId("/contacts/archived"))?.label, "Archived Contacts");
+});
