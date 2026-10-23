@@ -26,3 +26,8 @@ test("the block is the one shared component: it renders nothing unless the route
 test("inside the narrow contact drawer the block stacks in one column at every width", () => {
   assert.match(read("../app/site-activity.css"), /\.cc \.sa-contact \{ grid-template-columns: minmax\(0, 1fr\); \}/);
 });
+
+test("Google Calendar card tells agents what Google's unverified screen will say (vip50-web-crm#400)", () => {
+  const src = readFileSync(new URL("../components/brain/ProfileCards.tsx", import.meta.url), "utf8");
+  assert.match(src, /data-note="gcal-unverified"[^\n]*tap Advanced, then Continue/);
+});
