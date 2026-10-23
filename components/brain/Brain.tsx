@@ -4494,6 +4494,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               ) : vipNative && nativeKind === "contacts" ? (
                 <Contacts
                   openId={contactOpen}
+                  onPowerHour={() => setPowerOpen(true)}
+                  onOpenPage={(path) => goPage(path)}
                   onUnavailable={vipUnavailable}
                   onChanged={refreshLive}
                   onBack={() => goTo(focus.parentId ?? "move")}
