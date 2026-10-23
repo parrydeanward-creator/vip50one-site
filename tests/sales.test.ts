@@ -176,6 +176,9 @@ test("ONE Growth comparison (Parry, 16 Oct): names no competitor, shows $499 and
   assert.equal(ours.term, "Month-to-month");
   assert.match(ours.ads, /at cost\. No markup/);
   assert.match(ours.fees, /No per-lead fee\. No referral fee at closing/);
+  // Parry, 23 Oct (Scout week 43 item 2): "yes on texts go from users phone".
+  assert.equal(ours.texts, "Your texts go from your own phone, in your own words, when you tap Send.");
+  assert.ok(GROWTH_COMPARE_ROWS.some((r) => r.key === "texts"));
   assert.match(GROWTH_COMPARE_SOURCE, /read 12 Oct 2026; prices vary by market/);
   assert.ok(page.indexOf('className="sp-compare"') > page.indexOf('id="growth"') && block.length > 0, "sits under ONE Growth");
 });

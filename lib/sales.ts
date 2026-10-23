@@ -205,12 +205,14 @@ export interface GrowthModel {
   monthly: string;
   ads: string;
   fees: string;
+  texts: string;
   term: string;
 }
-export const GROWTH_COMPARE_ROWS: { key: "monthly" | "ads" | "fees" | "term"; label: string }[] = [
+export const GROWTH_COMPARE_ROWS: { key: "monthly" | "ads" | "fees" | "texts" | "term"; label: string }[] = [
   { key: "monthly", label: "Monthly" },
   { key: "ads", label: "Ad spend" },
   { key: "fees", label: "Per lead or at closing" },
+  { key: "texts", label: "Texts to your leads" },
   { key: "term", label: "Contract" },
 ];
 export const GROWTH_COMPARE: GrowthModel[] = [
@@ -219,6 +221,7 @@ export const GROWTH_COMPARE: GrowthModel[] = [
     monthly: "About $1,700-3,500 all-in",
     ads: "Run through the platform, with a management fee, often a percentage of ad spend",
     fees: "Usually none",
+    texts: "Often sent by the platform's AI, in its words",
     term: "Usually 6-12 months",
   },
   {
@@ -226,6 +229,7 @@ export const GROWTH_COMPARE: GrowthModel[] = [
     monthly: "About $139-1,800",
     ads: "You pay for leads or a share of ZIP codes",
     fees: "Per-lead or ZIP code costs on top",
+    texts: "Often sent by the platform's AI, in its words",
     term: "Usually 6-12 months",
   },
   {
@@ -233,6 +237,7 @@ export const GROWTH_COMPARE: GrowthModel[] = [
     monthly: "No monthly fee",
     ads: "The lead company's own",
     fees: "15-40% of your commission",
+    texts: "The lead company's team or system reaches the lead first",
     term: "The lead company's agreement",
   },
   {
@@ -241,6 +246,7 @@ export const GROWTH_COMPARE: GrowthModel[] = [
     monthly: "$499, or $199 added to ONE Complete or Elite",
     ads: "Paid by you on your own Google and Meta accounts, at cost. No markup.",
     fees: "No per-lead fee. No referral fee at closing.",
+    texts: "Your texts go from your own phone, in your own words, when you tap Send.",
     term: "Month-to-month",
   },
 ];
