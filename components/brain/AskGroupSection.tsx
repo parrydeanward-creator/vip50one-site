@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { smsHref } from "@/lib/drafts.ts";
 import { askLogUrl, askUrl, logBody, readGroups, readPeople, type AskGroup, type AskPerson } from "@/lib/permissionAsk.ts";
 
@@ -9,7 +9,7 @@ import { askLogUrl, askUrl, logBody, readGroups, readPeople, type AskGroup, type
 
 const isApple = () => typeof navigator !== "undefined" && /iPhone|iPad|Macintosh/.test(navigator.userAgent);
 
-export default function AskGroupSection() {
+export default function AskGroupSection({ startOpen = false, onClose }: { startOpen?: boolean; onClose?: () => void } = {}) {
   const [open, setOpen] = useState(false);
   const [groups, setGroups] = useState<AskGroup[] | null>(null);
   const [group, setGroup] = useState<AskGroup | null>(null);
@@ -42,6 +42,12 @@ export default function AskGroupSection() {
     setTexted((t) => [...t, p.id]);
     fetch(askLogUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(logBody([p.id])) }).catch(() => {});
   };
+
+  // My Contacts' "Ask a group for permission" button opens it straight to the groups.
+  useEffect(() => {
+    if (startOpen) void start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startOpen]);
 
   if (!open) {
     return (
@@ -89,7 +95,7 @@ export default function AskGroupSection() {
           <button className="vr-classic" onClick={() => setGroup(null)}>Other groups</button>
         </>
       ) : null}
-      <button className="vr-classic" onClick={() => setOpen(false)}>Close</button>
+      <button className="vr-classic" onClick={() => (onClose ? onClose() : setOpen(false))}>Close</button>
     </section>
   );
 }

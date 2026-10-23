@@ -3,12 +3,13 @@
 import { STORY_LABEL, filterStory, productsIn, storyProduct, type StoryProduct } from "@/lib/lifeStory.ts";
 import AskGroupSection from "./AskGroupSection.tsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { dialable, mailable } from "@/lib/contact.ts";
-import { BIZ_PARENT, byName, editText, editValue, gapsIn, groupColor, isBizSub, listUrl, nestBizVip, parentGroup, peopleUrl, personTag, personUrl, readGroups, readPage, readPerson, readTimeline, LEFT_EARLY_LINE, sectionColor, showValue, timelineUrl, type Field, type Groups, type Person, type PersonItem, type Section, type Timeline } from "@/lib/people.ts";
-import { initialsOf, ringRows } from "@/lib/vips.ts";
-import { focusFace, focusRings } from "@/lib/orbs.ts";
-import { useSvgCamera } from "./useSvgCamera.ts";
-import PulseRing, { PULSE_COLOR, levelOf, type PulseLevel } from "./PulseRing.tsx";
+import { dialable, mailable, touchUrl } from "@/lib/contact.ts";
+import { BIZ_PARENT, byName, editText, editValue, isBizSub, listUrl, peopleUrl, personTag, personUrl, readGroups, readPage, readPerson, readTimeline, LEFT_EARLY_LINE, sectionColor, showValue, gapsIn, timelineUrl, type Field, type Groups, type Person, type PersonItem, type Section, type Timeline } from "@/lib/people.ts";
+import { initialsOf, vipTierUrl } from "@/lib/vips.ts";
+import {
+  BDAY_FALLBACK, BDAY_GROUP, NEED, RING_BOX, applyDone, boardColor, boardOf, circleOf, filterQuery, filterTitle, keysOf, lastTouchWords, narrow, ringRadius, sameFilter, seatFaces, todayYmd, toggleFilter,
+  RING_KEYS, type Chip, type Done, type Filter,
+} from "@/lib/contactsBoard.ts";
 import PermissionsSection from "./PermissionsSection.tsx";
 import HomeReportSection from "./HomeReportSection.tsx";
 import CmaSection from "./CmaSection.tsx";
@@ -17,31 +18,29 @@ import CallPrepCard from "./CallPrepCard.tsx";
 import PersonMenu from "./PersonMenu.tsx";
 import { useHeldDelete } from "./useHeldDelete.tsx";
 import { firstOf } from "@/lib/deleteContact.ts";
+import "@/app/contacts-board.css";
 
-// VIP-SUMMARY §3k (Parry, 4 Oct, option C): Contacts in ONE Brain. A map of
-// groups round "My Contacts" (tiers warm, where they came from cool), a gold
-// badge where Pulse says someone needs the agent. Tap a group: it comes to the
-// middle and its people fly out of it. Tap a person: their face comes to the
-// middle and their sections (how to reach them, family, home...) ring round
-// them as orbs; every field opens and edits in the card. Search is always on
-// top. ONE MOVE sends the groups, Pulse's lines and the field catalogue; a new
-// section shows here with no Brain change.
+// VIP-SUMMARY §3k, My Contacts in ONE Brain, option C (Parry, 22 Oct: "yes on C"; research/mockups/contacts/
+// contacts-c.png). Four clean-up buttons on top. Left: the agent's circles as rings round YOU (VIP-50 inside, Other
+// outside), the people who need them drawn on their ring, a key of every group, and where people came from. Middle: the
+// list, starting on who needs the agent today. Right: the person picked, ready to act (a bottom sheet on a phone).
+// Every number opens its people and a done touch updates every count at once (PROTOCOL rule 12). ONE MOVE keeps the
+// contacts, the groups, Pulse's lines and the field catalogue; the Brain draws what it is sent and asks.
 
-const SIZE = 1320;
-const C = SIZE / 2;
-const FR = 340;
-const OR = 590;
-const SR = 300;
 const GOLD = "#f5c542";
+const RED = "#ff5a5f";
+const GREEN = "#2fbf71";
 const TEAL = "#2fb7a3";
 const PAGE = 40;
 
-function labelAt(a: number): { dx: number; dy: number; anchor: "start" | "middle" | "end" } {
-  const c = Math.cos(a), s = Math.sin(a);
-  if (c > 0.75) return { dx: -54, dy: -s * 20, anchor: "end" };
-  if (c < -0.75) return { dx: 54, dy: -s * 20, anchor: "start" };
-  return { dx: 0, dy: s > 0 ? -60 : 60, anchor: "middle" };
-}
+const TOUCH_KINDS: [string, string][] = [
+  ["call", "Call"],
+  ["text", "Text"],
+  ["email", "Email"],
+  ["video_text", "Video text"],
+  ["face_to_face", "Face-to-face"],
+  ["handwritten_note", "Note"],
+];
 
 async function getJson(url: string): Promise<{ status: number; body: unknown } | null> {
   try {
@@ -52,50 +51,68 @@ async function getJson(url: string): Promise<{ status: number; body: unknown } |
   }
 }
 
+function Face({ p, size, ring, glow }: { p: { name: string; photo: string | null }; size: number; ring: string; glow?: boolean }) {
+  return (
+    <span className={`ct-av${glow ? " ct-glow" : ""}`} style={{ width: size, height: size, borderColor: ring, fontSize: Math.round(size * 0.34) }} aria-hidden="true">
+      {p.photo ? <img src={p.photo} alt="" /> : initialsOf(p.name)}
+    </span>
+  );
+}
+
 export default function Contacts({
   onUnavailable,
   onChanged,
   onBack,
   onClassic,
+  onPowerHour,
+  onOpenPage,
   celebrate = [],
   openId = null,
   startGroup = null,
 }: {
-  startGroup?: string | null; // open this group on arrival; mayors_circle and rising_vip land inside Biz VIP
-  openId?: { id: string; k: number } | null; // open this person on arrival ("Go to" elsewhere in the Brain)
+  startGroup?: string | null; // open this group's list on arrival; mayors_circle and rising_vip land inside Biz VIP
+  openId?: { id: string; k: number } | null; // pick this person on arrival ("Go to" elsewhere in the Brain)
   onUnavailable: () => void;
   onChanged: () => void;
   onBack: () => void;
   onClassic: () => void;
+  /** Start Power Hour: the Brain's own Power Hour. */
+  onPowerHour?: () => void;
+  /** A ONE MOVE page inside the Brain (Possible duplicates opens Clean Up Contacts). */
+  onOpenPage?: (path: string) => void;
   celebrate?: string[];
 }) {
   const glowing = useMemo(() => new Set(celebrate), [celebrate]);
-  const [groups, setGroups] = useState<Groups | null>(null);
+  const [server, setServer] = useState<Groups | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [group, setGroup] = useState<string | null>(null);
-  const [people, setPeople] = useState<PersonItem[]>([]);
-  // Biz VIP's three lists, so a person in two of them counts once in the orb's roll-up.
-  const [family, setFamily] = useState<Record<string, PersonItem[]>>({});
+  const [filter, setFilter] = useState<Filter>(NEED);
+  const [list, setList] = useState<PersonItem[]>([]);
+  const [listNote, setListNote] = useState<string | null>(null);
+  const [listBusy, setListBusy] = useState(false);
   const [more, setMore] = useState<{ total: number; next: string | null }>({ total: 0, next: null });
-  const [due, setDue] = useState<PersonItem[]>([]);
+  const [due, setDue] = useState<PersonItem[] | null>(null);
+  const [ringOf, setRingOf] = useState<Map<string, string[]>>(new Map());
+  const [family, setFamily] = useState<Record<string, PersonItem[]>>({});
   const [q, setQ] = useState("");
   const [found, setFound] = useState<PersonItem[] | null>(null);
+  const [sel, setSel] = useState<string | null>(null);
   const [person, setPerson] = useState<Person | null>(null);
-  const [prepFor, setPrepFor] = useState<string | null>(null); // Call Prep before the call
-  const [opening, setOpening] = useState<string | null>(null);
+  const [sheet, setSheet] = useState(false); // the person card as a bottom sheet on a phone
+  const [full, setFull] = useState(false); // the full contact (every section, history, delete)
+  const [pick, setPick] = useState<"touch" | "vip" | null>(null);
+  const [done, setDone] = useState<Done[]>([]);
+  const [prepFor, setPrepFor] = useState<string | null>(null);
   const [openSec, setOpenSec] = useState<string | null>(null);
-  // The drill on the map: a person, then one of their sections in the middle, then one field.
-  const [focusSec, setFocusSec] = useState<string | null>(null);
-  const [focusFld, setFocusFld] = useState<string | null>(null);
   const [edit, setEdit] = useState<{ key: string; text: string } | null>(null);
   const [timeline, setTimeline] = useState<Timeline | null>(null);
   const [storyOnly, setStoryOnly] = useState<StoryProduct | null>(null);
   const [adding, setAdding] = useState<{ first_name: string; last_name: string; phone: string; email: string; tier: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const cam = useSvgCamera(SIZE);
   const held = useHeldDelete({ demo: false });
-  const drawerRef = useRef<HTMLElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const midRef = useRef<HTMLElement | null>(null);
+  const today = todayYmd();
 
   // ---- loading -----------------------------------------------------------------------------
   const loadGroups = useCallback(async () => {
@@ -104,32 +121,99 @@ export default function Contacts({
     if (r.status !== 200) return setErr(r.status === 401 ? "Sign in again to see your contacts." : "ONE couldn't load your contacts just now.");
     const g = readGroups(r.body);
     if (!g) return onUnavailable();
-    setGroups(g);
+    setServer(g);
     setErr(null);
   }, [onUnavailable]);
 
-  // Pulse's due list: the 30 who need the agent most, across every group, shown A-Z (Parry, 12 Oct); the pulse
-  // marks still show who is most urgent.
-  const loadDue = useCallback(() => {
-    getJson(listUrl({ sort: "pulse", limit: 30 })).then((r) => {
-      const p = r?.status === 200 ? readPage(r.body) : null;
-      if (p) setDue(byName(p.items.filter((i) => i.pulse)));
-    });
+  // Pulse's list: everyone who needs the agent, shown A-Z (Parry, 12 Oct); the red and yellow marks show who is first.
+  const loadDue = useCallback(async () => {
+    const r = await getJson(listUrl({ sort: "pulse", limit: 100 }));
+    const p = r?.status === 200 ? readPage(r.body) : null;
+    setDue(p ? byName(p.items.filter((i) => i.pulse)) : []);
   }, []);
+
+  // Which ring each person who needs the agent sits on: each ring's list in Pulse's order (those flagged come first).
+  const loadRings = useCallback(async (g: Groups) => {
+    const want = RING_KEYS.filter((k) => (g.groups.find((x) => x.key === k)?.needsYou ?? 0) > 0);
+    const rs = await Promise.all(want.map((k) => getJson(listUrl({ group: k, sort: "pulse", limit: 100 })).then((r) => [k, r?.status === 200 ? readPage(r.body)?.items ?? [] : []] as const)));
+    const m = new Map<string, string[]>();
+    for (const [k, items] of rs) for (const p of items) if (p.pulse) m.set(p.id, [...(m.get(p.id) ?? []), k]);
+    setRingOf(m);
+  }, []);
+
   useEffect(() => {
     loadGroups();
     loadDue();
   }, [loadGroups, loadDue]);
+  useEffect(() => {
+    if (server) loadRings(server);
+  }, [server, loadRings]);
 
-  const loadGroup = useCallback(async (key: string, cursor: string | null = null) => {
-    const r = await getJson(listUrl({ group: key, sort: "name", cursor, limit: PAGE }));
-    const p = r?.status === 200 ? readPage(r.body) : null;
-    if (!p) return setNote("ONE couldn't load that group just now.");
-    setPeople((was) => (cursor ? [...was, ...p.items.filter((i) => !was.some((w) => w.id === i.id))] : p.items));
+  // Biz VIP's three lists, so a person in two of them counts once in its key line (lib/people.ts nestBizVip).
+  const inBiz = filter.kind === "group" && (filter.key === BIZ_PARENT || isBizSub(filter.key));
+  useEffect(() => {
+    if (!inBiz || !server) return;
+    let on = true;
+    const keys = [BIZ_PARENT, ...server.groups.filter((g) => isBizSub(g.key)).map((g) => g.key)];
+    Promise.all(keys.map((k) => getJson(listUrl({ group: k, sort: "name", limit: 100 })).then((r) => [k, r?.status === 200 ? readPage(r.body)?.items ?? null : null] as const))).then((rs) => {
+      if (on) setFamily(Object.fromEntries(rs.filter((x): x is readonly [string, PersonItem[]] => !!x[1])));
+    });
+    return () => {
+      on = false;
+    };
+  }, [inBiz, server]);
+
+  // The list behind the filter. Who needs you is Pulse's list; Ask a group and Possible duplicates have no list here.
+  const loadList = useCallback(async (f: Filter, cursor: string | null = null) => {
+    const fq = filterQuery(f);
+    if (!fq || f.kind === "need") return;
+    setListBusy(true);
+    setListNote(null);
+    const page = async (group: string | null) => {
+      const r = await getJson(listUrl({ group, sort: fq.sort, cursor, limit: PAGE }));
+      return { status: r?.status ?? 0, page: r?.status === 200 ? readPage(r.body) : null };
+    };
+    const got = await page(fq.group);
+    // VIPs with no birthday: ONE MOVE counts them but does not list them as a group yet; until it does, the VIP-50 and
+    // VIP-100 show here, A-Z, and the agent adds each birthday on the card (never a made-up list).
+    if (f.kind === "chip" && f.key === "bday" && fq.group === BDAY_GROUP && (!got.page || (!got.page.total && !cursor))) {
+      const both = await Promise.all(BDAY_FALLBACK.map((k) => getJson(listUrl({ group: k, sort: "name", limit: 100 }))));
+      const items = byName(both.flatMap((r) => (r?.status === 200 ? readPage(r.body)?.items ?? [] : [])));
+      setListBusy(false);
+      setList(items);
+      setMore({ total: items.length, next: null });
+      setListNote("Your VIPs, A-Z. Open each one with no birthday and add it on their card.");
+      return;
+    }
+    setListBusy(false);
+    if (!got.page) {
+      setList([]);
+      setMore({ total: 0, next: null });
+      return setListNote("ONE couldn't load that list just now.");
+    }
+    const p = got.page;
+    setList((was) => (cursor ? [...was, ...p.items.filter((i) => !was.some((w) => w.id === i.id))] : p.items));
     setMore({ total: p.total, next: p.next });
   }, []);
 
-  // Search as the agent types (a short pause, then ONE MOVE searches name, phone, email, address, notes).
+  const choose = useCallback(
+    (next: Filter) => {
+      const f = toggleFilter(filter, next);
+      setFilter(f);
+      setList([]);
+      setMore({ total: 0, next: null });
+      setListNote(null);
+      setFull(false);
+      setAdding(null);
+      if (f.kind !== "need") loadList(f);
+      // on a phone the list is under the rings: bring it up so the tap shows its people
+      if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 760px)").matches) setTimeout(() => midRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 30);
+    },
+    [filter, loadList],
+  );
+
+  // Search as the agent types: the list narrows at once; from two letters ONE MOVE searches everyone (name, phone, email,
+  // address, notes).
   useEffect(() => {
     const needle = q.trim();
     if (needle.length < 2) return setFound(null);
@@ -141,89 +225,64 @@ export default function Contacts({
     return () => clearTimeout(t);
   }, [q]);
 
-  const openPerson = useCallback(async (id: string) => {
-    setOpening(id);
-    setNote(null);
-    setEdit(null);
-    setAdding(null);
-    setTimeline(null);
-    setStoryOnly(null);
+  const loadPerson = useCallback(async (id: string) => {
     const r = await getJson(personUrl(id));
-    setOpening(null);
     const p = r?.status === 200 ? readPerson(r.body) : null;
-    if (!p) return setNote(r?.status === 404 ? "That contact isn't there any more." : "ONE couldn't open that contact just now.");
-    setPerson(p);
-    setFocusSec(null);
-    setFocusFld(null);
-    setOpenSec(p.sections[0]?.key ?? null);
-    cam.reset();
-    drawerRef.current?.scrollTo({ top: 0 });
-  }, [cam]);
+    if (!p) {
+      setNote(r?.status === 404 ? "That contact isn't there any more." : "ONE couldn't open that contact just now.");
+      return null;
+    }
+    setPerson((was) => (was && was.id !== id ? was : p));
+    return p;
+  }, []);
+
+  const select = useCallback(
+    (id: string, open = true) => {
+      setSel(id);
+      setPick(null);
+      setAdding(null);
+      setEdit(null);
+      setTimeline(null);
+      setStoryOnly(null);
+      setPerson((was) => (was?.id === id ? was : null));
+      if (open) setSheet(true);
+      loadPerson(id).then((p) => {
+        if (p) setOpenSec(p.sections[0]?.key ?? null);
+      });
+    },
+    [loadPerson],
+  );
+
+  // On arrival: a person asked for ("Go to"), or a group, else the first person who needs the agent.
   useEffect(() => {
-    if (openId) openPerson(openId.id);
+    if (openId) select(openId.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openId]);
-
-  const openGroup = (key: string) => {
-    setPerson(null);
-    setNote(null);
-    setAdding(null);
-    if (group === key) {
-      setGroup(null);
-      setPeople([]);
-    } else {
-      setGroup(key);
-      setPeople([]);
-      loadGroup(key);
-    }
-    cam.reset();
-  };
-  const allGroups = () => {
-    setGroup(null);
-    setPeople([]);
-    cam.reset();
-  };
-  // Back from a sub-group goes to Biz VIP, then to all groups.
-  const closeGroup = () => {
-    const up = parentGroup(group);
-    if (group && up) return openGroup(up);
-    if (group) openGroup(group);
-  };
-  const back = () => {
-    if (edit) return setEdit(null);
-    if (adding) return setAdding(null);
-    if (focusFld) return setFocusFld(null);
-    if (focusSec) return setFocusSec(null);
-    if (person) return setPerson(null);
-    if (group) return closeGroup();
-    onBack();
-  };
-
-  const inFamily = group === BIZ_PARENT || isBizSub(group);
-  useEffect(() => {
-    if (!inFamily || !groups) return setFamily({});
-    let live = true;
-    const keys = [BIZ_PARENT, ...groups.groups.filter((g) => isBizSub(g.key)).map((g) => g.key)];
-    Promise.all(keys.map((k) => getJson(listUrl({ group: k, sort: "name", limit: 100 })).then((r) => [k, r?.status === 200 ? readPage(r.body)?.items ?? null : null] as const))).then((rs) => {
-      if (live) setFamily(Object.fromEntries(rs.filter((x): x is readonly [string, PersonItem[]] => !!x[1])));
-    });
-    return () => {
-      live = false;
-    };
-  }, [inFamily, groups]);
-  const nest = useMemo(() => nestBizVip(groups?.groups ?? [], family), [groups, family]);
-  const shown = inFamily ? [...nest.ring, ...nest.subs] : nest.ring;
   const startedRef = useRef(false);
   useEffect(() => {
-    if (!groups || !startGroup || startedRef.current) return;
+    if (!server || !startGroup || startedRef.current) return;
     startedRef.current = true;
-    const want = startGroup;
-    if (!groups.groups.some((g) => g.key === want)) return;
-    setGroup(want);
-    setPeople([]);
-    loadGroup(want);
+    if (server.groups.some((g) => g.key === startGroup)) choose({ kind: "group", key: startGroup });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groups, startGroup]);
+  }, [server, startGroup]);
+  useEffect(() => {
+    if (!sel && !openId && due && due.length) select(due[0].id, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [due]);
+
+  // ---- the numbers, with today's done touches off at once (rule 12) --------------------------------------------------
+  const flagged = useMemo(() => new Set((due ?? []).map((p) => p.id)), [due]);
+  const groups = useMemo(() => (server ? applyDone(server, done, flagged) : null), [server, done, flagged]);
+  const board = useMemo(() => (groups ? boardOf(groups, family) : null), [groups, family]);
+  const doneIds = useMemo(() => new Set(done.map((d) => d.id)), [done]);
+  const needLeft = groups?.needsYou ?? 0;
+  const waiting = useMemo(() => (due ?? []).filter((p) => !doneIds.has(p.id)), [due, doneIds]);
+  const faces = useMemo(() => seatFaces(waiting, ringOf), [waiting, ringOf]);
+  const byId = useMemo(() => {
+    const m = new Map<string, PersonItem>();
+    for (const p of [...(due ?? []), ...list, ...(found ?? [])]) if (!m.has(p.id)) m.set(p.id, p);
+    return m;
+  }, [due, list, found]);
 
   // ---- writing -----------------------------------------------------------------------------
   const post = async (url: string, body: unknown): Promise<{ ok: boolean; body: unknown; status: number }> => {
@@ -235,6 +294,46 @@ export default function Contacts({
     }
   };
   const errorOf = (b: unknown, fallback: string) => (b && typeof b === "object" && typeof (b as { error?: unknown }).error === "string" ? (b as { error: string }).error : fallback);
+  const okOf = (r: { ok: boolean; body: unknown }) => r.ok && !(r.body && typeof r.body === "object" && (r.body as { ok?: unknown }).ok === false);
+
+  const reloadAll = () => {
+    loadGroups();
+    loadDue();
+    if (filter.kind !== "need") loadList(filter);
+  };
+
+  // Mark touched today: ONE MOVE logs it everywhere (task, month box, trackers, timeline; /api/brain/touch, the same route
+  // as the contact card and Power Hour). The counts drop at once; ONE MOVE's next answer then stands.
+  const logTouch = async (kind: string, label: string) => {
+    if (!sel || busy) return;
+    const id = sel;
+    const it = byId.get(id) ?? (person && person.id === id ? { id, tier: person.tier, cls: (person.cls as PersonItem["cls"]) ?? null } : null);
+    setBusy(true);
+    const r = await post(touchUrl, { contact_id: id, kind, detail: `${label} logged from My Contacts in ONE Brain` });
+    setBusy(false);
+    if (!okOf(r)) return setNote(errorOf(r.body, "ONE MOVE didn't take that. Nothing was changed."));
+    setPick(null);
+    if (it) setDone((d) => (d.some((x) => x.id === id) ? d : [...d, { id, keys: keysOf(it, ringOf, filter) }]));
+    const name = person?.id === id ? person.firstName ?? person.name : it && "name" in it ? (it as PersonItem).name : "They";
+    setNote(`${name} marked touched today. ${Math.max(0, needLeft - (flagged.has(id) && !doneIds.has(id) ? 1 : 0))} left today. Boxes and Pulse update.`);
+    reloadAll();
+    loadPerson(id);
+    onChanged();
+  };
+
+  // Make VIP: ONE MOVE's VIP route (the same as VIP Management's rings).
+  const makeVip = async (tier: "vip50" | "vip100") => {
+    if (!person || busy) return;
+    setBusy(true);
+    const r = await post(vipTierUrl, { contact_id: person.id, tier });
+    setBusy(false);
+    if (!okOf(r)) return setNote(errorOf(r.body, "That didn't go through. Nothing was changed."));
+    setPick(null);
+    setNote(`Done. ${person.name} is in your ${tier === "vip50" ? "VIP-50" : "VIP-100"}.`);
+    loadPerson(person.id);
+    reloadAll();
+    onChanged();
+  };
 
   const saveField = async (f: Field) => {
     if (!person || !edit || busy) return;
@@ -247,14 +346,13 @@ export default function Contacts({
     if (!r.ok) return setNote(errorOf(r.body, "That didn't save. Nothing was changed."));
     setEdit(null);
     if (next) setPerson(next);
-    else openPerson(person.id);
+    else loadPerson(person.id);
     setNote(`${f.label} saved.`);
     loadGroups();
     onChanged();
   };
 
-  // The month's touches tick with one tap (Parry, 20 Oct): ONE MOVE logs the touch everywhere when one turns on
-  // (task, tracker, timeline). A quarterly touch's tap stamps today.
+  // The month's touches tick with one tap (Parry, 20 Oct): ONE MOVE logs the touch everywhere when one turns on.
   const quickSave = async (f: Field, value: string | null) => {
     if (!person || busy) return;
     setBusy(true);
@@ -264,9 +362,9 @@ export default function Contacts({
     if (!r.ok) return setNote(errorOf(r.body, "That didn't save. Nothing was changed."));
     setEdit(null);
     if (next) setPerson(next);
-    else openPerson(person.id);
+    else loadPerson(person.id);
     setNote(value ? `${f.label} ticked. It counts everywhere.` : `${f.label} cleared.`);
-    loadGroups();
+    reloadAll();
     onChanged();
   };
 
@@ -282,9 +380,9 @@ export default function Contacts({
     if (!id) return setNote(errorOf(r.body, "That person wasn't added. Nothing was changed."));
     setAdding(null);
     setNote(`${body.first_name} is in your contacts.`);
-    loadGroups();
+    reloadAll();
     onChanged();
-    openPerson(id);
+    select(id);
   };
 
   // Delete (walker 2026-10-17-0042): off the screen at once, held 6 seconds with Undo, then ONE MOVE's route; if it
@@ -294,23 +392,18 @@ export default function Contacts({
     const id = person.id;
     const first = firstOf(person.firstName ?? person.name);
     const gone = (l: PersonItem[]) => l.filter((p) => p.id !== id);
-    setPeople(gone);
-    setDue(gone);
+    setList(gone);
+    setDue((d) => (d ? gone(d) : d));
     setFound((f) => (f ? gone(f) : f));
     setMore((m) => ({ ...m, total: Math.max(0, m.total - 1) }));
-    setGroups((g) => (g ? { ...g, total: Math.max(0, g.total - 1) } : g));
+    setServer((g) => (g ? { ...g, total: Math.max(0, g.total - 1) } : g));
     setPerson(null);
-    setFocusSec(null);
-    setFocusFld(null);
+    setSel(null);
+    setFull(false);
+    setSheet(false);
     setEdit(null);
     setTimeline(null);
-    cam.reset();
-    const inGroup = group;
-    const reload = () => {
-      loadGroups();
-      loadDue();
-      if (inGroup) loadGroup(inGroup);
-    };
+    const reload = () => reloadAll();
     held.start({ ids: [id], first, restore: reload, onDone: () => (reload(), onChanged()) });
   };
 
@@ -322,80 +415,47 @@ export default function Contacts({
     setTimeline((was) => (cursor && was ? { events: [...was.events, ...t.events], next: t.next } : t));
   };
 
-  // ---- the map -----------------------------------------------------------------------------
-  const layout = useMemo(() => {
-    const orbs = new Map<string, { x: number; y: number; k: number; lx: number; ly: number; anchor: "start" | "middle" | "end" }>();
-    const seats: { id: string; x: number; y: number; r: number; fx: number; fy: number; delay: number }[] = [];
-    const gs = shown;
-    if (group) {
-      // Round the centre: the two sub-orbs first (a little larger), then the other groups.
-      const others = [...gs.filter((g) => g.key !== group && isBizSub(g.key) && group === BIZ_PARENT), ...gs.filter((g) => g.key !== group && !(isBizSub(g.key) && group === BIZ_PARENT))];
-      orbs.set(group, { x: C, y: C, k: 1, lx: C, ly: C + 24, anchor: "middle" });
-      others.forEach((g, i) => {
-        const a = -Math.PI / 2 + (2 * Math.PI * (i + 0.5)) / others.length;
-        const x = C + OR * Math.cos(a), y = C + OR * Math.sin(a);
-        orbs.set(g.key, { x, y, k: isBizSub(g.key) && group === BIZ_PARENT ? 0.42 : 0.3, lx: x, ly: y + (isBizSub(g.key) && group === BIZ_PARENT ? 58 : 44), anchor: "middle" });
-      });
-      const fr = focusFace(people.length);
-      ringRows(people.map((p) => p.id), C, C, focusRings(100, fr), fr, 26).forEach((s, j) => seats.push({ id: s.id, x: s.x, y: s.y, r: fr, fx: C, fy: C, delay: Math.min(j, 40) * 22 }));
-    } else {
-      gs.forEach((g, i) => {
-        const a = -Math.PI / 2 + (2 * Math.PI * i) / gs.length;
-        const x = C + FR * Math.cos(a), y = C + FR * Math.sin(a);
-        const l = labelAt(a);
-        orbs.set(g.key, { x, y, k: 0.44, lx: x + l.dx, ly: y + l.dy, anchor: l.anchor });
-      });
+  // A row's Text: their number from ONE MOVE, then the agent's own messages app. No number: their full contact, to add one.
+  const textFrom = async (id: string) => {
+    const p = person?.id === id ? person : await loadPerson(id);
+    const tel = p ? dialable(p.phone) : null;
+    if (tel) window.location.href = `sms:${tel}`;
+    else if (p) {
+      select(id);
+      setFull(true);
+      setNote(`No mobile number for ${p.firstName ?? p.name} yet. Add one under How to reach.`);
     }
-    return { orbs, seats };
-  }, [shown, group, people]);
-  const byId = useMemo(() => new Map(people.map((p) => [p.id, p] as const)), [people]);
+  };
+  const openFull = () => {
+    setFull(true);
+    setSheet(false);
+    rootRef.current?.scrollTo({ top: 0 });
+  };
 
-  // A person in the middle, their sections round them. Tap a section: it comes to the middle,
-  // the person and the other sections step back to the outer ring, and its fields fly out round
-  // it. Tap a field: it comes to the middle; a list (children, pets) opens into one orb each.
-  const drill = useMemo(() => {
-    if (!person) return null;
-    const secs = person.sections;
-    const sec = focusSec ? secs.find((s) => s.key === focusSec) ?? null : null;
-    const ring = (i: number, n: number, r: number, skipTop = false) => {
-      const a = skipTop ? -Math.PI / 2 + (2 * Math.PI * (i + 1)) / (n + 1) : -Math.PI / 2 + (2 * Math.PI * i) / n;
-      return { x: C + r * Math.cos(a), y: C + r * Math.sin(a), a };
+  const back = () => {
+    if (prepFor) return setPrepFor(null);
+    if (edit) return setEdit(null);
+    if (pick) return setPick(null);
+    if (adding) return setAdding(null);
+    if (full) return setFull(false);
+    if (sheet) return setSheet(false);
+    if (q) return setQ("");
+    if (!sameFilter(filter, NEED)) return choose(filter);
+    onBack();
+  };
+  // a note says what happened, then steps aside
+  useEffect(() => {
+    if (!note) return;
+    const t = setTimeout(() => setNote(null), 6000);
+    return () => clearTimeout(t);
+  }, [note]);
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && (sheet || full || pick || adding)) back();
     };
-    const home = new Map(secs.map((s, i) => [s.key, ring(i, secs.length, SR)] as const));
-    const place = new Map<string, { x: number; y: number; k: number }>();
-    if (!sec) secs.forEach((s) => place.set(s.key, { ...home.get(s.key)!, k: 1 }));
-    else {
-      const others = secs.filter((s) => s.key !== sec.key);
-      others.forEach((s, i) => place.set(s.key, { ...ring(i, others.length, OR, true), k: 0.85 }));
-      // a field open: the section waits half way up, between the person and the field (a trail back)
-      place.set(sec.key, focusFld ? { x: C, y: C - OR * 0.7, k: 0.8 } : { x: C, y: C, k: 1.7 });
-    }
-    const face = sec ? { x: C, y: C - OR, k: 0.42 } : { x: C, y: C, k: 1 };
-    const fields = sec ? sec.fields : [];
-    const fr = Math.min(64, focusFace(fields.length) + 12);
-    const fieldSeats = sec && !focusFld ? ringRows(fields.map((f) => f.key), C, C, focusRings(110, fr), fr, 26) : [];
-    const fld = sec && focusFld ? fields.find((f) => f.key === focusFld) ?? null : null;
-    const items = fld && Array.isArray(fld.value) ? fld.value : [];
-    const ir = focusFace(items.length);
-    const itemSeats = items.length ? ringRows(items.map((_, i) => String(i)), C, C, focusRings(100, ir), ir, 26) : [];
-    return { home, place, face, sec, fields, fr, fieldSeats, fld, items, itemSeats };
-  }, [person, focusSec, focusFld]);
-
-  const focusSection = (key: string | null) => {
-    setFocusFld(null);
-    setEdit(null);
-    setFocusSec(key);
-    if (key) {
-      setOpenSec(key);
-      setTimeout(() => document.getElementById(`pc-sec-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
-    }
-    cam.reset();
-  };
-  const focusField = (f: Field) => {
-    setFocusFld(f.key);
-    setEdit(f.editable && f.type !== "list" ? { key: f.key, text: editText(f) } : null);
-    setTimeout(() => document.getElementById(`pc-f-${f.key}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
-  };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  });
 
   if (err) {
     return (
@@ -405,7 +465,7 @@ export default function Contacts({
       </div>
     );
   }
-  if (!groups) {
+  if (!groups || !board) {
     return (
       <div className="page-panel-veil" role="status">
         <span className="page-panel-spin" aria-hidden="true" />
@@ -414,463 +474,464 @@ export default function Contacts({
     );
   }
 
-  const gLabel = (k: string) => groups.groups.find((g) => g.key === k)?.label ?? k;
+  // ---- what the middle shows ---------------------------------------------------------------------------------------
+  const searching = q.trim().length > 0;
+  const base = filter.kind === "need" ? due ?? [] : list;
+  const rows = searching ? (found && q.trim().length >= 2 ? found : narrow(base, q)) : base;
+  const title = searching && found && q.trim().length >= 2 ? `FOUND · ${found.length}${found.length === 50 ? "+" : ""}` : filterTitle(filter, board, groups.gaps, needLeft);
+  const sel0 = sel ? byId.get(sel) ?? null : null;
+  const selNeeds = !!sel && !doneIds.has(sel) && (flagged.has(sel) || !!(person?.id === sel && person.pulse));
   const tel = person ? dialable(person.phone) : null;
   const mail = person ? mailable(person.email) : null;
-  const faceOf = (p: { id: string; name: string; photo: string | null }, r: number, clip: string) =>
-    p.photo ? (
-      <>
-        <clipPath id={clip}>
-          <circle r={r - 1.5} />
-        </clipPath>
-        <image href={p.photo} x={-r} y={-r} width={r * 2} height={r * 2} preserveAspectRatio="xMidYMid slice" clipPath={`url(#${clip})`} pointerEvents="none" />
-      </>
-    ) : (
-      <text className="vr-init vr-init-50" dy="0.35em" textAnchor="middle" fontSize={r * 0.7} pointerEvents="none">{initialsOf(p.name)}</text>
-    );
+  const ringPick = (k: string) => choose({ kind: "group", key: k });
+  const isOn = (f: Filter) => sameFilter(filter, f);
+  const chips: { k: Chip; n: string; label: string; act: string }[] = [
+    { k: "bday", n: groups.gaps.vipNoBirthday.toLocaleString("en-US"), label: "VIPs with no birthday", act: "Add" },
+    { k: "dup", n: groups.gaps.possibleDuplicates.toLocaleString("en-US"), label: "Possible duplicates", act: "Review" },
+    { k: "sort", n: groups.gaps.toSort.toLocaleString("en-US"), label: "New to sort", act: "Sort" },
+    { k: "perm", n: "✓", label: "Ask a group for permission", act: "Choose" },
+  ];
+  const chipGo = (k: Chip) => {
+    // Possible duplicates are reviewed in ONE MOVE's Clean Up Contacts (merge, not a duplicate, later), inside the Brain.
+    if (k === "dup") return onOpenPage ? onOpenPage("/contacts/cleanup") : onClassic();
+    choose({ kind: "chip", key: k });
+  };
+  const srcTotal = board.sources.reduce((a, s) => a + s.count, 0);
+  const cx = RING_BOX / 2;
 
-  const row = (p: PersonItem) => (
-    <li key={p.id}>
-      <button className="ta-name" onClick={() => openPerson(p.id)} disabled={opening === p.id}>{p.name}</button>
-      <span className={p.pulse ? "pc-pulse" : undefined}>{p.pulse ?? personTag(p)}</span>
-    </li>
-  );
+  const circle = (p: PersonItem) => circleOf(p, ringOf, p.id);
+
+  const personCard = person && sel === person.id ? person : null;
+  const cardName = personCard?.name ?? sel0?.name ?? "";
+  const cardWhy = sel && doneIds.has(sel) ? "Done today" : personCard?.pulse ? personCard.pulse.line : sel0?.pulse ?? null;
+  const cardCircle = sel0 ? circle(sel0) : personCard ? circleOf({ tier: personCard.tier, cls: (personCard.cls as PersonItem["cls"]) ?? null, source: personCard.source }, ringOf, personCard.id) : null;
 
   return (
-    <div className="vr" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
+    <div ref={rootRef} className="ct" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
       {held.toast}
       {prepFor && <CallPrepCard contactId={prepFor} phone={person?.id === prepFor ? person.phone : null} onClose={() => setPrepFor(null)} onDial={() => setPrepFor(null)} />}
-      <div className="vr-stage">
-        <svg ref={cam.svgRef} className="vr-svg" viewBox={cam.viewBox} preserveAspectRatio="xMidYMid meet" {...cam.handlers} role="group" aria-label={person ? person.name : group ? gLabel(group) : "My Contacts"}>
-          <defs>
-            <radialGradient id="pc-glass" cx="50%" cy="50%" r="50%">
-              <stop offset="0" stopColor="#070b18" />
-              <stop offset="0.7" stopColor="#0b1020" />
-              <stop offset="1" stopColor="#2a2a3a" />
-            </radialGradient>
-            {groups.groups.map((g) => (
-              <radialGradient key={g.key} id={`pc-glow-${g.key}`}>
-                <stop offset="0.45" stopColor={groupColor(g.key)} stopOpacity="0.35" />
-                <stop offset="1" stopColor={groupColor(g.key)} stopOpacity="0" />
-              </radialGradient>
-            ))}
-            {(person?.sections ?? []).map((sec) => [
-              <radialGradient key={`b-${sec.key}`} id={`pc-body-${sec.key}`} cx="50%" cy="50%" r="50%">
-                <stop offset="0" stopColor="#070b18" />
-                <stop offset="0.55" stopColor="#0b1020" />
-                <stop offset="0.86" stopColor={sectionColor(sec.key)} stopOpacity="0.35" />
-                <stop offset="1" stopColor={sectionColor(sec.key)} stopOpacity="0.75" />
-              </radialGradient>,
-              <radialGradient key={`g-${sec.key}`} id={`pc-sglow-${sec.key}`}>
-                <stop offset="0.45" stopColor={sectionColor(sec.key)} stopOpacity="0.28" />
-                <stop offset="1" stopColor={sectionColor(sec.key)} stopOpacity="0" />
-              </radialGradient>,
-            ])}
-            <radialGradient id="pc-core-glow">
-              <stop offset="0.45" stopColor={GOLD} stopOpacity="0.3" />
-              <stop offset="1" stopColor={GOLD} stopOpacity="0" />
-            </radialGradient>
-          </defs>
 
-          {/* the groups: round the core, or one in the middle; they step back while a person is open */}
-          <g className={`fx-move${person ? " fx-gone" : ""}`} style={{ opacity: person ? 0 : 1 }} pointerEvents={person ? "none" : undefined}>
-            <circle key={`track-${group ?? "all"}`} className="vr-track fx-fade" cx={C} cy={C} r={group ? OR : FR} />
-            {!group && [...layout.orbs.entries()].map(([k, o]) => <line key={`l-${k}`} className="vr-link fx-fade" x1={C} y1={C} x2={o.x} y2={o.y} pointerEvents="none" />)}
+      <header className="ct-head">
+        <div>
+          <span className="ct-tag">ONE MOVE · CONTACTS</span>
+          <h1 className="ct-h1">MY CONTACTS</h1>
+          <p className="ct-sub">
+            <button className="ct-num" onClick={() => choose({ kind: "all" })} aria-label={`Show all ${board.total} people`}>{`${board.total.toLocaleString("en-US")} people`}</button>
+            {". "}
+            <button className="ct-num" onClick={() => (isOn(NEED) ? undefined : choose(NEED))} aria-label={`Show the ${needLeft} who need you today`}>{`${needLeft.toLocaleString("en-US")} need you today`}</button>
+            {"."}
+          </p>
+        </div>
+        <div className="ct-tools">
+          <input className="ct-search" type="search" placeholder="Search name, phone, email, address, notes…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search your contacts" />
+          {/* Import lives on My Contacts (Parry, 23 Oct: "couldnt import contacts move to contacts page") */}
+          <button className="ct-btn" data-act="contacts-import" onClick={() => (onOpenPage ? onOpenPage("/contacts/import") : onClassic())}>Import</button>
+          <button className="ct-btn solid" onClick={() => { setAdding({ first_name: "", last_name: "", phone: "", email: "", tier: "contact" }); setFull(false); setSheet(true); }}>+ Add a person</button>
+        </div>
+      </header>
 
-            <g className={`fx-move${group ? " fx-gone" : ""}`} style={{ transform: `translate(${C}px, ${C}px) scale(${group ? 0.3 : 1})` }} pointerEvents="none">
-              <circle r={140} fill="url(#pc-core-glow)" />
-              <circle r={100} fill="url(#pc-glass)" stroke={GOLD} strokeWidth={3} />
-              <text className="dt-score" y={-8} textAnchor="middle">{groups.total.toLocaleString("en-US")}</text>
-              <text className="dt-score-sub" y={22} textAnchor="middle" style={{ fill: "#ffe08a" }}>MY CONTACTS</text>
-              {groups.needsYou > 0 && <text className="rx-name" y={50} textAnchor="middle" style={{ fill: GOLD, fontSize: 15 }}>{`${groups.needsYou} need you`}</text>}
-            </g>
+      <div className="ct-chips" role="group" aria-label="Clean up your contacts">
+        {chips.map((c) => (
+          <button key={c.k} className={`ct-chip${isOn({ kind: "chip", key: c.k }) ? " on" : ""}`} aria-pressed={isOn({ kind: "chip", key: c.k })} onClick={() => chipGo(c.k)}>
+            <span><b>{c.n}</b>{c.label}</span>
+            <span className="ct-chip-go">{c.act} →</span>
+          </button>
+        ))}
+      </div>
 
-            {layout.seats.map((s) => {
-              const p = byId.get(s.id);
-              if (!p) return null;
-              const col = groupColor(group ?? "other");
-              const vars = { "--fx": `${s.fx}px`, "--fy": `${s.fy}px`, "--tx": `${s.x}px`, "--ty": `${s.y}px`, animationDelay: `${s.delay}ms` } as React.CSSProperties;
-              const nameSize = Math.max(13, s.r * 0.34);
-              return [
-                <line key={`ln-${group}-${s.id}`} className="fx-fade" x1={s.fx} y1={s.fy} x2={s.x} y2={s.y} stroke={col} strokeOpacity={0.14} pointerEvents="none" style={{ animationDelay: `${s.delay + 200}ms` }} />,
-                <g
-                  key={`${group}-${s.id}`}
-                  data-tap
-                  className="rx-biz fx-out"
-                  style={vars}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`${p.name}${p.pulse ? `, Pulse: ${p.pulse}` : ""}`}
-                  onClick={() => openPerson(p.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      openPerson(p.id);
-                    }
-                  }}
-                >
-                  <desc>{p.pulse ? `${p.name} · ${p.pulse}` : p.name}</desc>
-                  {glowing.has(p.id) && <circle r={s.r + 10} fill="none" stroke={GOLD} strokeWidth={4} className="sd-glow" pointerEvents="none" />}
-                  <PulseRing r={s.r} level={p.pulse ? p.urgency ?? "today" : "good"} />
-                  <circle r={s.r} fill="#121a36" stroke={col} strokeWidth={1.8} />
-                  {faceOf(p, s.r, `pc-f-${s.id}`)}
-                  <text className="hw-face-name" y={s.r + nameSize + 4} textAnchor="middle" style={{ fontSize: nameSize }}>{p.firstName ?? p.name.split(" ")[0]}</text>
-                </g>,
-              ];
-            })}
-
-            {shown.map((g) => {
-              const o = layout.orbs.get(g.key)!;
-              const col = groupColor(g.key);
-              const centre = group === g.key;
-              const act = () => (centre ? closeGroup() : openGroup(g.key));
-              return (
-                <g key={g.key}>
-                  <g
-                    data-tap
-                    className="rx-group fx-move"
-                    style={{ transform: `translate(${o.x}px, ${o.y}px) scale(${o.k})` }}
+      {full && personCard ? (
+        fullContact()
+      ) : (
+        <div className="ct-grid">
+          {/* left: the rings, the key, where they came from */}
+          <section className="ct-card ct-left" aria-label="Your circles">
+            <svg className="ct-rings" viewBox={`0 0 ${RING_BOX} ${RING_BOX}`} role="group" aria-label="Your circles, closest inside">
+              {[...board.rings].reverse().map((r) => {
+                const on = isOn({ kind: "group", key: r.key });
+                return (
+                  <circle
+                    key={r.key}
+                    className="ct-ring"
+                    data-ring={r.key}
+                    cx={cx}
+                    cy={cx}
+                    r={ringRadius(r.key)}
+                    fill={r.color}
+                    fillOpacity={on ? 0.16 : 0.04}
+                    stroke={r.color}
+                    strokeOpacity={on ? 1 : r.count ? 0.5 : 0.22}
+                    strokeWidth={on ? 5 : 2}
                     role="button"
                     tabIndex={0}
-                    aria-pressed={centre}
-                    aria-label={centre ? `${g.label}: back to ${parentGroup(g.key) ? gLabel(parentGroup(g.key)!) : "all groups"}` : `${g.label}, ${g.count} ${g.count === 1 ? "person" : "people"}${g.needsYou ? `, ${g.needsYou} need you` : ""}`}
-                    onClick={act}
+                    aria-pressed={on}
+                    aria-label={`${r.label}: ${r.count} ${r.count === 1 ? "person" : "people"}${r.needsYou ? `, ${r.needsYou} need you` : ""}`}
+                    onClick={() => ringPick(r.key)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        act();
+                        ringPick(r.key);
                       }
                     }}
                   >
-                    <circle r={190} fill={`url(#pc-glow-${g.key})`} opacity={g.count ? 1 : 0.35} />
-                    {g.count > 0 && <PulseRing r={100} level={levelOf(g.needsYou, g.needsNow)} />}
-                    <circle r={100} fill="url(#pc-glass)" stroke={col} strokeWidth={centre ? 4 : 5} opacity={g.count ? 1 : 0.5} strokeDasharray={g.kind === "source" ? "14 8" : undefined} />
-                    <text className="rx-n-big" y={centre ? -6 : 0} dy={centre ? 0 : "0.35em"} textAnchor="middle" style={g.count > 999 ? { fontSize: 40 } : undefined}>{g.count.toLocaleString("en-US")}</text>
-                    {g.needsYou > 0 && (
-                      <g transform="translate(72,-72)" pointerEvents="none">
-                        <circle r={30} fill={PULSE_COLOR[levelOf(g.needsYou, g.needsNow)]} stroke="#070b18" strokeWidth={5} />
-                        <text dy="0.35em" textAnchor="middle" style={{ fill: "#1b1400", fontSize: 28, fontWeight: 800 }}>{g.needsYou}</text>
-                      </g>
-                    )}
-                  </g>
-                  <g className="fx-move" style={{ transform: `translate(${o.lx}px, ${o.ly}px)` }} pointerEvents="none">
-                    <text className="rx-fam" dy="0.35em" textAnchor={o.anchor} style={{ fill: col }}>{g.label.toUpperCase()}</text>
-                    {centre && <text key={`back-${g.key}`} className="rx-back fx-fade" y={26} textAnchor="middle" style={{ animationDelay: "500ms" }}>{parentGroup(g.key) ? `tap for ${gLabel(parentGroup(g.key)!)}` : "tap for all groups"}</text>}
-                  </g>
-                </g>
-              );
-            })}
-            {group && people.length === 0 && (shown.find((g) => g.key === group)?.count ?? 0) === 0 && (
-              <text key={`empty-${group}`} x={C} y={C + 170} textAnchor="middle" className="rx-name fx-fade">No one in this group yet</text>
-            )}
-          </g>
-
-          {/* one person, then a section, then a field: whatever is tapped comes to the middle */}
-          {person && drill && (
-            <g key={`p-${person.id}`}>
-              <circle className="vr-track fx-move" cx={C} cy={C} r={drill.sec ? OR : SR} />
-              {!drill.sec &&
-                person.sections.map((s, i) => {
-                  const h = drill.home.get(s.key)!;
-                  return <line key={`sl-${s.key}`} className="fx-fade" x1={C} y1={C} x2={h.x} y2={h.y} stroke={sectionColor(s.key)} strokeOpacity={0.22} pointerEvents="none" style={{ animationDelay: `${i * 45 + 200}ms` }} />;
-                })}
-
-              {/* the sections: they fly out of the person once, then glide between places */}
-              {person.sections.map((s, i) => {
-                const col = sectionColor(s.key);
-                const gaps = gapsIn(s);
-                const h = drill.home.get(s.key)!;
-                const at = drill.place.get(s.key)!;
-                const centre = drill.sec?.key === s.key && !drill.fld;
-                const act = () => (centre ? focusSection(null) : drill.sec?.key === s.key ? setFocusFld(null) : focusSection(s.key));
-                const vars = { "--fx": `${C}px`, "--fy": `${C}px`, "--tx": `${h.x}px`, "--ty": `${h.y}px`, animationDelay: `${i * 45}ms` } as React.CSSProperties;
+                    <title>{`${r.label}: ${r.count.toLocaleString("en-US")}`}</title>
+                  </circle>
+                );
+              })}
+              {faces.seats.map((s) => {
+                const p = byId.get(s.id);
+                if (!p) return null;
                 return (
-                  <g key={`sec-${s.key}`} className="fx-out" style={vars}>
-                    <g
-                      data-tap
-                      className="rx-biz fx-move"
-                      style={{ transform: `translate(${at.x - h.x}px, ${at.y - h.y}px) scale(${at.k})` }}
-                      role="button"
-                      tabIndex={0}
-                      aria-pressed={drill.sec?.key === s.key}
-                      aria-label={centre ? `${s.label}: back to ${person.name}` : `${s.label}${s.summary ? `, ${s.summary}` : ""}${gaps ? `, ${gaps} to fill in` : ""}`}
-                      onClick={act}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          act();
-                        }
-                      }}
-                    >
-                      <circle r={118} fill={`url(#pc-sglow-${s.key})`} opacity={centre ? 1 : 0.85} pointerEvents="none" />
-                      <PulseRing r={64} level={sectionLevel(s)} />
-                      <circle r={64} fill={`url(#pc-body-${s.key})`} stroke={drill.sec?.key === s.key ? "#fff" : col} strokeWidth={drill.sec?.key === s.key ? 3 : 2.4} />
-                      <circle r={62} fill="none" stroke="#fff" strokeOpacity={0.16} strokeWidth={1} pointerEvents="none" />
-                      <ellipse cy={-32} rx={35} ry={14} fill="#fff" fillOpacity={0.07} pointerEvents="none" />
-                      {twoLines(s.label).map((ln, k, all) => (
-                        <text key={k} y={(k - all.length / 2) * 17 + 4} textAnchor="middle" className="pc-sec-label" style={{ fill: col }}>{ln}</text>
-                      ))}
-                      <text y={twoLines(s.label).length > 1 ? 30 : 22} textAnchor="middle" className="pc-sec-sum">{centre ? "tap to go back" : s.summary ?? (gaps === s.fields.length ? "empty" : "")}</text>
-                      {gaps > 0 && !centre && (
-                        <g transform="translate(46,-46)" pointerEvents="none">
-                          <circle r={13} fill="#121a36" stroke={GOLD} strokeWidth={2} />
-                          <text dy="0.35em" textAnchor="middle" style={{ fill: GOLD, fontSize: 12, fontWeight: 800 }}>{gaps}</text>
-                        </g>
-                      )}
-                    </g>
+                  <g key={s.id} className="ct-seat" role="button" tabIndex={0} aria-label={`${p.name}: ${p.pulse ?? "needs you"}`} onClick={() => select(p.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(p.id); } }}>
+                    <title>{`${p.name} · ${p.pulse ?? ""}`}</title>
+                    <circle cx={s.x} cy={s.y} r={14} fill="#1b2750" stroke={p.urgency === "now" ? RED : GOLD} strokeWidth={sel === p.id ? 4 : 2.5} />
+                    <text x={s.x} y={s.y + 3.5} textAnchor="middle" className="ct-seat-t">{initialsOf(p.name)}</text>
                   </g>
                 );
               })}
-
-              {/* a section's fields, flying out of it */}
-              {drill.sec &&
-                drill.fieldSeats.map((seat, j) => {
-                  const f = drill.fields.find((x) => x.key === seat.id)!;
-                  const col = sectionColor(drill.sec!.key);
-                  const shown = showValue(f);
-                  const yes = f.type === "choice" && f.value === "Yes";
-                  const vars = { "--fx": `${C}px`, "--fy": `${C}px`, "--tx": `${seat.x}px`, "--ty": `${seat.y}px`, animationDelay: `${120 + j * 35}ms` } as React.CSSProperties;
-                  const r = seat.r;
-                  return [
-                    <line key={`fl-${drill.sec!.key}-${f.key}`} className="fx-fade" x1={C} y1={C} x2={seat.x} y2={seat.y} stroke={col} strokeOpacity={0.16} pointerEvents="none" style={{ animationDelay: `${j * 35 + 300}ms` }} />,
-                    <g
-                      key={`f-${drill.sec!.key}-${f.key}`}
-                      data-tap
-                      className="rx-biz fx-out"
-                      style={vars}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`${f.label}: ${shown ?? "empty"}${f.editable ? "" : ", read only"}`}
-                      onClick={() => focusField(f)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          focusField(f);
-                        }
-                      }}
-                    >
-                      <desc>{`${f.label}: ${shown ?? "empty"}`}</desc>
-                      <circle r={r * 1.7} fill={`url(#pc-sglow-${drill.sec!.key})`} opacity={yes ? 0.5 : 0.8} pointerEvents="none" />
-                      {fieldLevel(drill.sec!, f) ? <PulseRing r={r} level={fieldLevel(drill.sec!, f)!} /> : null}
-                      <circle r={r} fill={yes ? "#0e2b2a" : `url(#pc-body-${drill.sec!.key})`} stroke={shown == null ? GOLD : yes ? TEAL : col} strokeWidth={yes ? 3 : 2} strokeDasharray={shown == null ? "5 5" : undefined} opacity={f.editable || shown != null ? 1 : 0.7} />
-                      <circle r={r - 2} fill="none" stroke="#fff" strokeOpacity={0.14} strokeWidth={1} pointerEvents="none" />
-                      <ellipse cy={-r * 0.5} rx={r * 0.55} ry={r * 0.22} fill="#fff" fillOpacity={0.07} pointerEvents="none" />
-                      {fitLines(shown == null ? (f.editable ? "Add" : "—") : yes ? "✓" : shown, r).map((ln, k, all) => (
-                        <text key={k} y={(k - (all.length - 1) / 2) * r * 0.36} dy="0.35em" textAnchor="middle" className="pc-f-val" style={{ fontSize: yes ? r * 0.7 : Math.max(11, r * 0.28), fill: shown == null ? GOLD : yes ? "#8af0de" : "#eef1f8" }}>{ln}</text>
-                      ))}
-                      <text className="hw-face-name" y={r + Math.max(13, r * 0.3) + 4} textAnchor="middle" style={{ fontSize: Math.max(13, r * 0.3) }}>{f.label.length > 18 ? `${f.label.slice(0, 17)}…` : f.label}</text>
-                    </g>,
-                  ];
-                })}
-
-              {/* one field in the middle; a list opens into one orb each */}
-              {drill.fld && (
-                <g key={`fld-${drill.fld.key}`}>
-                  <g
-                    data-tap
-                    className="rx-biz fx-out"
-                    style={{ "--fx": `${C}px`, "--fy": `${C}px`, "--tx": `${C}px`, "--ty": `${C}px` } as React.CSSProperties}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`${drill.fld.label}: back to ${drill.sec!.label}`}
-                    onClick={() => setFocusFld(null)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setFocusFld(null);
-                      }
-                    }}
-                  >
-                    <circle r={150} fill="url(#pc-core-glow)" pointerEvents="none" />
-                    <circle r={108} fill="url(#pc-glass)" stroke={showValue(drill.fld) == null ? GOLD : sectionColor(drill.sec!.key)} strokeWidth={4} strokeDasharray={showValue(drill.fld) == null ? "8 6" : undefined} />
-                    <text y={-56} textAnchor="middle" className="pc-sec-label" style={{ fill: sectionColor(drill.sec!.key), fontSize: 16 }}>{drill.fld.label.length > 20 ? `${drill.fld.label.slice(0, 19)}…` : drill.fld.label}</text>
-                    {drill.items.length ? (
-                      <text y={6} textAnchor="middle" className="rx-n-big" style={{ fontSize: 48 }}>{drill.items.length}</text>
-                    ) : (
-                      fitLines(showValue(drill.fld) ?? (drill.fld.editable ? "Add it in the card" : "Not filled in"), 108).map((ln, k, all) => (
-                        <text key={k} y={(k - (all.length - 1) / 2) * 30 + 8} dy="0.35em" textAnchor="middle" className="pc-f-val" style={{ fontSize: 24, fill: showValue(drill.fld!) == null ? GOLD : "#fff" }}>{ln}</text>
-                      ))
-                    )}
-                    <text y={80} textAnchor="middle" className="pc-sec-sum">tap to go back</text>
-                  </g>
-                  {drill.itemSeats.map((seat, j) => {
-                    const label = drill.items[Number(seat.id)];
-                    const vars = { "--fx": `${C}px`, "--fy": `${C}px`, "--tx": `${seat.x}px`, "--ty": `${seat.y}px`, animationDelay: `${150 + j * 40}ms` } as React.CSSProperties;
-                    const name = label.split(/ \(| born /)[0];
-                    const rest = label.slice(name.length).trim();
-                    return [
-                      <line key={`il-${j}`} className="fx-fade" x1={C} y1={C} x2={seat.x} y2={seat.y} stroke={sectionColor(drill.sec!.key)} strokeOpacity={0.2} pointerEvents="none" style={{ animationDelay: `${j * 40 + 300}ms` }} />,
-                      <g key={`it-${j}`} className="rx-biz fx-out" style={vars} pointerEvents="none">
-                        <circle r={seat.r} fill="#121a36" stroke={sectionColor(drill.sec!.key)} strokeWidth={2} />
-                        <text dy="0.35em" textAnchor="middle" className="vr-init vr-init-50" fontSize={seat.r * 0.62}>{initialsOf(name)}</text>
-                        <text className="hw-face-name" y={seat.r + 18} textAnchor="middle" style={{ fontSize: 15 }}>{name}</text>
-                        {rest && <text className="pc-sec-sum" y={seat.r + 36} textAnchor="middle" style={{ fontSize: 12 }}>{rest.replace(/^\(|\)$/g, "")}</text>}
-                      </g>,
-                    ];
-                  })}
+              {faces.more > 0 && (
+                <g className="ct-seat" role="button" tabIndex={0} aria-label={`${faces.more} more need you: show them`} onClick={() => choose(NEED)} onKeyDown={(e) => { if (e.key === "Enter") choose(NEED); }}>
+                  <circle cx={cx + ringRadius("other") * Math.cos(-1.25)} cy={cx + ringRadius("other") * Math.sin(-1.25)} r={15} fill="#1b2750" stroke={RED} strokeWidth={2.5} />
+                  <text x={cx + ringRadius("other") * Math.cos(-1.25)} y={cx + ringRadius("other") * Math.sin(-1.25) + 3.5} textAnchor="middle" className="ct-seat-t">{`+${faces.more}`}</text>
                 </g>
               )}
-
-              {/* the person: in the middle first, then up on the outer ring (tap to come back) */}
-              <g className="fx-out" style={{ "--fx": `${C}px`, "--fy": `${C}px`, "--tx": `${C}px`, "--ty": `${C}px` } as React.CSSProperties}>
-                <g
-                  data-tap
-                  className="rx-biz fx-move"
-                  style={{ transform: `translate(${drill.face.x - C}px, ${drill.face.y - C}px) scale(${drill.face.k})` }}
-                  role={drill.sec ? "button" : undefined}
-                  tabIndex={drill.sec ? 0 : -1}
-                  aria-label={drill.sec ? `Back to ${person.name}` : undefined}
-                  pointerEvents={drill.sec ? undefined : "none"}
-                  onClick={() => drill.sec && focusSection(null)}
-                  onKeyDown={(e) => {
-                    if (drill.sec && (e.key === "Enter" || e.key === " ")) {
-                      e.preventDefault();
-                      focusSection(null);
-                    }
-                  }}
-                >
-                  {glowing.has(person.id) && <circle r={128} fill="none" stroke={GOLD} strokeWidth={5} className="sd-glow" />}
-                  <circle r={150} fill="url(#pc-core-glow)" opacity={drill.sec ? 0.5 : 1} />
-                  <PulseRing r={112} level={person.pulse ? person.pulse.urgency : "good"} />
-                  <circle r={112} fill="#121a36" stroke={person.pulse ? PULSE_COLOR[person.pulse.urgency] : TEAL} strokeWidth={4} />
-                  {faceOf(person, 112, `pc-big-${person.id}`)}
-                  <text className="hw-face-name" y={146} textAnchor="middle" style={{ fontSize: drill.sec ? 40 : 26 }}>{drill.sec ? person.firstName ?? person.name : person.name}</text>
-                </g>
+              <g className="ct-seat" role="button" tabIndex={0} aria-label={`You: ${needLeft} need you today. Show them`} onClick={() => !isOn(NEED) && choose(NEED)} onKeyDown={(e) => { if (e.key === "Enter" && !isOn(NEED)) choose(NEED); }}>
+                <circle cx={cx} cy={cx} r={30} fill="#0a1230" stroke={GOLD} strokeWidth={2.5} />
+                <text x={cx} y={cx + 3} textAnchor="middle" className="ct-you">YOU</text>
+                <text x={cx} y={cx + 16} textAnchor="middle" className="ct-you-n">{`${needLeft} NEED YOU`}</text>
               </g>
-            </g>
-          )}
-        </svg>
+            </svg>
 
-        {note && (
-          <div className="vr-bar pop" role="status">
-            <span>{note}</span>
-            <button className="chip-btn" onClick={() => setNote(null)}>OK</button>
-          </div>
-        )}
-        <div className="controls" role="toolbar" aria-label="Map controls">
-          <button onClick={back} aria-label="Back">←</button>
-          <button className="zoom-btn" onClick={() => cam.zoomAt(1.25)} aria-label="Zoom in">+</button>
-          <button className="zoom-btn" onClick={() => cam.zoomAt(0.8)} aria-label="Zoom out">−</button>
-          <button onClick={cam.reset} aria-label="Centre on your contacts">◎</button>
-        </div>
-      </div>
+            <div className="ct-key">
+              {board.key.map((k) => {
+                const on = isOn({ kind: "group", key: k.key }) || (k.key === BIZ_PARENT && filter.kind === "group" && isBizSub(filter.key));
+                return (
+                  <button key={k.key} className={`ct-k${on ? " on" : ""}`} style={{ color: k.color }} aria-pressed={on} onClick={() => ringPick(k.key)} aria-label={`${k.label}: ${k.count}${k.needsYou ? `, ${k.needsYou} need you` : ""}`}>
+                    <i />
+                    <span className="ct-k-n">{k.label.toUpperCase()}</span>
+                    <span className="ct-k-c">
+                      {k.count.toLocaleString("en-US")}
+                      {k.needsYou ? <em>{` · ${k.needsYou}`}</em> : null}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-      <aside ref={drawerRef} className="drawer vr-drawer" aria-label="My Contacts">
-        <input className="rx-search pc-search" type="search" placeholder="Search name, phone, email, address, notes…" value={q} onChange={(e) => { setQ(e.target.value); if (person) { setPerson(null); setFocusSec(null); setFocusFld(null); } }} aria-label="Search your contacts" />
-        {/* An open person always owns the panel (Parry, 8 Oct, on Jen Wright: a search left the results list here
-            while her sections opened only on the map). Typing a new search closes the person. */}
-        {found && !person ? (
-          <>
-            <h2>{found.length ? `${found.length}${found.length === 50 ? "+" : ""} found` : "No one found"}</h2>
-            <ul className="ta-list">{found.map(row)}</ul>
-            <button className="vr-classic" onClick={() => setQ("")}>Clear the search</button>
-          </>
-        ) : adding ? (
-          <form
-            className="rx-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              addPerson();
-            }}
-          >
-            <div className="d-head">
-              <span className="chip" style={{ color: GOLD, borderColor: GOLD }}>New contact</span>
+            <div className="ct-from">
+              <div className="ct-sec">CAME FROM</div>
+              {board.sources.length ? (
+                <div className="ct-srcbar">
+                  {board.sources.map((s) => (
+                    <button
+                      key={s.key}
+                      title={`${s.label}: ${s.count.toLocaleString("en-US")}`}
+                      aria-label={`Came from ${s.label}: ${s.count}`}
+                      style={{ width: `${Math.max((s.count / Math.max(1, srcTotal)) * 100, 1.5)}%`, background: s.color, opacity: filter.kind === "source" && filter.key !== s.key ? 0.35 : 1 }}
+                      onClick={() => choose({ kind: "source", key: s.key })}
+                    />
+                  ))}
+                </div>
+              ) : null}
+              <div className="ct-srcl">
+                {board.sources.map((s) => (
+                  <button key={s.key} className={isOn({ kind: "source", key: s.key }) ? "on" : undefined} aria-pressed={isOn({ kind: "source", key: s.key })} onClick={() => choose({ kind: "source", key: s.key })}>
+                    <i style={{ background: s.color }} />
+                    {s.label} <b>{s.count.toLocaleString("en-US")}</b>
+                  </button>
+                ))}
+              </div>
+              {board.emptySources.length ? <p className="ct-zero">{board.emptySources.map((l) => `${l} 0`).join(" · ")}</p> : null}
             </div>
-            <h1 className="d-title">Add a person</h1>
-            {(
-              [
-                ["first_name", "First name", "text"],
-                ["last_name", "Last name", "text"],
-                ["phone", "Phone", "tel"],
-                ["email", "Email", "email"],
-              ] as const
-            ).map(([k, label, type]) => (
-              <label key={k} className="pf-field">
-                <span>{label}</span>
-                <input type={type} value={adding[k]} maxLength={k === "email" ? 200 : 80} autoFocus={k === "first_name"} onChange={(e) => setAdding({ ...adding, [k]: e.target.value })} />
-              </label>
-            ))}
-            <label className="pf-field">
-              <span>List</span>
-              <select value={adding.tier} onChange={(e) => setAdding({ ...adding, tier: e.target.value })}>
-                <option value="contact">Contacts (not a VIP)</option>
-                <option value="vip100">VIP-100</option>
-                <option value="vip50">VIP-50</option>
-              </select>
-            </label>
-            <p className="d-sum rx-small">Everything else (birthday, family, home) you fill in on their card once they're added.</p>
-            <div className="pf-actions">
-              <button type="submit" className="chip-btn primary" disabled={busy}>{busy ? "Adding…" : "Add"}</button>
-              <button type="button" className="chip-btn" onClick={() => setAdding(null)}>Cancel</button>
+          </section>
+
+          {/* middle: the list */}
+          <section ref={midRef} className="ct-card ct-mid" aria-label="People">
+            <div className="ct-lhead">
+              <div className="ct-ltitle" style={{ color: filter.kind === "need" && !searching ? RED : GOLD }}>
+                {title}
+                <small>{filter.kind === "need" && !searching ? "Tap a ring to show its people here" : listBusy ? "Loading…" : ""}</small>
+              </div>
+              <div className="ct-lbtns">
+                {!sameFilter(filter, NEED) || searching ? (
+                  <button className="ct-btn" onClick={() => { setQ(""); if (!sameFilter(filter, NEED)) choose(filter); }}>Back to need you today</button>
+                ) : null}
+                <button className="ct-btn solid" onClick={() => (onPowerHour ? onPowerHour() : onClassic())}>Start Power Hour</button>
+              </div>
             </div>
-          </form>
-        ) : person ? (
-          <>
-            <div className="d-head">
-              {personTag(person) && <span className="chip" style={{ color: TEAL, borderColor: TEAL }}>{personTag(person)}</span>}
-              {person.stage && <span className="chip">{person.stage}</span>}
-            </div>
-            <div className="pmenu-row">
-              <h1 className="d-title">{person.name}</h1>
-              {person.leftEarly ? <p className="d-sub" role="note">{LEFT_EARLY_LINE}</p> : null}
-              <PersonMenu first={firstOf(person.firstName ?? person.name)} onDelete={deletePerson} />
-            </div>
-            {person.pulse && (
-              <p className="pc-pulse-line">
-                <b>Pulse</b> {person.pulse.line}
-              </p>
-            )}
-            <MyHomeLine myHome={person.myHome} />
-            <div className="ta-log">
-              {tel && <button type="button" className={`chip-btn${person.pulse?.nextStep === "call" ? " primary" : ""}`} onClick={() => setPrepFor(person.id)}>Call</button>}
-              {tel && <a className={`chip-btn${person.pulse?.nextStep === "text" ? " primary" : ""}`} href={`sms:${tel}`}>Text</a>}
-              {mail && <a className="chip-btn" href={`mailto:${mail}`}>Email</a>}
-            </div>
-            {person.sections.map((s) => s.key === "permissions" ? (
-              <section key={s.key} className="pc-card">
-                <PermissionsSection contactId={person.id} onChanged={() => void getJson(personUrl(person.id)).then((r) => { const p = r?.status === 200 ? readPerson(r.body) : null; if (p) setPerson(p); })} />
-              </section>
+            {inBiz && board.bizSubs.length ? (
+              <div className="ct-subs">
+                {[{ key: BIZ_PARENT, label: "All Biz VIP" }, ...board.bizSubs].map((g) => (
+                  <button key={g.key} className={`ct-btn${filter.kind === "group" && filter.key === g.key ? " solid" : ""}`} onClick={() => (filter.kind === "group" && filter.key === g.key ? undefined : choose({ kind: "group", key: g.key }))}>
+                    {"count" in g ? `${g.label} · ${g.count}` : g.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {listNote ? <p className="ct-lnote">{listNote}</p> : null}
+            {filter.kind === "chip" && filter.key === "perm" && !searching ? (
+              <div className="ct-perm">
+                <AskGroupSection startOpen onClose={() => choose(NEED)} />
+              </div>
             ) : (
-              <SectionCard
-                key={s.key}
-                s={s}
-                open={openSec === s.key}
-                onToggle={() => {
-                  const opening = openSec !== s.key;
-                  setOpenSec(opening ? s.key : null);
-                  setEdit(null);
-                  setFocusFld(null);
-                  setFocusSec(opening ? s.key : null);
+              <>
+                <div className="ct-tbl" role="table" aria-label={title}>
+                  <div className="ct-tr ct-th" role="row">
+                    <span role="columnheader" />
+                    <span role="columnheader">NAME</span>
+                    <span role="columnheader" className="ct-c3">CIRCLE</span>
+                    <span role="columnheader" className="ct-c4">LAST TOUCH</span>
+                    <span role="columnheader">WHY TODAY</span>
+                    <span role="columnheader" />
+                  </div>
+                  {rows.map((p) => {
+                    const c = circle(p);
+                    const isDone = doneIds.has(p.id);
+                    const needs = !!p.pulse && !isDone;
+                    return (
+                      <div
+                        key={p.id}
+                        role="row"
+                        tabIndex={0}
+                        className={`ct-tr ct-row${sel === p.id ? " sel" : ""}${isDone ? " done" : ""}`}
+                        onClick={() => select(p.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && e.target === e.currentTarget) select(p.id);
+                        }}
+                        aria-label={`${p.name}, ${c.label}${p.pulse ? `, ${p.pulse}` : ""}`}
+                      >
+                        <span role="cell"><Face p={p} size={34} ring={needs ? (p.urgency === "now" ? RED : GOLD) : boardColor(c.key)} glow={glowing.has(p.id)} /></span>
+                        <span role="cell" className="ct-name">{p.name}</span>
+                        <span role="cell" className="ct-c3"><i className="ct-dot" style={{ background: boardColor(c.key) }} />{c.label}</span>
+                        <span role="cell" className="ct-c4 ct-dim">{lastTouchWords(p.lastTouchOn, today)}</span>
+                        <span role="cell" className="ct-why">{isDone ? "Done today" : p.pulse ?? (personTag(p) || "—")}</span>
+                        <span role="cell" className="ct-qa">
+                          <button aria-label={`Call ${p.name}`} title="Call" onClick={(e) => { e.stopPropagation(); setPrepFor(p.id); }}>☎</button>
+                          <button aria-label={`Text ${p.name}`} title="Text" onClick={(e) => { e.stopPropagation(); void textFrom(p.id); }}>✉</button>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {!rows.length && !listBusy ? (
+                  <p className="ct-empty">
+                    {searching
+                      ? "No one matches. Clear the search to see everyone."
+                      : filter.kind === "need"
+                        ? due === null ? "Loading…" : "No one is waiting on you right now."
+                        : filter.kind === "group" && filter.key === BIZ_PARENT
+                          ? "No one in Biz VIP yet. Make someone a Biz VIP from their contact page."
+                          : "No one in this list yet."}
+                  </p>
+                ) : null}
+                {!searching && filter.kind !== "need" && more.next ? (
+                  <button className="ct-more" onClick={() => loadList(filter, more.next)}>{`Show more (${(more.total - list.length).toLocaleString("en-US")} left)`}</button>
+                ) : null}
+              </>
+            )}
+            <button className="ct-more" onClick={onClassic}>Open the Classic contacts page</button>
+          </section>
+
+          {/* right: the person picked (a bottom sheet on a phone) */}
+          <section className={`ct-card ct-person${sheet ? " open" : ""}`} aria-label={adding ? "Add a person" : cardName || "The person you pick"}>
+            {adding ? (
+              <form
+                className="rx-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  addPerson();
                 }}
-                edit={edit}
-                setEdit={setEdit}
-                busy={busy}
-                onSave={saveField}
-                onQuick={quickSave}
-              />
-            ))}
+              >
+                <div className="ct-ph">
+                  <h2 className="ct-pname">ADD A PERSON</h2>
+                  <button type="button" className="ct-x" onClick={() => { setAdding(null); setSheet(false); }} aria-label="Close">×</button>
+                </div>
+                {(
+                  [
+                    ["first_name", "First name", "text"],
+                    ["last_name", "Last name", "text"],
+                    ["phone", "Phone", "tel"],
+                    ["email", "Email", "email"],
+                  ] as const
+                ).map(([k, label, type]) => (
+                  <label key={k} className="pf-field">
+                    <span>{label}</span>
+                    <input type={type} value={adding[k]} maxLength={k === "email" ? 200 : 80} autoFocus={k === "first_name"} onChange={(e) => setAdding({ ...adding, [k]: e.target.value })} />
+                  </label>
+                ))}
+                <label className="pf-field">
+                  <span>List</span>
+                  <select value={adding.tier} onChange={(e) => setAdding({ ...adding, tier: e.target.value })}>
+                    <option value="contact">Contacts (not a VIP)</option>
+                    <option value="vip100">VIP-100</option>
+                    <option value="vip50">VIP-50</option>
+                  </select>
+                </label>
+                <p className="d-sum rx-small">Everything else (birthday, family, home) you fill in on their card once they're added.</p>
+                <div className="pf-actions">
+                  <button type="submit" className="chip-btn primary" disabled={busy}>{busy ? "Adding…" : "Add"}</button>
+                  <button type="button" className="chip-btn" onClick={() => { setAdding(null); setSheet(false); }}>Cancel</button>
+                </div>
+              </form>
+            ) : sel ? (
+              <>
+                <div className="ct-ph">
+                  <div className="ct-pwho">
+                    <Face p={{ name: cardName || "?", photo: personCard?.photo ?? sel0?.photo ?? null }} size={54} ring={selNeeds ? RED : cardCircle ? boardColor(cardCircle.key) : TEAL} glow={glowing.has(sel)} />
+                    <div>
+                      <h2 className="ct-pname">{cardName.toUpperCase()}</h2>
+                      {cardWhy ? (
+                        <span className="ct-pill" style={{ color: selNeeds ? RED : GREEN, background: selNeeds ? "rgba(255,90,95,.15)" : "rgba(47,191,113,.15)" }}>{cardWhy}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <button className="ct-x" onClick={() => setSheet(false)} aria-label="Close">×</button>
+                </div>
+                {personCard ? (
+                  <>
+                    <p className="ct-facts">
+                      {personCard.source ? <>Came in from {personCard.source}<br /></> : null}
+                      {personCard.stage ? <>{personCard.stage}<br /></> : null}
+                      {cardCircle ? (
+                        <span style={{ color: boardColor(cardCircle.key) }}>● {personTag(personCard) || cardCircle.label}</span>
+                      ) : null}
+                      {personCard.leftEarly ? <><br />{LEFT_EARLY_LINE}</> : null}
+                    </p>
+                    <div className="ct-pacts">
+                      {tel ? (
+                        <button className={`ct-btn${personCard.pulse?.nextStep !== "text" ? " solid" : ""}`} onClick={() => setPrepFor(personCard.id)}>Call</button>
+                      ) : (
+                        <button className="ct-btn" onClick={openFull} title="No phone yet: add one on the full contact">Call</button>
+                      )}
+                      {tel ? (
+                        <a className={`ct-btn${personCard.pulse?.nextStep === "text" ? " solid" : ""}`} href={`sms:${tel}`}>Text</a>
+                      ) : (
+                        <button className="ct-btn" onClick={openFull} title="No phone yet: add one on the full contact">Text</button>
+                      )}
+                      {mail ? <a className="ct-btn" href={`mailto:${mail}`}>Email</a> : <button className="ct-btn" onClick={openFull} title="No email yet: add one on the full contact">Email</button>}
+                      {personCard.tier === "vip50" ? (
+                        <button className="ct-btn" disabled>In VIP-50</button>
+                      ) : (
+                        <button className="ct-btn" aria-expanded={pick === "vip"} onClick={() => setPick(pick === "vip" ? null : "vip")}>{personCard.tier === "vip100" ? "Move to VIP-50" : "Make VIP"}</button>
+                      )}
+                    </div>
+                    {pick === "vip" ? (
+                      <div className="ct-pick" role="group" aria-label="Which list">
+                        <span>Which list?</span>
+                        <button className="ct-btn solid" disabled={busy} onClick={() => makeVip("vip50")}>VIP-50</button>
+                        {personCard.tier !== "vip100" ? <button className="ct-btn" disabled={busy} onClick={() => makeVip("vip100")}>VIP-100</button> : null}
+                      </div>
+                    ) : null}
+                    {selNeeds ? (
+                      <button className="ct-btn ct-touched" aria-expanded={pick === "touch"} onClick={() => setPick(pick === "touch" ? null : "touch")}>Mark touched today</button>
+                    ) : null}
+                    {pick === "touch" ? (
+                      <div className="ct-pick" role="group" aria-label="How you touched them">
+                        <span>How?</span>
+                        {TOUCH_KINDS.map(([k, l]) => (
+                          <button key={k} className="ct-btn" disabled={busy} onClick={() => logTouch(k, l)}>{l}</button>
+                        ))}
+                      </div>
+                    ) : null}
+                    {personCard.pulse ? (
+                      <>
+                        <div className="ct-sec ct-sec-gap">PULSE SUGGESTS</div>
+                        <p className="ct-pulse">{personCard.pulse.line}</p>
+                      </>
+                    ) : null}
+                    <button className="ct-btn ct-open" onClick={openFull}>Open full contact →</button>
+                  </>
+                ) : (
+                  <p className="ct-facts">Opening…</p>
+                )}
+              </>
+            ) : (
+              <p className="ct-facts">Pick someone in the list or on a ring to see them here, ready to call or text.</p>
+            )}
+          </section>
+          {sheet ? <button className="ct-scrim" aria-label="Close" onClick={() => setSheet(false)} /> : null}
+        </div>
+      )}
+
+      {note && (
+        <div className="ct-toast pop" role="status">
+          <span>{note}</span>
+          <button className="chip-btn" onClick={() => setNote(null)}>OK</button>
+        </div>
+      )}
+    </div>
+  );
+
+  // The full contact: every section ONE MOVE sends (each field edits in place), the home report, CMAs, the share link,
+  // the life story and delete, as the old drawer had them.
+  function fullContact() {
+    const p = personCard!;
+    return (
+      <section className="ct-full" aria-label={p.name}>
+        <div className="ct-fullbar">
+          <button className="ct-btn" onClick={() => setFull(false)}>← Back to my contacts</button>
+        </div>
+        <div className="ct-card ct-fullcard">
+          <div className="d-head">
+            {personTag(p) && <span className="chip" style={{ color: TEAL, borderColor: TEAL }}>{personTag(p)}</span>}
+            {p.stage && <span className="chip">{p.stage}</span>}
+          </div>
+          <div className="pmenu-row">
+            <h1 className="d-title">{p.name}</h1>
+            {p.leftEarly ? <p className="d-sub" role="note">{LEFT_EARLY_LINE}</p> : null}
+            <PersonMenu first={firstOf(p.firstName ?? p.name)} onDelete={deletePerson} />
+          </div>
+          {p.pulse && (
+            <p className="pc-pulse-line">
+              <b>Pulse</b> {p.pulse.line}
+            </p>
+          )}
+          <MyHomeLine myHome={p.myHome} />
+          <div className="ta-log">
+            {tel && <button type="button" className={`chip-btn${p.pulse?.nextStep === "call" ? " primary" : ""}`} onClick={() => setPrepFor(p.id)}>Call</button>}
+            {tel && <a className={`chip-btn${p.pulse?.nextStep === "text" ? " primary" : ""}`} href={`sms:${tel}`}>Text</a>}
+            {mail && <a className="chip-btn" href={`mailto:${mail}`}>Email</a>}
+          </div>
+          <div className="ct-fullsecs">
+            {p.sections.map((s) =>
+              s.key === "permissions" ? (
+                <section key={s.key} className="pc-card">
+                  <PermissionsSection contactId={p.id} onChanged={() => void loadPerson(p.id)} />
+                </section>
+              ) : (
+                <SectionCard
+                  key={s.key}
+                  s={s}
+                  open={openSec === s.key}
+                  onToggle={() => {
+                    setOpenSec(openSec !== s.key ? s.key : null);
+                    setEdit(null);
+                  }}
+                  edit={edit}
+                  setEdit={setEdit}
+                  busy={busy}
+                  onSave={saveField}
+                  onQuick={quickSave}
+                />
+              ),
+            )}
             {/* HOME-REPORT §4.1 (16 Oct): the monthly report on this person's home, on the card in both Classic and the Brain */}
             <section className="pc-card">
-              <HomeReportSection contactId={person.id} first={person.firstName || person.name.split(" ")[0] || ""} />
+              <HomeReportSection contactId={p.id} first={p.firstName || p.name.split(" ")[0] || ""} />
             </section>
             {/* LEADS §1.7c (18 Oct): the contact's CMAs and "Build a CMA", as Classic's card (vip50-web-crm#310) */}
             <section className="pc-card">
-              <CmaSection contactId={person.id} first={person.firstName || person.name.split(" ")[0] || ""} />
+              <CmaSection contactId={p.id} first={p.firstName || p.name.split(" ")[0] || ""} />
             </section>
             {/* SITE-FEEDS K17 (18 Oct): a VIP's own referral link on the agent's site, as Classic's card (vip50-web-crm#312) */}
-            {person.canShareLink ? (
+            {p.canShareLink ? (
               <section className="pc-card">
-                <ShareLinkSection key={person.id} contactId={person.id} first={person.firstName || person.name.split(" ")[0] || ""} />
+                <ShareLinkSection key={p.id} contactId={p.id} first={p.firstName || p.name.split(" ")[0] || ""} />
               </section>
             ) : null}
             <section className="pc-card">
-              <button
-                className="pc-card-h"
-                aria-expanded={!!timeline}
-                onClick={() => (timeline ? setTimeline(null) : loadTimeline())}
-              >
+              <button className="pc-card-h" aria-expanded={!!timeline} onClick={() => (timeline ? setTimeline(null) : loadTimeline())}>
                 <span style={{ color: "#c8d0e6" }}>Life story</span>
-                <small>{person.timelineCount ? `${person.timelineCount} things` : "nothing yet"}</small>
+                <small>{p.timelineCount ? `${p.timelineCount} things` : "nothing yet"}</small>
               </button>
               {timeline && productsIn(timeline.events).length > 1 && (
                 <div className="pc-story-filter" role="group" aria-label="Show the story from">
@@ -896,89 +957,11 @@ export default function Contacts({
                 </ul>
               )}
             </section>
-            <button className="vr-classic" onClick={() => setPerson(null)}>{group ? `Back to ${gLabel(group)}` : "Back to all groups"}</button>
-          </>
-        ) : (
-          <>
-            <div className="d-head">
-              <span className="chip" style={{ color: TEAL, borderColor: TEAL }}>ONE MOVE</span>
-              {group && <span className="chip" style={{ color: groupColor(group), borderColor: groupColor(group) }}>{gLabel(group)}</span>}
-            </div>
-            <h1 className="d-title">{group ? gLabel(group) : "My Contacts"}</h1>
-            <p className="d-sub">{group ? `${(group === BIZ_PARENT ? shown.find((g) => g.key === group)?.count ?? more.total : more.total).toLocaleString("en-US")} ${(group === BIZ_PARENT ? shown.find((g) => g.key === group)?.count ?? more.total : more.total) === 1 ? "person" : "people"}${group === BIZ_PARENT ? " with Mayor's Circle and Rising VIP" : ""}, who needs you first` : `${groups.total.toLocaleString("en-US")} people · ${groups.needsYou} need you`}</p>
-            <div className="ta-log">
-              <button className="chip-btn primary" onClick={() => setAdding({ first_name: "", last_name: "", phone: "", email: "", tier: "contact" })}>+ Add a person</button>
-            </div>
-            {!group && <AskGroupSection />}
-            {!group && (groups.gaps.vipNoBirthday > 0 || groups.gaps.toSort > 0 || groups.gaps.possibleDuplicates > 0) && (
-              <div className="pc-gaps">
-                {groups.gaps.vipNoBirthday > 0 && <button className="chip-btn" onClick={() => openGroup("vip50")}>{`${groups.gaps.vipNoBirthday} VIPs with no birthday`}</button>}
-                {groups.gaps.toSort > 0 && <button className="chip-btn" onClick={() => openGroup("to_sort")}>{`${groups.gaps.toSort} new to sort`}</button>}
-                {groups.gaps.possibleDuplicates > 0 && <span className="chip">{`${groups.gaps.possibleDuplicates} possible duplicates`}</span>}
-              </div>
-            )}
-            {group ? (
-              <>
-                <ul className="ta-list">{people.map(row)}</ul>
-                {more.next && <button className="vr-classic" onClick={() => loadGroup(group, more.next)}>{`Show more (${(more.total - people.length).toLocaleString("en-US")} left)`}</button>}
-                {group === BIZ_PARENT && nest.subs.length > 0 && (
-                  <ul className="ta-list pc-subs">
-                    {nest.subs.map((g) => (
-                      <li key={g.key}>
-                        <button className="ta-name" onClick={() => openGroup(g.key)}>{`${g.label} (${g.count.toLocaleString("en-US")})`}</button>
-                        <span className={g.needsYou ? "pc-pulse" : undefined}>{g.needsYou ? `${g.needsYou} need you` : ""}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {parentGroup(group) && <button className="vr-classic" onClick={() => openGroup(BIZ_PARENT)}>{`Back to ${gLabel(BIZ_PARENT)}`}</button>}
-                <button className="vr-classic" onClick={allGroups}>All groups</button>
-              </>
-            ) : (
-              <>
-                <h2>Pulse: who needs you</h2>
-                {due.length ? <ul className="ta-list">{due.map(row)}</ul> : <p className="d-sum">No one is waiting on you right now.</p>}
-              </>
-            )}
-            <button className="vr-classic" onClick={onClassic}>Open the Classic contacts page</button>
-          </>
-        )}
-      </aside>
-    </div>
-  );
-}
-
-/** A value inside an orb: up to three short lines, cut with an ellipsis. */
-function fitLines(text: string, r: number): string[] {
-  const per = Math.max(6, Math.floor(r / 6.2));
-  const words = text.replace(/\s+/g, " ").trim().split(" ");
-  const out: string[] = [];
-  let cur = "";
-  for (const w of words) {
-    if (!cur) cur = w;
-    else if ((cur + " " + w).length <= per) cur += " " + w;
-    else {
-      out.push(cur);
-      cur = w;
-    }
-    if (out.length === 3) break;
+          </div>
+        </div>
+      </section>
+    );
   }
-  if (out.length < 3 && cur) out.push(cur);
-  const all = words.join(" ");
-  const lines = out.slice(0, 3).map((l) => (l.length > per ? `${l.slice(0, per - 1)}…` : l));
-  if (lines.join(" ").length < all.length && lines.length === 3 && !lines[2].endsWith("…")) lines[2] = `${lines[2].slice(0, per - 1)}…`;
-  return lines;
-}
-
-/** A section's name on its orb: at most two short lines. */
-function twoLines(label: string): string[] {
-  if (label.length <= 12) return [label];
-  const words = label.split(" ");
-  let a = "";
-  while (words.length && (a + " " + words[0]).trim().length <= 12) a = (a + " " + words.shift()).trim();
-  if (!a) a = words.shift() ?? "";
-  const b = words.join(" ");
-  return b ? [a, b.length > 13 ? `${b.slice(0, 12)}…` : b] : [a];
 }
 
 function SectionCard({
@@ -1092,13 +1075,3 @@ function TouchTick({ f, shown, busy, onQuick, onEdit }: {
   );
 }
 
-/** Follow the pulse inside a person: this month's touches pulse yellow until every monthly box is done; other
- * sections show the still green ring. */
-function sectionLevel(s: Section): PulseLevel {
-  if (s.key !== "touches") return "good";
-  return s.fields.some((f) => f.type === "choice" && f.value !== "Yes") ? "today" : "good";
-}
-/** A monthly touch not done yet pulses yellow; every other field is quiet. */
-function fieldLevel(sec: Section, f: Field): PulseLevel | null {
-  return sec.key === "touches" && f.type === "choice" && f.value !== "Yes" ? "today" : null;
-}

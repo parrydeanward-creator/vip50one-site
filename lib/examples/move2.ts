@@ -57,6 +57,8 @@ export interface ExPerson {
   /** ONE MOVE's tags and contact_type, as the Relationships board reads them (Biz VIP, Rising VIP, Mayor's Circle). */
   tags?: string[];
   contactType?: string;
+  /** An open house visitor not sorted into a circle yet (ONE MOVE's house_only_at: New to sort). */
+  toSort?: boolean;
   deleted?: boolean;
 }
 
@@ -190,6 +192,12 @@ export function makeExampleStore(today: string): ExampleStore {
   if (mayor) mayor.tags = ["mayors-circle"];
   // Jen's birthday is tomorrow, as the map says
   const jen = people.find((p) => p.first === "Jen")!;
+  // My Contacts' rings and key (option C, 22 Oct): two past clients and three open house visitors still to sort
+  for (const p of people) {
+    if (p.first === "Leah" || p.first === "Cole") p.contactType = "past_client";
+    if (p.first === "Ethan" || p.first === "Grace" || p.first === "Henry") p.toSort = true;
+    if (fullName(p) === "Kara Webb" || fullName(p) === "Ian Cobb") p.birthday = ""; // VIPs with no birthday
+  }
   jen.birthday = addDays(today, 1).slice(5);
   return { today, people, today_hwc: { hot: false, warm: false, cold: false }, rolodex: exampleRolodex(), next: 500 };
 }
@@ -224,10 +232,20 @@ const urgencyOf = (ago: number) => (ago > 30 ? "overdue" : ago > 21 ? "due_soon"
 
 // ---- A. the routes, in ONE MOVE's shapes -----------------------------------------------------------------------------
 
-const TIER_GROUPS: [string, string][] = [["vip50", "VIP-50"], ["vip100", "VIP-100"], ["sphere", "Sphere"]];
-const SOURCE_GROUPS: [string, string][] = [["open_house", "Open house visitors"], ["website", "Website leads"], ["referral", "Referrals"]];
+const TIER_GROUPS: [string, string][] = [["vip50", "VIP-50"], ["vip100", "VIP-100"], ["hwc", "Hot / Warm / Cold"], ["past_clients", "Past clients"], ["sphere", "Sphere"], ["to_sort", "New to sort"]];
+// ONE MOVE also sends the sources nobody came from yet; My Contacts names them in one grey line.
+const SOURCE_GROUPS: [string, string][] = [["open_house", "Open house visitors"], ["website", "Website leads"], ["referral", "Referrals"], ["lofty", "Lofty"], ["marquee", "Marquee"], ["showly", "Showly"], ["imported", "Imported"], ["other", "Other"]];
 const relOf = (p: ExPerson) => ({ tags: p.tags, contactType: p.contactType, tier: p.tier === "sphere" ? null : p.tier });
-const inGroup = (p: ExPerson, g: string) => p.tier === g || p.source === g || inRelationshipGroup(g, relOf(p));
+const inGroup = (p: ExPerson, g: string) =>
+  p.tier === g ||
+  p.source === g ||
+  inRelationshipGroup(g, relOf(p)) ||
+  (g === "hwc" && !!p.cls) ||
+  (g === "past_clients" && p.contactType === "past_client") ||
+  (g === "to_sort" && !!p.toSort) ||
+  (g === "vip_no_birthday" && p.tier !== "sphere" && !p.birthday) ||
+  // "Other": came from nowhere ONE knows (a Sphere contact with no source and no Biz VIP role)
+  (g === "other" && !p.source && p.tier === "sphere" && !p.tags && !p.contactType);
 
 function groupsBody(s: ExampleStore) {
   const ps = live(s);
@@ -240,7 +258,7 @@ function groupsBody(s: ExampleStore) {
     needs_you: ps.filter((p) => p.pulse).length,
     needs_now: ps.filter((p) => p.pulse?.urgency === "now").length,
     groups: [...TIER_GROUPS.map(([k, l]) => g(k, l, "tier")), ...RELATIONSHIP_GROUPS.map((r) => g(r.key, r.label, "tier")), ...SOURCE_GROUPS.map(([k, l]) => g(k, l, "source"))],
-    gaps: { vip_no_birthday: 2, to_sort: 3, possible_duplicates: 1 },
+    gaps: { vip_no_birthday: ps.filter((p) => inGroup(p, "vip_no_birthday")).length, to_sort: ps.filter((p) => p.toSort).length, possible_duplicates: 1 },
   };
 }
 
@@ -503,6 +521,23 @@ export function exampleMoveAnswer(s: ExampleStore, method: string, url: string, 
     }
     return ok(personBody(s, p));
   }
+
+  // Ask a group for permission (LEADS §2.3a): the groups, then each person's own yes/no link. Nothing is sent.
+  if (path === "permissions/ask" && get) {
+    const tiers: [string, string][] = [["vip50", "VIP-50"], ["vip100", "VIP-100"], ["sphere", "Sphere"]];
+    const g = u.searchParams.get("group");
+    if (!g) return ok({ groups: tiers.map(([key, label]) => ({ key, label, count: Math.min(6, live(s).filter((p) => p.tier === key).length) })) });
+    const ps = live(s).filter((p) => p.tier === g).slice(0, 6);
+    return ok({
+      people: ps.map((p, i) => ({
+        contact_id: p.id,
+        name: fullName(p),
+        phone: p.phone,
+        text: `Hi ${p.first}, it's me. Is it OK if I keep you posted on homes and the market now and then? Tap yes or no: https://move.vip50one.com/ok/example${i + 1}`,
+      })),
+    });
+  }
+  if (path === "permissions/ask" && method === "POST") return ok({ ok: true });
 
   // One contact's card (the Brain's contact panel: boxes, last touch, phone) and the touches it logs
   if (path === "contact" && get) {
