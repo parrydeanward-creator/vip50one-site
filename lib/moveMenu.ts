@@ -50,7 +50,6 @@ export const MOVE_GROUPS: MoveGroup[] = [
       // the contact tools that were Classic only.
       // Import is a button on My Contacts now (23 Oct), so it is not a menu row.
       { label: "Clean Up Contacts", path: "/contacts/cleanup" },
-      { label: "Archived Contacts", path: "/contacts/archived" },
       { label: "Lead Sources", path: "/contacts/sources" },
     ],
   },
@@ -159,8 +158,12 @@ export const menuNodeId = (path: string) => MENU_ORB[path] ?? movePageId(path);
 /** Pages no longer in the menu that still open inside the Brain: New to Sort (now inside Opportunities). */
 export const MOVE_HIDDEN: MovePage[] = [{ label: "New to Sort", path: "/contacts/visitors" }];
 
-/** Pages opened only by a button, never by a menu row or an orb: Import is a button on My Contacts (23 Oct). They open inside the Brain. */
-export const MOVE_BUTTON_PAGES: MovePage[] = [{ label: "Import Contacts", path: "/contacts/import" }];
+/**
+ * Pages opened only by a button, never by a menu row or an orb: Import is a button on My Contacts (23 Oct); Archived
+ * Contacts is a link under its list (Parry, 23 Oct: "I dont want the archived contacts orb on one move, it is not
+ * necesaary"). They open inside the Brain.
+ */
+export const MOVE_BUTTON_PAGES: MovePage[] = [{ label: "Import Contacts", path: "/contacts/import" }, { label: "Archived Contacts", path: "/contacts/archived" }];
 
 export const moveMenuHref = (path: string) => `${MOVE_URL}${path}`;
 
