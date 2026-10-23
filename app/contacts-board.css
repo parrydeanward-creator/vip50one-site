@@ -51,15 +51,29 @@
 .ct-you { fill: #fff; font-family: var(--font-display), "Bebas Neue", Impact, sans-serif !important; font-size: 22px; pointer-events: none; }
 .ct-you-n { fill: var(--ct-red); font-size: 7.5px; font-weight: 700; pointer-events: none; }
 
-.ct-key { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; margin-top: 6px; }
-.ct-k { display: flex; gap: 8px; align-items: center; padding: 7px 8px; border-radius: 10px; border: 1px solid transparent; background: none; text-align: left; width: 100%; min-width: 0; }
-.ct-k:hover { background: rgba(255, 255, 255, 0.04); }
-.ct-k.on { border-color: currentColor; background: rgba(255, 255, 255, 0.05); }
-.ct-k i { width: 11px; height: 11px; border-radius: 50%; border: 2.5px solid currentColor; flex: none; }
-.ct-k-n { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; min-width: 0; }
-.ct-k-c { margin-left: auto; font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ct-k-c em { color: var(--ct-red); font-style: normal; font-weight: 700; }
 
+/* the key as tiles (Parry, 23 Oct: "yes on B") */
+.ct-key { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.ct-k { display: grid; gap: 2px; align-content: start; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: none; text-align: left; width: 100%; min-width: 0; cursor: pointer; }
+.ct-k:hover { background: rgba(255, 255, 255, 0.04); }
+.ct-k.on { border-color: currentColor; background: rgba(255, 255, 255, 0.06); }
+.ct-k-n { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; min-width: 0; overflow-wrap: anywhere; }
+.ct-k-c { font-family: var(--font-display), "Bebas Neue", sans-serif; font-size: 32px; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+.ct-k-need { font-style: normal; font-size: 11.5px; font-weight: 700; color: var(--ct-red); }
+.ct-k.empty { grid-column: 1 / -1; opacity: 0.45; display: flex; align-items: baseline; gap: 10px; padding: 7px 12px; }
+.ct-k.empty .ct-k-c { font-size: 20px; }
+.ct-k-wide { grid-column: 1 / -1; cursor: default; }
+.ct-k-span { grid-column: 1 / -1; }
+.ct-k-main { display: grid; gap: 2px; background: none; border: 0; padding: 0; text-align: left; color: inherit; cursor: pointer; }
+.ct-lbar { display: flex; gap: 2px; height: 10px; border-radius: 5px; overflow: hidden; margin: 8px 0; }
+.ct-lbar button { height: 100%; min-width: 4px; border: 0; padding: 0; cursor: pointer; }
+.ct-lchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ct-lchip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 9px; border-radius: 999px; border: 1px solid transparent; background: rgba(255, 255, 255, 0.06); color: var(--text-2); cursor: pointer; }
+.ct-lchip i { width: 8px; height: 8px; border-radius: 50%; }
+.ct-lchip b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.ct-lchip:hover, .ct-lchip.on { background: rgba(255, 255, 255, 0.12); color: var(--text); }
+.ct-lchip.on { border-color: #4aa3ff; }
+.ct-lchip.soi { color: #f3d27a; }
 .ct-from { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; }
 .ct-srcbar { display: flex; height: 14px; border-radius: 999px; overflow: hidden; margin: 10px 0 8px; }
 .ct-srcbar button { border: 0; padding: 0; height: 100%; }
@@ -149,6 +163,3 @@
   .ct-toast { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) { .ct * { transition: none !important; } }
-.ct-leadsrc { list-style: none; margin: 0 0 4px 30px; padding: 0; font-size: 12px; color: var(--text-2); }
-.ct-leadsrc li { display: flex; justify-content: space-between; gap: 8px; padding: 1px 8px; }
-.ct-leadsrc b { color: #fff; font-weight: 600; font-variant-numeric: tabular-nums; }

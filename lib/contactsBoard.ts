@@ -71,6 +71,36 @@ export function boardOf(g: Groups, family: Partial<Record<string, PersonItem[]>>
   };
 }
 
+// ---- the key as tiles (Parry, 23 Oct: "yes on B"; research/mockups/contacts-key) --------------------------------------
+
+/** The tiles before Leads and after it; an empty group goes last, full width and faded. Leads is the one wide tile. */
+export function tilesOf(key: readonly BoardLine[]): { before: BoardLine[]; leads: BoardLine | null; after: BoardLine[]; empty: BoardLine[] } {
+  const order = ["vip50", "vip100", "past_clients", "sphere", "leads", "hwc", "agents", "other", "to_sort", BIZ_PARENT];
+  const rank = (k: string) => (order.includes(k) ? order.indexOf(k) : order.length);
+  const sorted = [...key].sort((a, b) => rank(a.key) - rank(b.key));
+  const leads = sorted.find((k) => k.key === "leads") ?? null;
+  const rest = sorted.filter((k) => k.key !== "leads");
+  const full = rest.filter((k) => k.count > 0);
+  return { before: full.filter((k) => rank(k.key) < rank("leads")), leads, after: full.filter((k) => rank(k.key) > rank("leads")), empty: rest.filter((k) => !k.count) };
+}
+
+const SOURCE_WORDS: Record<string, string> = { callin: "Called in", personaltransaction: "Personal transaction", listing_email: "Listing email", open_house: "Open house", "": "Unknown" };
+/** A lead source as a person would write it: "DIRECT " -> "Direct", "CALLIN" -> "Called in"; mixed case stays as typed. */
+export function sourceLabel(raw: string): string {
+  const t = raw.trim();
+  const low = t.toLowerCase();
+  if (low in SOURCE_WORDS) return SOURCE_WORDS[low];
+  if (t !== low && t !== t.toUpperCase()) return t;
+  const w = low.replace(/_/g, " ");
+  return w.charAt(0).toUpperCase() + w.slice(1);
+}
+/** "Sphere" as a lead source is SOI waiting to move back to Sphere: shown in gold until it is gone. */
+export const isSoiSource = (raw: string) => raw.trim().toLowerCase() === "sphere";
+/** How many sources show as chips before "+N more". */
+export const LEAD_CHIPS = 7;
+const SOURCE_COLORS = ["#2f5fc8", "#4a7fe6", "#6b9bf5", "#8bb4f8", "#a9c7fa", "#5fb7d9", "#79c9c0"];
+export const sourceColor = (raw: string, i: number) => (isSoiSource(raw) ? "#c9a43e" : SOURCE_COLORS[i] ?? "#5a6488");
+
 // ---- what the middle list shows ------------------------------------------------------------------------------------
 
 export type Chip = "bday" | "dup" | "sort" | "perm";
@@ -79,6 +109,8 @@ export type Filter =
   | { kind: "all" }
   | { kind: "group"; key: string }
   | { kind: "source"; key: string }
+  /** One lead source under Leads ("BT Paid Ad"); n is its count, so the Brain can tell when ONE MOVE did not filter. */
+  | { kind: "lsrc"; key: string; n: number }
   | { kind: "chip"; key: Chip };
 
 /** The VIPs with no birthday, when ONE MOVE lists them as a group; until then the Brain lists the VIP-50 and VIP-100. */
@@ -91,7 +123,7 @@ export const sameFilter = (a: Filter, b: Filter) => a.kind === b.kind && ("key" 
 export const toggleFilter = (cur: Filter, next: Filter): Filter => (sameFilter(cur, next) ? NEED : next);
 
 /** What ONE MOVE is asked for (§3k.2). Lists of a circle are A-Z; who needs you is Pulse's order, shown A-Z. */
-export function filterQuery(f: Filter): { group: string | null; sort: "pulse" | "name" } | null {
+export function filterQuery(f: Filter): { group: string | null; sort: "pulse" | "name"; source?: string } | null {
   switch (f.kind) {
     case "need":
       return { group: null, sort: "pulse" };
@@ -100,6 +132,8 @@ export function filterQuery(f: Filter): { group: string | null; sort: "pulse" | 
     case "group":
     case "source":
       return { group: f.key, sort: "name" };
+    case "lsrc":
+      return { group: "leads", sort: "name", source: f.key };
     case "chip":
       return f.key === "sort" ? { group: "to_sort", sort: "name" } : f.key === "bday" ? { group: BDAY_GROUP, sort: "name" } : null;
   }
@@ -122,6 +156,8 @@ export function filterTitle(f: Filter, b: Board, gaps: Groups["gaps"], needLeft:
       const s = b.sources.find((x) => x.key === f.key);
       return `CAME FROM ${(s?.label ?? f.key).toUpperCase()} · ${n(s?.count ?? 0)}`;
     }
+    case "lsrc":
+      return `${sourceLabel(f.key).toUpperCase()} LEADS · ${n(f.n)}`;
     case "chip":
       return f.key === "bday" ? `VIPS WITH NO BIRTHDAY · ${n(gaps.vipNoBirthday)}` : f.key === "dup" ? `POSSIBLE DUPLICATES · ${n(gaps.possibleDuplicates)}` : f.key === "sort" ? `NEW TO SORT · ${n(gaps.toSort)}` : "ASK A GROUP FOR PERMISSION";
   }
@@ -148,6 +184,7 @@ export function keysOf(p: Pick<PersonItem, "id" | "tier" | "cls">, ringOf: Reado
   if (p.tier === "vip50" || p.tier === "vip100") out.add(p.tier);
   if (p.cls) out.add("hwc");
   if (open.kind === "group" || open.kind === "source") out.add(open.key);
+  if (open.kind === "lsrc") out.add("leads");
   if (open.kind === "chip" && open.key === "sort") out.add("to_sort");
   return [...out];
 }
