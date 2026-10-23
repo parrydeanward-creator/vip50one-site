@@ -42,6 +42,18 @@ export interface Recent {
   referralId: string | null;
   thanked: boolean | null;
   thankOpen: boolean;
+  /** §3aq: who the referral is and what they are doing; absent until ONE MOVE sends it. */
+  client?: { id: string | null; name: string; kind: ClientKind | null } | null;
+}
+export type ClientKind = "buying" | "selling" | "both";
+/** §3aq `warming`: a VIP-50 not yet ready to ask, closest first. */
+export interface Warming {
+  id: string;
+  name: string;
+  photo: string | null;
+  done: number;
+  due: number;
+  next: string | null;
 }
 export interface Candidate {
   id: string;
@@ -77,6 +89,11 @@ export interface Referrals {
   recent: Recent[];
   vips: { count: number; ever: number; thisYear: number };
   candidates: Candidate[];
+  /** §3aq additions (v1.85): each null (or absent) until ONE MOVE sends it; the Brain then falls back or hides. */
+  warming?: Warming[] | null;
+  asksThisMonth?: number | null;
+  thanksThisMonth?: number | null;
+  gciYear?: number | null;
 }
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0);
@@ -84,6 +101,25 @@ const numOrNull = (v: unknown) => (typeof v === "number" && Number.isFinite(v) &
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 80) : null);
 const day = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null);
 const isWhy = (v: unknown): v is Why => typeof v === "string" && (WHY_ORDER as string[]).includes(v);
+
+const isKind = (v: unknown): v is ClientKind => v === "buying" || v === "selling" || v === "both";
+
+/** §3aq `warming`, checked: one row per contact, closest first (most of the touches done). Null when missing. */
+export function readWarming(v: unknown): Warming[] | null {
+  if (!Array.isArray(v)) return null;
+  const seen = new Set<string>();
+  const out: Warming[] = [];
+  for (const x of v as Record<string, unknown>[]) {
+    if (!x || typeof x !== "object") continue;
+    const id = str(x.contact_id), name = str(x.name);
+    if (!id || !name || seen.has(id)) continue;
+    seen.add(id);
+    const due = Math.round(num(x.touches_due));
+    out.push({ id, name, photo: str(x.photo_url), done: Math.min(Math.round(num(x.touches_done)), due || Infinity), due, next: typeof x.next === "string" && x.next.trim() ? x.next.trim().slice(0, 120) : null });
+  }
+  const share = (w: Warming) => (w.due ? w.done / w.due : 0);
+  return out.sort((a, b) => share(b) - share(a)).slice(0, 10);
+}
 
 const first = (v: unknown) => {
   const s = str(v);
@@ -178,7 +214,9 @@ export function readReferrals(j: unknown): Referrals | null {
   for (const x of (Array.isArray(r.recent) ? r.recent : []) as Record<string, unknown>[]) {
     const at = day(x?.at), name = str(x?.referred_name);
     if (!at || !name) continue;
-    recent.push({ id: str(x.referred_contact_id) ?? `${name}:${at}`, name, by: str(x.referrer_contact_id), at, closed: x.closed === true, value: numOrNull(x.value), referralId: str(x.referral_id), thanked: typeof x.thanked === "boolean" ? x.thanked : null, thankOpen: x.thank_open === true });
+    const c = x.client && typeof x.client === "object" ? (x.client as Record<string, unknown>) : null;
+    const client = c && str(c.name) ? { id: str(c.contact_id), name: str(c.name)!, kind: isKind(c.kind) ? c.kind : null } : null;
+    recent.push({ id: str(x.referred_contact_id) ?? `${name}:${at}`, name, by: str(x.referrer_contact_id), at, closed: x.closed === true, value: numOrNull(x.value), referralId: str(x.referral_id), thanked: typeof x.thanked === "boolean" ? x.thanked : null, thankOpen: x.thank_open === true, ...(client ? { client } : {}) });
   }
   recent.sort((a, b) => b.at.localeCompare(a.at));
   const seen = new Set<string>();
@@ -202,6 +240,10 @@ export function readReferrals(j: unknown): Referrals | null {
     recent: recent.slice(0, 10),
     vips: { count: num(v.count), ever: num(v.referred_ever), thisYear: num(v.referred_this_year) },
     candidates: candidates.slice(0, 10),
+    warming: readWarming(r.warming),
+    asksThisMonth: numOrNull(r.asks_this_month),
+    thanksThisMonth: numOrNull(r.thanks_this_month),
+    gciYear: numOrNull(r.referral_gci_year),
   };
 }
 
@@ -287,10 +329,18 @@ export function demoReferrals(today: string): Referrals {
       ref("r5", "Lisa Grant", 1, 1, 0, null, 90, 30),
     ],
     recent: [
-      { id: "n1", name: "Tom Lee", by: "r4", at: addDays(today, -12), closed: false, value: null, referralId: "f1", thanked: false, thankOpen: false },
-      { id: "n2", name: "Sara Kent", by: "r2", at: addDays(today, -21), closed: false, value: null, referralId: "f2", thanked: true, thankOpen: false },
-      { id: "n3", name: "Ben Ortiz", by: "r1", at: addDays(today, -54), closed: true, value: 425000, referralId: "f3", thanked: true, thankOpen: false },
+      { id: "n1", name: "Tom Lee", by: "r4", at: addDays(today, -12), closed: false, value: null, referralId: "f1", thanked: false, thankOpen: false, client: { id: "n1", name: "Tom Lee", kind: "buying" } },
+      { id: "n2", name: "Sara Kent", by: "r2", at: addDays(today, -21), closed: false, value: null, referralId: "f2", thanked: true, thankOpen: false, client: { id: "n2", name: "Sara Kent", kind: "selling" } },
+      { id: "n3", name: "Ben Ortiz", by: "r1", at: addDays(today, -54), closed: true, value: 425000, referralId: "f3", thanked: true, thankOpen: false, client: { id: "n3", name: "Ben Ortiz", kind: "buying" } },
     ],
+    warming: [
+      { id: "w1", name: "Amy Chen", photo: null, done: 4, due: 5, next: "One more touch this month and she is ready to ask" },
+      { id: "w2", name: "Dave Kim", photo: null, done: 3, due: 5, next: "Handwritten note due this week" },
+      { id: "w3", name: "Paula Reyes", photo: null, done: 2, due: 5, next: "Birthday next week: a good moment for a call" },
+    ],
+    asksThisMonth: 2,
+    thanksThisMonth: 3,
+    gciYear: 9200,
     vips: { count: 48, ever: 9, thisYear: 5 },
     candidates: [
       { id: "r3", name: "Ann Ruiz", tier: "vip50", why: "past_referrer_quiet", words: "Sent you 3 referrals; no touch in 58 days" },
