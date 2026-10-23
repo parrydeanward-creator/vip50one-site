@@ -2,6 +2,7 @@ import { MOVE_URL } from "../host.ts";
 import { inRelationshipGroup, RELATIONSHIP_GROUPS } from "../people.ts";
 import { moveGroupId, moveMenuHref, movePageId } from "../moveMenu.ts";
 import type { GraphEdge, GraphNode } from "../graph/types.ts";
+import { exampleActivityBody, exampleSiteBody, exampleTeamSiteBody } from "./siteActivity.ts";
 
 // ONE MOVE's remaining menu items in the example (walker 18 Oct; Parry 06:48: "the side information is blank").
 //
@@ -497,6 +498,20 @@ export function exampleMoveAnswer(s: ExampleStore, method: string, url: string, 
     s.people.push(p);
     return ok({ id: p.id });
   }
+  // Site activity (§3ar): "On your site", the Room invite, "Who is on my site" and the team's sites
+  const sm = /^people\/([0-9a-f-]{36})\/(site|room-invite)$/.exec(path);
+  if (sm) {
+    const p = byId(sm[1]);
+    if (!p) return { status: 404, body: { error: "That contact isn't there any more." } };
+    if (sm[2] === "site" && get) return ok(exampleSiteBody(fullName(p), Date.now()));
+    if (sm[2] === "room-invite" && method === "POST") return ok({ ok: true, example: true });
+    return null;
+  }
+  if (path === "site/activity" && get) {
+    const r = u.searchParams.get("range");
+    return ok(exampleActivityBody(r === "today" || r === "30d" ? r : "7d", live(s).map((p) => ({ id: p.id, name: fullName(p) }))));
+  }
+  if (path === "team/site" && get) return ok(exampleTeamSiteBody());
   const pm = /^people\/([0-9a-f-]{36})(\/timeline)?$/.exec(path);
   if (pm) {
     const p = byId(pm[1]);
@@ -671,7 +686,7 @@ export function exampleMoveAnswer(s: ExampleStore, method: string, url: string, 
 }
 
 /** The ONE MOVE pages whose native Brain view this store answers. */
-export const EXAMPLE_NATIVE = new Set(["contacts", "vip", "audit", "hwc", "rolodex"]);
+export const EXAMPLE_NATIVE = new Set(["contacts", "vip", "audit", "hwc", "rolodex", "onsite"]);
 
 // ---- B. the example orbs ---------------------------------------------------------------------------------------------
 

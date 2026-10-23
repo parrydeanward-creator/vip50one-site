@@ -15,6 +15,7 @@ import HomeReportSection from "./HomeReportSection.tsx";
 import CmaSection from "./CmaSection.tsx";
 import ShareLinkSection, { MyHomeLine } from "./SiteFeedsSection.tsx";
 import CallPrepCard from "./CallPrepCard.tsx";
+import { OnYourSite, SiteGlance } from "./SiteActivity.tsx";
 import PersonMenu from "./PersonMenu.tsx";
 import { useHeldDelete } from "./useHeldDelete.tsx";
 import { firstOf } from "@/lib/deleteContact.ts";
@@ -892,6 +893,8 @@ export default function Contacts({
                         <p className="ct-pulse">{personCard.pulse.line}</p>
                       </>
                     ) : null}
+                    {/* VIP-SUMMARY §3ar: on the agent's site (nothing until ONE MOVE's route answers) */}
+                    <SiteGlance contactId={personCard.id} onOpen={openFull} />
                     <button className="ct-btn ct-open" onClick={openFull}>Open full contact →</button>
                   </>
                 ) : (
@@ -945,6 +948,15 @@ export default function Contacts({
             {tel && <a className={`chip-btn${p.pulse?.nextStep === "text" ? " primary" : ""}`} href={`sms:${tel}`}>Text</a>}
             {mail && <a className="chip-btn" href={`mailto:${mail}`}>Email</a>}
           </div>
+          {/* VIP-SUMMARY §3ar (Parry, 23 Oct: "yes build it"): their site visits and account; nothing until ONE MOVE answers */}
+          <OnYourSite
+            contactId={p.id}
+            first={p.firstName || p.name.split(" ")[0] || ""}
+            phone={tel}
+            email={mail}
+            onCall={() => setPrepFor(p.id)}
+            onBook={() => (onOpenPage ? onOpenPage("/calendar") : onClassic())}
+          />
           <div className="ct-fullsecs">
             {p.sections.map((s) =>
               s.key === "permissions" ? (

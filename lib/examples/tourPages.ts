@@ -12,11 +12,14 @@ export const TOUR_PAGES: [string, string, string][] = [
   ["/contacts/import", "Import Contacts", "move-0"], ["/contacts/cleanup", "Clean Up Contacts", "move-0"],
   ["/contacts/sources", "Lead Sources", "move-0"],
   ["/tasks", "Tasks", "move"], ["/profile/agent-hub", "Agent Hub", "move"],
+  // Who is on my site (VIP-SUMMARY §3ar, 23 Oct), drawn natively on example data (lib/examples/siteActivity.ts)
+  ["/on-my-site", "Who is on my site", "move-0"],
 ];
 // The example agent (?demo=1) has no ONE MOVE menu either; Market Reports gets its orb so the example shows it (HOME-REPORT
 // §5.4, 16 Oct). It runs on example data there, with no network.
 // My Profile too, for "Pulse knows me" (PROFILE §5c, 16 Oct), on the example agent's own data.
-export const DEMO_PAGES: [string, string, string][] = [["/home-reports", "Market Reports", "move"], ["/profile", "My Profile", "move"]];
+// Who is on my site too (VIP-SUMMARY §3ar, 23 Oct), on example data, so the example shows it.
+export const DEMO_PAGES: [string, string, string][] = [["/home-reports", "Market Reports", "move"], ["/profile", "My Profile", "move"], ["/on-my-site", "Who is on my site", "move-0"]];
 export function withTourPages(g: BusinessGraph, pages = TOUR_PAGES): BusinessGraph {
   const have = new Set(g.nodes.map((n) => n.id));
   const nodes = [...g.nodes];

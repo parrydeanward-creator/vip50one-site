@@ -78,6 +78,8 @@ import { LEARN_PANEL_FIRST, demoLearn, learnPartOf, learnUrl, readLearn, withLea
 import MoveLikelyView from "./MoveLikelyView.tsx";
 import DealsView, { type SetClientPage as DealSetClientPage, type SetStatus as DealSetStatus } from "./DealsView.tsx";
 import TeamView from "./TeamView.tsx";
+import OnMySite from "./OnMySite.tsx";
+import TeamSiteSection from "./TeamSiteSection.tsx";
 import WarRoomView from "./WarRoomView.tsx";
 import ReviewCallsView from "./ReviewCallsView.tsx";
 import HabitsView from "./HabitsView.tsx";
@@ -105,7 +107,7 @@ import { syncKind } from "@/lib/voicePick.ts";
 import GoalsView from "./GoalsView.tsx";
 import { dailyUrl, readDaily, withTick, type DailyDay } from "@/lib/daily.ts";
 import { REVIEW_CALLS_NODE, agentsUrl, demoAgents, readAgents, withReviewCallsNode, type ReviewAgent } from "@/lib/reviewCalls.ts";
-import { TEAM_LEADS_PATH, WAR_NODE, demoWarRoom, teamDealsUrl, leadsUrl, logUrl, readWarRoom, type WarRoom } from "@/lib/warroom.ts";
+import { TEAM_LEADS_PATH, WAR_NODE, demoWarRoom, isManager, teamDealsUrl, leadsUrl, logUrl, readWarRoom, type WarRoom } from "@/lib/warroom.ts";
 import BrokerView from "./BrokerView.tsx";
 import { BROKER_NODE, brokerSummaryLine, brokerUrl, demoBroker, readBroker, withBrokerNode, type Broker } from "@/lib/broker.ts";
 import { TEAM_NODE, demoTeam, readTeam, teamUrl, type Scope as TeamScope, type Team } from "@/lib/team.ts";
@@ -159,7 +161,7 @@ import TeamHubPanel, { isHubPart } from "./TeamHubPanel.tsx";
 import TeamAgentPanel from "./TeamAgentPanel.tsx";
 import TeamWarPanel from "./TeamWarPanel.tsx";
 import { useTeamRoom } from "./useTeamRoom.ts";
-import { agentIdOf, type TeamPeople, type War30 } from "@/lib/teamPeople.ts";
+import { agentIdOf, agentNodeId, type TeamPeople, type War30 } from "@/lib/teamPeople.ts";
 import FollowUpsPanel from "./FollowUpsPanel.tsx";
 import { DEMO_FOLLOW_NODE, FOLLOW_NODE, followUpsUrl, isFollowUpsOrb, mergeFollowUps, readFollowUps, rowsFromKids, summaryFollowOf, withFollowUps, type FollowUps, type SummaryFollow } from "@/lib/followUps.ts";
 import { START_NODE, demoStart, filmUrl, movePathOf, placeFor, readStart, startAgentUrl, startMenuLine, startUrl, withStartNode, type Start, type StartPlace, type StartStep } from "@/lib/gettingStarted.ts";
@@ -2972,7 +2974,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // Daily Tracker (§3e). The Classic page stays one click away, and is the
   // fallback until ONE MOVE's route answers.
   // Home Reports (HOME-REPORT §5.4, 16 Oct): this month's reports and the bulk start, from ONE MOVE's routes.
-  const NATIVE: Record<string, "vip" | "daily" | "weekly" | "audit" | "rolodex" | "profile" | "hwc" | "contacts" | "homereports" | "nts" | "referrals"> = { "/referral-network": "referrals", "/contacts/visitors": "nts", "/contacts": "contacts", "/contacts/vip": "vip", "/daily": "daily", "/weekly": "weekly", "/contacts/audit": "audit", "/rolodex": "rolodex", "/profile": "profile", "/hot-warm-cold": "hwc", "/home-reports": "homereports" };
+  const NATIVE: Record<string, "vip" | "daily" | "weekly" | "audit" | "rolodex" | "profile" | "hwc" | "contacts" | "homereports" | "nts" | "referrals" | "onsite"> = { "/on-my-site": "onsite", "/referral-network": "referrals", "/contacts/visitors": "nts", "/contacts": "contacts", "/contacts/vip": "vip", "/daily": "daily", "/weekly": "weekly", "/contacts/audit": "audit", "/rolodex": "rolodex", "/profile": "profile", "/hot-warm-cold": "hwc", "/home-reports": "homereports" };
   const [vipClassic, setVipClassic] = useState(false);
   const nativeKind = panelPath ? NATIVE[panelPath] : undefined;
   // "Refer to a ONE agent" for one client (?contact=) opens ONE MOVE's refer form, filled in, on the Classic page.
@@ -3781,6 +3783,21 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             />
           ) : null}
 
+          {/* VIP-SUMMARY §3ar: the team's sites this week, for the owner and admins (the war room orb is theirs only) */}
+          {focus.id === WAR_NODE && war && isManager(war.team.role) && !ask ? (
+            <TeamSiteSection
+              live={live}
+              people={(teamPeople?.people ?? []).map((a) => ({ id: a.id, first: a.first, phone: a.phone }))}
+              onTeamLeads={() => goTo(movePageId(TEAM_LEADS_PATH))}
+              onOpenAgent={(id) => {
+                const node = agentNodeId(id);
+                if (!ix.byId.has(node)) return false;
+                goTo(node);
+                return true;
+              }}
+            />
+          ) : null}
+
           {agentIdOf(focus.id) && !ask && (() => {
             const p = teamPeople?.people.find((x) => x.id === agentIdOf(focus.id));
             return p ? <TeamAgentPanel key={focus.id} p={p} example={!!teamPeople?.example} /> : null;
@@ -4502,6 +4519,17 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   onRefer={(id) => setPageQuery({ path: "/referral-network", query: `contact=${encodeURIComponent(id)}` })}
                   onBack={() => goTo(focus.parentId ?? "move")}
                   onClassic={() => setVipClassic(true)}
+                />
+              ) : vipNative && nativeKind === "onsite" ? (
+                <OnMySite
+                  live={live}
+                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onOpenPerson={(id) => {
+                    const page = movePageId("/contacts");
+                    if (!ix.byId.has(page)) return;
+                    setContactOpen({ id, k: Date.now() });
+                    goTo(page);
+                  }}
                 />
               ) : vipNative && nativeKind === "audit" ? (
                 <TouchAudit
