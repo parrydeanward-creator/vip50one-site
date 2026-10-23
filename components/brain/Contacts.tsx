@@ -2,7 +2,7 @@
 
 import { STORY_LABEL, filterStory, productsIn, storyProduct, type StoryProduct } from "@/lib/lifeStory.ts";
 import AskGroupSection from "./AskGroupSection.tsx";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { dialable, mailable, touchUrl } from "@/lib/contact.ts";
 import { BIZ_PARENT, byName, editText, editValue, isBizSub, listUrl, peopleUrl, personTag, personUrl, readGroups, readPage, readPerson, readTimeline, LEFT_EARLY_LINE, sectionColor, showValue, gapsIn, timelineUrl, type Field, type Groups, type Person, type PersonItem, type Section, type Timeline } from "@/lib/people.ts";
 import { initialsOf, vipTierUrl } from "@/lib/vips.ts";
@@ -605,7 +605,8 @@ export default function Contacts({
               {board.key.map((k) => {
                 const on = isOn({ kind: "group", key: k.key }) || (k.key === BIZ_PARENT && filter.kind === "group" && isBizSub(filter.key));
                 return (
-                  <button key={k.key} className={`ct-k${on ? " on" : ""}`} style={{ color: k.color }} aria-pressed={on} onClick={() => ringPick(k.key)} aria-label={`${k.label}: ${k.count}${k.needsYou ? `, ${k.needsYou} need you` : ""}`}>
+                  <Fragment key={k.key}>
+                  <button className={`ct-k${on ? " on" : ""}`} style={{ color: k.color }} aria-pressed={on} onClick={() => ringPick(k.key)} aria-label={`${k.label}: ${k.count}${k.needsYou ? `, ${k.needsYou} need you` : ""}`}>
                     <i />
                     <span className="ct-k-n">{k.label.toUpperCase()}</span>
                     <span className="ct-k-c">
@@ -613,6 +614,14 @@ export default function Contacts({
                       {k.needsYou ? <em>{` · ${k.needsYou}`}</em> : null}
                     </span>
                   </button>
+                  {k.key === "leads" && board.leadsSources.length ? (
+                    <ul className="ct-leadsrc" aria-label="Leads by source">
+                      {board.leadsSources.map((s) => (
+                        <li key={s.source}><span>{s.source}</span><b>{s.count.toLocaleString("en-US")}</b></li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  </Fragment>
                 );
               })}
             </div>

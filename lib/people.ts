@@ -9,10 +9,11 @@ import { readPersonExtras, type MyHome } from "./siteFeeds.ts";
 
 export const peopleUrl = `${MOVE_URL}/api/brain/people`;
 
-export type GroupKind = "tier" | "source";
+export type GroupKind = "tier" | "source" | "gap";
 export interface PeopleGroup { key: string; label: string; kind: GroupKind; count: number; needsYou: number; needsNow: number }
 export interface Gaps { vipNoBirthday: number; toSort: number; possibleDuplicates: number }
-export interface Groups { total: number; needsYou: number; needsNow: number; groups: PeopleGroup[]; gaps: Gaps }
+export interface LeadSource { source: string; count: number }
+export interface Groups { total: number; needsYou: number; needsNow: number; groups: PeopleGroup[]; gaps: Gaps; /** Leads by source, largest first (vip50-web-crm leads_by_source); counts only, the route has no source filter. */ leadsBySource: LeadSource[] }
 
 export interface PersonItem {
   id: string;
@@ -78,11 +79,22 @@ export function readGroups(j: unknown): Groups | null {
     const label = str(r.label, 40);
     if (!key || !label || groups.some((x) => x.key === key)) continue;
     const needsYou = num(r.needs_you);
-    groups.push({ key, label, kind: r.kind === "source" ? "source" : "tier", count: num(r.count), needsYou, needsNow: Math.min(needsYou, num(r.needs_now)) });
+    groups.push({ key, label, kind: r.kind === "source" ? "source" : r.kind === "gap" ? "gap" : "tier", count: num(r.count), needsYou, needsNow: Math.min(needsYou, num(r.needs_now)) });
   }
   if (!groups.length) return null;
   const gp = (o.gaps && typeof o.gaps === "object" ? o.gaps : {}) as Record<string, unknown>;
+  const leadsBySource: LeadSource[] = [];
+  if (Array.isArray(o.leads_by_source)) {
+    for (const l of o.leads_by_source) {
+      if (!l || typeof l !== "object") continue;
+      const r = l as Record<string, unknown>;
+      const source = str(r.source, 80);
+      if (source && num(r.count) > 0 && !leadsBySource.some((x) => x.source === source)) leadsBySource.push({ source, count: num(r.count) });
+    }
+    leadsBySource.sort((a, b) => b.count - a.count);
+  }
   return {
+    leadsBySource,
     total: num(o.total),
     needsYou: num(o.needs_you),
     needsNow: Math.min(num(o.needs_you), num(o.needs_now)), // §3k.7 (v1.19); 0 until ONE MOVE sends it

@@ -4,7 +4,7 @@ import LogReferral from "./LogReferral.tsx";
 import { useEffect, useRef, useState } from "react";
 import PulseRing, { PULSE_COLOR } from "./PulseRing.tsx";
 import { useSvgCamera } from "./useSvgCamera.ts";
-import { THANK_KINDS, WHY_TITLE, askNow, headline, referralRate, thankWords, unthanked, type Candidate, type ReadyAsk, type Recent, type Referrals, type Referrer, type ThankKind, type ThankOwed, networkLine, type NetworkCounts } from "@/lib/referrals.ts";
+import { THANK_KINDS, THANK_TITLE, WHY_TITLE, askNow, headline, referralRate, thankWords, unthanked, type Candidate, type ReadyAsk, type Recent, type Referrals, type Referrer, type ThankKind, type ThankOwed, networkLine, type NetworkCounts } from "@/lib/referrals.ts";
 
 // The Referral Scoreboard in ONE YOU (VIP-SUMMARY §3r; Parry, 7 Oct). The year's referrals against the goal in the
 // middle; round it, the people who sent business (gold ring: how many) and the ones likely to send the next
@@ -176,7 +176,7 @@ export default function ReferralsView({ data, today, demo, onClose, onAsk, onTha
                 {logFor === x.id ? (
                   <span className="rf-kinds" role="group" aria-label={`How you thanked ${x.firstName}`}>
                     {THANK_KINDS.map((k) => (
-                      <button key={k.kind} className="chip-btn" disabled={logBusy === x.id} onClick={() => void logThank(x, k.kind)} aria-label={`${x.firstName}: ${k.label}`}>
+                      <button key={k.kind} className="chip-btn" disabled={logBusy === x.id} onClick={() => void logThank(x, k.kind)} aria-label={`${x.firstName}: ${k.label}`} title={THANK_TITLE[k.kind]}>
                         {k.label}
                       </button>
                     ))}

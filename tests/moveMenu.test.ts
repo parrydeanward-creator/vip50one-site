@@ -23,15 +23,17 @@ import { liveGraph, type SummaryEnvelope, type SummaryItem } from "../lib/live.t
 // Rewritten 17 Oct (walker 0245): 33 pages. Learn home (/learn) is the first row of Learn, under the same hard rule.
 // Rewritten 21 Oct: 39 pages. The Classic-only pages join (Parry: "everything on classic needs to be on the Brain as
 // well"): Import, Clean Up, Archived and Lead Sources in People, Tasks in Trackers, Agent Hub in People beside the Referral Network.
+// Rewritten 23 Oct (second): 35 pages. Agent Hub (retired) and Import Contacts (a button on My Contacts) leave the menu;
+// Import still opens inside the Brain from that button (MOVE_BUTTON_PAGES). Coaching joins the Coach group.
 // Rewritten 23 Oct: 37 pages. Buyer Needs and Your listings leave the menu (Parry, 23 Oct: "retire buyers needs";
 // "retire your listings already on the website").
-test("ONE MOVE menu: all 37 Classic pages, in Parry's groups, no admin items", () => {
-  assert.equal(MOVE_MENU.length, 37);
+test("ONE MOVE menu: all 35 Classic pages, in Parry's groups, no admin items", () => {
+  assert.equal(MOVE_MENU.length, 35);
   assert.deepEqual(MOVE_TOP.map((m) => m.label), ["Dashboard"]);
   assert.deepEqual(MOVE_GROUPS.map((g) => g.label), ["People", "Trackers", "Events", "Outreach", "Learn"]);
   assert.deepEqual(MOVE_BOTTOM.map((m) => m.label), ["The Lounge", "My Profile"]);
   // Rewritten 17 Oct: Home Reports is called Market Reports (HOME-REPORT v0.4; Parry, 16 Oct: "1 yes"); same path.
-  assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "Drop-By Map", "Opportunities", "Hot/Warm/Cold", "Business Rolodex", "Referral Network", "Agent Hub", "Life Events", "Deals", "Import Contacts", "Clean Up Contacts", "Archived Contacts", "Lead Sources"]);
+  assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "Drop-By Map", "Opportunities", "Hot/Warm/Cold", "Business Rolodex", "Referral Network", "Life Events", "Deals", "Clean Up Contacts", "Archived Contacts", "Lead Sources"]);
   assert.deepEqual(MOVE_GROUPS[0].pages.filter((m) => ["Opportunities", "Life Events", "Deals"].includes(m.label)).map((m) => m.path), ["/opportunities", "/life-events", "/deals"]);
   assert.deepEqual(MOVE_GROUPS[3].pages.map((m) => [m.label, m.path]), [["Overview", "/outreach"], ["Newsletter", "/newsletter"], ["Landing Pages", "/landing-pages"], ["Action Plans", "/action-plans"], ["Market Reports", "/home-reports"]]);
   assert.deepEqual(MOVE_GROUPS[4].pages.map((m) => [m.label, m.path]), [["Learn home", "/learn"], ["Video Library", "/content"], ["VIP Docs", "/vip-docs"], ["The Vault", "/vault"], ["What's New", "/whats-new"]]);
@@ -116,7 +118,11 @@ test("every ONE MOVE menu page opens inside the Brain; other orbs do not", async
   // Rewritten 21 Oct: 47. The Classic-only pages join (Parry: "everything on classic needs to be on the Brain"): Import,
   // Clean Up, Archived, Lead Sources, Agent Hub, Tasks, and for admins Pulse Tests, Coach Table and Communications.
   // Rewritten 23 Oct: 45. Buyer Needs and Your listings retired (Parry, 23 Oct); neither opens in the Brain now.
+  // Rewritten 23 Oct (second): still 45. Agent Hub leaves (-1), Coaching joins the Coach group (+1); Import Contacts left the
+  // menu but stays a page the My Contacts Import button opens.
   assert.equal(IN_BRAIN.size, 45);
+  assert.ok(!IN_BRAIN.has("/profile/agent-hub"));
+  assert.equal(inBrainPage(movePageId("/coaching"))?.label, "Coaching");
   assert.equal(inBrainPage(movePageId("/contacts/import"))?.label, "Import Contacts");
   assert.equal(inBrainPage(movePageId("/communications"))?.label, "Communications");
   assert.equal(inBrainPage(movePageId("/learn"))?.label, "Learn home");

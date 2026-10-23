@@ -57,6 +57,8 @@ export type LiveChallenge =
       run: number | null;
       /** §3ap: every run, oldest first; null when the route does not send `runs` (the old route: Start another 90 opens Classic). */
       runs: Run[] | null;
+      /** `can_start_another`: false while a run is still active; null on an older route (then the button shows as before). */
+      canStartAnother: boolean | null;
       url: string;
     };
 
@@ -258,6 +260,7 @@ export function readChallenge(raw: unknown, today: string = mountainToday()): Li
     leaderboard: readLeaderboard(r.leaderboard),
     run: typeof r.run === "number" && Number.isFinite(r.run) && r.run >= 1 ? num(r.run, 1, 1000) : null,
     runs: readRuns(r.runs),
+    canStartAnother: typeof r.can_start_another === "boolean" ? r.can_start_another : null,
     url,
   };
 }
@@ -550,7 +553,7 @@ export function demoChallengeBody(today: string = mountainToday()) {
     group: null,
     run: 2,
     runs: [
-      { run: 1, start_date: addDays(start, -100), completed_at: addDays(start, -11), status: "completed", certificate_url: `${MOVE_URL}/certificate/example-run-1` },
+      { run: 1, start_date: addDays(start, -100), completed_at: addDays(start, -11), status: "completed", certificate_url: `${MOVE_URL}/certificate/example-user?run=1` },
       { run: 2, start_date: start, completed_at: null, status: "active", certificate_url: null },
     ],
     url: CHALLENGE.pageUrl,
