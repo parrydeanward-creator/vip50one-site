@@ -195,3 +195,9 @@ test("My Contacts carries Import beside Add a person (Parry, 23 Oct), opening th
   assert.match(src, /data-act="contacts-import"/);
   assert.match(src, /onOpenPage\("\/contacts\/import"\)/);
 });
+
+test("My Contacts carries Archived (under the list) and Lead sources (under Came from), opening their pages in the Brain (Parry, 23 Oct)", () => {
+  const src = readFileSync(new URL("../components/brain/Contacts.tsx", import.meta.url), "utf8");
+  assert.match(src, /data-act="contacts-archived"[^\n]*onOpenPage\("\/contacts\/archived"\)/);
+  assert.match(src, /data-act="contacts-sources"[^\n]*onOpenPage\("\/contacts\/sources"\)/);
+});

@@ -641,6 +641,8 @@ export default function Contacts({
                 ))}
               </div>
               {board.emptySources.length ? <p className="ct-zero">{board.emptySources.map((l) => `${l} 0`).join(" · ")}</p> : null}
+              {/* Lead Sources lives here now (Parry, 23 Oct: "yes fold them in"); the menu entry stays so nothing breaks */}
+              <button className="ct-more" data-act="contacts-sources" onClick={() => (onOpenPage ? onOpenPage("/contacts/sources") : onClassic())}>Lead sources: name and manage where people come from</button>
             </div>
           </section>
 
@@ -728,6 +730,8 @@ export default function Contacts({
                 ) : null}
               </>
             )}
+            {/* Archived lives here now (Parry, 23 Oct: "yes fold them in") */}
+            <button className="ct-more" data-act="contacts-archived" onClick={() => (onOpenPage ? onOpenPage("/contacts/archived") : onClassic())}>Archived contacts</button>
             <button className="ct-more" onClick={onClassic}>Open the Classic contacts page</button>
           </section>
 
