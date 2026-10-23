@@ -96,12 +96,9 @@ export default function PersonPanel({
         <WebHotLine contactId={linked} />
         {onOpenPage ? (
           <div className="decide-btns pp-more">
-            {/* VIP-SUMMARY §3af and §3ah: both pages open filled in for this person (vip50-web-crm#224) */}
+            {/* VIP-SUMMARY §3af: opens filled in for this person (vip50-web-crm#224); Buyer Needs retired 23 Oct */}
             <button type="button" className="chip-btn" onClick={() => onOpenPage("/referral-network", `contact=${encodeURIComponent(linked)}`)}>
               Refer to a ONE agent
-            </button>
-            <button type="button" className="chip-btn" onClick={() => onOpenPage("/buyer-needs", `contact=${encodeURIComponent(linked)}`)}>
-              Post a buyer need
             </button>
           </div>
         ) : null}

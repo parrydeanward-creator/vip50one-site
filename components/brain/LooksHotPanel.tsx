@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { IN_BRAIN } from "@/lib/moveMenu.ts";
-import { productLink } from "@/lib/productSignIn.ts";
 import { priceWords } from "@/lib/heat.ts";
 import { EMPTY_LINE, KIND_WORDS, actLooks, type LooksAction, type LooksPerson } from "@/lib/looksHot.ts";
 
@@ -14,23 +12,21 @@ export default function LooksHotPanel({
   live,
   onOpen,
   onDone,
-  onOpenPage,
 }: {
   list: LooksPerson[] | null;
   person?: LooksPerson | null;
   live: boolean;
   onOpen: (p: LooksPerson) => void;
   onDone: (p: LooksPerson, action: LooksAction, local: boolean) => void;
-  onOpenPage: (path: string, query: string) => void;
+  /** Unused since Buyer Needs retired (23 Oct); kept so callers need not change. */
+  onOpenPage?: (path: string, query: string) => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ ok: boolean; line: string } | null>(null);
-  const [needUrl, setNeedUrl] = useState<string | null>(null);
 
   const act = async (p: LooksPerson, action: LooksAction) => {
     if (busy) return;
     setNote(null);
-    setNeedUrl(null);
     if (!live) {
       // the example agent: the row leaves as it would, nothing goes anywhere
       const first = p.name.split(/\s+/)[0];
@@ -41,17 +37,10 @@ export default function LooksHotPanel({
     try {
       const r = await actLooks(p, action);
       setNote({ ok: r.ok, line: r.line });
-      if (r.needUrl) setNeedUrl(r.needUrl);
       if (r.ok) onDone(p, action, !!r.local);
     } finally {
       setBusy(null);
     }
-  };
-
-  const openNeed = (url: string) => {
-    const u = new URL(url);
-    if (u.host === "move.vip50one.com" && IN_BRAIN.has(u.pathname)) return onOpenPage(u.pathname, u.search.replace(/^\?/, ""));
-    window.open(productLink(url), "_blank", "noopener");
   };
 
   const buttons = (p: LooksPerson) => (
@@ -65,11 +54,6 @@ export default function LooksHotPanel({
   const after = (
     <>
       {note && <p className={note.ok ? "decide-done" : "decide-err"} role={note.ok ? "status" : "alert"}>{note.line}</p>}
-      {needUrl && (
-        <button className="btn ghost-btn" onClick={() => openNeed(needUrl)}>
-          Post a Buyer Need from the homes they liked
-        </button>
-      )}
     </>
   );
 

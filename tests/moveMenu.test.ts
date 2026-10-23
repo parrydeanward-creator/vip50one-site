@@ -23,13 +23,15 @@ import { liveGraph, type SummaryEnvelope, type SummaryItem } from "../lib/live.t
 // Rewritten 17 Oct (walker 0245): 33 pages. Learn home (/learn) is the first row of Learn, under the same hard rule.
 // Rewritten 21 Oct: 39 pages. The Classic-only pages join (Parry: "everything on classic needs to be on the Brain as
 // well"): Import, Clean Up, Archived and Lead Sources in People, Tasks in Trackers, Agent Hub in People beside the Referral Network.
-test("ONE MOVE menu: all 39 Classic pages, in Parry's groups, no admin items", () => {
-  assert.equal(MOVE_MENU.length, 39);
+// Rewritten 23 Oct: 37 pages. Buyer Needs and Your listings leave the menu (Parry, 23 Oct: "retire buyers needs";
+// "retire your listings already on the website").
+test("ONE MOVE menu: all 37 Classic pages, in Parry's groups, no admin items", () => {
+  assert.equal(MOVE_MENU.length, 37);
   assert.deepEqual(MOVE_TOP.map((m) => m.label), ["Dashboard"]);
   assert.deepEqual(MOVE_GROUPS.map((g) => g.label), ["People", "Trackers", "Events", "Outreach", "Learn"]);
   assert.deepEqual(MOVE_BOTTOM.map((m) => m.label), ["The Lounge", "My Profile"]);
   // Rewritten 17 Oct: Home Reports is called Market Reports (HOME-REPORT v0.4; Parry, 16 Oct: "1 yes"); same path.
-  assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "Drop-By Map", "Opportunities", "Hot/Warm/Cold", "Business Rolodex", "Referral Network", "Agent Hub", "Buyer Needs", "Your listings", "Life Events", "Deals", "Import Contacts", "Clean Up Contacts", "Archived Contacts", "Lead Sources"]);
+  assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "Drop-By Map", "Opportunities", "Hot/Warm/Cold", "Business Rolodex", "Referral Network", "Agent Hub", "Life Events", "Deals", "Import Contacts", "Clean Up Contacts", "Archived Contacts", "Lead Sources"]);
   assert.deepEqual(MOVE_GROUPS[0].pages.filter((m) => ["Opportunities", "Life Events", "Deals"].includes(m.label)).map((m) => m.path), ["/opportunities", "/life-events", "/deals"]);
   assert.deepEqual(MOVE_GROUPS[3].pages.map((m) => [m.label, m.path]), [["Overview", "/outreach"], ["Newsletter", "/newsletter"], ["Landing Pages", "/landing-pages"], ["Action Plans", "/action-plans"], ["Market Reports", "/home-reports"]]);
   assert.deepEqual(MOVE_GROUPS[4].pages.map((m) => [m.label, m.path]), [["Learn home", "/learn"], ["Video Library", "/content"], ["VIP Docs", "/vip-docs"], ["The Vault", "/vault"], ["What's New", "/whats-new"]]);
@@ -113,16 +115,17 @@ test("every ONE MOVE menu page opens inside the Brain; other orbs do not", async
   // Rewritten 17 Oct (walker 0245): 38. Learn home (/learn) joins and opens inside the Brain.
   // Rewritten 21 Oct: 47. The Classic-only pages join (Parry: "everything on classic needs to be on the Brain"): Import,
   // Clean Up, Archived, Lead Sources, Agent Hub, Tasks, and for admins Pulse Tests, Coach Table and Communications.
-  assert.equal(IN_BRAIN.size, 47);
+  // Rewritten 23 Oct: 45. Buyer Needs and Your listings retired (Parry, 23 Oct); neither opens in the Brain now.
+  assert.equal(IN_BRAIN.size, 45);
   assert.equal(inBrainPage(movePageId("/contacts/import"))?.label, "Import Contacts");
   assert.equal(inBrainPage(movePageId("/communications"))?.label, "Communications");
   assert.equal(inBrainPage(movePageId("/learn"))?.label, "Learn home");
   assert.equal(inBrainPage(movePageId("/achievements"))?.label, "Scoreboard");
   assert.equal(inBrainPage(movePageId("/drop-by"))?.label, "Drop-By Map");
   assert.equal(inBrainPage(movePageId("/home-reports"))?.label, "Market Reports"); // renamed 17 Oct (HOME-REPORT v0.4)
-  assert.equal(inBrainPage(movePageId("/listings"))?.label, "Your listings");
+  assert.equal(inBrainPage(movePageId("/listings")), null);
   assert.equal(inBrainPage(movePageId("/referral-network"))?.label, "Referral Network");
-  assert.equal(inBrainPage(movePageId("/buyer-needs"))?.label, "Buyer Needs");
+  assert.equal(inBrainPage(movePageId("/buyer-needs")), null);
   assert.ok(IN_BRAIN.has("/team-leads"));
   assert.equal(inBrainPage(movePageId("/team-leads"))?.label, "Team Leads");
   assert.ok(!IN_BRAIN.has("/dashboard")); // Classic's home stays a link

@@ -4,15 +4,14 @@ import { useReducer, useState } from "react";
 import type { GraphNode } from "@/lib/graph/types.ts";
 import { PRODUCT_COLOR, hex } from "@/lib/brain/theme.ts";
 import { moveMenuHref } from "@/lib/moveMenu.ts";
-import { ANALYTICS, DOCS, M2_TOOLS, REF_AGENTS, dropByAreas, fitsFor, m2KeyOf, m2Reduce, m2Start, money, type M2Key } from "@/lib/examples/move2.ts";
+import { ANALYTICS, DOCS, M2_TOOLS, REF_AGENTS, dropByAreas, m2KeyOf, m2Reduce, m2Start, type M2Key } from "@/lib/examples/move2.ts";
 import ShowlyOpenShell, { HomeBlock, OpenToolButton } from "./ShowlyOpenShell.tsx";
-import { ListingPhoto, exampleCard } from "../ListingCards.tsx";
-import { AnalyticsView, Bars, DocsView, DropByView, Face, ListingsView, LoungeView, NeedsView, ReferralView, VideosView } from "./MoveViews.tsx";
+import { AnalyticsView, Bars, DocsView, DropByView, Face, LoungeView, ReferralView, VideosView } from "./MoveViews.tsx";
 import "@/app/showly-open-views.css";
 import "@/app/move2-views.css";
 
 // ONE MOVE's tools that had no example (walker 18 Oct; Parry 06:48: "the side information is blank"): Drop-By Map,
-// Referral Network, Buyer Needs, Your listings, Analytics, Video Library, VIP Docs and The Lounge. For the example
+// Referral Network, Analytics, Video Library, VIP Docs and The Lounge. For the example
 // agent the side panel shows the example itself and "Open ..." opens a full view inside the Brain where the actions work
 // on screen only. A signed-in agent's orb opens the ONE MOVE page as before (Brain.tsx); this is never drawn for them.
 
@@ -78,53 +77,6 @@ export default function MoveTools({ node }: { node: GraphNode }) {
               ))}
             </ul>
             <button type="button" className="pso-act m2-under" onClick={() => openAt("referrals")}>Send a referral</button>
-          </>
-        );
-      case "needs":
-        return (
-          <>
-            <OpenToolButton label="Buyer Needs" line="Post what a buyer needs and see which listings fit." onOpen={() => openAt("needs")} />
-            <p className="pso-cap"><span className="pso-ex">Example</span> {s.needs.length} buyer needs posted to your team</p>
-            <ul className="pso-list">
-              {s.needs.map((n) => {
-                const fits = fitsFor(n);
-                return (
-                  <li key={n.id} className="pso-row top">
-                    <Face name={n.buyer} small />
-                    <span className="pso-row-b">
-                      <b>{n.buyer}</b>
-                      <small>{n.beds}+ beds · up to {money(n.maxPrice)} · {n.areas.join(", ")}{n.must.length ? ` · ${n.must.join(", ")}` : ""}</small>
-                      <small className="pso-quiet">{fits.length ? `Fits: ${fits.map((l) => l.street).join("; ")}` : "No home fits yet"}</small>
-                    </span>
-                    <span className="pso-pill">{fits.length} fit</span>
-                  </li>
-                );
-              })}
-            </ul>
-            <button type="button" className="pso-act m2-under" onClick={() => openAt("needs")}>Post a need</button>
-          </>
-        );
-      case "listings":
-        return (
-          <>
-            <OpenToolButton label="Your listings" line="Each listing with its photo, launch, who of yours fits and the next open house." onOpen={() => openAt("listings")} />
-            <p className="pso-cap"><span className="pso-ex">Example</span> {s.listings.length} listings</p>
-            <ul className="pso-list">
-              {s.listings.map((l) => {
-                const c = exampleCard(l);
-                return (
-                  <li key={l.id} className="pso-row lst-row">
-                    <span className="lst-thumb"><ListingPhoto image={null} tone={c.tone} label={l.street} example /></span>
-                    <span className="pso-row-b">
-                      <b>{l.street}</b>
-                      <small>{money(l.price)}{c.facts ? ` · ${c.facts}` : ""}</small>
-                      <small className="pso-quiet">{c.launch?.launched ? `Launch ${c.launch.done} of ${c.launch.total} done` : "Not launched yet"}{l.fits ? ` · ${l.fits} of your people fit` : ""}</small>
-                    </span>
-                    <span className={`pso-pill m2-st ${l.status.replace(/\s+/g, "-").toLowerCase()}`}>{l.status}</span>
-                  </li>
-                );
-              })}
-            </ul>
           </>
         );
       case "analytics":
@@ -209,8 +161,6 @@ export default function MoveTools({ node }: { node: GraphNode }) {
           <div className="m2-view">
             {open === "dropby" && <DropByView s={s} act={act} />}
             {open === "referrals" && <ReferralView s={s} act={act} />}
-            {open === "needs" && <NeedsView s={s} act={act} />}
-            {open === "listings" && <ListingsView s={s} act={act} />}
             {open === "analytics" && <AnalyticsView />}
             {open === "videos" && <VideosView s={s} act={act} openId={item ?? s.videos[0].id} setOpenId={setItem} picked={!!item} />}
             {open === "docs" && <DocsView openId={item ?? DOCS[0].id} setOpenId={setItem} picked={!!item} />}

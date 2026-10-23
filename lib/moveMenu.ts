@@ -37,13 +37,12 @@ export const MOVE_GROUPS: MoveGroup[] = [
       { label: "Opportunities", path: "/opportunities" },
       { label: "Hot/Warm/Cold", path: "/hot-warm-cold" },
       { label: "Business Rolodex", path: "/rolodex" },
-      // VIP-SUMMARY §3af and §3ah (13 Oct; Parry: every feature in the Brain as well as Classic)
+      // VIP-SUMMARY §3af (13 Oct; Parry: every feature in the Brain as well as Classic)
       { label: "Referral Network", path: "/referral-network" },
       // The agent's public page for other agents (Classic only until 21 Oct; Parry: everything on Classic in the Brain).
       { label: "Agent Hub", path: "/profile/agent-hub" },
-      { label: "Buyer Needs", path: "/buyer-needs" },
-      // LAUNCH.md §5 (14 Oct, vip50-web-crm#228): the agent's Marquee listings, each with Launch and its checklist
-      { label: "Your listings", path: "/listings" },
+      // Buyer Needs and Your listings retired (Parry, 23 Oct: "retire buyers needs"; "retire your listings already on
+      // the website"). A buyer's wants stay on their contact, and listings that fit them stay on the listing orb.
       // vip50-web-crm#294 (17 Oct): the Life Events page; in the Brain the row opens the Life events orb
       { label: "Life Events", path: "/life-events" },
       // ONE MOVE's Deals page (17 Oct); in the Brain the row opens the Deals orb

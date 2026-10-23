@@ -57,6 +57,7 @@ import IncomeMapView from "./IncomeMapView.tsx";
 import ForecastView from "./ForecastView.tsx";
 import PulseCoachView from "./PulseCoachView.tsx";
 import ReferralsView from "./ReferralsView.tsx";
+import ReferralNetwork from "./ReferralNetwork.tsx";
 import MarqueePanel from "./views/MarqueePanel.tsx";
 import MarqueeView from "./views/MarqueeView.tsx";
 import { mqKeyOf, type MqKey } from "@/lib/examples/marquee.ts";
@@ -150,7 +151,6 @@ import { perProduct } from "@/lib/perProduct.ts";
 import ListingFitsSection from "./ListingFitsSection.tsx";
 import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, type Launch } from "@/lib/launch.ts";
 import LaunchPanel from "./LaunchPanel.tsx";
-import ListingsPage from "./ListingCards.tsx";
 import LooksHotPanel from "./LooksHotPanel.tsx";
 import NewToSort from "./NewToSort.tsx";
 import OnboardingPanel from "./OnboardingPanel.tsx";
@@ -2945,7 +2945,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // the example agent's New to Sort orb (lib/graph/move.ts) opens the same native view as the live one
   const rawPage = !ask && !tour ? inBrainPage(state.focusId) ?? (state.focusId === DEMO_NTS_NODE ? { label: "New to Sort", path: NTS_PATH } : null) : null;
   // The example agent's Drop-By Map, Referral Network... open on their side panel (lib/examples/move2.ts), not a sign-in page.
-  const pagePanel = rawPage && !(!live && M2_PATHS.has(rawPage.path)) && (!(PANEL_FIRST.has(rawPage.path) || LEARN_PANEL_FIRST.has(rawPage.path)) || fullPage === rawPage.path) ? rawPage : null;
+  // Referral Network is drawn by the Brain for both (§3aq, 22 Oct), so the example agent opens the page too.
+  const pagePanel = rawPage && !(!live && M2_PATHS.has(rawPage.path) && rawPage.path !== "/referral-network") && (!(PANEL_FIRST.has(rawPage.path) || LEARN_PANEL_FIRST.has(rawPage.path)) || fullPage === rawPage.path) ? rawPage : null;
   // A page opened for one person (the person panel's Refer / Post a need): its query rides on the frame's address.
   // Each opening starts behind the veil again, even for the same page.
   const panelPath = pagePanel?.path ?? null;
@@ -2971,11 +2972,12 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // Daily Tracker (§3e). The Classic page stays one click away, and is the
   // fallback until ONE MOVE's route answers.
   // Home Reports (HOME-REPORT §5.4, 16 Oct): this month's reports and the bulk start, from ONE MOVE's routes.
-  // Your listings (Parry, 18 Oct: "we have pics and whatnot"): the agent's listings as photo cards (components/brain/ListingCards.tsx).
-  const NATIVE: Record<string, "vip" | "daily" | "weekly" | "audit" | "rolodex" | "profile" | "hwc" | "contacts" | "homereports" | "nts" | "listings"> = { "/listings": "listings", "/contacts/visitors": "nts", "/contacts": "contacts", "/contacts/vip": "vip", "/daily": "daily", "/weekly": "weekly", "/contacts/audit": "audit", "/rolodex": "rolodex", "/profile": "profile", "/hot-warm-cold": "hwc", "/home-reports": "homereports" };
+  const NATIVE: Record<string, "vip" | "daily" | "weekly" | "audit" | "rolodex" | "profile" | "hwc" | "contacts" | "homereports" | "nts" | "referrals"> = { "/referral-network": "referrals", "/contacts/visitors": "nts", "/contacts": "contacts", "/contacts/vip": "vip", "/daily": "daily", "/weekly": "weekly", "/contacts/audit": "audit", "/rolodex": "rolodex", "/profile": "profile", "/hot-warm-cold": "hwc", "/home-reports": "homereports" };
   const [vipClassic, setVipClassic] = useState(false);
   const nativeKind = panelPath ? NATIVE[panelPath] : undefined;
-  const vipNative = !!nativeKind && !vipClassic;
+  // "Refer to a ONE agent" for one client (?contact=) opens ONE MOVE's refer form, filled in, on the Classic page.
+  const referQuery = nativeKind === "referrals" && pageQuery?.path === "/referral-network";
+  const vipNative = !!nativeKind && !vipClassic && !referQuery;
   const vipUnavailable = useCallback(() => setVipClassic(true), []);
   const toggleGroup = (key: string) =>
     setOpenGroups((gs) => {
@@ -4472,8 +4474,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                 <span style={{ color: hex(PRODUCT_COLOR.move) }}>ONE MOVE</span> · {pagePanel.label}
               </p>
               {nativeKind && (
-                <button className="page-panel-classic" onClick={() => setVipClassic((v) => !v)}>
-                  {vipClassic ? "ONE Brain view" : "Classic page"}
+                <button className="page-panel-classic" onClick={() => (referQuery ? (setPageQuery(null), setVipClassic(false)) : setVipClassic((v) => !v))}>
+                  {vipClassic || referQuery ? "ONE Brain view" : "Classic page"}
                 </button>
               )}
               <button className="page-panel-close" onClick={() => goTo(focus.parentId ?? "move")} aria-label={`Close ${pagePanel.label}`}>×</button>
@@ -4482,7 +4484,26 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
             <div ref={frameBoxRef} className="page-panel-body">
               {/* the example agent: ONE MOVE's answers from invented data, so the native view draws filled (lib/examples/move2.ts) */}
               {!live && vipNative && nativeKind && EXAMPLE_NATIVE.has(nativeKind) ? <MoveExampleFetch /> : null}
-              {vipNative && nativeKind === "audit" ? (
+              {vipNative && nativeKind === "referrals" ? (
+                <ReferralNetwork
+                  data={refs}
+                  live={live}
+                  today={todayIn()}
+                  onAsk={askReferral}
+                  onThanked={thankedReferral}
+                  onLogged={loadRefs}
+                  onChanged={refreshLive}
+                  onOpenPerson={(id) => {
+                    const page = movePageId("/contacts");
+                    if (!ix.byId.has(page)) return;
+                    setContactOpen({ id, k: Date.now() });
+                    goTo(page);
+                  }}
+                  onRefer={(id) => setPageQuery({ path: "/referral-network", query: `contact=${encodeURIComponent(id)}` })}
+                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onClassic={() => setVipClassic(true)}
+                />
+              ) : vipNative && nativeKind === "audit" ? (
                 <TouchAudit
                   onUnavailable={vipUnavailable}
                   onChanged={refreshLive}
@@ -4547,19 +4568,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                     setContactOpen({ id, k: Date.now() });
                     goTo(page);
                   }}
-                />
-              ) : vipNative && nativeKind === "listings" ? (
-                <ListingsPage
-                  nodes={graph.nodes}
-                  launches={launches}
-                  onOpen={(id, part) => {
-                    if (!ix.byId.has(id)) return;
-                    goTo(id);
-                    // the orb's side panel already holds Launch and "Who of mine fits"; bring the asked part into sight
-                    if (part) setTimeout(() => document.querySelector(part === "fits" ? ".fits-card" : ".launch")?.scrollIntoView({ block: "start", behavior: "smooth" }), 450);
-                  }}
-                  onClose={() => goTo(focus.parentId ?? "move")}
-                  onClassic={() => setVipClassic(true)}
                 />
               ) : vipNative && nativeKind === "rolodex" ? (
                 <Rolodex
