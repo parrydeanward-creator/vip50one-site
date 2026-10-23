@@ -115,9 +115,13 @@ export function GoogleSections() {
               </div>
             </>
           ) : (
-            <div className="pf-btns">
-              <a className="chip-btn primary" href={connectCalendarUrl}>Connect Google Calendar</a>
-            </div>
+            <>
+              <div className="pf-btns">
+                <a className="chip-btn primary" href={connectCalendarUrl}>Connect Google Calendar</a>
+              </div>
+              {/* Google's review of the calendar scope is still open (vip50-web-crm#400): say what its screen will show */}
+              <small className="pf-sub" data-note="gcal-unverified">Google may show a &quot;not verified yet&quot; screen while it reviews ONE: tap Advanced, then Continue.</small>
+            </>
           )}
           {note?.which === "calendar" ? <small className="pf-sub" role="status">{note.text}</small> : null}
         </section>
