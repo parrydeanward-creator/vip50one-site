@@ -270,3 +270,11 @@ test("lead sources read like people wrote them; Sphere is flagged gold; seven ch
   assert.match(src, /kind: "lsrc", key: s.source, n: s.count/);
   assert.ok(!src.includes("ct-leadsrc"), "the old sub-line list is gone");
 });
+
+// ---- a back button on every page (Parry, 23 Oct: "I need back buttons on every page") ----
+test("My Contacts, Referral Network and My Profile each show Back at the top, wired to onBack", () => {
+  for (const f of ["Contacts", "ReferralNetwork", "MyProfile"]) {
+    const src = readFileSync(new URL(`../components/brain/${f}.tsx`, import.meta.url), "utf8");
+    assert.match(src, /className="page-back" data-act="page-back" onClick=\{onBack\}/, f);
+  }
+});

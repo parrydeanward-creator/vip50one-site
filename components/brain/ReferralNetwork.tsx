@@ -394,6 +394,8 @@ export default function ReferralNetwork({ data, live, today, onAsk, onThanked, o
       <div className="rn-wrap">
         <header className="rn-head">
           <div>
+            {/* a back button on every page (Parry, 23 Oct: "I need back buttons on every page") */}
+            <button type="button" className="page-back" data-act="page-back" onClick={onBack} aria-label="Back">← Back</button>
             <span className="rn-tag">ONE MOVE · PEOPLE</span>
             <h1>Referral Network</h1>
             <p className="rn-sub">Who sends you business, who to thank, who to ask, and the agents you trade with.</p>
