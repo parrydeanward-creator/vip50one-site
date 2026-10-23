@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MENU_ORB, MOVE_BOTTOM, MOVE_GROUPS, MOVE_MENU, MOVE_TOP, menuNodeId, moveGroupId, moveMenuHref } from "../lib/moveMenu.ts";
+import { IN_BRAIN, MENU_ORB, MOVE_BOTTOM, MOVE_GROUPS, MOVE_MENU, MOVE_TOP, menuNodeId, moveGroupId, moveMenuHref } from "../lib/moveMenu.ts";
 import { OPP_NODE } from "../lib/opportunities.ts";
 import { LIFE_NODE } from "../lib/lifeEvents.ts";
 import { DEALS_NODE } from "../lib/deals.ts";
@@ -26,14 +26,15 @@ import { liveGraph, type SummaryEnvelope, type SummaryItem } from "../lib/live.t
 // Rewritten 23 Oct (second): 35 pages. Agent Hub (retired) and Import Contacts (a button on My Contacts) leave the menu;
 // Import still opens inside the Brain from that button (MOVE_BUTTON_PAGES). Coaching joins the Coach group.
 // Rewritten 23 Oct: 37 pages. Buyer Needs and Your listings leave the menu (Parry, 23 Oct: "retire buyers needs";
-// "retire your listings already on the website").
-test("ONE MOVE menu: all 35 Classic pages, in Parry's groups, no admin items", () => {
-  assert.equal(MOVE_MENU.length, 35);
+// "retire your listings already on the website"). Rewritten again 23 Oct: 34, Archived Contacts leaves the menu
+// (Parry: "I dont want the archived contacts orb on one move"); it stays a link on My Contacts.
+test("ONE MOVE menu: all 34 Classic pages, in Parry's groups, no admin items", () => {
+  assert.equal(MOVE_MENU.length, 34);
   assert.deepEqual(MOVE_TOP.map((m) => m.label), ["Dashboard"]);
   assert.deepEqual(MOVE_GROUPS.map((g) => g.label), ["People", "Trackers", "Events", "Outreach", "Learn"]);
   assert.deepEqual(MOVE_BOTTOM.map((m) => m.label), ["The Lounge", "My Profile"]);
   // Rewritten 17 Oct: Home Reports is called Market Reports (HOME-REPORT v0.4; Parry, 16 Oct: "1 yes"); same path.
-  assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "Drop-By Map", "Opportunities", "Hot/Warm/Cold", "Business Rolodex", "Referral Network", "Life Events", "Deals", "Clean Up Contacts", "Archived Contacts", "Lead Sources"]);
+  assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "Drop-By Map", "Opportunities", "Hot/Warm/Cold", "Business Rolodex", "Referral Network", "Life Events", "Deals", "Clean Up Contacts", "Lead Sources"]);
   assert.deepEqual(MOVE_GROUPS[0].pages.filter((m) => ["Opportunities", "Life Events", "Deals"].includes(m.label)).map((m) => m.path), ["/opportunities", "/life-events", "/deals"]);
   assert.deepEqual(MOVE_GROUPS[3].pages.map((m) => [m.label, m.path]), [["Overview", "/outreach"], ["Newsletter", "/newsletter"], ["Landing Pages", "/landing-pages"], ["Action Plans", "/action-plans"], ["Market Reports", "/home-reports"]]);
   assert.deepEqual(MOVE_GROUPS[4].pages.map((m) => [m.label, m.path]), [["Learn home", "/learn"], ["Video Library", "/content"], ["VIP Docs", "/vip-docs"], ["The Vault", "/vault"], ["What's New", "/whats-new"]]);
@@ -164,4 +165,9 @@ test("the Team Leads orb shows under People for a team member only", async () =>
   const on = withTeamLeadsPage(g, true).nodes.find((n) => n.id === id);
   assert.equal(on?.parentId, "move-g-people");
   assert.equal(withTeamLeadsPage(g, false).nodes.some((n) => n.id === id), false);
+});
+
+test("Archived Contacts has no orb or menu row, but still opens inside the Brain from My Contacts (Parry, 23 Oct)", () => {
+  assert.ok(!MOVE_MENU.some((m) => m.path === "/contacts/archived"));
+  assert.ok(IN_BRAIN.has("/contacts/archived"));
 });

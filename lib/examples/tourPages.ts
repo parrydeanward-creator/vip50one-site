@@ -10,7 +10,7 @@ export const TOUR_PAGES: [string, string, string][] = [
   ["/weekly", "Weekly Tracker", "move"], ["/profile", "My Profile", "move"], ["/home-reports", "Market Reports", "move"],
   // The Classic-only pages added to the menu on 21 Oct (Parry: everything on Classic in the Brain too).
   ["/contacts/import", "Import Contacts", "move-0"], ["/contacts/cleanup", "Clean Up Contacts", "move-0"],
-  ["/contacts/archived", "Archived Contacts", "move-0"], ["/contacts/sources", "Lead Sources", "move-0"],
+  ["/contacts/sources", "Lead Sources", "move-0"],
   ["/tasks", "Tasks", "move"], ["/profile/agent-hub", "Agent Hub", "move"],
 ];
 // The example agent (?demo=1) has no ONE MOVE menu either; Market Reports gets its orb so the example shows it (HOME-REPORT
