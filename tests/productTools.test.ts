@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import assert from "node:assert/strict";
 import { firstAndInitial, firstOnly, marqueeToolOrbs, openToolOrbs, showlyToolOrbs, toolHref } from "../lib/productTools.ts";
 import { liveGraph, type OtherAnswers, type SummaryEnvelope } from "../lib/live.ts";
@@ -163,7 +163,11 @@ const MARQUEE: SummaryEnvelope = {
 const SHOWLY: SummaryEnvelope = { v: 1, product: "showly", found: true, stats: [], items: [] };
 const ALL: OtherAnswers = { open: { env: OPEN, reachable: true, tools: OPEN_TOOLS }, marquee: { env: MARQUEE, reachable: true }, showly: { env: SHOWLY, reachable: true } };
 
-test("live graph: each product opens to its tools, with items inside and the pulse carried up once", () => {
+test("live graph: each product opens to its tools, with items inside and the pulse carried up once", (t) => {
+  // The live graph reads the wall clock for "a fresh question" (7 days); pin it to the fixture's day so the test does
+  // not expire a week after it was written (it failed from 23 Oct on).
+  mock.timers.enable({ apis: ["Date"], now: NOW.getTime() });
+  t.after(() => mock.timers.reset());
   const g = liveGraph(MASTER, OPTS, ALL);
   const ix = indexGraph(g);
   assert.deepEqual(childrenOf(ix, "open").map((n) => n.label), ["Open houses", "Visitors", "Questions", "Reports", "Scorecard", "Safety", "Door hangers"]);
