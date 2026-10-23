@@ -1,4 +1,4 @@
-import { IN_BRAIN, MENU_ORB, MOVE_COACH, MOVE_GROUPS, MOVE_MENU, moveGroupId, movePageId } from "./moveMenu.ts";
+import { IN_BRAIN, MENU_ORB, MOVE_COACH, MOVE_GROUPS, MOVE_MENU, moveGroupId, movePageId, pagesOf } from "./moveMenu.ts";
 
 // Every Brain address lands on its own page or orb (Parry, 18 Oct: links to vip50one.com/dashboard/<page> and
 // ?open=<thing> "just open the dashboard"). One place says what an address or ?open= names; the Brain finds it on the
@@ -41,7 +41,7 @@ const PRODUCTS: Record<string, [string, string]> = {
 };
 
 const notOn = (label: string) => `${label} isn't on your dashboard yet.`;
-const groupOf = (path: string) => [...MOVE_GROUPS, MOVE_COACH].find((g) => g.pages.some((p) => p.path === path));
+const groupOf = (path: string) => [...MOVE_GROUPS, MOVE_COACH].find((g) => pagesOf(g).some((p) => p.path === path));
 const labelOf = (path: string) => [...MOVE_MENU, ...MOVE_COACH.pages].find((p) => p.path === path)?.label ?? (path === "/team-leads" ? "Team Leads" : path === "/contacts/visitors" ? "New to Sort" : path.slice(1));
 
 /** A group orb by its key (/dashboard/people, ?open=trackers). Events has no address of its own: /events is VIP Events. */
@@ -59,7 +59,9 @@ function page(path: string): Arrival | null {
   if (path === "/coaching") return openTarget("coaching");
   const label = labelOf(path);
   const g = groupOf(path);
-  const fallback = [...(g ? [moveGroupId(g.key)] : []), "move"];
+  // a part of a parent row (Import, Clean Up under Contacts) falls back to that parent orb first
+  const holder = g?.pages.find((p) => p.orb && (p.path === path || p.kids?.some((k) => k.path === path)))?.orb;
+  const fallback = [...(holder ? [holder] : []), ...(g ? [moveGroupId(g.key)] : []), "move"];
   if (MENU_ORB[path]) return { kind: "orb", ids: [MENU_ORB[path]], label, fallback, missing: notOn(label) };
   if (!IN_BRAIN.has(path)) return null;
   const missing = g?.key === "coach" ? "Coach pages are for admins." : path === "/team-leads" ? "Team Leads is for agents on a team." : notOn(label);

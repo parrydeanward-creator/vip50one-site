@@ -9,7 +9,7 @@ export const TOUR_PAGES: [string, string, string][] = [
   ["/hot-warm-cold", "Hot/Warm/Cold", "move-9"], ["/rolodex", "Business Rolodex", "move-0"], ["/daily", "Daily Tracker", "move"],
   ["/weekly", "Weekly Tracker", "move"], ["/profile", "My Profile", "move"], ["/home-reports", "Market Reports", "move"],
   // The Classic-only pages added to the menu on 21 Oct (Parry: everything on Classic in the Brain too).
-  ["/contacts/import", "Import Contacts", "move-0"], ["/contacts/cleanup", "Clean Up Contacts", "move-0"],
+  ["/contacts/import", "Import", "move-0"], ["/contacts/cleanup", "Clean Up", "move-0"],
   ["/contacts/sources", "Lead Sources", "move-0"],
   ["/tasks", "Tasks", "move"], ["/profile/agent-hub", "Agent Hub", "move"],
   // Who is on my site (VIP-SUMMARY §3ar, 23 Oct), drawn natively on example data (lib/examples/siteActivity.ts)

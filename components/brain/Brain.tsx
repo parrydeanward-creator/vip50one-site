@@ -2940,6 +2940,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
         ) : (
           <a className="rail-btn rail-link" href={moveMenuHref(m.path)}>{inner}</a>
         )}
+        {/* a row's parts, indented under it (Contacts: Import, Clean Up; Parry, 23 Oct) */}
+        {m.kids?.length ? <ul className="rail-sublist">{m.kids.map(moveLink)}</ul> : null}
       </li>
     );
   };

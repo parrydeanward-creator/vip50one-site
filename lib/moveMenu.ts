@@ -9,7 +9,21 @@ import { MOVE_URL } from "./host.ts";
 export interface MovePage {
   label: string;
   path: string;
+  /**
+   * A row with parts (Parry, 23 Oct: "move import contacts and clean up contacts under contacts orb"): on the map the row
+   * becomes a parent orb (`orb`) holding the row's own page orb first, then each part; in the menu the parts sit indented
+   * under the row.
+   */
+  orb?: string;
+  kids?: MovePage[];
 }
+
+/** The Contacts parent orb under People: My Contacts, Import and Clean Up (Parry, 23 Oct). */
+export const CONTACTS_NODE = "move-contacts";
+export const CONTACTS_KIDS: MovePage[] = [
+  { label: "Import", path: "/contacts/import" },
+  { label: "Clean Up", path: "/contacts/cleanup" },
+];
 
 export interface MoveGroup {
   key: string;
@@ -27,7 +41,9 @@ export const MOVE_GROUPS: MoveGroup[] = [
     label: "People",
     blurb: "Contacts and your VIPs",
     pages: [
-      { label: "Contacts", path: "/contacts" },
+      // Contacts holds Import and Clean Up (Parry, 23 Oct: "so there will be three orbs now under contacts, contacts,
+      // import and clean"). The row itself still opens My Contacts.
+      { label: "Contacts", path: "/contacts", orb: CONTACTS_NODE, kids: CONTACTS_KIDS },
       { label: "VIP Management", path: "/contacts/vip" },
       { label: "Touch Audit", path: "/contacts/audit" },
       // ONE GO's Drop-By Map on ONE MOVE (Parry 16 Oct: everything in ONE GO on ONE MOVE; vip50-web-crm#276)
@@ -51,8 +67,7 @@ export const MOVE_GROUPS: MoveGroup[] = [
       { label: "Deals", path: "/deals" },
       // Every Classic page in the Brain too (Parry, 21 Oct: "everything on classic needs to be on the Brain as well"):
       // the contact tools that were Classic only.
-      // Import is a button on My Contacts now (23 Oct), so it is not a menu row.
-      { label: "Clean Up Contacts", path: "/contacts/cleanup" },
+      // Import and Clean Up are parts of Contacts now (23 Oct), indented under it in the menu and orbs inside it on the map.
       { label: "Lead Sources", path: "/contacts/sources" },
     ],
   },
@@ -145,8 +160,11 @@ export const MOVE_BOTTOM: MovePage[] = [
   { label: "My Profile", path: "/profile" },
 ];
 
-/** Every page, in menu order. */
-export const MOVE_MENU: MovePage[] = [...MOVE_TOP, ...MOVE_GROUPS.flatMap((g) => g.pages), ...MOVE_BOTTOM];
+/** A group's rows with each row's parts right after it. */
+export const pagesOf = (g: MoveGroup): MovePage[] => g.pages.flatMap((p) => [p, ...(p.kids ?? [])]);
+
+/** Every page, in menu order (parts right after their row). */
+export const MOVE_MENU: MovePage[] = [...MOVE_TOP, ...MOVE_GROUPS.flatMap(pagesOf), ...MOVE_BOTTOM];
 
 /**
  * Menu rows whose Brain side is a native orb, not the ONE MOVE page in a frame: the row opens the orb (it comes to the
@@ -162,11 +180,11 @@ export const menuNodeId = (path: string) => MENU_ORB[path] ?? movePageId(path);
 export const MOVE_HIDDEN: MovePage[] = [{ label: "New to Sort", path: "/contacts/visitors" }];
 
 /**
- * Pages opened only by a button, never by a menu row or an orb: Import is a button on My Contacts (23 Oct); Archived
- * Contacts is a link under its list (Parry, 23 Oct: "I dont want the archived contacts orb on one move, it is not
- * necesaary"). They open inside the Brain.
+ * Pages opened only by a button, never by a menu row or an orb: Archived Contacts is a link under its list (Parry,
+ * 23 Oct: "I dont want the archived contacts orb on one move, it is not necesaary"). It opens inside the Brain. (Import
+ * was here too until it became a part of the Contacts orb, 23 Oct; the Import button on My Contacts still opens it.)
  */
-export const MOVE_BUTTON_PAGES: MovePage[] = [{ label: "Import Contacts", path: "/contacts/import" }, { label: "Archived Contacts", path: "/contacts/archived" }];
+export const MOVE_BUTTON_PAGES: MovePage[] = [{ label: "Archived Contacts", path: "/contacts/archived" }];
 
 export const moveMenuHref = (path: string) => `${MOVE_URL}${path}`;
 
