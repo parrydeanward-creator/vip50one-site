@@ -189,3 +189,9 @@ test("the example agent: every ring, key line and clean-up list has people, and 
   assert.ok(ask.length >= 2);
   assert.ok(readAskPeople(get(askUrl(ask[0].key)).body)!.length > 0);
 });
+
+test("My Contacts carries Import beside Add a person (Parry, 23 Oct), opening the import page in the Brain", () => {
+  const src = readFileSync(new URL("../components/brain/Contacts.tsx", import.meta.url), "utf8");
+  assert.match(src, /data-act="contacts-import"/);
+  assert.match(src, /onOpenPage\("\/contacts\/import"\)/);
+});

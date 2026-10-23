@@ -524,6 +524,8 @@ export default function Contacts({
         </div>
         <div className="ct-tools">
           <input className="ct-search" type="search" placeholder="Search name, phone, email, address, notes…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search your contacts" />
+          {/* Import lives on My Contacts (Parry, 23 Oct: "couldnt import contacts move to contacts page") */}
+          <button className="ct-btn" data-act="contacts-import" onClick={() => (onOpenPage ? onOpenPage("/contacts/import") : onClassic())}>Import</button>
           <button className="ct-btn solid" onClick={() => { setAdding({ first_name: "", last_name: "", phone: "", email: "", tier: "contact" }); setFull(false); setSheet(true); }}>+ Add a person</button>
         </div>
       </header>
