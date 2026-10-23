@@ -11,7 +11,7 @@ export const peopleUrl = `${MOVE_URL}/api/brain/people`;
 
 export type GroupKind = "tier" | "source" | "gap";
 export interface PeopleGroup { key: string; label: string; kind: GroupKind; count: number; needsYou: number; needsNow: number }
-export interface Gaps { vipNoBirthday: number; toSort: number; possibleDuplicates: number }
+export interface Gaps { vipNoBirthday: number; toSort: number; possibleDuplicates: number; /** The "No contact 30 days" group's count (0 until ONE MOVE sends the group). */ noContact30: number }
 export interface LeadSource { source: string; count: number }
 export interface Groups { total: number; needsYou: number; needsNow: number; groups: PeopleGroup[]; gaps: Gaps; /** Leads by source, largest first (vip50-web-crm leads_by_source); each opens its people with ?group=leads&source=. */ leadsBySource: LeadSource[] }
 
@@ -99,7 +99,7 @@ export function readGroups(j: unknown): Groups | null {
     needsYou: num(o.needs_you),
     needsNow: Math.min(num(o.needs_you), num(o.needs_now)), // §3k.7 (v1.19); 0 until ONE MOVE sends it
     groups,
-    gaps: { vipNoBirthday: num(gp.vip_no_birthday), toSort: num(gp.to_sort), possibleDuplicates: num(gp.possible_duplicates) },
+    gaps: { vipNoBirthday: num(gp.vip_no_birthday), toSort: num(gp.to_sort), possibleDuplicates: num(gp.possible_duplicates), noContact30: groups.find((x) => x.key === "no_contact_30")?.count ?? 0 },
   };
 }
 

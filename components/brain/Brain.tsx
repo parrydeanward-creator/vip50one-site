@@ -124,6 +124,8 @@ import { aiCheckBody, aiCheckUrl, cardFor, monthOf, readAiCheck, readResults, re
 import { LIKELY_NODE, callBody as likelyCallBody, callUrl as likelyCallUrl, demoMoveLikely, emptyMoveLikely, moveLikelyUrl, notUsefulUrl, pastClientsUrl, readMoveLikely, readPastClientsAnswer, withMoveLikelyNode, withoutPerson, type MoveLikely, type PastClient, type Person as LikelyPerson, type RouteReason } from "@/lib/moveLikely.ts";
 import { OPP_LABEL, OPP_NODE, PEOPLE_MENU_PARTS, withOpportunities } from "@/lib/opportunities.ts";
 import { readRoute } from "@/lib/routeFirst.ts";
+import { NC30_KEY, NC30_NODE, readNoContact30, withNoContact30 } from "@/lib/noContact30.ts";
+import { peopleUrl } from "@/lib/people.ts";
 import { HOME_REPORTS_PATH } from "@/lib/homeReport.ts";
 import { PANEL_FIRST, attractionUrl, demoAttraction, demoEvents, demoOutreach, eventsUrl, outreachUrl, partOf, readAttraction, readEvents, readOutreach, withEventsNodes, withOutreachNodes, type Attraction, type EventsNow, type Outreach } from "@/lib/outreach.ts";
 import { DEALS_NODE, dealUrl, dealsUrl, demoDeals, readClosingAsk, readDeals, statusBody as dealStatusBody, withClientPage as withDealClientPage, withDealsNode, withStatus as withDealStatus, type Deal } from "@/lib/deals.ts";
@@ -255,6 +257,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const newLeadsRef = useRef<NewLeads | null>(null);
   // New to Sort and Looks Hot (lib/newToSort.ts, lib/looksHot.ts): the two people orbs always on ONE MOVE.
   const ntsRef = useRef<NtsData | null>(null);
+  const nc30Ref = useRef<number | null>(null);
   const looksRef = useRef<LooksPerson[] | null>(null);
   const onbRef = useRef<OnbMember[] | null>(null);
   const onbRemovedRef = useRef<string[]>([]);
@@ -307,7 +310,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const swapGraph = useCallback((fresh: BusinessGraph) => {
     followSumRef.current = summaryFollowOf(fresh, todayIn());
     // Opportunities last (lib/opportunities.ts; Parry, 17 Oct): its four parts move inside it, whatever built them.
-    const next = withBrokerNode(groupOneYou(withOpportunities(withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage(((withMoveCoach(withMoveLikelyNode(withLearnNodes(withPlanNodes(withEventsNodes(withOutreachNodes(withDealsNode(withLifeUpcomingNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), outreachRef.current), eventsRef.current), plansRef.current), learnRef.current), likelyRef.current, likelyOptsRef.current), admin))), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn(), followSumRef.current), ntsRef.current), looksRef.current))), brokerRef.current);
+    const next = withNoContact30(withBrokerNode(groupOneYou(withOpportunities(withLooksHot(withNewToSort(withFollowUps(withStartNode(withTeamHub(withChallengeNode(withoutRetired(withGrowthNodes(withAskPeople(withAdsAlertNode(withRezenNodes((withLaunchNodes(withNewLeadsNode(withTeamLeadsPage(((withMoveCoach(withMoveLikelyNode(withLearnNodes(withPlanNodes(withEventsNodes(withOutreachNodes(withDealsNode(withLifeUpcomingNode(withAwayLabel(withReviewCallsNode((withHabitsNode(withReferralsNode(withPowerNode(withReviewNode(withCoachNode(withWeekNode(withPlanNode(fresh, plannedRef.current, planStateRef.current), commitRef.current, denverHour()), coachRef.current, denverHour()), reviewRef.current), powerRef.current?.calls ?? null, powerRef.current?.session ?? null), refsRef.current, todayIn()), habitsRef.current)), rcRef.current), timeOffRef.current), lifeRef.current), dealsRef.current, todayIn()), outreachRef.current), eventsRef.current), plansRef.current), learnRef.current), likelyRef.current, likelyOptsRef.current), admin))), !!warRef.current || teamLeadsHint), newLeadsRef.current), launchRef.current)), rezenRef.current.r, rezenRef.current.n), adsRef.current), askPeopleRef.current), growthRef.current)), challengeRef.current), hubNow()), startRef.current, startReopenRef.current), followRef.current, todayIn(), followSumRef.current), ntsRef.current), looksRef.current))), brokerRef.current), nc30Ref.current);
     const nix = indexGraph(next);
     setGraph(next);
     setState((s) => {
@@ -1445,6 +1448,26 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
     ntsRef.current = nts;
     setGraph((g) => withOpportunities(withNewToSort(g, nts)));
   }, [nts]);
+  // No contact 30 days (lib/noContact30.ts; Parry, 23 Oct): the fourth orb inside Contacts, counted from ONE MOVE's people
+  // groups. No orb until ONE MOVE sends that group. Re-read every 2 minutes and whenever the live map refreshes.
+  const [nc30, setNc30] = useState<number | null>(null);
+  const loadNc30 = useCallback(() => {
+    if (!live) return;
+    void readRoute(`${peopleUrl}/groups`, readNoContact30).then((a) => {
+      if (a.kind === "data") setNc30(a.data);
+      else if (a.kind === "missing") setNc30(null);
+    });
+  }, [live]);
+  useEffect(() => {
+    loadNc30();
+    if (!live) return;
+    const t = setInterval(loadNc30, 120_000);
+    return () => clearInterval(t);
+  }, [live, loadNc30]);
+  useEffect(() => {
+    nc30Ref.current = nc30;
+    setGraph((g) => withNoContact30(g, nc30));
+  }, [nc30]);
   // Onboarding board (TEAM-ONBOARDING §2.3, vip50-web-crm#250): team lead and admins only; anyone else gets a 403 and no orb.
   const [onb, setOnb] = useState<OnbMember[] | null>(null);
   useEffect(() => {
@@ -2960,7 +2983,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   };
   // A ONE MOVE page that opens inside the Brain (lib/moveMenu.ts IN_BRAIN).
   // the example agent's New to Sort orb (lib/graph/move.ts) opens the same native view as the live one
-  const rawPage = !ask && !tour ? (offMapPage ? inBrainPage(movePageId(offMapPage)) : null) ?? inBrainPage(state.focusId) ?? (state.focusId === DEMO_NTS_NODE ? { label: "New to Sort", path: NTS_PATH } : null) : null;
+  const rawPage = !ask && !tour ? (offMapPage ? inBrainPage(movePageId(offMapPage)) : null) ?? inBrainPage(state.focusId) ?? (state.focusId === DEMO_NTS_NODE ? { label: "New to Sort", path: NTS_PATH } : null) ?? (state.focusId === NC30_NODE ? { label: "My Contacts", path: "/contacts" } : null) : null;
   // The example agent's Drop-By Map, Referral Network... open on their side panel (lib/examples/move2.ts), not a sign-in page.
   // Referral Network is drawn by the Brain for both (§3aq, 22 Oct), so the example agent opens the page too.
   const pagePanel = rawPage && !(!live && M2_PATHS.has(rawPage.path) && rawPage.path !== "/referral-network") && (!(PANEL_FIRST.has(rawPage.path) || LEARN_PANEL_FIRST.has(rawPage.path)) || fullPage === rawPage.path) ? rawPage : null;
@@ -4557,6 +4580,8 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                 />
               ) : vipNative && nativeKind === "contacts" ? (
                 <Contacts
+                  key={focus.id === NC30_NODE ? NC30_KEY : "contacts"}
+                  startGroup={focus.id === NC30_NODE ? NC30_KEY : null}
                   openId={contactOpen}
                   onPowerHour={() => setPowerOpen(true)}
                   onOpenPage={(path) => goPage(path)}

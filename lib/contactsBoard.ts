@@ -149,6 +149,7 @@ export function filterTitle(f: Filter, b: Board, gaps: Groups["gaps"], needLeft:
     case "all":
       return `EVERYONE · ${n(b.total)}`;
     case "group": {
+      if (f.key === "no_contact_30") return `NO CONTACT 30 DAYS · ${n(gaps.noContact30)}`;
       const l = line(f.key);
       return `${(l?.label ?? f.key).toUpperCase()} · ${n(l?.count ?? 0)}`;
     }

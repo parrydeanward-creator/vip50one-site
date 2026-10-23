@@ -22,7 +22,8 @@ test("groups: the contract's shape, junk dropped, gaps read", () => {
   assert.equal(g.groups[0].needsYou, 6);
   assert.equal(g.groups[1].kind, "source");
   assert.equal(g.groups[2].count, 0);
-  assert.deepEqual(g.gaps, { vipNoBirthday: 12, toSort: 38, possibleDuplicates: 3 });
+  // Rewritten 23 Oct: gaps also carries noContact30 (the "No contact 30 days" group count, 0 when ONE MOVE does not send it).
+  assert.deepEqual(g.gaps, { vipNoBirthday: 12, toSort: 38, possibleDuplicates: 3, noContact30: 0 });
   assert.equal(readGroups({ groups: [] }), null);
   assert.equal(readGroups(null), null);
 });

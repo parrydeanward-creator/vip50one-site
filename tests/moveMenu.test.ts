@@ -246,3 +246,40 @@ test("a button-only page has no orb on a live map but resolves to an openable in
   }
   assert.equal(inBrainPage(movePageId("/contacts/archived"))?.label, "Archived Contacts");
 });
+
+// Parry, 23 Oct: a fourth orb inside Contacts, "No contact 30 days" (ONE MOVE serves it as a gap group, vip50-web-crm#397).
+// The three-child assertion above stays true for the menu and for liveGraph (the pages); this orb is added by the Brain
+// from the groups answer, so it is absent until ONE MOVE sends the group.
+test("No contact 30 days is the fourth orb in Contacts, with the group's count, only when ONE MOVE sends it", async () => {
+  const { CONTACTS_NODE, movePageId } = await import("../lib/moveMenu.ts");
+  const { NC30_NODE, noContact30Count, withNoContact30 } = await import("../lib/noContact30.ts");
+  const { readGroups } = await import("../lib/people.ts");
+  const { needsOf } = await import("../lib/needs.ts");
+  const body = (extra: unknown[]) => ({ total: 10, needs_you: 1, groups: [{ key: "vip50", label: "VIP-50", kind: "tier", count: 3, needs_you: 1 }, ...extra] });
+  const withGroup = readGroups(body([{ key: "no_contact_30", label: "No contact 30 days", kind: "gap", count: 17, needs_you: 17 }]));
+  const without = readGroups(body([]));
+  assert.equal(noContact30Count(withGroup), 17);
+  assert.equal(noContact30Count(without), null);
+  assert.equal(withGroup!.gaps.noContact30, 17);
+  const g = liveGraph(MASTER, opts, {});
+  const on = withNoContact30(g, noContact30Count(withGroup));
+  const kids = on.nodes.filter((n) => n.parentId === CONTACTS_NODE).sort((a, b) => b.importance - a.importance);
+  assert.deepEqual(kids.map((n) => n.label), ["Contacts", "Import", "Clean Up", "No contact 30 days"]);
+  assert.equal(kids[3].id, NC30_NODE);
+  assert.equal(kids[3].needCount, 17);
+  assert.equal(kids[3].status, "attention");
+  assert.ok(on.edges.some((e) => e.source === CONTACTS_NODE && e.target === NC30_NODE));
+  // follow the pulse: the parent (and People above it) carry its count
+  assert.deepEqual(needsOf(on.nodes).get(CONTACTS_NODE), { count: 17, level: "today" });
+  assert.equal(needsOf(on.nodes).get(moveGroupId("people"))!.count, (needsOf(g.nodes).get(moveGroupId("people"))?.count ?? 0) + 17);
+  // no group from ONE MOVE (older version): no orb, nothing invented; refreshing twice never doubles it
+  const off = withNoContact30(on, noContact30Count(without));
+  assert.ok(!off.nodes.some((n) => n.id === NC30_NODE) && !off.edges.some((e) => e.target === NC30_NODE));
+  assert.equal(withNoContact30(on, 17).nodes.filter((n) => n.id === NC30_NODE).length, 1);
+  // zero: still drawn (ONE MOVE sent it), quiet
+  const zero = withNoContact30(g, 0).nodes.find((n) => n.id === NC30_NODE)!;
+  assert.equal(zero.status, undefined);
+  // the example map has no Contacts parent: left alone
+  const demo = { nodes: [], edges: [] };
+  assert.deepEqual(withNoContact30(demo, 9), demo);
+});

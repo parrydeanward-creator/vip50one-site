@@ -37,6 +37,7 @@ const LIVE = {
   ],
   gaps: { vip_no_birthday: 30, to_sort: 2, possible_duplicates: 131 },
 };
+const NC30 = { key: "no_contact_30", label: "No contact 30 days", kind: "gap", count: 1204, needs_you: 1204, needs_now: 0 };
 const live = () => readGroups(LIVE)!;
 const item = (id: string, name: string, extra: Partial<PersonItem> = {}): PersonItem => ({
   id, name, firstName: name.split(" ")[0], photo: null, tier: null, cls: null, source: null, lastTouchOn: null, pulse: null, urgency: null, ...extra,
@@ -277,4 +278,12 @@ test("My Contacts, Referral Network and My Profile each show Back at the top, wi
     const src = readFileSync(new URL(`../components/brain/${f}.tsx`, import.meta.url), "utf8");
     assert.match(src, /className="page-back" data-act="page-back" onClick=\{onBack\}/, f);
   }
+});
+
+test("the No contact 30 days list is a group filter titled with its count, and is not a key line", () => {
+  const g = readGroups({ ...LIVE, groups: [...LIVE.groups, NC30] })!;
+  const f: Filter = { kind: "group", key: "no_contact_30" };
+  assert.deepEqual(filterQuery(f), { group: "no_contact_30", sort: "name" });
+  assert.equal(filterTitle(f, boardOf(g), g.gaps, 31), "NO CONTACT 30 DAYS · 1,204");
+  assert.ok(!boardOf(g).key.some((k) => k.key === "no_contact_30"));
 });
