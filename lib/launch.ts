@@ -8,7 +8,6 @@ import type { GraphEdge, GraphNode, NodeStatus } from "./graph/types.ts";
 const MOVE_URL = "https://move.vip50one.com";
 export const launchUrl = `${MOVE_URL}/api/brain/launch`;
 export const listingsUrl = `${MOVE_URL}/api/brain/listings`;
-export const LISTINGS_PAGE = "/listings";
 
 export const PIECES = ["marquee_page", "site_page", "open_house", "ad_draft", "buyer_notes"] as const;
 export type PieceKey = (typeof PIECES)[number];

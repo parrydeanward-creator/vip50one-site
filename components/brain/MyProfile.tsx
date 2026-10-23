@@ -413,7 +413,7 @@ export default function MyProfile({
   );
 }
 
-/** VIP-SUMMARY §3af.1: "Receive referrals from ONE agents" (default on). Off also hides the agent from Buyer Needs. */
+/** VIP-SUMMARY §3af.1: "Receive referrals from ONE agents" (default on). Off hides the agent from the referral picker. */
 const listedUrl = "https://move.vip50one.com/api/brain/network/listed";
 function ReferralsSection() {
   const [on, setOn] = useState<boolean | null>(null);
@@ -433,7 +433,7 @@ function ReferralsSection() {
       const j = await r.json().catch(() => null);
       if (!r.ok || !j?.ok) throw new Error(j?.error || "That didn't save. Nothing was changed.");
       setOn(j.listed === true);
-      setMsg(next ? "ONE agents can send you referrals." : "You are hidden from the referral picker and the Buyer Needs board.");
+      setMsg(next ? "ONE agents can send you referrals." : "You are hidden from the referral picker.");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "That didn't save. Nothing was changed.");
     } finally {

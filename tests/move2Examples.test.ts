@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DROP_BYS, M2_TOOLS, NEEDS, REF_AGENTS, dropByAreas, exampleMoveAnswer, fitsFor, m2KeyOf, m2Reduce, m2Start, makeExampleStore, withExampleMoveTools } from "../lib/examples/move2.ts";
+import { DROP_BYS, M2_TOOLS, REF_AGENTS, dropByAreas, exampleMoveAnswer, m2KeyOf, m2Reduce, m2Start, makeExampleStore, withExampleMoveTools } from "../lib/examples/move2.ts";
 import { listUrl, peopleUrl, personUrl, readGroups, readPage, readPerson, readTimeline, timelineUrl } from "../lib/people.ts";
 import { readRoster, vipsUrl, vipTierUrl } from "../lib/vips.ts";
 import { hwcUrl, readHwc } from "../lib/hwc.ts";
@@ -103,12 +103,12 @@ test("Drop-By Map groups by area and Mark done counts", () => {
   assert.match(s.note.dropby!, /nothing was saved/);
 });
 
-test("Buyer Needs: fits follow beds, price, area and must-haves; a posted need shows its fits", () => {
-  assert.deepEqual(fitsFor(NEEDS[0]).map((l) => l.id), ["nl1", "nl4"]);
-  assert.deepEqual(fitsFor(NEEDS[2]).map((l) => l.id), ["nl2"]);
-  const s = m2Reduce(m2Start(), { t: "need", need: { id: "x", buyer: "Test Buyer", beds: 3, maxPrice: 575_000, areas: ["Bountiful"], must: [], posted: "Today" } });
-  assert.equal(s.needs[0].buyer, "Test Buyer");
-  assert.match(s.note.needs!, /1 homes fit now.*nothing was sent/);
+// Rewritten 23 Oct: the Buyer Needs and Your listings example orbs are gone (Parry, 23 Oct: "retire buyers needs";
+// "retire your listings already on the website"), so the test asserts they stay gone.
+test("Buyer Needs and Your listings are retired from the example tools", () => {
+  assert.deepEqual(M2_TOOLS.map((t) => t.path).filter((p) => p === "/buyer-needs" || p === "/listings"), []);
+  assert.equal("needs" in m2Start(), false);
+  assert.equal("listings" in m2Start(), false);
 });
 
 test("Referral Network: a sent referral is listed and says nothing was sent", () => {
@@ -148,6 +148,5 @@ test("each orb's line matches its example", () => {
   const line = (k: string) => M2_TOOLS.find((t) => t.key === k)!.line;
   const s = m2Start();
   assert.match(line("dropby"), new RegExp(`${s.drops.filter((d) => !d.done).length} drop-bys left`));
-  assert.match(line("needs"), new RegExp(`${s.needs.length} needs · ${s.needs.reduce((a, n) => a + fitsFor(n).length, 0)} homes fit`));
   assert.match(line("videos"), new RegExp(`${s.videos.length} videos · ${s.videos.filter((v) => v.watched).length} watched`));
 });

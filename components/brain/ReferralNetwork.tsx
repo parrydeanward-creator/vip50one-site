@@ -623,7 +623,7 @@ export default function ReferralNetwork({ data, live, today, onAsk, onThanked, o
                 <button type="button" role="switch" aria-checked={listed} className={`rn-sw${listed ? "" : " off"}`} disabled={listBusy} onClick={() => void flipListed()} aria-label="Receive referrals from ONE agents" />
                 <div>
                   <b>{listed ? "Receiving referrals" : "Not receiving referrals"}</b>
-                  <small>{listed ? "ONE agents can find you to refer and see you on Buyer Needs." : "Other agents cannot find you to refer or see you on Buyer Needs."}</small>
+                  <small>{listed ? "ONE agents can find you in the referral picker." : "You are hidden from the referral picker."}</small>
                 </div>
               </div>
             ) : null}

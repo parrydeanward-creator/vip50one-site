@@ -1,4 +1,3 @@
-import type { PieceKey, PieceState } from "../launch.ts";
 import { MOVE_URL } from "../host.ts";
 import { inRelationshipGroup, RELATIONSHIP_GROUPS } from "../people.ts";
 import { moveGroupId, moveMenuHref, movePageId } from "../moveMenu.ts";
@@ -11,7 +10,7 @@ import type { GraphEdge, GraphNode } from "../graph/types.ts";
 //    showed. exampleMoveAnswer() answers the same routes from an invented store, in the routes' own shapes, so the
 //    native views draw exactly as for a signed-in agent; their actions change the store, so a tick stays on screen.
 //    Nothing leaves the browser.
-// B. Drop-By Map, Referral Network, Buyer Needs, Your listings, Analytics, Video Library, VIP Docs and The Lounge had no
+// B. Drop-By Map, Referral Network, Analytics, Video Library, VIP Docs and The Lounge had no
 //    example orb: the example data for their side panels and full views (components/brain/views/MoveTools.tsx).
 //
 // Every name, address and number here is invented. People are drawn with initials only; listing photos are stand-ins
@@ -641,13 +640,11 @@ export const EXAMPLE_NATIVE = new Set(["contacts", "vip", "audit", "hwc", "rolod
 
 // ---- B. the example orbs ---------------------------------------------------------------------------------------------
 
-export type M2Key = "dropby" | "referrals" | "needs" | "listings" | "analytics" | "videos" | "docs" | "lounge";
+export type M2Key = "dropby" | "referrals" | "analytics" | "videos" | "docs" | "lounge";
 /** Each tool's orb: its ONE MOVE page, the line under it, and where it hangs (the first parent found). */
 export const M2_TOOLS: { key: M2Key; path: string; label: string; parents: string[]; line: string }[] = [
   { key: "dropby", path: "/drop-by", label: "Drop-By Map", parents: [moveGroupId("people"), "move-1"], line: "Example: 5 drop-bys left this quarter" },
   { key: "referrals", path: "/referral-network", label: "Referral Network", parents: [moveGroupId("people"), "move-0"], line: "Example: 6 agents · 2 referrals out" },
-  { key: "needs", path: "/buyer-needs", label: "Buyer Needs", parents: [moveGroupId("people"), "move-0"], line: "Example: 3 needs · 4 homes fit" },
-  { key: "listings", path: "/listings", label: "Your listings", parents: [moveGroupId("people")], line: "Example: 3 listings · 1 launching" },
   { key: "analytics", path: "/analytics", label: "Analytics", parents: [moveGroupId("trackers")], line: "Example: 212 touches this month" },
   { key: "videos", path: "/content", label: "Video Library", parents: [moveGroupId("learn")], line: "Example: 8 videos · 3 watched" },
   { key: "docs", path: "/vip-docs", label: "VIP Docs", parents: [moveGroupId("learn")], line: "Example: 6 documents" },
@@ -715,43 +712,7 @@ export const REFERRALS: Referral[] = [
   { id: "rf3", client: "Nora Bishop", agentId: "ra2", status: "Closed", when: "Aug 14" },
 ];
 
-// Buyer Needs (§3ah)
-export interface Need { id: string; buyer: string; beds: number; maxPrice: number; areas: string[]; must: string[]; posted: string }
-export interface ExListing { id: string; street: string; city: string; price: number; beds: number; baths: number; sqft: number; features: string[]; hue: number; agent: string }
-export const NEEDS: Need[] = [
-  { id: "nd1", buyer: "Priya Shah", beds: 4, maxPrice: 640_000, areas: ["Farmington", "Kaysville"], must: ["Rambler"], posted: "Oct 12" },
-  { id: "nd2", buyer: "Rosa Diaz", beds: 4, maxPrice: 575_000, areas: ["Centerville", "Bountiful"], must: ["Big yard"], posted: "Oct 14" },
-  { id: "nd3", buyer: "Miles Avery", beds: 3, maxPrice: 500_000, areas: ["Centerville"], must: [], posted: "Oct 16" },
-];
-export const NEED_LISTINGS: ExListing[] = [
-  { id: "nl1", street: "1840 Aspen Hollow Rd", city: "Farmington", price: 625_000, beds: 4, baths: 3, sqft: 2860, features: ["Rambler", "Big yard"], hue: 28, agent: "Example agent Ty R." },
-  { id: "nl2", street: "322 Orchard Ln", city: "Centerville", price: 489_000, beds: 3, baths: 2, sqft: 1940, features: ["Big yard"], hue: 200, agent: "You" },
-  { id: "nl3", street: "77 Canyon View Way", city: "Bountiful", price: 559_000, beds: 4, baths: 3, sqft: 2410, features: ["Big yard", "Mountain view"], hue: 150, agent: "Example agent Kendra M." },
-  { id: "nl4", street: "905 Pioneer Pkwy", city: "Kaysville", price: 612_000, beds: 5, baths: 3, sqft: 3120, features: ["Rambler"], hue: 320, agent: "Example agent Dan W." },
-  { id: "nl5", street: "48 Willow Bend Ct", city: "Centerville", price: 699_000, beds: 5, baths: 4, sqft: 3600, features: ["Pool"], hue: 260, agent: "Example agent Brooke S." },
-  { id: "nl6", street: "16 Sunrise Cir", city: "Woods Cross", price: 430_000, beds: 3, baths: 2, sqft: 1700, features: [], hue: 90, agent: "Example agent Alicia P." },
-];
-/** The listings that fit a need: enough beds, at or under the price, in one of its areas, with everything it must have. */
-export function fitsFor(n: Need, list: readonly ExListing[] = NEED_LISTINGS): ExListing[] {
-  return list.filter((l) => l.beds >= n.beds && l.price <= n.maxPrice && (!n.areas.length || n.areas.includes(l.city)) && n.must.every((m) => l.features.includes(m)));
-}
 export const money = (n: number) => `$${n.toLocaleString("en-US")}`;
-export const NEED_AREAS = ["Bountiful", "Centerville", "Farmington", "Kaysville", "Woods Cross"];
-
-// Your listings (LAUNCH.md §5), drawn as the same photo cards a live agent sees (components/brain/ListingCards.tsx)
-export type ExLaunch = Partial<Record<PieceKey, PieceState>>;
-export interface MyListing {
-  id: string; street: string; city: string; price: number; status: "Launching" | "Active" | "Under contract"; days: number;
-  beds: number; baths: number; sqft: number; views: number; showings: number; tone: "dusk" | "sage" | "sand" | "slate" | "ember" | "sky";
-  fits: number; openHouse: string | null; marquee: string | null; launch: ExLaunch | null;
-  tours?: { count: number; next: string }; // Showly tours booked (example)
-}
-export const MY_LISTINGS: MyListing[] = [
-  { id: "ml1", street: "1212 Maple Ridge Dr", city: "Bountiful, UT 84010", price: 549_000, status: "Launching", days: 0, beds: 4, baths: 3, sqft: 2860, views: 0, showings: 0, tone: "dusk", fits: 3, openHouse: null, marquee: "Photos in; Marquee is building the campaign", launch: null },
-  { id: "ml2", street: "322 Orchard Ln", city: "Centerville, UT 84014", price: 489_000, status: "Active", days: 12, beds: 3, baths: 2, sqft: 1980, views: 1420, showings: 9, tone: "sage", fits: 2, openHouse: "Sat 24 Oct, 11:00 AM · 6 signed up ahead", marquee: "2 pieces to approve · 3 scheduled · 5 posted this month", launch: { marquee_page: "done", site_page: "done", open_house: "ready", ad_draft: "ready", buyer_notes: "done" }, tours: { count: 3, next: "2026-10-22" } },
-  { id: "ml3", street: "640 Meadow Brook Ln", city: "Kaysville, UT 84037", price: 715_000, status: "Under contract", days: 21, beds: 5, baths: 4, sqft: 4010, views: 2210, showings: 14, tone: "sand", fits: 0, openHouse: null, marquee: "Closing post waits until it records", launch: { marquee_page: "done", site_page: "done", open_house: "done", ad_draft: "done", buyer_notes: "done" } },
-];
-export const EXAMPLE_LAUNCHED: ExLaunch = { marquee_page: "ready", site_page: "drafting", open_house: "drafting", ad_draft: "drafting", buyer_notes: "ready" };
 
 // Analytics (Trackers)
 export const ANALYTICS = {
@@ -814,8 +775,6 @@ export const LOUNGE: LoungePost[] = [
 export interface M2State {
   drops: DropBy[];
   refs: Referral[];
-  needs: Need[];
-  listings: MyListing[];
   videos: Video[];
   posts: LoungePost[];
   liked: Record<string, boolean>;
@@ -824,9 +783,6 @@ export interface M2State {
 export type M2Act =
   | { t: "drop"; id: string }
   | { t: "refer"; client: string; agentId: string; note: string }
-  | { t: "need"; need: Need }
-  | { t: "launch"; id: string }
-  | { t: "listingNote"; text: string }
   | { t: "watched"; id: string }
   | { t: "post"; text: string }
   | { t: "like"; id: string }
@@ -845,15 +801,6 @@ export function m2Reduce(s: M2State, a: M2Act): M2State {
       const r: Referral = { id: `rf-${s.refs.length + 1}`, client: a.client.trim(), agentId: ag.id, status: "Sent", when: "Today", note: a.note.trim() || undefined };
       return { ...s, refs: [r, ...s.refs], note: { ...s.note, referrals: `Referral of ${r.client} to ${ag.name} in ${ag.market} is on your list. ${EXAMPLE_SENT}` } };
     }
-    case "need":
-      return { ...s, needs: [a.need, ...s.needs], note: { ...s.note, needs: `${a.need.buyer}'s need is posted to your team. ${fitsFor(a.need).length} homes fit now. ${EXAMPLE_SENT}` } };
-    case "launch": {
-      const l = s.listings.find((x) => x.id === a.id);
-      if (!l || l.launch) return s;
-      return { ...s, listings: s.listings.map((x) => (x.id === a.id ? { ...x, launch: EXAMPLE_LAUNCHED } : x)), note: { ...s.note, listings: `Launch started for ${l.street}: Pulse is drafting all five pieces, and you approve each one before anything goes out. ${EXAMPLE_SAVED}` } };
-    }
-    case "listingNote":
-      return { ...s, note: { ...s.note, listings: a.text } };
     case "watched":
       return { ...s, videos: s.videos.map((v) => (v.id === a.id ? { ...v, watched: !v.watched } : v)), note: { ...s.note, videos: `Marked. ${EXAMPLE_SAVED}` } };
     case "post":
@@ -868,4 +815,4 @@ export function m2Reduce(s: M2State, a: M2Act): M2State {
 }
 
 
-export const m2Start = (): M2State => ({ drops: DROP_BYS, refs: REFERRALS, needs: NEEDS, listings: MY_LISTINGS, videos: VIDEOS, posts: LOUNGE, liked: {}, note: {} });
+export const m2Start = (): M2State => ({ drops: DROP_BYS, refs: REFERRALS, videos: VIDEOS, posts: LOUNGE, liked: {}, note: {} });

@@ -151,7 +151,6 @@ import { perProduct } from "@/lib/perProduct.ts";
 import ListingFitsSection from "./ListingFitsSection.tsx";
 import { launchRefOf, launchUrl, readLaunches, upsertLaunch, withLaunchNodes, type Launch } from "@/lib/launch.ts";
 import LaunchPanel from "./LaunchPanel.tsx";
-import ListingsPage from "./ListingCards.tsx";
 import LooksHotPanel from "./LooksHotPanel.tsx";
 import NewToSort from "./NewToSort.tsx";
 import OnboardingPanel from "./OnboardingPanel.tsx";
@@ -2973,8 +2972,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   // Daily Tracker (§3e). The Classic page stays one click away, and is the
   // fallback until ONE MOVE's route answers.
   // Home Reports (HOME-REPORT §5.4, 16 Oct): this month's reports and the bulk start, from ONE MOVE's routes.
-  // Your listings (Parry, 18 Oct: "we have pics and whatnot"): the agent's listings as photo cards (components/brain/ListingCards.tsx).
-  const NATIVE: Record<string, "vip" | "daily" | "weekly" | "audit" | "rolodex" | "profile" | "hwc" | "contacts" | "homereports" | "nts" | "listings" | "referrals"> = { "/referral-network": "referrals", "/listings": "listings", "/contacts/visitors": "nts", "/contacts": "contacts", "/contacts/vip": "vip", "/daily": "daily", "/weekly": "weekly", "/contacts/audit": "audit", "/rolodex": "rolodex", "/profile": "profile", "/hot-warm-cold": "hwc", "/home-reports": "homereports" };
+  const NATIVE: Record<string, "vip" | "daily" | "weekly" | "audit" | "rolodex" | "profile" | "hwc" | "contacts" | "homereports" | "nts" | "referrals"> = { "/referral-network": "referrals", "/contacts/visitors": "nts", "/contacts": "contacts", "/contacts/vip": "vip", "/daily": "daily", "/weekly": "weekly", "/contacts/audit": "audit", "/rolodex": "rolodex", "/profile": "profile", "/hot-warm-cold": "hwc", "/home-reports": "homereports" };
   const [vipClassic, setVipClassic] = useState(false);
   const nativeKind = panelPath ? NATIVE[panelPath] : undefined;
   // "Refer to a ONE agent" for one client (?contact=) opens ONE MOVE's refer form, filled in, on the Classic page.
@@ -4568,19 +4566,6 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                     setContactOpen({ id, k: Date.now() });
                     goTo(page);
                   }}
-                />
-              ) : vipNative && nativeKind === "listings" ? (
-                <ListingsPage
-                  nodes={graph.nodes}
-                  launches={launches}
-                  onOpen={(id, part) => {
-                    if (!ix.byId.has(id)) return;
-                    goTo(id);
-                    // the orb's side panel already holds Launch and "Who of mine fits"; bring the asked part into sight
-                    if (part) setTimeout(() => document.querySelector(part === "fits" ? ".fits-card" : ".launch")?.scrollIntoView({ block: "start", behavior: "smooth" }), 450);
-                  }}
-                  onClose={() => goTo(focus.parentId ?? "move")}
-                  onClassic={() => setVipClassic(true)}
                 />
               ) : vipNative && nativeKind === "rolodex" ? (
                 <Rolodex

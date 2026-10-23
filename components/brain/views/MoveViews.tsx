@@ -2,12 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { initialsOf } from "@/lib/vips.ts";
-import { ANALYTICS, DOCS, NEED_AREAS, NEED_LISTINGS, REF_AGENTS, dropByAreas, fitsFor, EXAMPLE_SAVED, money, type M2Act, type M2State, type Need } from "@/lib/examples/move2.ts";
+import { ANALYTICS, DOCS, REF_AGENTS, dropByAreas, EXAMPLE_SAVED, money, type M2Act, type M2State } from "@/lib/examples/move2.ts";
 import { HomeBlock } from "./ShowlyOpenShell.tsx";
-import { ListingCard, exampleCard } from "../ListingCards.tsx";
 
-// The full views of ONE MOVE's example tools inside the Brain (walker 18 Oct): Drop-By Map, Referral Network, Buyer
-// Needs, Your listings, Analytics, Video Library, VIP Docs and The Lounge. Every action works on screen only.
+// The full views of ONE MOVE's example tools inside the Brain (walker 18 Oct): Drop-By Map, Referral Network,
+// Analytics, Video Library, VIP Docs and The Lounge. Every action works on screen only.
 
 export function Face({ name, small }: { name: string; small?: boolean }) {
   return (
@@ -123,127 +122,6 @@ export function ReferralView({ s, act }: { s: M2State; act: (a: M2Act) => void }
         </ul>
       </section>
     </div>
-  );
-}
-
-// ---- Buyer Needs ----------------------------------------------------------------------------------------------------
-
-const PRICES = [450_000, 500_000, 575_000, 650_000, 750_000];
-export function NeedsView({ s, act }: { s: M2State; act: (a: M2Act) => void }) {
-  const [pick, setPick] = useState(s.needs[0]?.id ?? "");
-  const [buyer, setBuyer] = useState("");
-  const [beds, setBeds] = useState(3);
-  const [max, setMax] = useState(575_000);
-  const [areas, setAreas] = useState<string[]>(["Centerville"]);
-  const sel = s.needs.find((n) => n.id === pick) ?? s.needs[0];
-  const fits = sel ? fitsFor(sel) : [];
-  const post = () => {
-    if (!buyer.trim()) return;
-    const n: Need = { id: `nd-${s.needs.length + 1}`, buyer: buyer.trim(), beds, maxPrice: max, areas, must: [], posted: "Today" };
-    act({ t: "need", need: n });
-    setPick(n.id);
-    setBuyer("");
-  };
-  return (
-    <>
-      <div className="pso-grid2">
-        <section className="pso-card">
-          <h2 className="pso-h2">Post a need</h2>
-          <label className="m2-field">
-            <span className="pso-lbl">Buyer</span>
-            <input value={buyer} onChange={(e) => setBuyer(e.target.value)} placeholder="Buyer's name" />
-          </label>
-          <div className="m2-row2">
-            <label className="m2-field">
-              <span className="pso-lbl">Beds at least</span>
-              <select value={beds} onChange={(e) => setBeds(Number(e.target.value))}>
-                {[2, 3, 4, 5].map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
-            </label>
-            <label className="m2-field">
-              <span className="pso-lbl">Up to</span>
-              <select value={max} onChange={(e) => setMax(Number(e.target.value))}>
-                {PRICES.map((p) => <option key={p} value={p}>{money(p)}</option>)}
-              </select>
-            </label>
-          </div>
-          <span className="pso-lbl">Areas</span>
-          <div className="pso-seg">
-            {NEED_AREAS.map((a) => (
-              <button key={a} type="button" className="chip-btn" aria-pressed={areas.includes(a)} onClick={() => setAreas((x) => (x.includes(a) ? x.filter((y) => y !== a) : [...x, a]))}>
-                {a}
-              </button>
-            ))}
-          </div>
-          <button type="button" className="btn m2-btn" onClick={post} disabled={!buyer.trim()}>Post need</button>
-          <Note text={s.note.needs} />
-        </section>
-        <section className="pso-card">
-          <h2 className="pso-h2">Your needs</h2>
-          <ul className="pso-list">
-            {s.needs.map((n) => (
-              <li key={n.id}>
-                <button type="button" className={`pso-row m2-rowbtn${sel?.id === n.id ? " on" : ""}`} onClick={() => setPick(n.id)} aria-pressed={sel?.id === n.id}>
-                  <Face name={n.buyer} small />
-                  <span className="pso-row-b">
-                    <b>{n.buyer}</b>
-                    <small>{n.beds}+ beds · up to {money(n.maxPrice)} · {n.areas.join(", ") || "Any area"}{n.must.length ? ` · ${n.must.join(", ")}` : ""}</small>
-                  </span>
-                  <span className="pso-pill">{fitsFor(n).length} fit</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
-      {sel && (
-        <section className="pso-group">
-          <h2>Homes that fit {sel.buyer}<small>{fits.length} of {NEED_LISTINGS.length} example listings</small></h2>
-          {fits.length ? (
-            <ul className="pso-homes">
-              {fits.map((l) => (
-                <li key={l.id} className="pso-home">
-                  <HomeBlock hue={l.hue} label={l.street} />
-                  <div className="pso-home-b">
-                    <p className="pso-home-t"><b>{l.street}</b><span className="pso-pill">{money(l.price)}</span></p>
-                    <small>{l.city} · {l.beds} beds · {l.baths} baths · {l.sqft.toLocaleString("en-US")} sq ft</small>
-                    <small>{l.agent === "You" ? "Your listing" : l.agent}{l.features.length ? ` · ${l.features.join(", ")}` : ""}</small>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="pso-muted">No example listing fits yet. Pulse tells you the day one does.</p>
-          )}
-        </section>
-      )}
-    </>
-  );
-}
-
-// ---- Your listings --------------------------------------------------------------------------------------------------
-
-export function ListingsView({ s, act }: { s: M2State; act: (a: M2Act) => void }) {
-  const say = (text: string) => act({ t: "listingNote", text });
-  return (
-    <>
-      <Note text={s.note.listings} />
-      <div className="lst-grid">
-        {s.listings.map((l) => (
-          <ListingCard
-            key={l.id}
-            v={exampleCard(l)}
-            canLaunch
-            onOpen={() => say(`${l.street}: on your own listing this opens its orb, with Launch and Who of mine fits beside it. ${EXAMPLE_SAVED}`)}
-            onLaunch={() => (l.launch ? say(`${l.street}: each piece opens where it lives, for you to approve. Nothing goes out until you do. ${EXAMPLE_SAVED}`) : act({ t: "launch", id: l.id }))}
-            onFits={() => say(`${l.street}: ${l.fits} of your people fit. On your own listing, Make my call list puts them on today's calls; nothing is sent. ${EXAMPLE_SAVED}`)}
-            onMarquee={() => say(`${l.street}: on your own listing this opens it in Marquee, already signed in. ${EXAMPLE_SAVED}`)}
-            onTours={() => say(`${l.street}: on your own listing this opens Showly's tours for the home, already signed in. ${EXAMPLE_SAVED}`)}
-            onReport={l.status === "Launching" ? undefined : () => say(`${l.street}: on your own listing this opens this week's seller report in Marquee. ${EXAMPLE_SAVED}`)}
-          />
-        ))}
-      </div>
-    </>
   );
 }
 
