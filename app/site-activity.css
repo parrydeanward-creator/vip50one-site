@@ -112,3 +112,8 @@ button.sa-st:hover { border-color: rgba(245, 197, 66, 0.5); }
   .sa-wr-a { grid-column: 2; flex-wrap: wrap; }
   .sa-vt th:nth-child(4), .sa-vt td:nth-child(4) { display: none; }
 }
+
+/* The by-address contact (ContactPanel) is a narrow side drawer at every screen width: one column there. */
+.cc .sa-contact { grid-template-columns: minmax(0, 1fr); }
+.cc .sa-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cc .sa-st b { font-size: 28px; }

@@ -28,6 +28,7 @@ import CmaSection from "./CmaSection.tsx";
 import ShareLinkSection, { MyHomeLine, usePersonExtras } from "./SiteFeedsSection.tsx";
 import TalkSection from "./TalkSection.tsx";
 import LeadCard from "./LeadCard.tsx";
+import { OnYourSite } from "./SiteActivity.tsx";
 import { leadCardMode, type LeadOutcome, type NewLead, type RetryWhen } from "@/lib/newLeads.ts";
 
 /** A new lead on this card (ecosystem 17 Oct): the lead card replaces the VIP boxes until they are reached and sorted. */
@@ -188,6 +189,16 @@ function ContactCard({ contactId, taskId, onLogged, lead, agentFirst, onLeadOutc
           <span className="cc-btn off" aria-disabled="true">Email</span>
         )}
       </div>
+
+      {/* The same "On your site" / "Their account" block as My Contacts' full contact (VIP-SUMMARY §3ar); nothing until ONE MOVE answers a usable 200 */}
+      <OnYourSite
+        contactId={contactId}
+        first={card.first_name || (card.name ?? "").split(" ")[0] || ""}
+        phone={tel}
+        email={mail}
+        onCall={() => setPrep(true)}
+        onBook={() => window.open("https://move.vip50one.com/calendar", "_blank", "noopener")}
+      />
 
       {touch && leadMode === "none" && !card.month?.[touch.key] ? (
         <div className="cc-touch" role="group" aria-label={`${touch.label} for ${first}`}>
