@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { setupLate, setupWords, teamSetup, type Coached, type Setup } from "@/lib/coach.ts";
 import { KIND_LABEL, progressWords, reached, resultWord, type Item, type Result } from "@/lib/commitments.ts";
 import { demoHistory, historyUrl, readHistory } from "@/lib/pulseCoach.ts";
-import { barTone, buildBoard, cardLine, mondayOf, sparkOf, weekLabel, COLUMN_SHOW, NUDGE_WORDS, nudgeUrl, type BoardAgent, type Tone } from "@/lib/coachBoard.ts";
+import { activeLabel, barTone, buildBoard, cardLine, eightWeeks, keptDetail, keptLine, mondayOf, scoreLine, sparkOf, weekLabel, COLUMN_SHOW, NUDGE_WORDS, nudgeUrl, type BoardAgent, type Tone } from "@/lib/coachBoard.ts";
 
 // The Coaching board (Parry, 22 Oct, picked option A: vip50-ecosystem research/mockups/coaching/coaching-a.png).
 // The agents you coach in three columns (Needs you now, Slipping, Winning; rules in lib/coachBoard.ts), the week's
@@ -17,13 +17,18 @@ import { barTone, buildBoard, cardLine, mondayOf, sparkOf, weekLabel, COLUMN_SHO
 const RES_COLOR: Record<Result, string> = { kept: "#3fbf7f", partly: "#e5b83a", missed: "#e4574a" };
 const TONE: Record<Tone, string> = { red: "#ff5a5f", amber: "#f5c542", green: "#2fbf71", grey: "#8089a2" };
 const BAR8: Record<Tone, string> = { green: "#f5c542", amber: "#5fb3f0", red: "#ff5a5f", grey: "rgba(169,176,189,0.25)" };
-const pct = (r: number | null) => (r == null ? "No history yet" : `${Math.round(r * 100)}%`);
+const pct = (r: number | null) => (r == null ? "not known yet" : `${Math.round(r * 100)}%`);
 const firstOf = (b: BoardAgent) => b.short.split(/\s+/)[0];
 /** The full name in the panel, unless the name we have is a handle; then the short one. */
 const fullOf = (b: BoardAgent) => (/\s/.test(b.a.name) && !/[@\d]/.test(b.a.name) ? b.a.name : b.short);
 
 type ListKey = "all" | "notSet" | "kept" | "down2" | "at100" | "now" | "slip" | "win";
-type Weeks = { values: (number | null)[]; kind: "kept" | "score" } | "loading" | null;
+type Weeks = { values: (number | null)[]; kind: "kept" | "score"; raw?: (number | null)[] } | "loading" | null;
+/** What the latest activity was, in words (MASTER last_active_source). */
+const SOURCE_WORDS: Record<string, string> = {
+  app: "opened ONE", touch: "logged a touch", task: "finished a task", tracker: "ticked the tracker", commitment: "worked a commitment",
+  plan: "ticked a plan step", habit: "ticked a habit", contact: "worked a contact", lounge: "posted in the Lounge",
+};
 
 function ItemRow({ i }: { i: Item }) {
   const on = i.result === "kept" || reached(i);
@@ -109,9 +114,10 @@ export default function CoachView({ agents, hour, demo, onClose, onPulse, squad,
   const today = agents[0]?.c.today ?? new Date().toISOString().slice(0, 10);
   const sel = board.agents.find((b) => b.id === pick) ?? board.now[0] ?? board.agents[0] ?? null;
 
-  // The 8-week chart: kept weeks when MASTER sends them, else the weekly scores from the history route (§3q.2, coach).
+  // The 8-week chart: MASTER's weekly scores (scores_by_week) or kept weeks when the coached route sends them, else the
+  // weekly scores from the history route (§3q.2, coach).
   const selId = sel?.id ?? null;
-  const selHasKept = (sel?.keptWeeks.length ?? 0) >= 2;
+  const selHasKept = sel ? eightWeeks(sel) != null : false;
   useEffect(() => {
     if (!selId || selHasKept || weeks[selId] !== undefined) return;
     const toWeeks = (h: ReturnType<typeof readHistory>): Weeks =>
@@ -312,25 +318,34 @@ export default function CoachView({ agents, hour, demo, onClose, onPulse, squad,
                     <i style={{ background: TONE[sel.tone] }} aria-hidden="true" />
                     {sel.why}
                   </p>
+                  <p className="cb-seen">
+                    {activeLabel(sel.quietDays)}
+                    {sel.quietDays != null && sel.a.lastActiveSource && SOURCE_WORDS[sel.a.lastActiveSource] ? ` · ${SOURCE_WORDS[sel.a.lastActiveSource]}` : ""}
+                  </p>
                 </div>
               </div>
 
               {(() => {
-                const raw: Weeks = sel.keptWeeks.length >= 2 ? { values: sel.keptWeeks.slice(-8), kind: "kept" } : weeks[sel.id] ?? "loading";
-                // always eight slots, the oldest missing ones empty, so a new agent's few weeks sit on the right
-                const w: Weeks = raw && raw !== "loading" && raw.values.length ? { ...raw, values: [...Array<null>(Math.max(0, 8 - raw.values.length)).fill(null), ...raw.values] } : raw;
+                // never padded: the weeks there are, oldest first (a week with nothing in it is an empty slot, not a 0 bar)
+                const w: Weeks = eightWeeks(sel) ?? weeks[sel.id] ?? "loading";
+                const n = w && w !== "loading" ? w.values.length : 8;
                 return (
                   <>
-                    <h3 className="cb-sec">Last 8 weeks · {w && w !== "loading" && w.kind === "score" ? "weekly score" : "commitments kept"}</h3>
+                    <h3 className="cb-sec">Last {n} {n === 1 ? "week" : "weeks"} · {w && w !== "loading" && w.kind === "score" ? "weekly score" : "commitments kept"}</h3>
                     {w === "loading" ? (
                       <p className="pm-empty">Loading…</p>
                     ) : !w || !w.values.length ? (
                       <p className="pm-empty">No finished weeks yet.</p>
                     ) : (
-                      <div className="cb-bars" role="img" aria-label={w.values.map((v, k) => `W${k + 1} ${v == null ? "none" : w.kind === "kept" ? `${Math.round(v * 100)}% kept` : `${Math.round(v * (sel.minimum || 100))}`}`).join(", ")}>
+                      <div className="cb-bars" role="img" aria-label={w.values.map((v, k) => `W${k + 1} ${v == null ? "none" : w.kind === "kept" ? `${Math.round(v * 100)}% kept` : `${w.raw?.[k] ?? Math.round(v * (sel.minimum || 100))}`}`).join(", ")}>
                         {w.values.map((v, k) => (
-                          <div key={k}>
-                            <i style={{ height: v == null || v === 0 ? 4 : Math.max(6, Math.min(1.1, v) * 66), background: v == null ? BAR8.grey : v === 0 ? BAR8.red : BAR8[barTone(v)] }} />
+                          <div key={k} title={v == null ? "Nothing that week" : w.kind === "kept" ? `${Math.round(v * 100)}% kept` : `Score ${w.raw?.[k] ?? Math.round(v * (sel.minimum || 100))}`}>
+                            {w.kind === "score" && w.raw?.[k] != null ? <b className="cb-bar-n">{w.raw[k]}</b> : null}
+                            {v == null ? (
+                              <i className="cb-slot" aria-hidden="true" />
+                            ) : (
+                              <i style={{ height: v === 0 ? 4 : Math.max(6, Math.min(1.1, v) * 66), background: v === 0 ? BAR8.red : BAR8[barTone(v)] }} />
+                            )}
                             W{k + 1}
                           </div>
                         ))}
@@ -349,9 +364,15 @@ export default function CoachView({ agents, hour, demo, onClose, onPulse, squad,
                     sent[sel.id] ? <small className="cb-sent">{sent[sel.id]}</small> : <button type="button" className="cb-link" disabled={busy} onClick={() => nudge([sel.id])}>Nudge</button>
                   ) : null}
                 </li>
+                {sel.a.scoreThisWeek != null ? (
+                  <li>
+                    <span className={`cb-box${sel.a.scoreThisWeek >= sel.minimum ? " d" : ""}`} aria-hidden="true">{sel.a.scoreThisWeek >= sel.minimum ? "✓" : ""}</span>
+                    <span>{scoreLine(sel)}</span>
+                  </li>
+                ) : null}
                 {(() => {
                   const m = mateOf(squad ?? null, sel.id);
-                  if (!m || !squad) return null;
+                  if (!m || !squad || sel.a.scoreThisWeek != null) return null;
                   const p = paceOf(m, squad.minimum);
                   return (
                     <li>
@@ -376,8 +397,11 @@ export default function CoachView({ agents, hour, demo, onClose, onPulse, squad,
 
               <div className="cb-pulse">
                 <p>
-                  <b>Pulse:</b> {firstOf(sel)} keeps {pct(sel.kept)} of commitments over 8 weeks{sel.a.c.streak ? ` · ${sel.a.c.streak}-week streak` : ""}.
-                  {sel.a.c.lastWeek ? ` Last week: ${sel.a.c.lastWeek.kept} kept, ${sel.a.c.lastWeek.partly} partly, ${sel.a.c.lastWeek.missed} missed.` : ""}
+                  <b>Pulse:</b>{" "}
+                  {sel.kept == null
+                    ? `${firstOf(sel)}: ${keptLine(sel).toLowerCase()}.`
+                    : `${firstOf(sel)} keeps ${Math.round(sel.kept * 100)}% of commitments over 8 weeks${sel.a.keptCounts?.set ? ` (${sel.a.keptCounts.set} set: ${keptDetail(sel)})` : ""}${sel.a.c.streak ? ` · ${sel.a.c.streak}-week streak` : ""}.`}
+                  {sel.kept != null && sel.a.c.lastWeek ? ` Last week: ${sel.a.c.lastWeek.kept} kept, ${sel.a.c.lastWeek.partly} partly, ${sel.a.c.lastWeek.missed} missed.` : ""}
                 </p>
                 {onPulse ? (
                   <button type="button" className="cb-link" onClick={() => onPulse(sel.a).then(setPulseNote)}>

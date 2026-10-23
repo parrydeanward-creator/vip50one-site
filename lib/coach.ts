@@ -20,10 +20,22 @@ export interface Coached {
   c: Commitments;
   setup: Setup | null;
   /** Optional, read when MASTER sends them (asked of GO/MOVE for the Coaching board, 22 Oct): a face, each finished
-   *  week's share kept (oldest first, at most 8, null for a week with nothing set) and the last sign-in. */
+   *  week's share kept (oldest first, at most 8, null for a week with nothing set: an empty slot, never a 0 bar). */
   photo?: string | null;
   keptWeeks?: (number | null)[];
+  /** The latest real activity (MASTER last_active_at: app open, touch, task, tracker, commitment, plan, habit,
+   *  contact, lounge). Never auth's last_sign_in_at, which only moves on a typed password or code (Parry, 23 Oct). */
   lastActive?: string | null;
+  /** What that activity was (MASTER last_active_source). */
+  lastActiveSource?: string | null;
+  /** This Mountain week's score as ONE GO's Weekly Tracker shows it (MASTER score_this_week, vip50-web-crm#399). */
+  scoreThisWeek?: number;
+  /** The 8 finished Mountain weeks before this one, oldest first (MASTER scores_by_week). */
+  scoresByWeek?: { week: string; score: number; away: boolean }[];
+  /** The commitments behind keepRate8w (MASTER kept_counts_8w). set 0: none set. */
+  keptCounts?: { set: number; kept: number; partly: number; missed: number; notChecked: number };
+  /** False when the agent has never set a commitment in a finished week (MASTER has_commitments). */
+  hasCommitments?: boolean;
 }
 
 /** §3ag answer for one agent, checked; null when absent or the wrong shape. */
@@ -56,6 +68,35 @@ export function teamSetup(agents: Coached[]): { full: number; of: number } | nul
   return w.length ? { full: w.filter((a) => a.setup!.done === a.setup!.of).length, of: w.length } : null;
 }
 
+const numOf = (v: unknown): number | null =>
+  typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : null;
+
+/** kept_by_week: {week, kept 0..1 or null, away} objects (MASTER) or bare numbers; oldest first, the last 8. */
+function readKeptWeeks(v: unknown): (number | null)[] | null {
+  if (!Array.isArray(v)) return null;
+  return v.slice(-8).map((x) => {
+    const n = x && typeof x === "object" ? numOf((x as { kept?: unknown }).kept) : typeof x === "number" ? numOf(x) : null;
+    return n == null ? null : Math.max(0, Math.min(1, n));
+  });
+}
+
+/** scores_by_week: {week, score, away}, oldest first, the last 8. */
+function readScores(v: unknown): { week: string; score: number; away: boolean }[] | null {
+  if (!Array.isArray(v)) return null;
+  return v.slice(-8).map((x) => {
+    const o = x && typeof x === "object" ? (x as Record<string, unknown>) : {};
+    return { week: typeof o.week === "string" ? o.week.slice(0, 10) : "", score: Math.max(0, Math.round(numOf(o.score) ?? 0)), away: o.away === true };
+  });
+}
+
+/** kept_counts_8w: {set, kept, partly, missed, not_checked}. */
+function readCounts(v: unknown): Coached["keptCounts"] | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const n = (k: string) => Math.max(0, Math.round(numOf(o[k]) ?? 0));
+  return { set: n("set"), kept: n("kept"), partly: n("partly"), missed: n("missed"), notChecked: n("not_checked") };
+}
+
 export type Attention = { level: "now" | "today" | null; words: string };
 
 /** The §3n.4 answer, checked: agents with a name and a readable commitments state. */
@@ -68,12 +109,27 @@ export function readCoached(j: unknown, today: string): Coached[] {
     const c = readCommitments({ ...a, today });
     if (!c) continue;
     const name = typeof a.name === "string" && a.name.trim() ? a.name.trim().slice(0, 60) : "Agent";
-    const kw = Array.isArray(a.kept_by_week)
-      ? (a.kept_by_week as unknown[]).slice(-8).map((v) => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : null))
-      : undefined;
     const photo = typeof a.photo_url === "string" && /^https:\/\//.test(a.photo_url) ? a.photo_url.slice(0, 500) : null;
-    const seen = [a.last_active, a.last_sign_in_at].find((v) => typeof v === "string" && !Number.isNaN(Date.parse(v))) as string | undefined;
-    out.push({ id: a.agent_id, name: name.includes("@") ? name.split("@")[0] : name, c, setup: readSetup(a.setup), photo, ...(kw ? { keptWeeks: kw } : {}), lastActive: seen ?? null });
+    // last_active_at only: last_sign_in_at stays in MASTER's answer for old readers, never on the board (23 Oct)
+    const seen = [a.last_active_at, a.last_active].find((v) => typeof v === "string" && !Number.isNaN(Date.parse(v))) as string | undefined;
+    const kw = readKeptWeeks(a.kept_by_week);
+    const scores = readScores(a.scores_by_week);
+    const counts = readCounts(a.kept_counts_8w);
+    const thisWeek = numOf(a.score_this_week);
+    out.push({
+      id: a.agent_id,
+      name: name.includes("@") ? name.split("@")[0] : name,
+      c,
+      setup: readSetup(a.setup),
+      photo,
+      ...(kw ? { keptWeeks: kw } : {}),
+      lastActive: seen ?? null,
+      ...(typeof a.last_active_source === "string" ? { lastActiveSource: a.last_active_source.slice(0, 20) } : {}),
+      ...(thisWeek != null ? { scoreThisWeek: Math.max(0, Math.round(thisWeek)) } : {}),
+      ...(scores ? { scoresByWeek: scores } : {}),
+      ...(counts ? { keptCounts: counts } : {}),
+      ...(typeof a.has_commitments === "boolean" ? { hasCommitments: a.has_commitments } : {}),
+    });
   }
   return out;
 }
@@ -112,7 +168,7 @@ export function coachOrder(agents: Coached[], hour: number): Coached[] {
 
 /** The team's keep rate: the average of the agents who have one. */
 export function teamKeepRate(agents: Coached[]): number | null {
-  const rates = agents.map((a) => a.c.keepRate8w).filter((r): r is number => r != null);
+  const rates = agents.map((a) => (a.hasCommitments === false ? null : a.c.keepRate8w)).filter((r): r is number => r != null);
   return rates.length ? rates.reduce((t, r) => t + r, 0) / rates.length : null;
 }
 

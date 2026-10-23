@@ -138,8 +138,8 @@ import { demoPartners, partnersActionUrl, partnersUrl, readPartners, unseenNudge
 import { HABITS_NODE, demoHabitsDay, habitsToday, withHabitsNode, mondayOf, habitsUrl, type HabitToday } from "@/lib/habits.ts";
 import { readRoster, vipsUrl, type VipRoster } from "@/lib/vips.ts";
 import { REFERRALS_NODE, applyThank, applyThanked, askUrl, demoReferrals, thankUrl, thankedUrl, readThanked, thankCount, withReferralCount, yearLine, type ThankKind, readReferrals, referralsUrl, withReferralsNode, type Referrals, demoNetwork, networkUrl, readNetwork, type NetworkCounts } from "@/lib/referrals.ts";
-import { COACH_NODE, coachedUrl, demoCoached, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
-import { demoCoachedMore } from "@/lib/coachBoard.ts";
+import { COACH_NODE, coachedUrl, readCoached, withCoachNode, type Coached } from "@/lib/coach.ts";
+import { demoCoachBoard, REFRESH_MS as COACH_REFRESH_MS } from "@/lib/coachBoard.ts";
 import { WEEK_NODE, commitWay, commitmentsUrl, demoCommitments, queueBody, queueDraft, queueUrl, readCommitments, readQueueAnswer, readQueued, withWeekNode, type Commitments } from "@/lib/commitments.ts";
 import { nextCommitKey } from "@/lib/pulseCoach.ts";
 import { CALENDAR_NODE, PLAN_NODE, planKey, planState, planUrl, readPlan, timed, withPlanNode, type Plan, type PlanState } from "@/lib/plan.ts";
@@ -543,13 +543,31 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   }, [commitments]);
   const [coached, setCoached] = useState<Coached[] | null>(null);
   const [coachOpen, setCoachOpen] = useState(false);
-  useEffect(() => {
-    if (!live) return setCoached([...demoCoached(todayIn()), ...demoCoachedMore(todayIn())]);
+  // The coached route, always read fresh (Parry, 23 Oct: the board's numbers must be live): on load, every time the
+  // Coaching board opens, every 5 minutes while it is open and when the window comes back into focus.
+  const loadCoached = useCallback(() => {
+    if (!live) return setCoached(demoCoachBoard(todayIn()));
     fetch(coachedUrl, { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null)) // 403 for anyone who coaches nobody: no Coaching orb
-      .then((j) => setCoached(j ? readCoached(j, todayIn()) : null))
+      .then((r) => (r.ok ? r.json() : r.status === 403 ? { agents: [] } : null)) // 403 for anyone who coaches nobody: no Coaching orb
+      .then((j) => {
+        if (j) setCoached(readCoached(j, todayIn()));
+      })
       .catch(() => {});
   }, [live]);
+  useEffect(() => {
+    loadCoached();
+  }, [loadCoached]);
+  useEffect(() => {
+    if (!coachOpen) return;
+    loadCoached();
+    const t = window.setInterval(loadCoached, COACH_REFRESH_MS);
+    const onFocus = () => loadCoached();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(t);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [coachOpen, loadCoached]);
   useEffect(() => {
     coachRef.current = coached;
     setGraph((g) => withCoachNode(g, coached, denverHour()));
