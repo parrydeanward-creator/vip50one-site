@@ -2,12 +2,12 @@
 
 import { STORY_LABEL, filterStory, productsIn, storyProduct, type StoryProduct } from "@/lib/lifeStory.ts";
 import AskGroupSection from "./AskGroupSection.tsx";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { dialable, mailable, touchUrl } from "@/lib/contact.ts";
 import { BIZ_PARENT, byName, editText, editValue, isBizSub, listUrl, peopleUrl, personTag, personUrl, readGroups, readPage, readPerson, readTimeline, LEFT_EARLY_LINE, sectionColor, showValue, gapsIn, timelineUrl, type Field, type Groups, type Person, type PersonItem, type Section, type Timeline } from "@/lib/people.ts";
 import { initialsOf, vipTierUrl } from "@/lib/vips.ts";
 import {
-  BDAY_FALLBACK, BDAY_GROUP, NEED, RING_BOX, applyDone, boardColor, boardOf, circleOf, filterQuery, filterTitle, keysOf, lastTouchWords, narrow, ringRadius, sameFilter, seatFaces, todayYmd, toggleFilter,
+  BDAY_FALLBACK, BDAY_GROUP, LEAD_CHIPS, NEED, RING_BOX, applyDone, isSoiSource, sourceColor, sourceLabel, tilesOf, boardColor, boardOf, circleOf, filterQuery, filterTitle, keysOf, lastTouchWords, narrow, ringRadius, sameFilter, seatFaces, todayYmd, toggleFilter,
   RING_KEYS, type Chip, type Done, type Filter,
 } from "@/lib/contactsBoard.ts";
 import PermissionsSection from "./PermissionsSection.tsx";
@@ -86,6 +86,7 @@ export default function Contacts({
   const [server, setServer] = useState<Groups | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>(NEED);
+  const [srcAll, setSrcAll] = useState(false);
   const [list, setList] = useState<PersonItem[]>([]);
   const [listNote, setListNote] = useState<string | null>(null);
   const [listBusy, setListBusy] = useState(false);
@@ -170,7 +171,7 @@ export default function Contacts({
     setListBusy(true);
     setListNote(null);
     const page = async (group: string | null) => {
-      const r = await getJson(listUrl({ group, sort: fq.sort, cursor, limit: PAGE }));
+      const r = await getJson(listUrl({ group, source: fq.source, sort: fq.sort, cursor, limit: PAGE }));
       return { status: r?.status ?? 0, page: r?.status === 200 ? readPage(r.body) : null };
     };
     const got = await page(fq.group);
@@ -194,6 +195,8 @@ export default function Contacts({
     const p = got.page;
     setList((was) => (cursor ? [...was, ...p.items.filter((i) => !was.some((w) => w.id === i.id))] : p.items));
     setMore({ total: p.total, next: p.next });
+    // A lead source: until ONE MOVE filters by source, it answers with every lead; say so rather than mislabel them.
+    if (f.kind === "lsrc" && p.total > f.n) setListNote(`ONE MOVE is switching on the ${sourceLabel(f.key)} filter. Until then this shows all your leads, A-Z.`);
   }, []);
 
   const choose = useCallback(
@@ -601,29 +604,65 @@ export default function Contacts({
               </g>
             </svg>
 
+            {/* The key as tiles (Parry, 23 Oct: "yes on B"): big numbers, Leads wide with its sources, every one opens its people */}
             <div className="ct-key">
-              {board.key.map((k) => {
-                const on = isOn({ kind: "group", key: k.key }) || (k.key === BIZ_PARENT && filter.kind === "group" && isBizSub(filter.key));
+              {(() => {
+                const t = tilesOf(board.key);
+                const tile = (k: (typeof board.key)[number], empty = false, wide = false) => {
+                  const on = isOn({ kind: "group", key: k.key }) || (k.key === BIZ_PARENT && filter.kind === "group" && isBizSub(filter.key));
+                  return (
+                    <button key={k.key} className={`ct-k${on ? " on" : ""}${empty ? " empty" : ""}${wide ? " ct-k-span" : ""}`} data-key={k.key} style={{ color: k.color }} aria-pressed={on} onClick={() => ringPick(k.key)} aria-label={`${k.label}: ${k.count}${k.needsYou ? `, ${k.needsYou} need you` : ""}`}>
+                      <span className="ct-k-n">{k.label.toUpperCase()}</span>
+                      <span className="ct-k-c">{k.count.toLocaleString("en-US")}</span>
+                      {!empty && <em className="ct-k-need">{k.needsYou ? `${k.needsYou.toLocaleString("en-US")} need you` : "\u00a0"}</em>}
+                    </button>
+                  );
+                };
+                const L = t.leads;
+                const srcTot = board.leadsSources.reduce((a, s) => a + s.count, 0) || 1;
+                const shown = srcAll ? board.leadsSources : board.leadsSources.slice(0, LEAD_CHIPS);
+                const rest = board.leadsSources.slice(LEAD_CHIPS);
+                const restN = rest.reduce((a, s) => a + s.count, 0);
+                const pickSrc = (s: { source: string; count: number }) => choose({ kind: "lsrc", key: s.source, n: s.count });
                 return (
-                  <Fragment key={k.key}>
-                  <button className={`ct-k${on ? " on" : ""}`} style={{ color: k.color }} aria-pressed={on} onClick={() => ringPick(k.key)} aria-label={`${k.label}: ${k.count}${k.needsYou ? `, ${k.needsYou} need you` : ""}`}>
-                    <i />
-                    <span className="ct-k-n">{k.label.toUpperCase()}</span>
-                    <span className="ct-k-c">
-                      {k.count.toLocaleString("en-US")}
-                      {k.needsYou ? <em>{` · ${k.needsYou}`}</em> : null}
-                    </span>
-                  </button>
-                  {k.key === "leads" && board.leadsSources.length ? (
-                    <ul className="ct-leadsrc" aria-label="Leads by source">
-                      {board.leadsSources.map((s) => (
-                        <li key={s.source}><span>{s.source}</span><b>{s.count.toLocaleString("en-US")}</b></li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  </Fragment>
+                  <>
+                    {t.before.map((k) => tile(k))}
+                    {L ? (
+                      <div className={`ct-k ct-k-wide${isOn({ kind: "group", key: "leads" }) ? " on" : ""}`} style={{ color: L.color }}>
+                        <button className="ct-k-main" data-key="leads" aria-pressed={isOn({ kind: "group", key: "leads" })} onClick={() => ringPick("leads")} aria-label={`Leads: ${L.count}${L.needsYou ? `, ${L.needsYou} need you` : ""}`}>
+                          <span className="ct-k-n">LEADS</span>
+                          <span className="ct-k-c">{L.count.toLocaleString("en-US")}</span>
+                          <em className="ct-k-need">{L.needsYou ? `${L.needsYou.toLocaleString("en-US")} need you` : "\u00a0"}</em>
+                        </button>
+                        {board.leadsSources.length ? (
+                          <>
+                            <div className="ct-lbar" role="group" aria-label="Leads by source">
+                              {board.leadsSources.slice(0, LEAD_CHIPS).map((s, i) => (
+                                <button key={s.source} title={`${sourceLabel(s.source)}: ${s.count.toLocaleString("en-US")}`} aria-label={`${sourceLabel(s.source)} leads: ${s.count}`} style={{ width: `${(s.count / srcTot) * 100}%`, background: sourceColor(s.source, i) }} onClick={() => pickSrc(s)} />
+                              ))}
+                              {restN ? <button title={`${rest.length} smaller sources: ${restN}`} aria-label={`${rest.length} smaller sources: ${restN}`} style={{ width: `${(restN / srcTot) * 100}%`, background: "#5a6488" }} onClick={() => setSrcAll(true)} /> : null}
+                            </div>
+                            <div className="ct-lchips">
+                              {shown.map((s, i) => (
+                                <button key={s.source} className={`ct-lchip${isOn({ kind: "lsrc", key: s.source, n: s.count }) ? " on" : ""}${isSoiSource(s.source) ? " soi" : ""}`} aria-pressed={isOn({ kind: "lsrc", key: s.source, n: s.count })} onClick={() => pickSrc(s)} title={isSoiSource(s.source) ? "SOI moving back to Sphere" : undefined}>
+                                  <i style={{ background: sourceColor(s.source, i) }} />
+                                  {sourceLabel(s.source)} <b>{s.count.toLocaleString("en-US")}</b>
+                                </button>
+                              ))}
+                              {rest.length ? (
+                                <button className="ct-lchip more" onClick={() => setSrcAll(!srcAll)}>{srcAll ? "Fewer" : <>{`+${rest.length} more · `}<b>{restN.toLocaleString("en-US")}</b></>}</button>
+                              ) : null}
+                            </div>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {/* an odd tile out spans the row rather than sit alone */}
+                    {t.after.map((k, i) => tile(k, false, t.after.length % 2 === 1 && i === t.after.length - 1))}
+                    {t.empty.map((k) => tile(k, true))}
+                  </>
                 );
-              })}
+              })()}
             </div>
 
             <div className="ct-from">

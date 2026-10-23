@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  BDAY_GROUP, NEED, RING_KEYS, applyDone, boardOf, circleOf, filterQuery, filterTitle, keysOf, lastTouchWords, narrow, sameFilter, seatFaces, toggleFilter, type Filter,
+  BDAY_GROUP, LEAD_CHIPS, NEED, RING_KEYS, applyDone, isSoiSource, sourceColor, sourceLabel, tilesOf, boardOf, circleOf, filterQuery, filterTitle, keysOf, lastTouchWords, narrow, sameFilter, seatFaces, toggleFilter, type Filter,
 } from "../lib/contactsBoard.ts";
 import { listUrl, peopleUrl, readGroups, readPage, type Groups, type PersonItem } from "../lib/people.ts";
 import { exampleMoveAnswer, makeExampleStore } from "../lib/examples/move2.ts";
@@ -224,10 +224,49 @@ test("the key has Leads with its sources under it, and Agents; sphere is the tag
   assert.ok(!b.sources.some((s) => s.key === "vip_no_birthday"));
   // largest first, junk and zero rows dropped, a repeated source kept once
   assert.deepEqual(b.leadsSources, [{ source: "BT Paid Ad", count: 70 }, { source: "Zillow", count: 30 }, { source: "Real Geeks", count: 20 }]);
-  // Leads filters the list; the sub-lines are counts only (the people route has no source filter)
+  // Leads filters the list; each source now opens its own leads (Parry, 23 Oct: "yes on B"; this used to assert the
+  // sources were counts only, which deliberately changed)
   assert.deepEqual(filterQuery({ kind: "group", key: "leads" }), { group: "leads", sort: "name" });
   assert.ok(!listUrl({ group: "leads" }).includes("source="));
+  const z: Filter = { kind: "lsrc", key: "Zillow", n: 30 };
+  assert.deepEqual(filterQuery(z), { group: "leads", sort: "name", source: "Zillow" });
+  assert.ok(listUrl({ group: "leads", source: "BT Paid Ad", sort: "name" }).includes("group=leads&source=BT+Paid+Ad"));
+  assert.ok(!listUrl({ source: "Zillow" }).includes("source="), "a source never goes without its group");
+  assert.equal(filterTitle(z, b, g.gaps, 0), "ZILLOW LEADS · 30");
+  assert.ok(keysOf({ id: "p", tier: null, cls: null }, new Map(), z).includes("leads"));
   // an older answer: the lines still show, at 0, with no sources
   assert.deepEqual(boardOf(live()).leadsSources, []);
   assert.equal(boardOf(live()).key.find((k) => k.key === "leads")!.count, 0);
+});
+
+// ---- the key as tiles (Parry, 23 Oct: "yes on B"; vip50-ecosystem research/mockups/contacts-key) ----
+test("tiles: Leads is the one wide tile after the four rings; empty groups go last; Other after Agents", () => {
+  const line = (key: string, count: number) => ({ key, label: key, count, needsYou: 0, color: "#fff", ring: false });
+  const t = tilesOf(["vip50", "vip100", "past_clients", "sphere", "other", "biz_vip", "leads", "agents", "hwc", "to_sort"].map((k) => line(k, k === "biz_vip" ? 0 : 5)));
+  assert.deepEqual(t.before.map((k) => k.key), ["vip50", "vip100", "past_clients", "sphere"]);
+  assert.equal(t.leads?.key, "leads");
+  assert.deepEqual(t.after.map((k) => k.key), ["hwc", "agents", "other", "to_sort"]);
+  assert.deepEqual(t.empty.map((k) => k.key), ["biz_vip"]);
+  // a group ONE MOVE adds later still shows, after the known ones
+  assert.deepEqual(tilesOf([line("leads", 1), line("new_circle", 2)]).after.map((k) => k.key), ["new_circle"]);
+  assert.equal(tilesOf([line("vip50", 1)]).leads, null);
+});
+
+test("lead sources read like people wrote them; Sphere is flagged gold; seven chips then +N more", () => {
+  assert.equal(sourceLabel("DIRECT "), "Direct");
+  assert.equal(sourceLabel("CALLIN "), "Called in");
+  assert.equal(sourceLabel("PERSONALTRANSACTION "), "Personal transaction");
+  assert.equal(sourceLabel("LISTING_EMAIL "), "Listing email");
+  assert.equal(sourceLabel("open_house"), "Open house");
+  assert.equal(sourceLabel("other"), "Other");
+  assert.equal(sourceLabel("LENDER "), "Lender");
+  assert.equal(sourceLabel("BT Paid Ad"), "BT Paid Ad");
+  assert.equal(sourceLabel("Certileads"), "Certileads");
+  assert.equal(sourceLabel(" "), "Unknown");
+  assert.ok(isSoiSource("Sphere ") && !isSoiSource("Zillow"));
+  assert.equal(sourceColor("Sphere", 2), "#c9a43e");
+  assert.equal(LEAD_CHIPS, 7);
+  const src = readFileSync(new URL("../components/brain/Contacts.tsx", import.meta.url), "utf8");
+  assert.match(src, /kind: "lsrc", key: s.source, n: s.count/);
+  assert.ok(!src.includes("ct-leadsrc"), "the old sub-line list is gone");
 });

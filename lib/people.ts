@@ -13,7 +13,7 @@ export type GroupKind = "tier" | "source" | "gap";
 export interface PeopleGroup { key: string; label: string; kind: GroupKind; count: number; needsYou: number; needsNow: number }
 export interface Gaps { vipNoBirthday: number; toSort: number; possibleDuplicates: number }
 export interface LeadSource { source: string; count: number }
-export interface Groups { total: number; needsYou: number; needsNow: number; groups: PeopleGroup[]; gaps: Gaps; /** Leads by source, largest first (vip50-web-crm leads_by_source); counts only, the route has no source filter. */ leadsBySource: LeadSource[] }
+export interface Groups { total: number; needsYou: number; needsNow: number; groups: PeopleGroup[]; gaps: Gaps; /** Leads by source, largest first (vip50-web-crm leads_by_source); each opens its people with ?group=leads&source=. */ leadsBySource: LeadSource[] }
 
 export interface PersonItem {
   id: string;
@@ -209,9 +209,12 @@ export function readTimeline(j: unknown): Timeline | null {
 }
 
 /** §3k.2 query: one group or all, a search, a sort, a page. */
-export function listUrl(o: { group?: string | null; q?: string; sort?: "pulse" | "name" | "recent"; cursor?: string | null; limit?: number }): string {
+export function listUrl(o: { group?: string | null; source?: string | null; q?: string; sort?: "pulse" | "name" | "recent"; cursor?: string | null; limit?: number }): string {
   const p = new URLSearchParams();
   if (o.group && KEY.test(o.group)) p.set("group", o.group);
+  // one lead source within Leads (ecosystem note to GO/MOVE, 23 Oct 0645: ?group=leads&source=<name>)
+  const src = o.source?.trim();
+  if (src && o.group) p.set("source", src.slice(0, 80));
   const q = o.q?.trim();
   if (q) p.set("q", q.slice(0, 100));
   p.set("sort", o.sort ?? "pulse");
