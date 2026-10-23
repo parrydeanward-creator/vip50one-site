@@ -466,7 +466,10 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const frameBoxRef = useRef<HTMLDivElement>(null);
   const [frameReady, setFrameReady] = useState<string | null>(null);
   const [frameScale, setFrameScale] = useState(1);
-  const focusIsPage = !!inBrainPage(state.focusId);
+  // A ONE MOVE page that has no orb on the map (lib/moveMenu.ts MOVE_BUTTON_PAGES: Archived Contacts) opens from its
+  // button in the same page frame; the map stays where it was and Back returns to it.
+  const [offMapPage, setOffMapPage] = useState<string | null>(null);
+  const focusIsPage = !!inBrainPage(state.focusId) || !!offMapPage;
   useEffect(() => {
     const el = frameBoxRef.current;
     if (!el) return;
@@ -2354,6 +2357,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const goTo = useCallback((id: string) => {
     if (arrivalHold.current && arrivalHold.current.id !== id) arrivalHold.current = null; // the agent moved on
     setFullPage((p) => (p && movePageId(p) === id ? p : null));
+    setOffMapPage(null);
     setHighlight(null);
     setAsk(null);
     setTour(null);
@@ -2645,12 +2649,21 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   const openMovePage = (path: string) => {
     setHrStart(null);
     setFullPage(path);
+    // no orb for it on this map: the frame opens over the orb the agent is on
+    if (IN_BRAIN.has(path) && !ix.byId.has(movePageId(path))) return setOffMapPage(path);
     goTo(movePageId(path));
+  };
+  // Back / close on a page frame: an off-map page returns to the orb it was opened from, an orb's page to its parent.
+  const leavePage = () => {
+    if (offMapPage) {
+      setOffMapPage(null);
+      setFullPage(null);
+    } else goTo(focus.parentId ?? "move");
   };
   // A row's own way in (rule 12, Parry 19 Oct): a ONE MOVE page inside the Brain; on the example agent, which has no such
   // page on its map, one line says what it opens when signed in.
   const goPage = (path: string, label?: string) => {
-    if (ix.byId.has(movePageId(path))) return openMovePage(path);
+    if (ix.byId.has(movePageId(path)) || (live && IN_BRAIN.has(path))) return openMovePage(path);
     setSiteNote(`Example agent: signed in, this opens ${label ?? MOVE_MENU.find((m) => m.path === path)?.label ?? "that page"}.`);
   };
   // A number on an orb's panel opens what is behind it (lib/statOpen.ts); an orb not on the map, or no such page, opens nothing.
@@ -2947,7 +2960,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
   };
   // A ONE MOVE page that opens inside the Brain (lib/moveMenu.ts IN_BRAIN).
   // the example agent's New to Sort orb (lib/graph/move.ts) opens the same native view as the live one
-  const rawPage = !ask && !tour ? inBrainPage(state.focusId) ?? (state.focusId === DEMO_NTS_NODE ? { label: "New to Sort", path: NTS_PATH } : null) : null;
+  const rawPage = !ask && !tour ? (offMapPage ? inBrainPage(movePageId(offMapPage)) : null) ?? inBrainPage(state.focusId) ?? (state.focusId === DEMO_NTS_NODE ? { label: "New to Sort", path: NTS_PATH } : null) : null;
   // The example agent's Drop-By Map, Referral Network... open on their side panel (lib/examples/move2.ts), not a sign-in page.
   // Referral Network is drawn by the Brain for both (§3aq, 22 Oct), so the example agent opens the page too.
   const pagePanel = rawPage && !(!live && M2_PATHS.has(rawPage.path) && rawPage.path !== "/referral-network") && (!(PANEL_FIRST.has(rawPage.path) || LEARN_PANEL_FIRST.has(rawPage.path)) || fullPage === rawPage.path) ? rawPage : null;
@@ -4497,7 +4510,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   {vipClassic || referQuery ? "ONE Brain view" : "Classic page"}
                 </button>
               )}
-              <button className="page-panel-close" onClick={() => goTo(focus.parentId ?? "move")} aria-label={`Close ${pagePanel.label}`}>×</button>
+              <button className="page-panel-close" onClick={() => leavePage()} aria-label={`Close ${pagePanel.label}`}>×</button>
             </header>
             )}
             <div ref={frameBoxRef} className="page-panel-body">
@@ -4519,13 +4532,13 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                     goTo(page);
                   }}
                   onRefer={(id) => setPageQuery({ path: "/referral-network", query: `contact=${encodeURIComponent(id)}` })}
-                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onBack={() => leavePage()}
                   onClassic={() => setVipClassic(true)}
                 />
               ) : vipNative && nativeKind === "onsite" ? (
                 <OnMySite
                   live={live}
-                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onBack={() => leavePage()}
                   onOpenPerson={(id) => {
                     const page = movePageId("/contacts");
                     if (!ix.byId.has(page)) return;
@@ -4537,7 +4550,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                 <TouchAudit
                   onUnavailable={vipUnavailable}
                   onChanged={refreshLive}
-                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onBack={() => leavePage()}
                   onClassic={() => setVipClassic(true)}
                   celebrate={graph.celebrate}
                   due={ix.byId.get("move-audit")?.dueContacts}
@@ -4549,7 +4562,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   onOpenPage={(path) => goPage(path)}
                   onUnavailable={vipUnavailable}
                   onChanged={refreshLive}
-                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onBack={() => leavePage()}
                   onClassic={() => setVipClassic(true)}
                   celebrate={graph.celebrate}
                 />
@@ -4561,14 +4574,14 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                     setNtsGone((g) => new Set(g).add(id));
                     if (live) refreshLive();
                   }}
-                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onBack={() => leavePage()}
                   onClassic={() => setVipClassic(true)}
                 />
               ) : vipNative && nativeKind === "hwc" ? (
                 <HotWarmCold
                   onUnavailable={vipUnavailable}
                   onChanged={refreshLive}
-                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onBack={() => leavePage()}
                   onClassic={() => setVipClassic(true)}
                   celebrate={graph.celebrate}
                 />
@@ -4579,7 +4592,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   onOpenGbp={openGbp}
                   onUnavailable={vipUnavailable}
                   onChanged={refreshLive}
-                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onBack={() => leavePage()}
                   onClassic={() => setVipClassic(true)}
                   askAi={askAi ? cardFor(askCheck, askAi) : undefined}
                   onOpenAskAi={() => setAiOpen(true)}
@@ -4590,7 +4603,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   startAt={hrStart ?? undefined}
                   demo={!live && !productTour}
                   onUnavailable={vipUnavailable}
-                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onBack={() => leavePage()}
                   onClassic={() => setVipClassic(true)}
                   onOpenPerson={(id) => {
                     const page = movePageId("/contacts");
@@ -4602,7 +4615,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
               ) : vipNative && nativeKind === "rolodex" ? (
                 <Rolodex
                   onUnavailable={vipUnavailable}
-                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onBack={() => leavePage()}
                   onClassic={() => setVipClassic(true)}
                 />
               ) : vipNative && nativeKind === "weekly" ? (
@@ -4610,7 +4623,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   onUnavailable={vipUnavailable}
                   example={live ? undefined : demoWeeklyRaw(todayIn())}
                   onChanged={refreshLive}
-                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onBack={() => leavePage()}
                   onClassic={() => setVipClassic(true)}
                 />
               ) : vipNative && nativeKind === "daily" ? (
@@ -4618,7 +4631,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   onUnavailable={vipUnavailable}
                   example={live ? undefined : demoDailyRaw(todayIn())}
                   onChanged={refreshLive}
-                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onBack={() => leavePage()}
                   onClassic={() => setVipClassic(true)}
                 />
               ) : vipNative ? (
@@ -4626,7 +4639,7 @@ export default function Brain({ graph: initialGraph, pkg = "complete", agent: ag
                   today={localDay(new Date())}
                   onUnavailable={vipUnavailable}
                   onChanged={refreshLive}
-                  onBack={() => goTo(focus.parentId ?? "move")}
+                  onBack={() => leavePage()}
                   onClassic={() => setVipClassic(true)}
                   referred={referredMap}
                   celebrate={graph.celebrate}
