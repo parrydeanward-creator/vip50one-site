@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="robots" content="noindex, nofollow">
+<title>Client Portal Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=Lato:wght@400;700;900&family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap">
+<style>[hidden]{display:none!important}body{margin:0}</style></head><body>
+<style>
+/* Layout: a switcher bar over two worlds. Client screens wear the team site (black bar, white page, gold);
+   agent screens wear the Brain (navy glass). Single committed look per world, set explicitly. */
+:root {
+  color-scheme: light;
+  --ink: #141414; --paper: #ffffff; --wash: #f6f4ef; --line: #e6e1d6; --muted: #6b665c;
+  --gold: #c59d45; --gold-d: #9c7a2e; --good: #2f8f5b; --warn: #c9861a; --red: #c8463b;
+  --navy: #070b1c; --card: #0e1532; --nline: #1f2a55; --ntext: #eef1fb; --ndim: #8f99bb; --ngold: #f2c94c; --nred: #ff6b5f; --nblue: #5b9cf5; --ngreen: #3ccf8e;
+  --serif: "Playfair Display", Georgia, serif; --sans: "Lato", "Helvetica Neue", Arial, sans-serif;
+  --disp: "Bebas Neue", "Oswald", Impact, sans-serif; --ui: "Inter", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { background: #0b0b0b; }
+body { font-family: var(--sans); color: var(--ink); }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; text-align: left; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* switcher */
+.sw { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: #0b0b0b; border-bottom: 1px solid #2a2a2a; padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.sw h1 { font-family: var(--ui); font-size: 13px; font-weight: 700; letter-spacing: .12em; color: #d9d2c2; margin: 0 8px 0 0; text-transform: uppercase; }
+.sw .grp { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.sw .grp span { font: 600 10px var(--ui); letter-spacing: .14em; color: #8a8478; text-transform: uppercase; margin-right: 2px; }
+.sw button { font: 600 12.5px var(--ui); color: #d9d2c2; padding: 7px 12px; border-radius: 999px; border: 1px solid #333; }
+.sw button.on { background: var(--gold); color: #141414; border-color: var(--gold); }
+.ex { margin-left: auto; font: 700 10px var(--ui); letter-spacing: .12em; color: #141414; background: #f2c94c; padding: 4px 9px; border-radius: 4px; }
+.note { background: #141414; color: #cfc8b8; font: 13.5px/1.55 var(--ui); padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); border-bottom: 1px solid #2a2a2a; }
+.note b { color: #fff; }
+
+/* ---------- client world ---------- */
+.cw { background: var(--wash); min-height: 80vh; }
+.c-head { background: #1b1b1b; color: #fff; display: flex; align-items: center; gap: 20px; padding-block: 14px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.c-head nav { display: flex; gap: 22px; font: 700 12px var(--sans); letter-spacing: .12em; }
+.c-logo { font-family: var(--serif); font-size: 24px; color: var(--gold); letter-spacing: .02em; margin: 0 auto; }
+.c-logo small { display: block; font: 700 8px var(--sans); letter-spacing: .5em; color: #bfb6a2; text-align: center; margin-top: -2px; }
+.c-acct { display: flex; align-items: center; gap: 8px; border: 1px solid var(--gold); color: #fff; padding: 7px 12px 7px 7px; border-radius: 999px; font: 700 12px var(--sans); letter-spacing: .06em; }
+.c-acct i { width: 24px; height: 24px; border-radius: 50%; background: var(--gold); color: #141414; display: grid; place-items: center; font-style: normal; font-size: 11px; }
+@media (max-width: 860px) { .c-head nav { display: none; } .c-logo { margin: 0; } .c-acct { margin-left: auto; } }
+
+.c-body { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr) 290px; gap: 24px; padding-block: 26px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+@media (max-width: 1100px) { .c-body { grid-template-columns: 200px minmax(0, 1fr); } .c-rail { grid-column: 1 / -1; } }
+@media (max-width: 760px) { .c-body { grid-template-columns: minmax(0, 1fr); } }
+.c-nav { display: grid; gap: 2px; align-content: start; position: sticky; top: 70px; }
+@media (max-width: 760px) { .c-nav { position: static; grid-auto-flow: column; overflow-x: auto; gap: 6px; } }
+.c-nav button { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px; border-radius: 8px; font: 700 13.5px var(--sans); color: #3a362f; white-space: nowrap; gap: 10px; }
+.c-nav button.on { background: #1b1b1b; color: #fff; }
+.c-nav button em { font-style: normal; font: 900 11px var(--sans); background: var(--gold); color: #141414; border-radius: 999px; padding: 1px 7px; }
+.c-nav .who { font: 700 10.5px var(--sans); letter-spacing: .16em; color: var(--muted); text-transform: uppercase; padding: 4px 14px 10px; }
+@media (max-width: 760px) { .c-nav .who { display: none; } }
+
+.c-main { min-width: 0; display: grid; gap: 18px; align-content: start; }
+.hello h2 { font-family: var(--serif); font-weight: 400; font-size: 34px; margin: 0; text-wrap: balance; }
+.hello p { margin: 6px 0 0; color: var(--muted); font-size: 15px; }
+.panel { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 20px; min-width: 0; }
+.panel h3 { margin: 0 0 12px; font: 900 11.5px var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--gold-d); display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.panel h3 a, .panel h3 button { font: 700 12.5px var(--sans); letter-spacing: 0; text-transform: none; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.next { background: #1b1b1b; color: #fff; border-radius: 12px; padding: 18px 20px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 16px; align-items: center; }
+.next .when { font-family: var(--serif); font-size: 15px; color: var(--gold); text-align: center; line-height: 1.1; border-right: 1px solid #3a3a3a; padding-right: 16px; }
+.next .when b { display: block; font-size: 30px; color: #fff; font-weight: 400; }
+.next p { margin: 0; } .next p.s { color: #bdb6a6; font-size: 13.5px; margin-top: 3px; }
+@media (max-width: 560px) { .next { grid-template-columns: auto minmax(0, 1fr); } .next .btn { grid-column: 1 / -1; } }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font: 900 12px var(--sans); letter-spacing: .1em; text-transform: uppercase; padding: 11px 16px; border-radius: 6px; background: var(--gold); color: #141414; white-space: nowrap; }
+.btn.ghost { background: transparent; border: 1px solid currentColor; }
+.btn.dark { background: #1b1b1b; color: #fff; }
+
+/* journey */
+.journey { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.step { position: relative; padding-top: 30px; font-size: 12.5px; color: var(--muted); }
+.step::before { content: ""; position: absolute; top: 9px; left: 0; right: -6px; height: 3px; background: var(--line); }
+.step:last-child::before { right: 0; }
+.step i { position: absolute; top: 0; left: 0; width: 21px; height: 21px; border-radius: 50%; background: var(--paper); border: 3px solid var(--line); z-index: 1; }
+.step.done::before, .step.done i { background: var(--gold); border-color: var(--gold); }
+.step.now i { border-color: var(--gold); box-shadow: 0 0 0 5px rgba(197, 157, 69, .22); }
+.step.now { color: var(--ink); font-weight: 700; }
+.step b { display: block; color: var(--ink); font-size: 13.5px; }
+@media (max-width: 560px) { .journey { grid-template-columns: repeat(5, minmax(56px, 1fr)); overflow-x: auto; } }
+
+/* homes */
+.homes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 900px) { .homes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .homes { grid-template-columns: minmax(0, 1fr); } }
+.home { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--paper); display: grid; }
+.ph { aspect-ratio: 16 / 10; max-width: 100%; position: relative; }
+.ph .tag { position: absolute; left: 10px; top: 10px; font: 900 10px var(--sans); letter-spacing: .1em; text-transform: uppercase; background: #1b1b1b; color: #fff; padding: 4px 8px; border-radius: 4px; }
+.ph .tag.drop { background: var(--good); }
+.ph .heart { position: absolute; right: 10px; top: 8px; width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,.92); display: grid; place-items: center; font-size: 16px; color: var(--red); }
+.home .b { padding: 12px 14px 14px; display: grid; gap: 4px; }
+.home .p { font: 900 19px var(--sans); }
+.home .a { font-size: 13.5px; color: #3a362f; }
+.home .f { font-size: 12.5px; color: var(--muted); }
+.home .why { margin-top: 6px; font-size: 12.5px; background: var(--wash); border-left: 3px solid var(--gold); padding: 7px 9px; border-radius: 0 6px 6px 0; }
+.home .acts { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.home .acts button { font: 700 12px var(--sans); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; }
+
+/* rows */
+.rows { display: grid; }
+.row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.row .d { width: 48px; text-align: center; font-family: var(--serif); color: var(--gold-d); font-size: 12px; line-height: 1.05; }
+.row .d b { display: block; font-size: 22px; color: var(--ink); font-weight: 400; }
+.row .t { font-weight: 700; } .row .s { font-size: 13px; color: var(--muted); }
+.pill { font: 900 10.5px var(--sans); letter-spacing: .08em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.ok { background: #e3f3ea; color: var(--good); } .pill.due { background: #fbefd9; color: #8a5a07; } .pill.late { background: #f8e1de; color: var(--red); } .pill.wait { background: #eeeae1; color: var(--muted); }
+.check { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); }
+.check:first-child { border-top: 0; }
+.check input { width: 18px; height: 18px; accent-color: var(--gold-d); margin-top: 2px; flex: none; }
+.check .s { font-size: 13px; color: var(--muted); }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 760px) { .two { grid-template-columns: minmax(0, 1fr); } }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 640px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stat { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+.stat b { display: block; font-family: var(--serif); font-size: 30px; font-weight: 400; }
+.stat span { font: 700 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.stat em { display: block; font-style: normal; font-size: 12.5px; color: var(--good); margin-top: 2px; }
+.bigval { font-family: var(--serif); font-size: 44px; line-height: 1; }
+.range { position: relative; height: 10px; background: var(--wash); border-radius: 5px; margin: 14px 0 6px; }
+.range span { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, #e9d9b2, var(--gold)); border-radius: 5px; }
+.range i { position: absolute; top: -5px; width: 4px; height: 20px; background: var(--ink); border-radius: 2px; }
+.small { font-size: 12.5px; color: var(--muted); }
+
+/* messages */
+.msgs { display: grid; gap: 10px; }
+.bub { max-width: 78%; padding: 10px 13px; border-radius: 12px; font-size: 14px; line-height: 1.45; }
+.bub.them { background: var(--wash); border: 1px solid var(--line); }
+.bub.me { background: #1b1b1b; color: #fff; justify-self: end; }
+.bub small { display: block; font-size: 11px; opacity: .65; margin-top: 4px; }
+.compose { display: flex; gap: 8px; margin-top: 12px; }
+.compose input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 11px 12px; font: inherit; }
+
+/* right rail */
+.c-rail { display: grid; gap: 16px; align-content: start; }
+.agent { background: #1b1b1b; color: #fff; border-radius: 12px; padding: 18px; display: grid; gap: 12px; }
+.agent .top { display: flex; gap: 12px; align-items: center; }
+.agent .face { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--gold), #6d5521); display: grid; place-items: center; font-family: var(--serif); font-size: 20px; color: #141414; flex: none; }
+.agent .nm { font-family: var(--serif); font-size: 19px; } .agent .rl { font-size: 12.5px; color: #bdb6a6; }
+.agent .acts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.agent .acts button { border: 1px solid #3c3c3c; border-radius: 6px; padding: 9px 4px; font: 700 12px var(--sans); text-align: center; }
+.agent .acts button:first-child { background: var(--gold); color: #141414; border-color: var(--gold); }
+.agent .num2 { font-size: 12.5px; color: #bdb6a6; user-select: all; }
+.askp { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.askp h4 { margin: 0 0 8px; font: 900 11.5px var(--sans); letter-spacing: .16em; color: var(--gold-d); }
+.askp .q { display: flex; flex-wrap: wrap; gap: 6px; }
+.askp .q button { font-size: 12.5px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; }
+.askp input { width: 100%; margin-top: 10px; border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; font: inherit; }
+.ans { margin-top: 10px; font-size: 13.5px; background: var(--wash); border-radius: 8px; padding: 10px 12px; line-height: 1.5; }
+.team { font-size: 13px; display: grid; gap: 8px; }
+.team div { display: flex; justify-content: space-between; gap: 10px; }
+.team div span:last-child { color: var(--muted); text-align: right; }
+
+/* phone frame */
+.phwrap { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; padding-block: 30px 50px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); background: var(--wash); }
+.phone { width: 360px; max-width: 100%; height: 740px; border-radius: 44px; background: #111; padding: 12px; box-shadow: 0 30px 60px rgba(0,0,0,.25); }
+.screen { width: 100%; height: 100%; border-radius: 34px; overflow: hidden; background: var(--wash); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+.p-top { background: #1b1b1b; color: #fff; padding: 22px 18px 14px; }
+.p-top .l { font-family: var(--serif); color: var(--gold); font-size: 18px; }
+.p-top h2 { font-family: var(--serif); font-weight: 400; font-size: 24px; margin: 8px 0 0; }
+.p-body { overflow-y: auto; padding: 14px; display: grid; gap: 12px; align-content: start; }
+.p-tabs { display: grid; grid-template-columns: repeat(5, 1fr); background: #fff; border-top: 1px solid var(--line); padding: 8px 4px 14px; }
+.p-tabs button { text-align: center; font: 700 10.5px var(--sans); color: var(--muted); display: grid; gap: 3px; justify-items: center; }
+.p-tabs button.on { color: var(--gold-d); }
+.p-tabs svg { width: 22px; height: 22px; }
+.phcap { max-width: 320px; font: 14px/1.6 var(--ui); color: #3a362f; align-self: center; }
+.phcap h3 { font-family: var(--serif); font-weight: 400; font-size: 26px; margin: 0 0 10px; }
+.phcap li { margin-bottom: 6px; }
+
+/* ---------- agent world ---------- */
+.aw { background: var(--navy); color: var(--ntext); font-family: var(--ui); min-height: 80vh; padding-block: 26px 50px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.aw .wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 18px; }
+.a-tag { font: 700 11px var(--ui); letter-spacing: .14em; color: var(--ngold); border: 1px solid rgba(242,201,76,.5); border-radius: 999px; padding: 4px 10px; justify-self: start; }
+.a-h1 { font-family: var(--disp); font-size: 48px; letter-spacing: .02em; margin: 0; line-height: 1; }
+.a-sub { color: var(--ndim); margin: 4px 0 0; font-size: 14.5px; }
+.acard { background: var(--card); border: 1px solid var(--nline); border-radius: 14px; padding: 18px; min-width: 0; }
+.acard h3 { margin: 0 0 12px; font: 700 11.5px var(--ui); letter-spacing: .16em; color: var(--ndim); text-transform: uppercase; display: flex; justify-content: space-between; gap: 10px; }
+.agrid { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 960px) { .agrid { grid-template-columns: minmax(0, 1fr); } }
+.who-c { display: grid; gap: 12px; }
+.who-c .top { display: flex; gap: 12px; align-items: center; }
+.av { width: 52px; height: 52px; border-radius: 50%; border: 2.5px solid var(--nred); display: grid; place-items: center; font-weight: 700; background: #1b2750; flex: none; }
+.who-c .nm { font-family: var(--disp); font-size: 28px; line-height: 1; letter-spacing: .02em; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: 600 11.5px var(--ui); padding: 4px 9px; border-radius: 999px; background: #18224a; color: #cfd6ee; }
+.chip.hot { background: rgba(255,107,95,.16); color: var(--nred); }
+.chip.gold { background: rgba(242,201,76,.14); color: var(--ngold); }
+.aacts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ab { border-radius: 10px; padding: 11px 6px; text-align: center; font: 700 13px var(--ui); border: 1px solid rgba(242,201,76,.5); color: var(--ngold); }
+.ab.solid { background: var(--ngold); color: #10142a; border-color: var(--ngold); }
+.pulse { border: 1px solid rgba(255,107,95,.45); background: rgba(255,107,95,.07); border-radius: 12px; padding: 14px; font-size: 14px; line-height: 1.5; }
+.pulse b { color: var(--nred); font: 700 11px var(--ui); letter-spacing: .14em; display: block; margin-bottom: 4px; }
+.kv { display: grid; gap: 8px; font-size: 13.5px; }
+.kv div { display: flex; justify-content: space-between; gap: 10px; }
+.kv span:first-child { color: var(--ndim); }
+.kv .y { color: var(--ngreen); } .kv .n { color: var(--ngold); }
+.astats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 640px) { .astats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ast { background: #0b1230; border: 1px solid var(--nline); border-radius: 12px; padding: 12px 14px; }
+.ast b { display: block; font-family: var(--disp); font-size: 34px; line-height: 1; letter-spacing: .02em; }
+.ast span { font: 600 11px var(--ui); letter-spacing: .1em; color: var(--ndim); text-transform: uppercase; }
+.ast em { font-style: normal; font-size: 12px; color: var(--ngreen); display: block; margin-top: 2px; }
+.spark { width: 100%; height: 70px; display: block; }
+.vt { width: 100%; border-collapse: collapse; font-size: 13.5px; color: var(--ntext); font-family: var(--ui); }
+.vt td { color: var(--ntext); }
+.vt th { text-align: left; font: 600 11px var(--ui); letter-spacing: .1em; color: var(--ndim); text-transform: uppercase; padding: 0 10px 8px 0; }
+.vt td { padding: 10px 10px 10px 0; border-top: 1px solid var(--nline); vertical-align: middle; }
+.vt td.r, .vt th.r { text-align: right; }
+.bar { height: 6px; border-radius: 3px; background: #18224a; overflow: hidden; min-width: 60px; }
+.bar span { display: block; height: 100%; background: var(--nblue); }
+.tl { display: grid; gap: 0; }
+.tl div { display: grid; grid-template-columns: 70px 18px minmax(0, 1fr); gap: 8px; font-size: 13.5px; padding: 6px 0; }
+.tl i { width: 10px; height: 10px; border-radius: 50%; background: var(--nblue); margin-top: 5px; }
+.tl .tm { color: var(--ndim); font-size: 12.5px; }
+.scroll { overflow-x: auto; }
+.wl { display: grid; }
+.wr { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 4px; border-top: 1px solid var(--nline); }
+.wr:first-child { border-top: 0; }
+.wr .av { width: 44px; height: 44px; font-size: 13px; }
+.wr .t { font-weight: 600; } .wr .s { font-size: 13px; color: var(--ndim); margin-top: 2px; }
+.wr .acts { display: flex; gap: 6px; }
+.wr .acts button { font: 700 12px var(--ui); padding: 8px 11px; border-radius: 8px; border: 1px solid rgba(242,201,76,.5); color: var(--ngold); }
+.wr .acts button.solid { background: var(--ngold); color: #10142a; }
+@media (max-width: 600px) { .wr { grid-template-columns: 44px minmax(0, 1fr); } .wr .acts { grid-column: 2; } }
+.heat { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.filt { display: flex; gap: 6px; flex-wrap: wrap; }
+.filt button { font: 600 12.5px var(--ui); padding: 7px 12px; border-radius: 999px; background: #18224a; color: #cfd6ee; }
+.filt button.on { background: var(--ngold); color: #10142a; }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: #141414; color: #fff; font: 600 13.5px var(--ui); padding: 11px 16px; border-radius: 10px; border: 1px solid var(--gold); z-index: 30; }
+@media (prefers-reduced-motion: no-preference) { .c-nav button, .sw button, .filt button { transition: background .15s, color .15s; } }
+</style>
+
+<div class="sw" role="tablist" aria-label="Choose a screen">
+  <h1>ONE client portal</h1>
+  <div class="grp"><span>Client sees</span>
+    <button data-v="buyer" class="on">Buyer</button><button data-v="contract">Under contract</button><button data-v="seller">Seller</button><button data-v="owner">Homeowner</button><button data-v="phone">On the phone</button>
+  </div>
+  <div class="grp"><span>Agent sees</span>
+    <button data-v="contact">A contact</button><button data-v="onsite">Who is on my site</button><button data-v="lead">Team lead</button>
+  </div>
+  <span class="ex">EXAMPLE PEOPLE</span>
+</div>
+<div class="note" id="note"></div>
+<div id="view"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const toast = (t) => { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 2600); };
+const svgHouse = (a, b, c) => `<svg viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true"><rect width="320" height="200" fill="${a}"/><rect y="140" width="320" height="60" fill="${c}"/><polygon points="70,95 160,40 250,95" fill="${b}"/><rect x="88" y="95" width="144" height="70" fill="#f4efe4"/><rect x="108" y="110" width="30" height="24" fill="#9fb6c9"/><rect x="182" y="110" width="30" height="24" fill="#9fb6c9"/><rect x="147" y="122" width="26" height="43" fill="${b}"/></svg>`;
+const HOMES = [
+  { p: "$689,000", a: "11482 S Copper Creek Dr, South Jordan", f: "4 bd · 3 ba · 3,120 sq ft · 0.24 ac", why: "Big yard and 12 minutes to Jessica's office, the two things you asked for.", tag: "New today", col: ["#b9c7d4", "#5a4a3a", "#7a9a5a"] },
+  { p: "$624,900", a: "2876 W Oak Hollow Ln, Riverton", f: "4 bd · 2.5 ba · 2,790 sq ft · 0.21 ac", why: "Under your $650k cap, with the main-floor office you mentioned.", tag: "Price drop $15k", drop: true, col: ["#d8cbb5", "#3e4a5a", "#8aa66a"] },
+  { p: "$659,000", a: "4521 W Haven Ridge Ct, Herriman", f: "5 bd · 3 ba · 3,410 sq ft · 0.19 ac", why: "Walk to the elementary school; newer build, so fewer repairs.", tag: "Open house Sat", col: ["#c9d3dc", "#6b5845", "#6f9258"] },
+];
+const head = `<header class="c-head"><nav><span>HOME</span><span>BUY</span><span>SELL</span><span>AREAS</span></nav><div class="c-logo">The Luxury<small>AGENCY</small></div><button class="c-acct" data-toast="Your account menu: profile, notifications, sign out"><i>JM</i>My account</button></header>`;
+const agentCard = `<div class="agent"><div class="top"><div class="face">PW</div><div><div class="nm">Parry Ward</div><div class="rl">Your agent · The Luxury Agency</div></div></div>
+  <div class="acts"><button data-toast="Calling Parry">Call</button><button data-toast="Text opened to Parry">Text</button><button data-go="msgs">Message</button></div>
+  <div class="num2">(801) 390-0545 · team@luxuryagencygroup.com</div></div>`;
+const ask = (qs) => `<div class="askp"><h4>ASK PULSE</h4><div class="q">${qs.map((q) => `<button data-ask="${q}">${q}</button>`).join("")}</div><input id="askq" placeholder="Ask anything about your move..." aria-label="Ask Pulse"><div class="ans" id="ans" hidden></div></div>`;
+const ANSWERS = {
+  "What happens at inspection?": "A licensed inspector walks the home for 2 to 3 hours. You get a report within a day. Parry goes through it with you and you decide what to ask the seller to fix before your due-diligence deadline on Nov 4.",
+  "How much cash do I need to close?": "About $38,400 on a $640,000 price with 5% down: down payment $32,000 plus about $6,400 in closing costs. Your lender's estimate is in Documents and is the exact number.",
+  "Can I see more homes like the Riverton one?": "Yes. I added 2 homes like it to Homes for you. Parry gets a note so he can book tours if you want them.",
+  "What is my home worth now?": "Between $612,000 and $648,000, most likely $631,000, based on 6 sales near you in the last 90 days. Parry can send you a full review.",
+  "How did my open house go?": "23 groups came through. 4 asked for disclosures and 2 booked second showings. Feedback: kitchen and yard loved, price questioned by 3 groups.",
+};
+
+const V = {};
+function client(nav, cur, main, rail, who) {
+  return `<div class="cw">${head}<div class="c-body"><nav class="c-nav" aria-label="Your account"><div class="who">${who}</div>${nav.map(([k, l, n]) => `<button data-sub="${k}" class="${k === cur ? "on" : ""}">${l}${n ? `<em>${n}</em>` : ""}</button>`).join("")}</nav><main class="c-main">${main}</main><aside class="c-rail">${rail}</aside></div></div>`;
+}
+
+// ---------- BUYER ----------
+const buyerNav = [["home", "Overview"], ["homes", "Homes for you", 3], ["saved", "Saved homes", 5], ["tours", "Tours", 1], ["msgs", "Messages", 1], ["docs", "Documents"], ["prefs", "What I want"]];
+const homeCards = (hs) => `<div class="homes">${hs.map((h, i) => `<div class="home"><div class="ph">${svgHouse(...h.col)}<span class="tag${h.drop ? " drop" : ""}">${h.tag}</span><button class="heart" data-heart="${i}" aria-label="Save this home">${i === 1 ? "&#9829;" : "&#9825;"}</button></div><div class="b"><div class="p num">${h.p}</div><div class="a">${h.a}</div><div class="f">${h.f}</div><div class="why"><b>Why Pulse picked it:</b> ${h.why}</div><div class="acts"><button data-toast="Tour request sent to Parry">Book a tour</button><button data-toast="Comment added to your notes">Add a note</button><button data-toast="Shared with your household">Share</button></div></div></div>`).join("")}</div>`;
+const buyerSubs = {
+  home: () => `<div class="hello"><h2>Good evening, Jessica</h2><p>3 new homes match what you want, and your tour is Saturday.</p></div>
+    <div class="next"><div class="when">SAT<b>25</b>11:00</div><div><p><b>Tour: 4521 W Haven Ridge Ct, Herriman</b></p><p class="s">Parry meets you there. Add it to your calendar or move the time.</p></div><button class="btn" data-toast="Added to your calendar">Add to calendar</button></div>
+    <div class="panel"><h3>Where you are</h3><div class="journey">
+      <div class="step done"><i></i><b>Pre-approved</b>$650k · Oct 2</div><div class="step now"><i></i><b>Touring</b>6 homes seen</div><div class="step"><i></i><b>Offer</b>Parry writes it with you</div><div class="step"><i></i><b>Under contract</b>Deadlines tracked here</div><div class="step"><i></i><b>Keys</b>Closing day</div></div></div>
+    <div class="panel"><h3>New for you <button data-sub="homes">See all 3</button></h3>${homeCards(HOMES)}</div>
+    <div class="two"><div class="panel"><h3>Saved homes <button data-sub="saved">All 5</button></h3><div class="rows">
+      <div class="row"><div class="d">DROP<b>$15k</b></div><div><div class="t">2876 W Oak Hollow Ln</div><div class="s">Now $624,900 · you saved it Oct 18</div></div><span class="pill ok">Price drop</span></div>
+      <div class="row"><div class="d">NEW<b>2</b></div><div><div class="t">1190 E Maple Bend Rd</div><div class="s">2 new photos and an open house Sunday</div></div><span class="pill due">Update</span></div></div></div>
+    <div class="panel"><h3>From Parry</h3><div class="msgs"><div class="bub them">The Herriman one has a backup offer deadline Monday. Want to see it before Sat?<small>Parry · 4:12 pm</small></div></div><div class="compose"><input id="q1" placeholder="Reply to Parry" aria-label="Reply"><button class="btn dark" data-toast="Sent to Parry">Send</button></div></div></div>`,
+  homes: () => `<div class="hello"><h2>Homes for you</h2><p>Picked from the MLS for what you told us: 4 beds, a yard, South Jordan to Herriman, up to $650k.</p></div>${homeCards(HOMES)}<p class="small">Homes from the MLS show here once the feed is connected. Until then, Parry's own listings and the homes he sends you.</p>`,
+  saved: () => `<div class="hello"><h2>Saved homes</h2><p>Everyone in your household keeps their own list and notes.</p></div>${homeCards([HOMES[1], HOMES[2], HOMES[0]])}`,
+  tours: () => `<div class="hello"><h2>Tours</h2><p>Booked and past tours, with your notes from each one.</p></div><div class="panel"><div class="rows">
+    <div class="row"><div class="d">SAT<b>25</b></div><div><div class="t">4521 W Haven Ridge Ct, Herriman</div><div class="s">11:00 with Parry</div></div><span class="pill ok">Booked</span></div>
+    <div class="row"><div class="d">OCT<b>19</b></div><div><div class="t">2876 W Oak Hollow Ln, Riverton</div><div class="s">Your note: "Love the office. Kitchen small." · Rated 4 of 5</div></div><span class="pill wait">Seen</span></div>
+    <div class="row"><div class="d">OCT<b>19</b></div><div><div class="t">9902 S Willow Run, South Jordan</div><div class="s">Your note: "Road noise." · Rated 2 of 5</div></div><span class="pill wait">Seen</span></div></div></div>`,
+  msgs: () => `<div class="hello"><h2>Messages</h2><p>Straight to Parry. Pulse answers quick questions any time.</p></div><div class="panel"><div class="msgs">
+    <div class="bub me">Can we see the Herriman house this weekend?<small>You · Thu 9:02 am</small></div>
+    <div class="bub them">Yes. Booked Saturday 11:00. I'll meet you there.<small>Parry · Thu 9:40 am</small></div>
+    <div class="bub them">The Herriman one has a backup offer deadline Monday. Want to see it before Sat?<small>Parry · 4:12 pm</small></div></div>
+    <div class="compose"><input id="q2" placeholder="Write to Parry" aria-label="Message"><button class="btn dark" data-toast="Sent to Parry">Send</button></div></div>`,
+  docs: () => `<div class="hello"><h2>Documents</h2><p>Everything in one place, shared by Parry and your lender.</p></div><div class="panel"><div class="rows">
+    <div class="row"><div class="d">PDF</div><div><div class="t">Pre-approval letter</div><div class="s">Summit Lending · Oct 2</div></div><button class="btn ghost" data-toast="Opening the letter">Open</button></div>
+    <div class="row"><div class="d">PDF</div><div><div class="t">Buyer agency agreement</div><div class="s">Signed Sep 28</div></div><button class="btn ghost" data-toast="Opening the agreement">Open</button></div></div></div>`,
+  prefs: () => `<div class="hello"><h2>What I want</h2><p>Change it any time. Pulse and Parry use it to pick homes.</p></div><div class="panel"><div class="kvl rows">
+    <div class="row"><div class="d">$</div><div><div class="t">Up to $650,000</div><div class="s">Pre-approved for $650,000</div></div><button class="btn ghost" data-toast="Edit price">Edit</button></div>
+    <div class="row"><div class="d">BD</div><div><div class="t">4+ bedrooms, a yard, main-floor office</div><div class="s">Nice to have: 3-car garage</div></div><button class="btn ghost" data-toast="Edit must-haves">Edit</button></div>
+    <div class="row"><div class="d">MAP</div><div><div class="t">South Jordan, Riverton, Herriman</div><div class="s">Under 20 minutes to Lehi</div></div><button class="btn ghost" data-toast="Edit areas">Edit</button></div>
+    <div class="row"><div class="d">BELL</div><div><div class="t">Email me new matches daily</div><div class="s">Texts: off · you choose</div></div><button class="btn ghost" data-toast="Notification settings">Change</button></div></div></div>`,
+};
+const buyerRail = agentCard + ask(["Can I see more homes like the Riverton one?", "How much cash do I need to close?"]) + `<div class="panel team"><h3>Your team</h3><div><span>Lender</span><span>Kim Ruiz, Summit Lending</span></div><div><span>Pre-approval</span><span>$650,000, until Jan 2</span></div></div>`;
+
+// ---------- UNDER CONTRACT ----------
+const contractMain = `<div class="hello"><h2>Your deal: 11482 S Copper Creek Dr</h2><p>Under contract at $640,000. Closing Friday, Nov 21. You are on track.</p></div>
+  <div class="next"><div class="when">NOV<b>4</b>5 pm</div><div><p><b>Due-diligence deadline in 12 days</b></p><p class="s">Inspection Tues 10:00 is booked. After the report, decide what to ask the seller to fix.</p></div><button class="btn" data-toast="Inspection details opened">See inspection</button></div>
+  <div class="panel"><h3>Contract dates</h3><div class="rows">
+    <div class="row"><div class="d">OCT<b>21</b></div><div><div class="t">Earnest money</div><div class="s">$10,000 to Cornerstone Title</div></div><span class="pill ok">Done</span></div>
+    <div class="row"><div class="d">OCT<b>24</b></div><div><div class="t">Seller disclosures</div><div class="s">Read and sign in Documents</div></div><span class="pill due">For you</span></div>
+    <div class="row"><div class="d">NOV<b>4</b></div><div><div class="t">Due diligence and inspection</div><div class="s">Last day to cancel for any reason</div></div><span class="pill due">12 days</span></div>
+    <div class="row"><div class="d">NOV<b>11</b></div><div><div class="t">Financing and appraisal</div><div class="s">Your lender orders the appraisal</div></div><span class="pill wait">Coming</span></div>
+    <div class="row"><div class="d">NOV<b>21</b></div><div><div class="t">Settlement and keys</div><div class="s">Cornerstone Title, 9:00 am</div></div><span class="pill wait">Closing</span></div></div></div>
+  <div class="two"><div class="panel"><h3>Your to-do</h3>
+    <label class="check"><input type="checkbox" id="c1" checked><div><b>Send earnest money</b><div class="s">Done Oct 21</div></div></label>
+    <label class="check"><input type="checkbox" id="c2"><div><b>Read and sign the disclosures</b><div class="s">Due Oct 24</div></div></label>
+    <label class="check"><input type="checkbox" id="c3"><div><b>Get homeowner's insurance quotes</b><div class="s">Your lender needs one by Nov 11</div></div></label>
+    <label class="check"><input type="checkbox" id="c4"><div><b>Book movers and utilities</b><div class="s">Pulse has a checklist for you</div></div></label></div>
+    <div class="panel team"><h3>Who's who</h3><div><span>Agent</span><span>Parry Ward</span></div><div><span>Lender</span><span>Kim Ruiz · (801) 555-0144</span></div><div><span>Title</span><span>Cornerstone Title</span></div><div><span>Inspector</span><span>Wasatch Home Inspect</span></div><div><span>Seller's agent</span><span>Dana Price</span></div></div></div>`;
+const contractNav = [["home", "My deal"], ["docs", "Documents", 2], ["msgs", "Messages"], ["saved", "Saved homes"], ["prefs", "Moving checklist"]];
+
+// ---------- SELLER ----------
+const sellerMain = `<div class="hello"><h2>Your listing: 1840 E Sunridge Dr, Sandy</h2><p>Live 9 days at $715,000. More interest than most homes near you.</p></div>
+  <div class="stats"><div class="stat"><span>Views</span><b class="num">2,184</b><em>+412 this week</em></div><div class="stat"><span>Saves</span><b class="num">96</b><em>+21 this week</em></div><div class="stat"><span>Showings</span><b class="num">14</b><em>3 booked this week</em></div><div class="stat"><span>Offers</span><b class="num">1</b><em>Review with Parry</em></div></div>
+  <div class="next"><div class="when">SUN<b>26</b>1-3 pm</div><div><p><b>Open house this Sunday</b></p><p class="s">Parry hosts. Tidy list and what to put away are in your checklist.</p></div><button class="btn" data-toast="Checklist opened">Checklist</button></div>
+  <div class="two"><div class="panel"><h3>Showing feedback</h3><div class="rows">
+    <div class="row"><div class="d">OCT<b>22</b></div><div><div class="t">"Kitchen is beautiful. Yard smaller than photos."</div><div class="s">Buyer's agent · interest: high</div></div><span class="pill ok">High</span></div>
+    <div class="row"><div class="d">OCT<b>20</b></div><div><div class="t">"Price feels high for the bathrooms."</div><div class="s">Buyer's agent · interest: medium</div></div><span class="pill due">Medium</span></div></div></div>
+    <div class="panel"><h3>Your launch</h3>
+      <label class="check"><input type="checkbox" id="s1" checked><div><b>Listing page live</b><div class="s">Marquee · Oct 14</div></div></label>
+      <label class="check"><input type="checkbox" id="s2" checked><div><b>On the team site</b><div class="s">Websites · Oct 14</div></div></label>
+      <label class="check"><input type="checkbox" id="s3" checked><div><b>"Just listed" ad running</b><div class="s">1,320 people reached</div></div></label>
+      <label class="check"><input type="checkbox" id="s4"><div><b>Open house Sunday</b><div class="s">ONE Open · 31 signed up ahead</div></div></label></div></div>
+  <div class="panel"><h3>Offers <button data-toast="Net sheet opened">See my net sheet</button></h3><div class="rows"><div class="row"><div class="d">OCT<b>23</b></div><div><div class="t">$702,000 · conventional · close Dec 5</div><div class="s">You would net about $648,900 after costs</div></div><button class="btn dark" data-toast="Parry will walk you through it">Review with Parry</button></div></div></div>`;
+const sellerNav = [["home", "My listing"], ["offers", "Offers", 1], ["feedback", "Feedback", 2], ["msgs", "Messages"], ["docs", "Documents"], ["net", "Net sheet"]];
+
+// ---------- HOMEOWNER ----------
+const ownerMain = `<div class="hello"><h2>Welcome home, the Garcias</h2><p>3 years in 4410 S Holly Ave, Millcreek on Nov 9. Here is how your home is doing.</p></div>
+  <div class="two"><div class="panel"><h3>What your home is worth</h3><div class="bigval num">$631,000</div><div class="range"><span style="left:28%;right:22%"></span><i style="left:52%"></i></div><div class="small num">Likely $612,000 to $648,000 · from 6 sales near you in 90 days</div><div class="small" style="margin-top:10px">You paid $512,000. <b style="color:var(--good)">Up $119,000 (23%)</b></div><button class="btn" style="margin-top:12px" data-toast="Parry will send your full review">Get my full review</button></div>
+    <div class="panel"><h3>Your equity</h3><div class="bigval num">$247,600</div><div class="small" style="margin-top:8px">Value $631,000 minus about $383,400 left on your loan. Thinking of a move, a renovation or a refinance? Ask Parry.</div>
+      <div class="q" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px"><button class="btn ghost" data-toast="Move-up options sent to Parry">What could I buy?</button><button class="btn ghost" data-toast="Refi question sent to Parry">Refinance?</button></div></div></div>
+  <div class="two"><div class="panel"><h3>Improvements log <button data-toast="Add an improvement">Add</button></h3><div class="rows">
+    <div class="row"><div class="d">2025</div><div><div class="t">New roof</div><div class="s">$14,200 · photos and receipt saved</div></div><span class="pill ok">+ value</span></div>
+    <div class="row"><div class="d">2024</div><div><div class="t">Basement finish</div><div class="s">$38,000 · 620 sq ft added</div></div><span class="pill ok">+ value</span></div></div></div>
+    <div class="panel"><h3>Trusted local pros <button data-toast="All pros">All</button></h3><div class="rows">
+    <div class="row"><div class="d">HVAC</div><div><div class="t">Peak Heating & Air</div><div class="s">Recommended by Parry · fall tune-up due</div></div><button class="btn ghost" data-toast="Number copied">Call</button></div>
+    <div class="row"><div class="d">ROOF</div><div><div class="t">Summit Roofing</div><div class="s">Did your 2025 roof</div></div><button class="btn ghost" data-toast="Number copied">Call</button></div></div></div></div>
+  <div class="panel"><h3>Your street this month</h3><div class="rows"><div class="row"><div class="d">SOLD</div><div><div class="t">4382 S Holly Ave · $644,000</div><div class="s">4 bd · 2,610 sq ft · 11 days on market</div></div><span class="pill wait">Near you</span></div></div></div>`;
+const ownerNav = [["home", "My home"], ["value", "Value review"], ["log", "Improvements"], ["pros", "Local pros"], ["docs", "Documents"], ["msgs", "Messages"]];
+
+// ---------- PHONE ----------
+const icon = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">${d}</svg>`;
+const phoneView = () => `<div class="phwrap"><div class="phone"><div class="screen"><div class="p-top"><div class="l">The Luxury Agency</div><h2>Hi Jessica</h2><div style="font-size:13px;color:#bdb6a6;margin-top:4px">3 new homes · tour Saturday 11:00</div></div>
+  <div class="p-body"><div class="next" style="grid-template-columns:auto minmax(0,1fr)"><div class="when">SAT<b>25</b></div><div><p><b>Tour in Herriman</b></p><p class="s">11:00 with Parry</p></div></div>
+  ${HOMES.slice(0, 2).map((h, i) => `<div class="home"><div class="ph">${svgHouse(...h.col)}<span class="tag${h.drop ? " drop" : ""}">${h.tag}</span></div><div class="b"><div class="p num">${h.p}</div><div class="a">${h.a}</div><div class="why">${h.why}</div></div></div>`).join("")}</div>
+  <nav class="p-tabs"><button class="on">${icon('<path d="M3 11 12 4l9 7v9H3z"/>')}Home</button><button>${icon('<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>')}Homes</button><button>${icon('<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>')}Saved</button><button>${icon('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/>')}My deal</button><button>${icon('<path d="M4 5h16v11H8l-4 4z"/>')}Parry</button></nav></div></div>
+  <div class="phcap"><h3>The same account on the phone</h3><p>This is the ONE Home app from CLIENT-APP.md, and the phone version of the website. One sign-in opens both.</p><ul><li><b>Home:</b> what is next, and new matches.</li><li><b>Homes and Saved:</b> search, favourites and notes, with the MLS once it is connected.</li><li><b>My deal:</b> dates, your to-do and documents. A seller sees the listing, and a homeowner sees My home.</li><li><b>Parry:</b> call, text, message, and Ask Pulse.</li></ul><p>Notifications go out only for what the client switches on.</p></div></div>`;
+
+// ---------- AGENT: CONTACT ----------
+const sparkPath = (pts, w, h) => { const mx = Math.max(...pts); const step = w / (pts.length - 1); const xy = pts.map((v, i) => [i * step, h - 6 - (v / mx) * (h - 14)]); const line = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" "); return { line, area: `${line} L${w},${h} L0,${h} Z`, last: xy[xy.length - 1] }; };
+const contactView = () => { const s = sparkPath([0, 1, 0, 2, 1, 0, 3, 2, 4, 1, 3, 5, 4, 6], 600, 70); return `<div class="aw"><div class="wrap">
+  <span class="a-tag">ONE MOVE · CONTACT · THE BRAIN AND ONE GO SHOW THE SAME</span>
+  <div class="agrid"><div class="acard who-c"><div class="top"><div class="av">JM</div><div><div class="nm">JESSICA MORALES</div><div class="a-sub" style="margin:0">Buyer · pre-approved $650k · from the team site</div></div></div>
+    <div class="chips"><span class="chip hot">Hot</span><span class="chip gold">VIP-100</span><span class="chip">Touring</span><span class="chip">Tour Sat 11:00</span></div>
+    <div class="pulse"><b>PULSE: CALL HER TODAY</b>She opened 2876 W Oak Hollow 4 times since Tuesday, 11 minutes in all, and saved it after the price drop. Ask if she wants a second showing before the weekend.</div>
+    <div class="aacts"><button class="ab solid" data-toast="Calling Jessica">Call</button><button class="ab" data-toast="Text drafted, you send it">Text</button><button class="ab" data-toast="Second showing request ready">Book showing</button></div>
+    <div class="acard" style="background:#0b1230"><h3>Her account</h3><div class="kv"><div><span>Website account</span><span class="y">Signed in · 2 hours ago</span></div><div><span>ONE Home app</span><span class="y">Installed · iPhone</span></div><div><span>Buyer Room</span><span class="n">Invited Oct 20 · not opened</span></div><div><span>New match emails</span><span class="y">Daily · opens 80%</span></div></div><button class="ab" style="width:100%;margin-top:12px" data-toast="Room invitation sent again">Resend Room invite</button></div></div>
+  <div style="display:grid;gap:18px;min-width:0">
+    <div class="acard"><h3>On your site <span style="letter-spacing:0;text-transform:none">Last 30 days</span></h3>
+      <div class="astats"><div class="ast"><span>Visits</span><b class="num">14</b><em>6 this week</em></div><div class="ast"><span>Homes viewed</span><b class="num">23</b><em>9 this week</em></div><div class="ast"><span>Time on site</span><b class="num">1h 42m</b><em>up from 38m</em></div><div class="ast"><span>Last visit</span><b>2H AGO</b><em>on her phone</em></div></div>
+      <svg class="spark" viewBox="0 0 600 70" preserveAspectRatio="none" role="img" aria-label="Visits per day over 14 days, rising"><path d="${s.area}" fill="rgba(91,156,245,.16)"/><path d="${s.line}" fill="none" stroke="#5b9cf5" stroke-width="2"/><circle cx="${s.last[0]}" cy="${s.last[1]}" r="4" fill="#5b9cf5"/></svg>
+      <div class="small" style="color:var(--ndim);font-size:12px">Visits per day, last 14 days</div></div>
+    <div class="acard"><h3>Homes she looked at most</h3><div class="scroll"><table class="vt"><thead><tr><th>Home</th><th class="r">Times</th><th class="r">Time</th><th>Interest</th><th></th></tr></thead><tbody>
+      <tr><td>2876 W Oak Hollow Ln · $624,900<div style="color:var(--ndim);font-size:12px">Saved · price drop Oct 21</div></td><td class="r num">4</td><td class="r num">11m</td><td><div class="bar"><span style="width:95%"></span></div></td><td><button class="ab" style="padding:7px 10px" data-toast="Showing request ready">Showing</button></td></tr>
+      <tr><td>4521 W Haven Ridge Ct · $659,000<div style="color:var(--ndim);font-size:12px">Tour booked Sat</div></td><td class="r num">3</td><td class="r num">7m</td><td><div class="bar"><span style="width:70%"></span></div></td><td><button class="ab" style="padding:7px 10px" data-toast="Comps sent to your drafts">Comps</button></td></tr>
+      <tr><td>11482 S Copper Creek Dr · $689,000<div style="color:var(--ndim);font-size:12px">Above her cap</div></td><td class="r num">2</td><td class="r num">5m</td><td><div class="bar"><span style="width:45%"></span></div></td><td><button class="ab" style="padding:7px 10px" data-toast="Note added">Note</button></td></tr></tbody></table></div></div>
+    <div class="acard"><h3>What she did <span style="letter-spacing:0;text-transform:none">Today</span></h3><div class="tl">
+      <div><span class="tm">2:14 pm</span><i></i><span>Viewed <b>2876 W Oak Hollow Ln</b> for 4 minutes, opened the photos and the school info</span></div>
+      <div><span class="tm">2:09 pm</span><i style="background:var(--ngold)"></i><span>Saved a search: 4+ beds, Herriman, under $650k</span></div>
+      <div><span class="tm">2:02 pm</span><i style="background:var(--ngreen)"></i><span>Signed in on the ONE Home app</span></div>
+      <div><span class="tm">9:15 am</span><i></i><span>Read "Moving to Herriman" and "Cash to close"</span></div></div></div>
+  </div></div></div></div>`; };
+
+// ---------- AGENT: WHO IS ON MY SITE ----------
+const PEOPLE = [
+  ["JM", "Jessica Morales", "Buyer · Hot", "Viewed 2876 W Oak Hollow 4 times since Tue · saved it", "#ff6b5f", "Call"],
+  ["DT", "Derek & Amy Tran", "Past client 2023", "Looked at his home value 3 times · read 'Selling in winter'", "#f2c94c", "Call"],
+  ["KL", "Kayla Lund", "New lead · Zillow", "First visit: 6 homes in Riverton under $500k · 18 minutes", "#5b9cf5", "Text"],
+  ["MR", "Marcus Reyes", "Seller · listed", "Checked his listing stats 5 times this week", "#f2c94c", "Call"],
+  ["SB", "Sofia Bennett", "Sphere", "Came back after 4 months · read 'Moving to Utah'", "#5b9cf5", "Text"],
+];
+const onsiteView = (f = "7 days") => `<div class="aw"><div class="wrap">
+  <span class="a-tag">ONE MOVE · PEOPLE · ALSO IN THE BRAIN AND ONE GO</span><div><h2 class="a-h1">WHO IS ON MY SITE</h2><p class="a-sub">People who signed in on your site or app, most active first. Anonymous visitors are counted, never named.</p></div>
+  <div class="filt">${["Today", "7 days", "30 days"].map((x) => `<button data-f="${x}" class="${x === f ? "on" : ""}">${x}</button>`).join("")}<button data-toast="Filter: buyers, sellers, past clients, leads">All people</button></div>
+  <div class="astats"><div class="ast"><span>Signed-in visitors</span><b class="num">${f === "Today" ? 4 : f === "7 days" ? 18 : 41}</b><em>${f === "Today" ? "2 right now" : "+5 vs last week"}</em></div><div class="ast"><span>Site visits</span><b class="num">${f === "Today" ? 63 : f === "7 days" ? 412 : 1690}</b><em>all visitors</em></div><div class="ast"><span>New leads</span><b class="num">${f === "Today" ? 1 : f === "7 days" ? 6 : 19}</b><em>from forms and sign-ups</em></div><div class="ast"><span>Top home</span><b class="num" style="font-size:24px">OAK HOLLOW</b><em>38 views · 9 saves</em></div></div>
+  <div class="agrid"><div class="acard"><h3>Your site</h3><div class="kv"><div><span>Top pages</span><span>Search · Sell · Moving to Utah</span></div><div><span>Top area</span><span>Herriman</span></div><div><span>Phones vs computers</span><span>71% phone</span></div><div><span>Busiest time</span><span>Sun 7-9 pm</span></div></div></div>
+  <div class="acard"><h3>Most active ${f === "Today" ? "today" : "this " + (f === "7 days" ? "week" : "month")}</h3><div class="wl">${PEOPLE.map((p) => `<div class="wr"><div class="av" style="border-color:${p[4]}">${p[0]}</div><div><div class="t"><span class="heat" style="background:${p[4]}"></span>${p[1]} <span style="color:var(--ndim);font-weight:400;font-size:13px">· ${p[2]}</span></div><div class="s">${p[3]}</div></div><div class="acts"><button class="solid" data-toast="${p[5] === "Call" ? "Calling" : "Text drafted for"} ${p[1]}">${p[5]}</button><button data-v2="contact">Open</button></div></div>`).join("")}</div></div></div></div></div>`;
+
+// ---------- TEAM LEAD ----------
+const AGENTS = [["Parry Ward", 412, 18, 6, "4 min", 92], ["Angelina Cruz", 233, 9, 4, "11 min", 70], ["Travis Hale", 198, 7, 3, "26 min", 55], ["Darian Olson", 141, 5, 2, "1 h 10 m", 38], ["Sherrie Lyman", 96, 3, 1, "9 min", 30], ["John Pace", 74, 2, 0, "none yet", 18]];
+const leadView = () => `<div class="aw"><div class="wrap">
+  <span class="a-tag">TEAM · LEAD VIEW · BRAIN AND ONE MOVE TEAM LEADS</span><div><h2 class="a-h1">TEAM SITES THIS WEEK</h2><p class="a-sub">The team site plus every agent's site. Team-site visitors and team leads are named; an agent's own clients are counts only.</p></div>
+  <div class="astats"><div class="ast"><span>Visits, all sites</span><b class="num">1,154</b><em>+14% vs last week</em></div><div class="ast"><span>Signed-in people</span><b class="num">44</b><em>12 on the team site</em></div><div class="ast"><span>New leads</span><b class="num">16</b><em>9 from the team site</em></div><div class="ast"><span>Avg time to reach</span><b class="num">19m</b><em>goal: under 15m</em></div></div>
+  <div class="acard"><h3>By agent</h3><div class="scroll"><table class="vt"><thead><tr><th>Agent</th><th class="r">Site visits</th><th class="r">Signed in</th><th class="r">New leads</th><th class="r">Time to reach</th><th>Activity</th><th></th></tr></thead><tbody>
+  ${AGENTS.map((a) => `<tr><td>${a[0]}</td><td class="r num">${a[1]}</td><td class="r num">${a[2]}</td><td class="r num">${a[3]}</td><td class="r" style="color:${/h|none/.test(a[4]) ? "var(--nred)" : "inherit"}">${a[4]}</td><td><div class="bar"><span style="width:${a[5]}%"></span></div></td><td><button class="ab" style="padding:7px 10px" data-toast="Nudge drafted to ${a[0]}">${/h|none/.test(a[4]) ? "Nudge" : "Open"}</button></td></tr>`).join("")}</tbody></table></div></div>
+  <div class="agrid"><div class="acard"><h3>Team-site visitors to route</h3><div class="wl">
+    <div class="wr"><div class="av" style="border-color:var(--nred)">BK</div><div><div class="t">Brooke Kim</div><div class="s">Viewed 5 Draper homes · not assigned</div></div><div class="acts"><button class="solid" data-toast="Assigned to Angelina">Assign</button></div></div>
+    <div class="wr"><div class="av" style="border-color:var(--ngold)">LN</div><div><div class="t">Luis Navarro</div><div class="s">Home value check · Sandy · in the pond</div></div><div class="acts"><button class="solid" data-toast="Assigned to Travis">Assign</button></div></div></div></div>
+  <div class="acard"><h3>Top homes across the team</h3><div class="scroll"><table class="vt"><thead><tr><th>Home</th><th class="r">Views</th><th class="r">Saves</th><th>Agent</th></tr></thead><tbody>
+    <tr><td>2876 W Oak Hollow Ln, Riverton</td><td class="r num">38</td><td class="r num">9</td><td>Parry</td></tr>
+    <tr><td>1840 E Sunridge Dr, Sandy</td><td class="r num">31</td><td class="r num">12</td><td>Parry</td></tr>
+    <tr><td>7731 S Granite Peak Way, Draper</td><td class="r num">22</td><td class="r num">4</td><td>Angelina</td></tr></tbody></table></div></div></div></div></div>`;
+
+// ---------- notes ----------
+const NOTES = {
+  buyer: "<b>Buyer, signed in.</b> One account page. The left menu covers everything; the right side always has the agent and Ask Pulse. Start: what is next, where they are in the journey, new matches with why, price drops on saved homes, and the agent's last message. Try the menu, the hearts and Ask Pulse.",
+  contract: "<b>Under contract.</b> The same account becomes the deal: every contract date with a countdown, the client's to-do, and who is who. A date coming up is gold, a done date green, a late one red.",
+  seller: "<b>Seller.</b> Listing numbers from Marquee and the site, the open house from ONE Open, showing feedback from Showly, the launch checklist and offers with the net sheet.",
+  owner: "<b>Homeowner (past client).</b> Value with a range and where it came from, equity, the improvements log, Trusted Local Pros, and sales on their street. Every card has a next step that goes to the agent.",
+  phone: "<b>Phone.</b> The same account as the ONE Home app, with five tabs.",
+  contact: "<b>What the agent sees on a contact.</b> Pulse says what to do and why. The account box shows whether they use the site, the app and the Room. The site box shows visits, homes viewed, how often and how long, with a button to act on each.",
+  onsite: "<b>Who is on my site.</b> Signed-in people, most active first, each one a tap from a call or text. Site numbers stay anonymous. Try Today, 7 days and 30 days.",
+  lead: "<b>Team lead.</b> Every site on the team, by agent: visits, signed-in people, leads and time to reach, with a nudge for slow ones. Team-site visitors waiting to be routed, and the homes the whole team's visitors want.",
+};
+
+let cur = "buyer", sub = "home";
+function render() {
+  $("#note").innerHTML = NOTES[cur];
+  document.querySelectorAll(".sw button").forEach((b) => b.classList.toggle("on", b.dataset.v === cur));
+  const v = $("#view");
+  if (cur === "buyer") v.innerHTML = client(buyerNav, sub, (buyerSubs[sub] || buyerSubs.home)(), buyerRail, "Jessica · buyer");
+  else if (cur === "contract") v.innerHTML = client(contractNav, "home", contractMain, agentCard + ask(["What happens at inspection?", "How much cash do I need to close?"]), "Jessica · under contract");
+  else if (cur === "seller") v.innerHTML = client(sellerNav, "home", sellerMain, agentCard + ask(["How did my open house go?"]), "Marcus · seller");
+  else if (cur === "owner") v.innerHTML = client(ownerNav, "home", ownerMain, agentCard + ask(["What is my home worth now?"]), "The Garcias · homeowners");
+  else if (cur === "phone") v.innerHTML = phoneView();
+  else if (cur === "contact") v.innerHTML = contactView();
+  else if (cur === "onsite") v.innerHTML = onsiteView(render.f || "7 days");
+  else if (cur === "lead") v.innerHTML = leadView();
+  try { localStorage.setItem("cp-view", cur); } catch {}
+}
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("button, [data-sub]");
+  if (!t) return;
+  if (t.dataset.v) { cur = t.dataset.v; sub = "home"; render(); window.scrollTo(0, 0); return; }
+  if (t.dataset.v2) { cur = t.dataset.v2; render(); window.scrollTo(0, 0); return; }
+  if (t.dataset.sub) { if (cur === "buyer") { sub = t.dataset.sub; render(); } else toast("In the full build this opens " + t.textContent.replace(/\d+$/, "")); return; }
+  if (t.dataset.go) { if (cur === "buyer") { sub = t.dataset.go; render(); } else toast("Messages open here"); return; }
+  if (t.dataset.f) { render.f = t.dataset.f; render(); return; }
+  if (t.dataset.heart) { const on = t.innerHTML.includes("9829"); t.innerHTML = on ? "&#9825;" : "&#9829;"; toast(on ? "Removed from saved homes" : "Saved. Parry sees it on your contact"); return; }
+  if (t.dataset.ask) { const a = $("#ans"); a.hidden = false; a.textContent = ANSWERS[t.dataset.ask] || "Pulse answers here, and hands it to Parry when it should."; return; }
+  if (t.dataset.toast) toast(t.dataset.toast);
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.id === "askq" && e.target.value.trim()) { const a = $("#ans"); a.hidden = false; a.textContent = "Good question. Pulse answers from your account and the market, and sends anything personal to Parry."; } });
+try { const s = localStorage.getItem("cp-view"); if (s && NOTES[s]) cur = s; } catch {}
+const h = location.hash.slice(1); if (NOTES[h]) cur = h;
+render();
+</script>
+</body></html>
