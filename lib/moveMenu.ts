@@ -36,6 +36,9 @@ export const MOVE_GROUPS: MoveGroup[] = [
       // Opportunities orb, which holds New to Sort. /contacts/visitors still opens New to Sort (MOVE_HIDDEN below).
       { label: "Opportunities", path: "/opportunities" },
       { label: "Hot/Warm/Cold", path: "/hot-warm-cold" },
+      // VIP-SUMMARY §3ar (Parry, 23 Oct: "yes build it. looks great"): signed-in people on the agent's site, a native
+      // Brain view (components/brain/OnMySite.tsx); ONE MOVE's Classic page is the same path (GO/MOVE builds it).
+      { label: "Who is on my site", path: "/on-my-site" },
       { label: "Business Rolodex", path: "/rolodex" },
       // VIP-SUMMARY §3af (13 Oct; Parry: every feature in the Brain as well as Classic)
       { label: "Referral Network", path: "/referral-network" },

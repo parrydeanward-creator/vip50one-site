@@ -1,0 +1,114 @@
+/* Site activity (VIP-SUMMARY §3ar; research/mockups/client-portal #contact, #onsite, #lead): "On your site" on a
+   contact, "Who is on my site" under People, and "Team sites this week" for the team lead. Brain tokens, the My Contacts
+   family (app/contacts-board.css: .ct, .ct-card, .ct-btn). */
+
+.sa-card { background: rgba(8, 14, 34, 0.72); border: 1px solid var(--line); border-radius: 16px; padding: 16px; min-width: 0; }
+.sa-card h3, .sa-h3 { margin: 0 0 12px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.16em; color: var(--text-3); text-transform: uppercase; display: flex; justify-content: space-between; gap: 10px; }
+.sa-card h3 span { letter-spacing: 0; text-transform: none; font-weight: 600; }
+.sa-cap { color: var(--text-3); font-size: 12px; margin: 6px 0 0; }
+.sa-said { color: var(--gold-2); font-size: 13px; margin: 8px 0 0; }
+.sa-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sa-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.sa-acts .ct-btn { flex: 1 1 auto; }
+.sa-wide { width: 100%; margin-top: 12px; }
+
+/* numbers */
+.sa-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.sa-st { display: grid; gap: 2px; align-content: start; text-align: left; background: rgba(11, 18, 48, 0.9); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; color: var(--text); font: inherit; min-width: 0; text-decoration: none; }
+button.sa-st { cursor: pointer; }
+button.sa-st:hover { border-color: rgba(245, 197, 66, 0.5); }
+.sa-st span { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase; }
+.sa-st b { font-family: var(--font-display), "Bebas Neue", Impact, sans-serif; font-weight: 400; font-size: 34px; line-height: 1; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.sa-st b.sa-up { text-transform: uppercase; font-size: 28px; }
+.sa-st b.sa-top { font-size: 24px; }
+.sa-st em { font-style: normal; font-size: 12px; color: #7ee2a8; }
+.sa-spark { display: block; width: 100%; height: 70px; }
+
+/* on a contact: the full view */
+.sa-contact { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 14px; align-items: start; margin-top: 14px; }
+.sa-side, .sa-main { display: grid; gap: 12px; min-width: 0; }
+.sa-pulse { border: 1px solid rgba(255, 90, 95, 0.45); background: rgba(255, 90, 95, 0.07); border-radius: 12px; padding: 14px; font-size: 14px; line-height: 1.5; color: #dfe3ea; }
+.sa-pulse b { display: block; color: #ff5a5f; font-size: 11px; letter-spacing: 0.14em; margin-bottom: 4px; }
+.sa-pulse.warm { border-color: rgba(245, 197, 66, 0.45); background: rgba(245, 197, 66, 0.06); }
+.sa-pulse.warm b { color: var(--gold-2); }
+.sa-kv { margin: 0; display: grid; }
+.sa-kv > div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 13.5px; }
+.sa-kv > div:first-child { border-top: 0; }
+.sa-kv dt { color: var(--text-2); }
+.sa-kv dd { margin: 0; text-align: right; color: var(--text); }
+.sa-kv dd.y { color: #7ee2a8; }
+.sa-kv dd.n { color: #ff8a8d; }
+
+.sa-scroll { overflow-x: auto; }
+.sa-vt { width: 100%; border-collapse: collapse; font-size: 13.5px; color: var(--text); }
+.sa-vt th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase; padding: 0 10px 8px 0; }
+.sa-vt td { padding: 10px 10px 10px 0; border-top: 1px solid var(--line); vertical-align: middle; }
+.sa-vt td small { display: block; color: var(--text-3); font-size: 12px; margin-top: 2px; }
+.sa-vt .r { text-align: right; font-variant-numeric: tabular-nums; }
+.sa-vt td:last-child { text-align: right; padding-right: 0; }
+.sa-bar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); min-width: 60px; overflow: hidden; }
+.sa-bar span { display: block; height: 100%; background: linear-gradient(90deg, #4aa3ff, var(--gold-2)); border-radius: 3px; }
+.ct-btn.sa-row-btn { padding: 7px 10px; font-size: 12px; }
+
+.sa-tl { list-style: none; margin: 0; padding: 0; display: grid; }
+.sa-tl li { display: grid; grid-template-columns: 70px 14px minmax(0, 1fr); gap: 8px; font-size: 13.5px; padding: 6px 0; }
+.sa-tl time { color: var(--text-3); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.sa-tl i { width: 10px; height: 10px; border-radius: 50%; background: #4aa3ff; margin-top: 5px; }
+.sa-tl i.k-saved, .sa-tl i.k-search { background: var(--gold-2); }
+.sa-tl i.k-signed_in { background: #2fbf71; }
+
+/* on the person card */
+.sa-glance-n { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+.sa-glance-n button { display: grid; gap: 1px; text-align: left; padding: 8px 9px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); color: var(--text); min-width: 0; }
+.sa-glance-n button:hover { border-color: rgba(245, 197, 66, 0.5); }
+.sa-glance-n b { font-family: var(--font-display), "Bebas Neue", sans-serif; font-weight: 400; font-size: 24px; line-height: 1; }
+.sa-glance-n b.sa-sm { font-size: 17px; line-height: 1.25; text-transform: uppercase; }
+.sa-glance-n span { font-size: 11px; color: var(--text-3); }
+.sa-glance .sa-spark { height: 40px; margin-top: 8px; }
+.sa-glance-top { display: block; width: 100%; margin-top: 6px; background: none; border: 0; padding: 4px 0; text-align: left; color: var(--text-2); font-size: 13px; }
+.sa-glance-top b { color: var(--text); }
+.sa-glance-top:hover { color: var(--gold-2); }
+
+/* who is on my site */
+.sa-lede { color: var(--text-2); font-size: 15px; margin: 6px 0 0; max-width: 70ch; }
+.sa-filt { display: flex; flex-wrap: wrap; gap: 8px; }
+.sa-filt button { border-radius: 999px; padding: 8px 16px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); color: var(--text-2); font-weight: 700; font-size: 13px; }
+.sa-filt button.on { background: var(--gold-2); border-color: var(--gold-2); color: #14100a; }
+.sa-stats-page { margin: 0; }
+.sa-stats-page[aria-busy="true"] { opacity: 0.6; }
+.sa-two { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.sa-wl { list-style: none; margin: 0; padding: 0; }
+.sa-wr { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 2px; border-top: 1px solid var(--line); }
+.sa-wr:first-child { border-top: 0; }
+.sa-av { width: 44px; height: 44px; border-radius: 50%; border: 2px solid; background: rgba(255, 255, 255, 0.05); color: var(--text); font-weight: 700; font-size: 13px; display: grid; place-items: center; padding: 0; }
+.sa-wr-b { min-width: 0; }
+.sa-wr-t { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; background: none; border: 0; padding: 0; color: var(--text); font-weight: 600; font-size: 15px; text-align: left; }
+.sa-wr-t:hover { color: var(--gold-2); }
+.sa-wr-t i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.sa-wr-t small { color: var(--text-3); font-weight: 400; font-size: 13px; }
+.sa-wr-s { color: var(--text-2); font-size: 13px; margin-top: 2px; }
+.sa-wr-a { display: flex; gap: 6px; }
+.sa-wr-a .ct-btn { padding: 8px 11px; font-size: 12px; }
+.sa-empty { display: grid; gap: 12px; max-width: 640px; }
+.sa-empty p { margin: 0; color: var(--text-2); }
+
+/* team sites */
+.sa-team { display: grid; gap: 10px; margin-top: 8px; }
+.sa-team h2 { margin: 6px 0 0; }
+.sa-team h3 { margin: 6px 0 0; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
+.sa-tl-agents { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.sa-tl-agents li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.sa-tl-agents li > span { display: grid; min-width: 0; }
+.sa-tl-agents small { color: var(--text-2); font-size: 12px; }
+.sa-tl-agents .chip-btn { flex: none; }
+
+@media (max-width: 1100px) {
+  .sa-contact, .sa-two { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .sa-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sa-st b { font-size: 28px; }
+  .sa-wr { grid-template-columns: 44px minmax(0, 1fr); }
+  .sa-wr-a { grid-column: 2; flex-wrap: wrap; }
+  .sa-vt th:nth-child(4), .sa-vt td:nth-child(4) { display: none; }
+}

@@ -28,13 +28,15 @@ import { liveGraph, type SummaryEnvelope, type SummaryItem } from "../lib/live.t
 // Rewritten 23 Oct: 37 pages. Buyer Needs and Your listings leave the menu (Parry, 23 Oct: "retire buyers needs";
 // "retire your listings already on the website"). Rewritten again 23 Oct: 34, Archived Contacts leaves the menu
 // (Parry: "I dont want the archived contacts orb on one move"); it stays a link on My Contacts.
-test("ONE MOVE menu: all 34 Classic pages, in Parry's groups, no admin items", () => {
-  assert.equal(MOVE_MENU.length, 34);
+// Rewritten 23 Oct (third): 35. "Who is on my site" joins People (VIP-SUMMARY §3ar; Parry: "yes build it. looks great"),
+// a native Brain view at ONE MOVE's /on-my-site, under the same hard rule (Classic and the Brain).
+test("ONE MOVE menu: all 35 Classic pages, in Parry's groups, no admin items", () => {
+  assert.equal(MOVE_MENU.length, 35);
   assert.deepEqual(MOVE_TOP.map((m) => m.label), ["Dashboard"]);
   assert.deepEqual(MOVE_GROUPS.map((g) => g.label), ["People", "Trackers", "Events", "Outreach", "Learn"]);
   assert.deepEqual(MOVE_BOTTOM.map((m) => m.label), ["The Lounge", "My Profile"]);
   // Rewritten 17 Oct: Home Reports is called Market Reports (HOME-REPORT v0.4; Parry, 16 Oct: "1 yes"); same path.
-  assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "Drop-By Map", "Opportunities", "Hot/Warm/Cold", "Business Rolodex", "Referral Network", "Life Events", "Deals", "Clean Up Contacts", "Lead Sources"]);
+  assert.deepEqual(MOVE_GROUPS[0].pages.map((m) => m.label), ["Contacts", "VIP Management", "Touch Audit", "Drop-By Map", "Opportunities", "Hot/Warm/Cold", "Who is on my site", "Business Rolodex", "Referral Network", "Life Events", "Deals", "Clean Up Contacts", "Lead Sources"]);
   assert.deepEqual(MOVE_GROUPS[0].pages.filter((m) => ["Opportunities", "Life Events", "Deals"].includes(m.label)).map((m) => m.path), ["/opportunities", "/life-events", "/deals"]);
   assert.deepEqual(MOVE_GROUPS[3].pages.map((m) => [m.label, m.path]), [["Overview", "/outreach"], ["Newsletter", "/newsletter"], ["Landing Pages", "/landing-pages"], ["Action Plans", "/action-plans"], ["Market Reports", "/home-reports"]]);
   assert.deepEqual(MOVE_GROUPS[4].pages.map((m) => [m.label, m.path]), [["Learn home", "/learn"], ["Video Library", "/content"], ["VIP Docs", "/vip-docs"], ["The Vault", "/vault"], ["What's New", "/whats-new"]]);
@@ -121,7 +123,8 @@ test("every ONE MOVE menu page opens inside the Brain; other orbs do not", async
   // Rewritten 23 Oct: 45. Buyer Needs and Your listings retired (Parry, 23 Oct); neither opens in the Brain now.
   // Rewritten 23 Oct (second): still 45. Agent Hub leaves (-1), Coaching joins the Coach group (+1); Import Contacts left the
   // menu but stays a page the My Contacts Import button opens.
-  assert.equal(IN_BRAIN.size, 45);
+  // Rewritten 23 Oct (third): 46. "Who is on my site" (/on-my-site, VIP-SUMMARY §3ar) joins People and opens inside the Brain.
+  assert.equal(IN_BRAIN.size, 46);
   assert.ok(!IN_BRAIN.has("/profile/agent-hub"));
   assert.equal(inBrainPage(movePageId("/coaching"))?.label, "Coaching");
   assert.equal(inBrainPage(movePageId("/contacts/import"))?.label, "Import Contacts");
