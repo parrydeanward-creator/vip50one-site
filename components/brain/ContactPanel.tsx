@@ -25,7 +25,7 @@ import LifeEventsSection from "./LifeEventsSection.tsx";
 import PermissionsSection from "./PermissionsSection.tsx";
 import HomeReportSection from "./HomeReportSection.tsx";
 import CmaSection from "./CmaSection.tsx";
-import ShareLinkSection, { MyHomeLine, usePersonExtras } from "./SiteFeedsSection.tsx";
+import ShareLinkSection, { MyHomeLine, SiteSearchCard, usePersonExtras } from "./SiteFeedsSection.tsx";
 import TalkSection from "./TalkSection.tsx";
 import LeadCard from "./LeadCard.tsx";
 import { OnYourSite } from "./SiteActivity.tsx";
@@ -147,6 +147,7 @@ function ContactCard({ contactId, taskId, onLogged, lead, agentFirst, onLeadOutc
         )}
       </div>
       <MyHomeLine myHome={extras?.myHome} />
+      <SiteSearchCard contactId={contactId} s={extras?.siteSearch} />
       {(() => {
         // CONNECTIONS §5.2: a next step for an open house buyer. Each opens where the agent acts; nothing is sent from ONE.
         const offers = readOffers(card.offers);

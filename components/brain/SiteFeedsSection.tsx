@@ -17,6 +17,12 @@ import {
   improvementLine,
   type PersonExtras,
   type ReferralLink,
+  SITE_SEARCH_HEAD,
+  USE_AS_WANTS,
+  needsUrl,
+  savedWords,
+  wantsBody,
+  type SiteSearch,
 } from "@/lib/siteFeeds.ts";
 
 // The person card's "My Home:" line (MY-HOME v0.2) and "Share your link" card (SITE-FEEDS K17), the Brain half of
@@ -76,6 +82,48 @@ export function MyHomeLine({ myHome }: { myHome: MyHome | null | undefined }) {
   );
 }
 
+/**
+ * A client's own saved search on the agent's site (vip50-web-crm#402), with Classic's "Use as their wants": one tap
+ * saves it as the contact's wants, the same POST Classic's Save sends. The example agent's tap saves nothing.
+ */
+export function SiteSearchCard({ contactId, s, demo = false }: { contactId: string; s: SiteSearch | null | undefined; demo?: boolean }) {
+  const [state, setState] = useState<"idle" | "busy" | "done">("idle");
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    setState("idle");
+    setErr(null);
+  }, [contactId]);
+  if (!s) return null;
+  const use = async () => {
+    if (demo) return setState("done");
+    setState("busy");
+    setErr(null);
+    try {
+      const r = await fetch(needsUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(wantsBody(contactId, s.search)) });
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!r.ok || !j.ok) throw new Error(j.error ?? "ONE MOVE didn't take that. Try again.");
+      setState("done");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "ONE MOVE didn't take that. Try again.");
+      setState("idle");
+    }
+  };
+  const when = savedWords(s.savedAt);
+  return (
+    <div className="cc-sitesearch" data-section="site-search">
+      <p className="cc-myhome">
+        <b>{SITE_SEARCH_HEAD}{when ? `, ${when}` : ""}:</b> {s.words}
+      </p>
+      {state === "done" ? (
+        <p className="cc-done" role="status">{demo ? "Saved as their wants (example: nothing saved)." : "Saved as their wants. Listings that fit them will show on the listing orb."}</p>
+      ) : (
+        <button type="button" className="chip-btn primary" disabled={state === "busy"} onClick={use}>{state === "busy" ? "Saving…" : USE_AS_WANTS}</button>
+      )}
+      {err ? <p className="cc-err" role="alert">{err}</p> : null}
+    </div>
+  );
+}
+
 /** Both, for a card that has only the contact's id (Market Reports' person, the example agent's included). */
 export function PersonFeeds({ contactId, first, demo = false }: { contactId: string; first: string; demo?: boolean }) {
   const x = usePersonExtras(contactId, { demo });
@@ -83,6 +131,7 @@ export function PersonFeeds({ contactId, first, demo = false }: { contactId: str
   return (
     <>
       <MyHomeLine myHome={x.myHome} />
+      <SiteSearchCard contactId={contactId} s={x.siteSearch} demo={demo} />
       {x.canShareLink ? <ShareLinkSection contactId={contactId} first={first} demo={demo} /> : null}
     </>
   );

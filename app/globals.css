@@ -2868,6 +2868,8 @@ a.pi-film { text-decoration: none; box-sizing: border-box; }
 .dl-cp-msg { display: block; margin-top: 4px; }
 .cc-myhome { margin: 6px 0 10px; font-size: 13px; color: var(--text-2, #c9cfdf); }
 .cc-myhome b { color: #f5c542; font-weight: 600; }
+.cc-sitesearch { margin: 4px 0 12px; }
+.cc-sitesearch .cc-myhome { margin-bottom: 8px; }
 .cc-improvements { margin: -4px 0 10px; font-size: 13px; color: var(--text-2, #c9cfdf); }
 .cc-improvements p { margin: 0 0 4px; }
 .cc-improvements ul { margin: 0; padding-left: 18px; }

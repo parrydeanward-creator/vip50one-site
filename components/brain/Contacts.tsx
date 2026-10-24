@@ -13,7 +13,7 @@ import {
 import PermissionsSection from "./PermissionsSection.tsx";
 import HomeReportSection from "./HomeReportSection.tsx";
 import CmaSection from "./CmaSection.tsx";
-import ShareLinkSection, { MyHomeLine } from "./SiteFeedsSection.tsx";
+import ShareLinkSection, { MyHomeLine, SiteSearchCard } from "./SiteFeedsSection.tsx";
 import CallPrepCard from "./CallPrepCard.tsx";
 import { OnYourSite, SiteGlance } from "./SiteActivity.tsx";
 import PersonMenu from "./PersonMenu.tsx";
@@ -943,6 +943,7 @@ export default function Contacts({
             </p>
           )}
           <MyHomeLine myHome={p.myHome} />
+          <SiteSearchCard contactId={p.id} s={p.siteSearch} />
           <div className="ta-log">
             {tel && <button type="button" className={`chip-btn${p.pulse?.nextStep === "call" ? " primary" : ""}`} onClick={() => setPrepFor(p.id)}>Call</button>}
             {tel && <a className={`chip-btn${p.pulse?.nextStep === "text" ? " primary" : ""}`} href={`sms:${tel}`}>Text</a>}

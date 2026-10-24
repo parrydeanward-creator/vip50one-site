@@ -114,7 +114,59 @@ export function readImprovements(v: unknown): Improvement[] {
   }
   return out;
 }
-export interface PersonExtras { canShareLink: boolean; myHome: MyHome | null }
+export interface PersonExtras { canShareLink: boolean; myHome: MyHome | null; siteSearch?: SiteSearch | null }
+
+// ---- A client's own saved home search on the agent's site (vip50-web-crm#402; one-websites#304) ----------------------
+
+/** `site_search.search` off GET people/<id>: the client's own filters, known keys only. */
+export interface ClientSearch {
+  beds_min?: number; baths_min?: number; sqft_min?: number; lot_min_acres?: number; price_min?: number; price_max?: number;
+  areas?: string[]; types?: string[]; must_haves?: string[];
+}
+export interface SiteSearch { search: ClientSearch; words: string; savedAt: string | null }
+
+export const SITE_SEARCH_HEAD = "Their own search on your website";
+export const USE_AS_WANTS = "Use as their wants";
+/** Classic's Save on the wants card (POST /api/brain/needs, VIP-SUMMARY §3ah.1). */
+export const needsUrl = `${MOVE_URL}/api/brain/needs`;
+
+const cnum = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : undefined);
+const clist = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && !!x.trim()).map((x) => x.trim().slice(0, 80)).slice(0, 20) : undefined);
+
+/** `site_search` ({search, words, saved_at}) or null; nothing usable reads as null. */
+export function readSiteSearch(raw: unknown): SiteSearch | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const words = str(r.words, 300);
+  const q = r.search && typeof r.search === "object" && !Array.isArray(r.search) ? (r.search as Record<string, unknown>) : null;
+  if (!words || !q) return null;
+  const search: ClientSearch = {};
+  for (const k of ["beds_min", "baths_min", "sqft_min", "lot_min_acres", "price_min", "price_max"] as const) { const v = cnum(q[k]); if (v !== undefined) search[k] = v; }
+  for (const k of ["areas", "types", "must_haves"] as const) { const v = clist(q[k]); if (v?.length) search[k] = v; }
+  return { search, words, savedAt: str(r.saved_at, 40) };
+}
+
+/** The body Classic's Save sends, filled from their search (GO/MOVE 24 Oct). */
+export function wantsBody(contactId: string, s: ClientSearch) {
+  return {
+    contact_id: contactId,
+    cities: s.areas ?? [],
+    ...(s.price_min != null ? { price_min: s.price_min } : {}),
+    ...(s.price_max != null ? { price_max: s.price_max } : {}),
+    ...(s.beds_min != null ? { beds_min: s.beds_min } : {}),
+    ...(s.baths_min != null ? { baths_min: s.baths_min } : {}),
+    sub_types: s.types ?? [],
+    ...(s.must_haves?.length ? { note: `Must have: ${s.must_haves.join(", ")}` } : {}),
+  };
+}
+
+/** "saved 23 Oct" from an ISO time; none when the time is missing or wrong. */
+export function savedWords(at: string | null): string {
+  const t = at ? Date.parse(at) : NaN;
+  if (!Number.isFinite(t)) return "";
+  const d = new Date(t);
+  return `saved ${d.getUTCDate()} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getUTCMonth()]}`;
+}
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -141,6 +193,7 @@ export function readPersonExtras(raw: unknown): PersonExtras {
   return {
     canShareLink: r.can_share_link === true,
     myHome: h && shown ? { signedInAt: str(h.signed_in_at, 40), words: shown, improvements: readImprovements(h.improvements) } : null,
+    siteSearch: readSiteSearch(r.site_search),
   };
 }
 
@@ -149,9 +202,16 @@ const demoPhoto = (c1: string, c2: string) =>
 /** The example's improvement photos: drawn in place, so the example needs no network. */
 export const DEMO_PHOTOS = [demoPhoto("#33507a", "#1f3555"), demoPhoto("#6a4b2f", "#3d2a18"), demoPhoto("#2f6a52", "#1b3d2f")];
 
+/** The example's saved search (made up). */
+export const DEMO_SITE_SEARCH: SiteSearch = {
+  search: { beds_min: 4, baths_min: 3, price_min: 800000, price_max: 1200000, areas: ["Draper", "Suncrest"], types: ["house"], must_haves: ["3+ car garage", "view"] },
+  words: "4+ beds, 3+ baths, house, Draper, Suncrest, $800k to $1.2M; must have: 3+ car garage, view",
+  savedAt: "2026-10-23T18:00:00Z",
+};
+
 /** The example agent's people (lib/homeReport.ts demoMonthCard): Jane is a VIP; Sara is a past client and a VIP. */
 export function demoPersonExtras(contactId: string): PersonExtras {
   if (contactId === "demo-hr-sara") return { canShareLink: true, myHome: { signedInAt: "2026-10-12T15:04:00Z", words: myHomeWords("My Home: signed in, last on 2026-10-12"), improvements: [{ id: "demo-imp-1", what: "New roof", doneOn: "2026-06-14", cost: 14500, photos: DEMO_PHOTOS }] } };
-  if (contactId === "demo-hr-jane") return { canShareLink: true, myHome: null };
+  if (contactId === "demo-hr-jane") return { canShareLink: true, myHome: null, siteSearch: DEMO_SITE_SEARCH };
   return { canShareLink: false, myHome: null };
 }

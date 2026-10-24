@@ -75,10 +75,11 @@ test("My Home: the label is drawn once and dates read plainly", () => {
 
 // Rewritten 18 Oct on purpose: my_home now carries improvements (vip50-web-crm#314); none reads as [].
 test("people/<id>: can_share_link and my_home, missing or wrong reads as off", () => {
-  assert.deepEqual(readPersonExtras({ can_share_link: true, my_home: { signed_in_at: null, words: "My Home: not signed in yet" } }), { canShareLink: true, myHome: { signedInAt: null, words: "not signed in yet", improvements: [] } });
-  assert.deepEqual(readPersonExtras({ can_share_link: "yes", my_home: null }), { canShareLink: false, myHome: null });
-  assert.deepEqual(readPersonExtras({ my_home: { words: "" } }), { canShareLink: false, myHome: null });
-  assert.deepEqual(readPersonExtras(null), { canShareLink: false, myHome: null });
+  // siteSearch joined the shape (vip50-web-crm#402); a person without a saved search reads siteSearch: null.
+  assert.deepEqual(readPersonExtras({ can_share_link: true, my_home: { signed_in_at: null, words: "My Home: not signed in yet" } }), { canShareLink: true, myHome: { signedInAt: null, words: "not signed in yet", improvements: [] }, siteSearch: null });
+  assert.deepEqual(readPersonExtras({ can_share_link: "yes", my_home: null }), { canShareLink: false, myHome: null, siteSearch: null });
+  assert.deepEqual(readPersonExtras({ my_home: { words: "" } }), { canShareLink: false, myHome: null, siteSearch: null });
+  assert.deepEqual(readPersonExtras(null), { canShareLink: false, myHome: null, siteSearch: null });
   const p = readPerson({ id: "11111111-2222-3333-4444-555555555555", name: "Sara Lee", sections: [], can_share_link: true, my_home: { signed_in_at: "2026-10-18T01:00:00Z", words: "My Home: signed in today" } })!;
   assert.equal(p.canShareLink, true);
   assert.deepEqual(p.myHome, { signedInAt: "2026-10-18T01:00:00Z", words: "signed in today", improvements: [] });
@@ -107,4 +108,29 @@ test("my_home.improvements: shared rows as Classic's lines, at most 5, bad rows 
   assert.equal(improvementLine(imps[0]), "New roof (2026-06) · $14,500");
   assert.equal(improvementLine(imps[1]), "Fence");
   assert.deepEqual(readPersonExtras({ my_home: { words: "My Home: not signed in yet" } }).myHome?.improvements, []);
+});
+
+test("a client's saved search (vip50-web-crm#402): words and date read, Use as their wants sends Classic's Save body", async () => {
+  const { readPersonExtras, readSiteSearch, wantsBody, savedWords, demoPersonExtras } = await import("../lib/siteFeeds.ts");
+  const raw = {
+    site_search: {
+      search: { beds_min: 4, baths_min: 3, sqft_min: 3000, price_min: 800000, price_max: 1200000, areas: ["Draper", " Suncrest "], types: ["house"], must_haves: ["3+ car garage", "view"], junk: 1 },
+      words: "4+ beds, 3+ baths, 3,000+ sq ft, house, Draper, Suncrest, $800k to $1.2M; must have: 3+ car garage, view",
+      saved_at: "2026-10-23T18:00:00Z",
+    },
+  };
+  const x = readPersonExtras(raw);
+  assert.ok(x.siteSearch);
+  assert.equal(savedWords(x.siteSearch!.savedAt), "saved 23 Oct");
+  assert.deepEqual(wantsBody("c1", x.siteSearch!.search), {
+    contact_id: "c1", cities: ["Draper", "Suncrest"], price_min: 800000, price_max: 1200000, beds_min: 4, baths_min: 3,
+    sub_types: ["house"], note: "Must have: 3+ car garage, view",
+  });
+  // nothing usable, or none, reads as no card
+  assert.equal(readPersonExtras({}).siteSearch, null);
+  assert.equal(readSiteSearch({ words: "x" }), null);
+  assert.equal(readSiteSearch({ search: {}, words: "" }), null);
+  assert.equal(savedWords(null), "");
+  assert.deepEqual(wantsBody("c2", {}), { contact_id: "c2", cities: [], sub_types: [] });
+  assert.ok(demoPersonExtras("demo-hr-jane").siteSearch);
 });
