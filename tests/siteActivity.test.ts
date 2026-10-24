@@ -118,14 +118,17 @@ test("sparkline: 14 points across the width, flat at the base for no visits, nev
 });
 
 test("account box and drafts: plain words; Text and email are drafts only, no number no link", () => {
-  const l = accountLines({ website: { signedInAt: "2026-10-23T18:00:00Z" }, app: { platform: "iPhone", lastAt: null }, room: { invitedAt: "2026-10-20T12:00:00Z", openedAt: null }, emails: { cadence: "daily", openRate: 0.8 } }, NOW);
+  const l = accountLines({ website: { signedInAt: "2026-10-23T18:00:00Z" }, app: { platform: "ios", lastAt: "2026-10-23T18:00:00Z" }, room: { invitedAt: "2026-10-20T12:00:00Z", openedAt: null }, emails: { cadence: "daily", openRate: 0.8 } }, NOW);
   assert.deepEqual(l.map((x) => [x.label, x.words, x.ok]), [
     ["Website account", "Signed in · 2h ago", true],
-    ["ONE Home app", "Installed · iPhone", true],
+    ["ONE Home app", "iPhone · opened 2h ago", true],
     ["Client Room", "Invited Oct 20 · not opened", false],
     ["New match emails", "Daily · opens 80%", true],
   ]);
   assert.equal(accountLines({ website: null, app: null, room: null, emails: null }).every((x) => !x.ok), true);
+  // Same words as Classic (vip50-web-crm lib/site-activity-view.ts): device, when last opened; none yet says so.
+  assert.equal(accountLines({ website: null, app: null, room: null, emails: null })[1].words, "Not on the app yet");
+  assert.equal(accountLines({ website: null, app: { platform: "android", lastAt: null }, room: null, emails: null })[1].words, "Android");
   assert.equal(smsLink("(801) 555-1234", "Hi"), "sms:8015551234?&body=Hi");
   assert.equal(smsLink("12", "Hi"), null);
   assert.equal(smsLink(null), null);
