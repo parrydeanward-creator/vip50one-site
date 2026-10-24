@@ -315,12 +315,15 @@ export function interest(homes: SiteHome[]): number[] {
   return homes.map((h) => Math.max(8, Math.round((score(h) / top) * 100)));
 }
 
+/** ONE MOVE sends the phone as "ios" or "android" (Websites' client.signed_in); words as Classic shows them. */
+const appDevice = (p: string | null) => (p === "ios" ? "iPhone" : p === "android" ? "Android" : p || "On the app");
+
 /** The account box, line by line, in plain words. `ok` is green, false is the red "not yet". */
 export function accountLines(a: SiteAccount, now: number = Date.now()): { label: string; words: string; ok: boolean; key: "website" | "app" | "room" | "emails" }[] {
   const app = a.app;
   return [
     { key: "website", label: "Website account", words: a.website ? (a.website.signedInAt ? `Signed in · ${agoWords(a.website.signedInAt, now)}` : "Has an account") : "No account yet", ok: !!a.website },
-    { key: "app", label: "ONE Home app", words: app ? `Installed${app.platform ? ` · ${app.platform}` : ""}` : "Not installed", ok: !!app },
+    { key: "app", label: "ONE Home app", words: app ? [appDevice(app.platform), app.lastAt ? `opened ${agoWords(app.lastAt, now)}` : null].filter(Boolean).join(" · ") : "Not on the app yet", ok: !!app },
     { key: "room", label: "Client Room", words: a.room ? (a.room.openedAt ? `Opened ${dayWords(a.room.openedAt)}` : a.room.invitedAt ? `Invited ${dayWords(a.room.invitedAt)} · not opened` : "Not invited") : "Not invited", ok: !!a.room?.openedAt },
     { key: "emails", label: "New match emails", words: a.emails ? `${a.emails.cadence ? a.emails.cadence.replace(/^\w/, (c) => c.toUpperCase()) : "On"}${a.emails.openRate != null ? ` · opens ${Math.round(a.emails.openRate * 100)}%` : ""}` : "Off", ok: !!a.emails },
   ];
