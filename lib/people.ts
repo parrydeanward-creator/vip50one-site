@@ -1,6 +1,6 @@
 import { MOVE_URL } from "./host.ts";
 import { faceUrl } from "./vips.ts";
-import { readPersonExtras, type MyHome } from "./siteFeeds.ts";
+import { readPersonExtras, type MyHome, type SiteSearch } from "./siteFeeds.ts";
 
 // VIP-SUMMARY §3k (v1.18, Parry 4 Oct "yes c"): Contacts in ONE Brain. ONE MOVE
 // keeps the contacts, the groups, Pulse's rules and the field catalogue
@@ -54,6 +54,7 @@ export interface Person {
   canShareLink?: boolean;
   /** MY-HOME v0.2: a past client's page on the agent's site; null for someone with no closing. */
   myHome?: MyHome | null;
+  siteSearch?: SiteSearch | null;
 }
 
 export type EventKind = "call" | "text" | "email" | "note" | "touch" | "task" | "open_house" | "listing" | "showing" | "web" | "deal" | "other";
